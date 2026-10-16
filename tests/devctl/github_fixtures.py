@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 import shutil
 from collections.abc import Iterator, Mapping, Sequence
@@ -35,6 +36,7 @@ from github_fakes import (
     FakeKeychain,
     FakeRun,
     MakeContext,
+    RecordedOwner,
     Remote,
     RepoFiles,
     git,
@@ -205,3 +207,47 @@ def repo_files(ctx: MakeContext) -> RepoFiles:
     """Writes into ctx's repository, and git adds what it writes."""
     context = ctx()
     return RepoFiles(context.root, context.project.stack)
+
+
+FIXTURES = Path(__file__).parent / "fixtures" / "github"
+
+
+@pytest.fixture
+def recorded() -> RecordedOwner:
+    """The owner's gh reads of o/r, as GitHub answered on 2026-10-14. Other paths are a 404."""
+
+    def fixture(name: str) -> object:
+        return json.loads((FIXTURES / name).read_text())
+
+    return RecordedOwner(
+        {
+            "repos/o/r": fixture("repository.json"),
+            "repos/o/r/rulesets?targets=branch": fixture("ruleset-list.json"),
+            "repos/o/r/rulesets/9": fixture("ruleset.json"),
+            "repos/o/r/actions/permissions/fork-pr-contributor-approval": fixture(
+                "fork-approval.json"
+            ),
+            "repos/o/r/contents/.github/CODEOWNERS?ref=main": fixture("codeowners.json"),
+        }
+    )
+
+
+@pytest.fixture
+def ctx_github(
+    isolated_home: Path,
+    project: ProjectSettings,
+    github: FakeGitHub,
+    keychain: FakeKeychain,
+    recorded: RecordedOwner,
+    repo_files: RepoFiles,
+) -> MakeContext:
+    """Make DoctorContexts for the temporary repository in Walk with Agent identity on, and o/r on
+    the simulated GitHub. The owner reads are the recorded ones. keychain replaces the Keychain
+    that holds both keys."""
+    repo_files.lock(unchanged=[], missing=[])  # so a missing key can name rapid-ship app
+
+    def make(*, keychain: FakeKeychain = keychain) -> DoctorContext:
+        access = GitHubAccess("o/r", api_url=github.url, keychain=keychain)
+        return DoctorContext(repo_files.root, project, recorded, access)
+
+    return make

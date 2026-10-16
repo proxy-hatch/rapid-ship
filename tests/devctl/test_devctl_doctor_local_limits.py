@@ -525,16 +525,23 @@ class TestOutput:
         self, ctx: MakeContext, fake_run: FakeRun, capsys: pytest.CaptureFixture[str]
     ) -> None:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
-        # missing, and gitleaks (no version printed) is unknown.
+        # missing, and gitleaks (no version printed) is unknown. With no repository, the GitHub
+        # part is one missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
-        context = adjusted(ctx(), stack="agnostic", roster={})
+        context = adjusted(
+            ctx(), stack="agnostic", roster={}, repository=None, worker_app=None, reviewer_app=None
+        )
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()
         assert lines[0] == "ok  toolchain  git: 2.39.5"
         assert "missing  toolchain  gh sign-in: not signed in; run gh auth login" in lines
         assert "unknown  toolchain  gitleaks: gitleaks version gave no readable version" in lines
-        assert lines[-1] == "doctor: 4 ok, 4 missing, 1 unknown"
-        assert len(lines) == 10
+        assert (
+            lines[-2]
+            == "missing  github  repository: repository is not set in .rapid-ship/project.toml"
+        )
+        assert lines[-1] == "doctor: 4 ok, 5 missing, 1 unknown"
+        assert len(lines) == 11
 
     def test_doctor_reads_the_project_and_reports_every_local_item_ok(
         self,
@@ -552,10 +559,12 @@ class TestOutput:
         fake_run.answer(["gh", "auth", "status"], result(0))
         fake_run.answer(["git", "config", "--get", "core.hooksPath"], result(0, ".githooks\n"))
         monkeypatch.chdir(repo_files.root)
-        assert doctor_command(argparse.Namespace(skills=False)) == 0
+        # The project names no repository, so GitHub's part is one missing item and the exit is 1.
+        assert doctor_command(argparse.Namespace(skills=False)) == 1
         lines = capsys.readouterr().out.splitlines()
-        assert lines[-1] == "doctor: 9 ok, 0 missing, 0 unknown"
-        assert all(line.startswith("ok  ") for line in lines[:-1])
+        assert lines[-1] == "doctor: 9 ok, 1 missing, 0 unknown"
+        assert lines[-2].startswith("missing  github  repository: ")
+        assert all(line.startswith("ok  ") for line in lines[:-2])
 
     def test_an_unreadable_project_stops_with_the_settings_error(
         self,
