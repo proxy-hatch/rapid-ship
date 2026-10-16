@@ -9,7 +9,7 @@ Spec 1 is built as six plans, in this order. Each one ends with a working, teste
 | 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
-| 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Proposed |
+| 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | In progress: branch `doctor-agent-identity` |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): `devctl hook` and its wiring, README and ARCHITECTURE seeds, the Pattern `task` key, the `SKILL.md` rule, the diff cap, CODEOWNERS additions | 4, 5, 6, 10 | 4 | Proposed |
 | 6 | [`rs-setup` and `rs-health`](#plan-6-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5 | Proposed |
 
