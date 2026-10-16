@@ -26,7 +26,6 @@ VARIABLES = {
 SEEDED = {
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
-    ".rapid-ship/gate.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "CLAUDE.md",
@@ -82,17 +81,21 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
         "stack": stack,
-        "github": {"repository": "octo/demo-app", "worker_app_id": 0, "reviewer_app_id": 0},
-        "kit": {"optional": [], "exclude": []},
-        "linear": {"team_id": "", "project_id": ""},
-        "dispatch": {
-            "max_workers": 5,
-            "attempt_limit": 3,
-            "worktree_root": "../demo-app.worktrees",
+        "github": {
+            "repository": "octo/demo-app",
+            "worker_app_id": 0,
+            "worker_app_slug": "",
+            "reviewer_app_id": 0,
+            "reviewer_app_slug": "",
         },
+        "escalation": {
+            "every_pr": True,
+            "kinds": ["a pull request that removes a behavioural test"],
+            "revision_rounds": 3,
+        },
+        "kit": {"optional": [], "exclude": []},
         "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},
-        "release": {"method": "none"},
     }
     assert "github" in tomllib.loads(text(stack, ".rapid-ship/project.toml", repository=""))
     assert (
@@ -101,16 +104,17 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
     )
 
 
-def test_gate_seed_has_the_spec_defaults() -> None:
-    gate = tomllib.loads(text("agnostic", ".rapid-ship/gate.toml"))
-    assert gate["mode"] == "walk"
-    assert gate["flight_lease_until"] == ""
-    assert gate["owner_approves_behavioural_test_removal"] is True
-    limits = {"max_revisions_per_pr": 1.0, "max_rollbacks": 1, "max_open_alarms": 0}
-    assert gate["thresholds"] == {
-        "promotion": {"window": 30, **limits},
-        "demotion": {"window": 20, **limits},
-    }
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_seeded_roster_is_a_commented_example(stack: Stack) -> None:
+    lines = text(stack, ".rapid-ship/project.toml").splitlines()
+    assert "# [roster.worker]" in lines
+    assert "# [roster.reviewer]" in lines
+    assert not any(line.startswith("[roster") for line in lines)
+
+
+def test_the_kit_no_longer_seeds_gate_toml() -> None:
+    assert ".rapid-ship/gate.toml" not in rendered("python")
+    assert ".rapid-ship/gate.toml" not in load_manifest().seeded
 
 
 def test_exceptions_seed_lists_none() -> None:

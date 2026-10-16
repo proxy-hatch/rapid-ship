@@ -23,7 +23,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |
 | The vendored devctl, and this repository's own check steps in `tools/devctl/devctl_project/` | [Tools](tools/AGENTS.md) |
-| This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [gate.toml](.rapid-ship/gate.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
+| This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
 | The secrets step's settings: gitleaks's default rules, plus an allowlist for the placeholder key that a plan document quotes. Protected | [.gitleaks.toml](.gitleaks.toml) |
 | Tests | [Tests](tests/AGENTS.md) |
 | The distribution smoke that the `distribution` check step runs | [Scripts](scripts/AGENTS.md) |

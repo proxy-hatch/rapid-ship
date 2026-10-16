@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from check_workspace import Workspace, gate_settings
+from check_workspace import Workspace
 from devctl.check.diff import Change, DiffStep, changed_files, glob_match, removed_tests
 from devctl.check.steps import StepResult
 
@@ -13,8 +13,8 @@ EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
 NO_CODEOWNERS = "no CODEOWNERS file; Protected paths are not listed"
 
 
-def run(workspace: Workspace, base: str, body: str | None = None, **gate: object) -> StepResult:
-    return DiffStep().run(workspace.context(base=base, pr_body=body, gate=gate_settings(**gate)))
+def run(workspace: Workspace, base: str, body: str | None = None) -> StepResult:
+    return DiffStep().run(workspace.context(base=base, pr_body=body))
 
 
 def test_moved_test_is_not_removed() -> None:
@@ -51,7 +51,7 @@ def test_undeclared_removal_fails_and_names_its_class(workspace: Workspace) -> N
     )
 
 
-def test_declared_removal_passes_and_flight_waits_for_the_owner(workspace: Workspace) -> None:
+def test_declared_removal_passes_with_its_reason_and_no_mode(workspace: Workspace) -> None:
     workspace.write("tests/test_api.py", "class TestApi:\n    def test_delete(self): pass\n")
     base = workspace.commit()
     workspace.write("tests/test_api.py", "class TestApi:\n    pass\n")
@@ -59,19 +59,14 @@ def test_declared_removal_passes_and_flight_waits_for_the_owner(workspace: Works
         EVIDENCE + "Removed tests:\n- tests/test_api.py::TestApi::test_delete: endpoint removed\n"
     )
 
-    walk = run(workspace, base, body)
-    flight = run(workspace, base, body, mode="flight")
-    flight_off = run(
-        workspace, base, body, mode="flight", owner_approves_behavioural_test_removal=False
-    )
+    result = run(workspace, base, body)
 
-    assert walk.status == flight.status == flight_off.status == "passed"
-    assert walk.details[0] == (
+    assert result.status == "passed"
+    # The escalation list, not the step, decides whether the owner sees a declared removal.
+    assert result.details[0] == (
         "removed behavioural test tests/test_api.py::TestApi::test_delete: "
         "declared (endpoint removed)"
     )
-    assert flight.details[0].endswith("; in Flight this waits for the owner's approval")
-    assert flight_off.details[0] == walk.details[0]
 
 
 def test_test_moved_to_an_untracked_file_is_not_removed(workspace: Workspace) -> None:

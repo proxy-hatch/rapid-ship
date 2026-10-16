@@ -11,7 +11,7 @@ from typing import Any, cast
 from devctl.check.steps import CheckContext, Status, StepResult, Tier
 from devctl.process import ProcessResult, run_process
 from devctl.repo import Repo
-from devctl.settings import GateSettings, ProjectSettings
+from devctl.settings import Escalation, ProjectSettings
 
 GIT_IDENTITY = (
     "-c",
@@ -28,30 +28,17 @@ GIT_IDENTITY = (
 def project_settings(**changes: object) -> ProjectSettings:
     base = ProjectSettings(
         stack="python",
-        worker=None,
-        reviewer=None,
         repository=None,
-        worker_app_id=None,
-        reviewer_app_id=None,
-        linear_team_id=None,
-        linear_project_id=None,
+        worker_app=None,
+        reviewer_app=None,
+        escalation=Escalation(every_pr=True, kinds=(), revision_rounds=3),
+        roster={},
         optional_skills=(),
         excluded=(),
-        max_workers=5,
-        attempt_limit=3,
-        worktree_root="../app.worktrees",
         source_roots=("src/app",),
         unguided=(),
         map_exclude=(),
         unit_tests=("tests/unit/**",),
-        release_method="none",
-    )
-    return dataclasses.replace(base, **cast("dict[str, Any]", changes))
-
-
-def gate_settings(**changes: object) -> GateSettings:
-    base = GateSettings(
-        mode="walk", flight_lease_until=None, owner_approves_behavioural_test_removal=True
     )
     return dataclasses.replace(base, **cast("dict[str, Any]", changes))
 
@@ -101,16 +88,9 @@ class Workspace:
         *,
         base: str | None = None,
         pr_body: str | None = None,
-        gate: GateSettings | None = None,
         **project: object,
     ) -> CheckContext:
-        return CheckContext(
-            Repo.discover(self.root),
-            project_settings(**project),
-            gate or gate_settings(),
-            base,
-            pr_body,
-        )
+        return CheckContext(Repo.discover(self.root), project_settings(**project), base, pr_body)
 
 
 def new_workspace(path: Path) -> Workspace:

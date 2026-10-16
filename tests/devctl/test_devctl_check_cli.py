@@ -7,7 +7,7 @@ import json
 import pytest
 
 import devctl_project
-from check_workspace import FakeStep, Workspace, gate_settings, project_settings
+from check_workspace import FakeStep, Workspace, project_settings
 from devctl import check, cli
 from devctl.check.steps import CheckContext, StepResult
 from devctl.settings import SettingsError
@@ -32,7 +32,6 @@ def run_captured(
 ) -> tuple[int, str, str]:
     work_in(workspace, monkeypatch)
     monkeypatch.setattr(cli, "load_project", lambda root: project_settings())
-    monkeypatch.setattr(cli, "load_gate", lambda root: gate_settings())
     code = cli.main(["check", *args])
     captured = capsys.readouterr()
     return code, captured.out, captured.err

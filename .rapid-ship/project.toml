@@ -1,20 +1,31 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
 stack = "python"
 
-# rs-setup records the Worker and Reviewer Agents: a Harness (claude, codex or agy)
-# and an exact model ID each, used as named.
-# [agents.worker]
-# harness = "agy"
-# model = "gemini-3.8-flash-high"
-#
-# [agents.reviewer]
-# harness = "claude"
-# model = "<exact model ID>"
-
 [github]
 repository = "proxy-hatch/rapid-ship"
-worker_app_id = 0    # rapid-ship app records the App IDs
+# Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
+worker_app_id = 0
+worker_app_slug = ""
 reviewer_app_id = 0
+reviewer_app_slug = ""
+
+[escalation]
+# The kinds of pull request the Lead brings to the owner instead of merging it itself.
+# true is Walk. false leaves the Protected set and the kinds below: Flight, or anything between.
+every_pr = true
+kinds = [
+  "a pull request that removes a behavioural test",
+]
+revision_rounds = 3    # a PR that reached this many Revisions also goes to the owner
+
+# Optional. Only an owner who uses more than one Provider needs a Roster.
+# [roster.worker]
+# harness = "codex"        # claude, codex or agy
+# model = "<exact model ID>"
+#
+# [roster.reviewer]
+# harness = "claude"
+# model = "<exact model ID>"
 
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
@@ -22,15 +33,6 @@ optional = []        # opt-in Kit skills, such as "rs-contribute"
 # creates, replaces, deletes or reports them. A skill directory covers its
 # .claude/skills link.
 exclude = []
-
-[linear]
-team_id = ""
-project_id = ""
-
-[dispatch]
-max_workers = 5
-attempt_limit = 3
-worktree_root = "../rapid-ship.worktrees"
 
 [map]
 source_roots = ["rapid_ship"]
@@ -40,6 +42,3 @@ exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python", "rapid_
 
 [tests]
 unit = ["tests/unit/**"]   # every other test counts as behavioural
-
-[release]
-method = "none"   # github-deployments, tags or none

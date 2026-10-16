@@ -48,7 +48,6 @@ _UNPARSABLE = (SyntaxError, ValueError)
 
 _UNDECLARED = "declare it under 'Removed tests:' in the PR's Evidence section"
 _NO_BODY = " (pass --pr-body <file> to check a body locally)"
-_OWNER_WAITS = "; in Flight this waits for the owner's approval"
 _ALWAYS_TRUE = "is always true; assert on the behaviour instead"
 _AUTOUSE = (
     "needs an exception: add '# rs-exception: EX-<n>' on its decorator line and an entry with "
@@ -213,11 +212,13 @@ def _changed_tests(
 def _removals(
     context: CheckContext, removed: Sequence[tuple[str, str]]
 ) -> tuple[list[str], list[str]]:
-    """A problem for each undeclared removal and a note for each declared one, in removed order."""
+    """A problem for each undeclared removal and a note for each declared one, in removed order.
+
+    Whether a declared removal goes to the owner is the escalation list's business, not this
+    step's (Spec 1 section 5).
+    """
     body = context.pr_body
     declared = {} if body is None else removed_test_declarations(body)[0]
-    gate = context.gate
-    owner_waits = gate.mode == "flight" and gate.owner_approves_behavioural_test_removal
     problems: list[str] = []
     notes: list[str] = []
     for path, name in removed:
@@ -227,8 +228,7 @@ def _removals(
         if test not in declared:
             problems.append(f"{removal}: {_UNDECLARED}{_NO_BODY if body is None else ''}")
         else:
-            waits = owner_waits and not unit
-            notes.append(f"{removal}: declared ({declared[test]}){_OWNER_WAITS if waits else ''}")
+            notes.append(f"{removal}: declared ({declared[test]})")
     return problems, notes
 
 

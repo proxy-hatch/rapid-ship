@@ -8,20 +8,39 @@ from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Literal, cast, get_args
 
 PROJECT = ".rapid-ship/project.toml"
-GATE = ".rapid-ship/gate.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-Harness = Literal["claude", "codex", "agy"]
+Harness = Literal["claude", "codex", "agy"]  # Proposal: Spec 1 section 11, Roster Harnesses
+Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
-Mode = Literal["walk", "flight"]
-ReleaseMethod = Literal["github-deployments", "tags", "none"]
+ROLES: tuple[Role, ...] = ("worker", "reviewer")
+# Tables the re-scope of 2026-10-16 removed, and what replaced each (Spec 1 section 4).
+REMOVED_TABLES = {
+    "agents": "name each role's Harness and exact model under [roster.worker] and "
+    "[roster.reviewer] instead",
+    "dispatch": "rapid-ship no longer starts Workers, and the Lead brief's Focus caps parallel "
+    "Workers; delete the table",
+    "linear": "devctl never talks to the issue tracker; delete the table",
+    "release": "a project defines its own deploy metrics (Spec 3); delete the table",
+}
 
+_TABLES = {"stack", "github", "escalation", "roster", "kit", "map", "tests"}
+_GITHUB_KEYS = {
+    "repository",
+    "worker_app_id",
+    "worker_app_slug",
+    "reviewer_app_id",
+    "reviewer_app_slug",
+}
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
+_APP_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")  # the slugs GitHub gives Apps
 _EXCEPTION_ID = re.compile(r"EX-[1-9][0-9]*")
 _EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
@@ -37,34 +56,39 @@ class Agent:
 
 
 @dataclass(frozen=True)
+class App:
+    id: int  # [github] <role>_app_id; 0 in the file means unset
+    slug: str  # [github] <role>_app_slug; Spec 3 matches agent PR authors against it
+
+
+@dataclass(frozen=True)
+class Escalation:
+    every_pr: bool  # default True: Walk
+    kinds: tuple[str, ...]  # plain text for the Lead
+    revision_rounds: int  # default 3, at least 1
+
+
+@dataclass(frozen=True)
 class ProjectSettings:
     stack: Stack
-    worker: Agent | None
-    reviewer: Agent | None
     repository: str | None  # "owner/name"
-    worker_app_id: int | None  # 0 in the file means unset
-    reviewer_app_id: int | None
-    linear_team_id: str | None
-    linear_project_id: str | None
+    worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
+    reviewer_app: App | None
+    escalation: Escalation
+    roster: Mapping[Role, Agent]  # empty without a Roster
     optional_skills: tuple[str, ...]  # [kit] optional
     # [kit] exclude: Kit paths the project owns; a skill directory also covers its link.
     excluded: tuple[str, ...]
-    max_workers: int  # default 5
-    attempt_limit: int  # default 3
-    worktree_root: str  # default "../<repo>.worktrees"
     source_roots: tuple[str, ...]  # [map] source_roots
     unguided: tuple[str, ...]  # [map] unguided
     # [map] exclude: directories whose AGENTS.md files are template content, not guides.
     map_exclude: tuple[str, ...]
     unit_tests: tuple[str, ...]  # [tests] unit; default ("tests/unit/**",)
-    release_method: ReleaseMethod
 
-
-@dataclass(frozen=True)
-class GateSettings:
-    mode: Mode
-    flight_lease_until: str | None
-    owner_approves_behavioural_test_removal: bool  # default True
+    @property
+    def agent_identity(self) -> bool:
+        """On when both Apps are recorded; load_project accepts both or neither."""
+        return self.worker_app is not None and self.reviewer_app is not None
 
 
 @dataclass(frozen=True)
@@ -145,15 +169,62 @@ def _inside_repository(entry: str) -> str | None:
     return "/".join(path.parts)
 
 
-def _agent(agents: _Table, role: str) -> Agent | None:
-    if role not in agents.values:
+def _agent(roster: _Table, role: Role) -> Agent | None:
+    if role not in roster.values:
         return None
-    table = agents.table(role, {"harness", "model"})
+    table = roster.table(role, {"harness", "model"})
     harness = cast(Harness, table.choice("harness", get_args(Harness)))
     model = table.text("model")
     if not model or model.strip() != model:
         raise SettingsError(f"{table.where} model: required; record the exact model ID")
     return Agent(harness, model)
+
+
+def _roster(top: _Table) -> Mapping[Role, Agent]:
+    roster = top.table("roster", set(ROLES))
+    found = {role: agent for role in ROLES if (agent := _agent(roster, role)) is not None}
+    return MappingProxyType(found)
+
+
+def _app(github: _Table, role: Role) -> App | None:
+    """The role's App, or None when its ID is 0 and its slug empty."""
+    app_id = github.integer(f"{role}_app_id", 0, minimum=0)
+    slug = github.text(f"{role}_app_slug")
+    if not app_id and not slug:
+        return None
+    if not app_id or not slug:
+        raise SettingsError(
+            f"{github.where}: {role}_app_id and {role}_app_slug go together; record both, "
+            "as rapid-ship app prints them, or neither"
+        )
+    if not _APP_SLUG.fullmatch(slug):
+        raise github._error(f"{role}_app_slug", "an App slug: lowercase letters, digits and -")
+    return App(app_id, slug)
+
+
+def _apps(github: _Table, repository: str | None) -> tuple[App | None, App | None]:
+    """Both Apps, or neither: Agent identity is on or off, never half on."""
+    worker, reviewer = _app(github, "worker"), _app(github, "reviewer")
+    if (worker is None) != (reviewer is None):
+        raise SettingsError(
+            f"{github.where}: Agent identity needs both the Worker App and the Reviewer App; "
+            "record both or neither"
+        )
+    if worker is not None and repository is None:
+        raise SettingsError(
+            f"{github.where}: Apps are recorded but repository is not; "
+            'set repository = "owner/name"'
+        )
+    return worker, reviewer
+
+
+def _escalation(top: _Table) -> Escalation:
+    table = top.table("escalation", {"every_pr", "kinds", "revision_rounds"})
+    return Escalation(
+        every_pr=table.boolean("every_pr", True),
+        kinds=table.texts("kinds"),
+        revision_rounds=table.integer("revision_rounds", 3, minimum=1),
+    )
 
 
 def _exclude_paths(table: _Table) -> tuple[str, ...]:
@@ -164,63 +235,39 @@ def _exclude_paths(table: _Table) -> tuple[str, ...]:
     return tuple(path for path in paths if path is not None)
 
 
+def _refuse_removed(data: dict[str, object]) -> None:
+    for name, replacement in REMOVED_TABLES.items():
+        if name in data:
+            raise SettingsError(f"{PROJECT}: [{name}] was removed: {replacement}")
+
+
 def load_project(root: Path) -> ProjectSettings:
-    top = _Table(
-        _read(root, PROJECT),
-        PROJECT,
-        {"stack", "agents", "github", "kit", "linear", "dispatch", "map", "tests", "release"},
-    )
+    data = _read(root, PROJECT)
+    _refuse_removed(data)
+    top = _Table(data, PROJECT, _TABLES)
     stack = cast(Stack, top.choice("stack", get_args(Stack)))
-    agents = top.table("agents", {"worker", "reviewer"})
-    github = top.table("github", {"repository", "worker_app_id", "reviewer_app_id"})
+    github = top.table("github", _GITHUB_KEYS)
     kit = top.table("kit", {"optional", "exclude"})
-    linear = top.table("linear", {"team_id", "project_id"})
-    dispatch = top.table("dispatch", {"max_workers", "attempt_limit", "worktree_root"})
     source_map = top.table("map", {"source_roots", "unguided", "exclude"})
     tests = top.table("tests", {"unit"})
-    release = top.table("release", {"method"})
 
     repository = github.text("repository") or None
     if repository is not None and not _REPOSITORY.fullmatch(repository):
         raise github._error("repository", "owner/name")
+    worker_app, reviewer_app = _apps(github, repository)
     return ProjectSettings(
         stack=stack,
-        worker=_agent(agents, "worker"),
-        reviewer=_agent(agents, "reviewer"),
         repository=repository,
-        worker_app_id=github.integer("worker_app_id", 0, minimum=0) or None,
-        reviewer_app_id=github.integer("reviewer_app_id", 0, minimum=0) or None,
-        linear_team_id=linear.text("team_id") or None,
-        linear_project_id=linear.text("project_id") or None,
+        worker_app=worker_app,
+        reviewer_app=reviewer_app,
+        escalation=_escalation(top),
+        roster=_roster(top),
         optional_skills=kit.texts("optional"),
         excluded=_exclude_paths(kit),
-        max_workers=dispatch.integer("max_workers", 5, minimum=1),
-        attempt_limit=dispatch.integer("attempt_limit", 3, minimum=1),
-        worktree_root=dispatch.text("worktree_root") or f"../{root.resolve().name}.worktrees",
         source_roots=source_map.texts("source_roots"),
         unguided=source_map.texts("unguided"),
         map_exclude=_exclude_paths(source_map),
         unit_tests=tests.texts("unit", ("tests/unit/**",)),
-        release_method=cast(
-            ReleaseMethod, release.choice("method", get_args(ReleaseMethod), default="none")
-        ),
-    )
-
-
-def load_gate(root: Path) -> GateSettings:
-    gate = _Table(
-        _read(root, GATE),
-        GATE,
-        {"mode", "flight_lease_until", "owner_approves_behavioural_test_removal", "thresholds"},
-    )
-    # Spec 3 reads the threshold values; here only the two table names are checked.
-    gate.table("thresholds", {"promotion", "demotion"})
-    return GateSettings(
-        mode=cast(Mode, gate.choice("mode", get_args(Mode), default="walk")),
-        flight_lease_until=gate.text("flight_lease_until") or None,
-        owner_approves_behavioural_test_removal=gate.boolean(
-            "owner_approves_behavioural_test_removal", True
-        ),
     )
 
 

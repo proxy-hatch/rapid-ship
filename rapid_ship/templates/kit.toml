@@ -3,7 +3,6 @@
 seeded = [
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
-    ".rapid-ship/gate.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "CLAUDE.md",
