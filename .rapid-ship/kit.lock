@@ -111,7 +111,7 @@ sha256 = "0cb4aed445d196bbc6e55a59dc57e87108be83990891253752b64a60cebc0ea5"
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
 kind = "managed"
-sha256 = "428733f8439a7951f1b0e4d3b3c55076939b44a78a002ee65b90a93b37c58d20"
+sha256 = "8de00baa292f0d27855441f99d9d45992f62a822d46f59f64df85362f692bd9d"
 
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
@@ -141,7 +141,7 @@ sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "8905a49f8769ac3b565055223eb1ef511262e7d86111a52bd9fac3d0cba8580c"
+sha256 = "321300c5e30e03969c0ccd81616b9b0b8c85c822368462bf22469b9411785386"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
@@ -151,7 +151,27 @@ sha256 = "a37294ed357b4dc19f2c8df528535cfbb382af0f27cb5b47e8d9abaa28160bd1"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "08081b394e153494d83082ecf47d93cc25caf0278274625fb631e50c778107d7"
+sha256 = "d9152c711e8b191e0b37a231e16def8969de89e675efe650e08a9cb9aee4cae9"
+
+[[file]]
+path = "tools/devctl/devctl/doctor.py"
+kind = "managed"
+sha256 = "a30f262eb30273a3e3cc49114063162d13b7096aade6a02b7792aea3ceab6537"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_items.py"
+kind = "managed"
+sha256 = "e563505f34bfbfb4d079b50200d75113edded75e3c69b3a74e26b933358b6945"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_local.py"
+kind = "managed"
+sha256 = "973a16c93c218dc7336618e729fc9e2d9fa125882d142ef6b3205e08e62374d3"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_signin.py"
+kind = "managed"
+sha256 = "fb45bd653d364dcef458551999a7ef7de9da5aafe01fe5e8b445abc8dd9409c8"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
@@ -172,6 +192,11 @@ sha256 = "74fcdb9c37c28e5224bb61c6dfa1b4745ef459beef6737ad5e386df2210f592c"
 path = "tools/devctl/devctl/github/askpass.py"
 kind = "managed"
 sha256 = "506891f77aac35312676963e58654da70f7806c62b74ad6686e2faf055df9c7a"
+
+[[file]]
+path = "tools/devctl/devctl/harness.py"
+kind = "managed"
+sha256 = "9473ed2cecfedc297bb12a6af106bad280834777da8318a47e939f91568a576c"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

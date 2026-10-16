@@ -10,7 +10,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import devctl_project
-from devctl import __version__
+from devctl import __version__, doctor
 from devctl.check import ChangeError, exit_code, resolve_change, run_check
 from devctl.check.steps import CheckContext, Status, StepResult
 from devctl.repo import Repo, RepoError
@@ -76,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pr-body", type=Path, metavar="PATH", help="read the pull request body from this file"
     )
     check.set_defaults(handler=check_command)
+    doctor.register(commands)
     devctl_project.register(commands)
     return parser
 

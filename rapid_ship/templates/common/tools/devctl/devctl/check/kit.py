@@ -8,11 +8,13 @@ project's own and never required.
 
 from __future__ import annotations
 
+import hashlib
 import stat
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Literal
 
 from devctl.check.steps import CheckContext, StepResult, Tier, failed, passed
 
@@ -156,6 +158,64 @@ def _problem(root: Path, entry: _LockFile, kit_version: str) -> str | None:
     return (
         f"{entry.path}: managed {noun} is missing; {revert} restores it, "
         f"and {keep} keeps the deletion as the project's own"
+    )
+
+
+@dataclass(frozen=True)
+class KitSummary:
+    """Where the lock's managed files stand on disk, for doctor. Paths are in lock order."""
+
+    kit_version: str
+    unchanged: tuple[str, ...]
+    modified: tuple[str, ...]
+    missing: tuple[str, ...]
+    # Covered by [kit] exclude in project.toml: the project's own, so never compared.
+    excluded: tuple[str, ...]
+
+
+def _sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _state(root: Path, entry: _LockFile) -> Literal["unchanged", "modified", "missing"]:
+    """A managed entry's path against the lock. Presence is read as the kit step reads it.
+
+    A file is present when it is a regular file, so a symlink in its place is missing; a link is
+    present when it is a symlink. A file that cannot be read differs from the lock.
+    """
+    target = root / entry.path
+    if entry.link is not None:
+        if not target.is_symlink():
+            return "missing"
+        return "unchanged" if target.readlink() == Path(entry.link) else "modified"
+    if not _is_regular_file(target):
+        return "missing"
+    return "unchanged" if _sha256(target) == entry.sha256 else "modified"
+
+
+def kit_summary(root: Path, excluded: Sequence[str]) -> KitSummary:
+    """Compare the lock's managed entries with the disk. Raises KitLockError if the lock is bad.
+
+    The lock records no exclusion, so the caller passes [kit] exclude. A path it covers is the
+    project's own and goes to `excluded` without a look at the disk. The lock's own entry and the
+    seeded entries are skipped.
+    """
+    lock = _lock(root)
+    found: dict[str, list[str]] = {"unchanged": [], "modified": [], "missing": [], "excluded": []}
+    for entry in lock.files:
+        if entry.kind != "managed" or entry.path == LOCK_PATH:
+            continue
+        state = "excluded" if is_excluded(entry.path, excluded) else _state(root, entry)
+        found[state].append(entry.path)
+    return KitSummary(
+        lock.kit_version,
+        tuple(found["unchanged"]),
+        tuple(found["modified"]),
+        tuple(found["missing"]),
+        tuple(found["excluded"]),
     )
 
 

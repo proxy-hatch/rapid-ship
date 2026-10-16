@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
+import os
+import shutil
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
@@ -14,9 +17,12 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
+from check_workspace import project_settings
 from devctl import process
+from devctl.doctor_items import DoctorContext, OwnerReadError
 from devctl.github.app import GitHubAccess
 from devctl.process import ProcessResult
+from devctl.settings import Agent, App, Harness, ProjectSettings
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
@@ -25,8 +31,12 @@ from github_fakes import (
     WORKER_INSTALLATION,
     WORKER_PERMISSIONS,
     FakeGitHub,
+    FakeHarness,
     FakeKeychain,
+    FakeRun,
+    MakeContext,
     Remote,
+    RepoFiles,
     git,
 )
 
@@ -128,3 +138,70 @@ def recorded_argv(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
     monkeypatch.setattr(process, "run_process", record)
     return seen
+
+
+@pytest.fixture
+def project() -> ProjectSettings:
+    """o/r with a Roster of two Harnesses and both Apps recorded, so Agent identity is on."""
+    return project_settings(
+        repository="o/r",
+        worker_app=App(WORKER_ID, "rs-worker"),
+        reviewer_app=App(REVIEWER_ID, "rs-reviewer"),
+        roster={
+            "worker": Agent("agy", "gemini-3.8-flash-high"),
+            "reviewer": Agent("claude", "claude-opus-5-5"),
+        },
+    )
+
+
+@pytest.fixture
+def fake_run(monkeypatch: pytest.MonkeyPatch) -> FakeRun:
+    """Patch process.run_process and shutil.which. Nothing a test starts through devctl runs."""
+    fake = FakeRun()
+    monkeypatch.setattr(process, "run_process", fake.run_process)
+    monkeypatch.setattr(shutil, "which", fake.which)
+    return fake
+
+
+@pytest.fixture
+def fake_harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeHarness:
+    """PATH holds only a directory of fake executables, /usr/bin and /bin, so no real Harness or
+    gh is found."""
+    directory = tmp_path / "harness-bin"
+    directory.mkdir()
+    monkeypatch.setenv("PATH", os.pathsep.join([str(directory), "/usr/bin", "/bin"]))
+    return FakeHarness(directory)
+
+
+def no_owner_reads(path: str) -> object:
+    raise OwnerReadError(None, "no owner reads in this test")
+
+
+@pytest.fixture
+def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeContext:
+    """Make DoctorContexts for a temporary repository on main, with no access and no owner reads.
+
+    worker=(harness, model) replaces the Roster's Worker. excluded replaces project.excluded, as
+    load_project would from [kit] exclude.
+    """
+    root = tmp_path / "doctor-repo"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+
+    def make(
+        *, worker: tuple[Harness, str] | None = None, excluded: Sequence[str] = ()
+    ) -> DoctorContext:
+        settings = dataclasses.replace(project, excluded=tuple(excluded))
+        if worker is not None:
+            roster = {**settings.roster, "worker": Agent(*worker)}
+            settings = dataclasses.replace(settings, roster=roster)
+        return DoctorContext(root, settings, no_owner_reads, None)
+
+    return make
+
+
+@pytest.fixture
+def repo_files(ctx: MakeContext) -> RepoFiles:
+    """Writes into ctx's repository, and git adds what it writes."""
+    context = ctx()
+    return RepoFiles(context.root, context.project.stack)
