@@ -2,9 +2,10 @@
 
 doctor_local.py builds the items for this machine and repository, doctor_signin.py the Harness
 sign-ins, and doctor_github.py the GitHub items, which compare what they read with the settings
-in doctor_rules.py. doctor_items.py holds the types they share and the owner's one way to read
-GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
-names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
+in doctor_rules.py; doctor_skills.py adds the --skills items. doctor_items.py holds the types they
+share and the owner's one way to read GitHub. This module runs them, prints them and exits with
+the worst answer. It re-exports the names that tests, and plan 6's test of rs-setup's ruleset,
+import from devctl.doctor.
 """
 
 from __future__ import annotations
@@ -37,6 +38,10 @@ from devctl.doctor_signin import agy_item as agy_item
 from devctl.doctor_signin import agy_sign_in as agy_sign_in
 from devctl.doctor_signin import claude_item as claude_item
 from devctl.doctor_signin import codex_item as codex_item
+from devctl.doctor_skills import probe_worktree as probe_worktree
+from devctl.doctor_skills import probed_harnesses as probed_harnesses
+from devctl.doctor_skills import repository_skills as repository_skills
+from devctl.doctor_skills import skills_items as skills_items
 from devctl.github.app import project_access
 from devctl.harness import AGY_PROBE_ARGS as AGY_PROBE_ARGS
 from devctl.repo import Repo
@@ -61,9 +66,15 @@ def _report(items: Sequence[Item]) -> int:
     return doctor_exit_code(items)
 
 
-def run_doctor(ctx: DoctorContext) -> int:
-    """Print every item for ctx, the local ones first, then a summary line; return the exit code."""
-    return _report([*local_items(ctx), *github_items(ctx)])
+def run_doctor(ctx: DoctorContext, *, skills: bool = False) -> int:
+    """Print every item for ctx, the local ones first, then a summary line; return the exit code.
+
+    Only skills=True starts a Harness Session, each in a temporary worktree of its own.
+    """
+    items = [*local_items(ctx), *github_items(ctx)]
+    if skills:
+        items.extend(skills_items(ctx))
+    return _report(items)
 
 
 def doctor_command(args: argparse.Namespace) -> int:
@@ -75,7 +86,7 @@ def doctor_command(args: argparse.Namespace) -> int:
     project = load_project(repo.root)
     # doctor reads the Apps only while Agent identity is on (Spec 1 section 6).
     access = project_access(project) if project.agent_identity else None
-    return run_doctor(DoctorContext(repo.root, project, gh_get, access))
+    return run_doctor(DoctorContext(repo.root, project, gh_get, access), skills=args.skills)
 
 
 def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -84,5 +95,11 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
         help="Report what this machine and repository lack",
         description="Report each item as ok, missing or unknown. Exit 0 when every item is ok, "
         "1 when one is missing, 2 when one is unknown.",
+    )
+    parser.add_argument(
+        "--skills",
+        action="store_true",
+        help="also start one headless Session per Harness in a temporary worktree at HEAD and "
+        "compare the skills it loads; spends a little quota",
     )
     parser.set_defaults(handler=doctor_command)
