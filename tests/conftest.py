@@ -11,6 +11,8 @@ import pytest
 from check_workspace import Workspace, new_workspace
 from devctl.process import run_process
 
+pytest_plugins = ["github_fixtures"]
+
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
 new_project = ["pyproject.toml", "src/__package__/__init__.py"]

@@ -381,3 +381,8 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
     files = rendered("agnostic")
     assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
     assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"
+
+
+def test_askpass_is_written_executable() -> None:
+    # init and sync set the executable bit only for paths kit.toml lists (plan 2).
+    assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable

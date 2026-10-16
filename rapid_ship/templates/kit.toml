@@ -20,6 +20,6 @@ new_project = [
     "tests/AGENTS.md",
     "tests/test_import.py",
 ]
-executable = ["devctl", ".githooks/pre-commit"]
+executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
 optional_skills = []
 variables = ["owner", "package", "project_name", "repository"]

@@ -31,11 +31,15 @@ def lock(workspace: Workspace) -> None:
     )
 
 
+RAPID_SHIP = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship"
+
+
 def choices(path: str) -> str:
-    """Spec section 5's kit row: the message names both choices."""
+    """Spec section 5's kit row: the message names both choices as full commands at the lock's
+    kit_version, the 0.2.0 that lock() writes."""
     return (
-        f"rapid-ship sync --revert {path} restores it, "
-        "and rapid-ship sync keeps the deletion as the project's own"
+        f"{RAPID_SHIP} sync --revert {path} restores it, "
+        f"and {RAPID_SHIP} sync keeps the deletion as the project's own"
     )
 
 
