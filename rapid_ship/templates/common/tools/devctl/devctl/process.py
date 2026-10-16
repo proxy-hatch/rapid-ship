@@ -39,6 +39,12 @@ def safe_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
     return result
 
 
+def first_line(text: str) -> str:
+    """The first line of text, cut to 300 characters: what a message quotes of a tool's stderr."""
+    lines = text.strip().splitlines()
+    return lines[0][:300] if lines else ""
+
+
 class _Capture:
     def __init__(self, stream: IO[bytes]) -> None:
         self.stream = stream
@@ -65,10 +71,10 @@ def _kill_group(pid: int, sig: int) -> None:
     except ProcessLookupError:
         pass
     except PermissionError as denied:
-        if sig != signal.SIGKILL:
-            raise
-        # Darwin can briefly report EPERM while a TERM-killed group disappears.
-        # Probe existence only; never repeat KILL or accept a persistent denial.
+        # Darwin reports EPERM for a group whose members have exited but are not yet reaped:
+        # a TERM-killed group, or a child that outlived its leader, as git upload-pack outlives
+        # a failed fetch from a local repository. Probe existence only; never repeat the
+        # signal or accept a persistent denial.
         deadline = time.monotonic() + 0.05
         while True:
             try:

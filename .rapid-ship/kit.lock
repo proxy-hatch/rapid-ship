@@ -156,7 +156,7 @@ sha256 = "c8a9fc1eafbcadd0f1046ce67eee2b8805b7c555430283e9f998c1824763887a"
 [[file]]
 path = "tools/devctl/devctl/process.py"
 kind = "managed"
-sha256 = "4d0e12ab326391281dbae3c7fccabb787658ab31c61ee448211ddc2c9c517427"
+sha256 = "43d0d650fe92ea8aacb0533f39551a99633cb04c03dc8b969dfb260f77046d16"
 
 [[file]]
 path = "tools/devctl/devctl/repo.py"
