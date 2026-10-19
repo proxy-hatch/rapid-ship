@@ -16,7 +16,7 @@ We adapt the following sources from commit [`49dd158`](https://github.com/mattpo
 | Architecture improvements | [improve-codebase-architecture](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/improve-codebase-architecture/SKILL.md) |
 | Visual reports | [HTML-REPORT.md](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/skills/engineering/improve-codebase-architecture/HTML-REPORT.md) |
 
-Our adaptations keep the approved project purpose settled, reuse existing approvals and use the configured issue tracker. Reports work offline. [Engineering skills](engineering-skills.md) explains how each workflow fits rapid-ship.
+Our adaptations keep the approved project purpose settled, reuse existing approvals and use the configured issue tracker. Reports work offline.
 
 ## Code and writing guidance
 

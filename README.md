@@ -10,16 +10,16 @@ rapid-ship installs a Kit into your repository: a project CLI called devctl, an 
 
 ## Status
 
-rapid-ship is being rebuilt, and nothing is usable yet: the package provides only `rapid-ship --version`. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in six plans. Plan 1 removed the earlier controller. Plans 2 to 6 add the rapid-ship CLI, `devctl check`, `devctl doctor`, the optional Agent identity, Kit standards, the Harness guardrails and the setup skills. [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
+rapid-ship is being rebuilt, and nothing is usable yet: the package provides only `rapid-ship --version`. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans. Plan 1 removed the earlier controller. Plans 2 to 7 add the rapid-ship CLI, `devctl check`, `devctl doctor`, the optional Agent identity, Kit standards, the Harness guardrails, the TypeScript stack and the setup skills. [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics and gardening.
 
 *Dog-fooding:* this repository tracks its own tasks in Linear.
 
-The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code is kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10), and its guides remain on this site, marked historical.
+The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code and guides are kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10). Only its getting-started walkthrough remains on this site, marked historical.
 
 ## Read more
 
 - [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md): the problem, where rapid-ship stops and your Harness takes over, and how the code-quality bar is held.
-- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [six plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
+- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [seven plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
 - [Architecture](ARCHITECTURE.md): what this repository holds today and how to develop it.
 
 ## Credits
