@@ -4,7 +4,7 @@ status: proposed
 
 # Spec 2: Delivery skills
 
-**Status: proposed on 2026-10-16 and awaiting the owner's review.** It applies the owner's re-scope decisions of 2026-10-16 and replaces the withdrawn Walk-flow draft. Section 13 lists what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
+**Status: proposed on 2026-10-16 and revised on 2026-10-19 with the owner's review decisions.** It applies the owner's re-scope decisions of 2026-10-16 and of the second review on 2026-10-19, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
 
 ## 1. Outcome and scope
 
@@ -27,8 +27,8 @@ This spec also defines:
 
 Other specs own the rest:
 
-- [Spec 1](2026-10-14-kit-and-setup-design.md) builds the Kit: `devctl check` and `doctor`, the Harness guardrails, the README.md and ARCHITECTURE.md seeds, the Pattern mechanism, optional Agent identity, `rs-setup`, `rs-health`, and the forked engineering skills such as `rs-tdd` and `rs-pr`.
-- [Spec 3](2026-10-16-metrics-and-gardening-design.md) builds `devctl metrics`, the scheduled metrics Action, Suggested thresholds, the Corrections ledger and `rs-garden`.
+- [Spec 1](2026-10-14-kit-and-setup-design.md) builds the Kit: `devctl check` and `doctor`, the Harness guardrails with their merge guard, the README.md and ARCHITECTURE.md seeds, the Pattern mechanism, optional Agent identity, `rs-setup`, `rs-health`, and the forked engineering skills such as `rs-tdd` and `rs-pr`.
+- [Spec 3](2026-10-16-metrics-and-gardening-design.md) builds `devctl metrics`, the scheduled metrics Action, Suggested thresholds, the Corrections ledger, `rs-garden`, and `rs-preflight`, the advisory Pre-flight review before the owner widens the Mode.
 
 ## 2. How the skills fit together
 
@@ -50,7 +50,7 @@ owner ─► rs-lead (Focus + project.toml) ─► Lead brief ─► Lead Sessio
 | `rs-breakdown` | The owner | The owner's Session | Tracker records |
 | `rs-lead` | The owner, at the start of a Lead Session | The Session that becomes the Lead | The Lead brief, in the conversation only |
 | `rs-work` | The Lead, once per Worker, or the Lead itself | A subagent or a headless Session in the task's worktree | One branch and one pull request |
-| `rs-review` | The Lead, once per head commit | A subagent or a headless Session with its own context | One review on that head commit |
+| `rs-review` | The Lead, once per head commit | A subagent or a headless Session with its own context, in a checkout of the base branch | One review on that head commit |
 
 `rs-design`, `rs-breakdown` and `rs-lead` are user-invoked (`disable-model-invocation: true`). `rs-work` and `rs-review` stay model-invocable, so a subagent can load them by name.
 
@@ -112,32 +112,34 @@ Agent identity is optional (Spec 1). It is on when `[github]` in `project.toml` 
 | A Reviewer posts its verdict | `./devctl as reviewer gh api` to `POST /repos/{owner}/{repo}/pulls/{number}/reviews`, with event `APPROVE` or `REQUEST_CHANGES` | `gh api` to the same endpoint, as the owner, with event `COMMENT`. GitHub never lets a pull request's author approve it or request changes on it |
 | A Reviewer resolves a review thread | `./devctl as reviewer gh api graphql`, with the `resolveReviewThread` mutation | `gh api graphql` with the same mutation, as the owner |
 | The Lead merges a pull request it may merge | `./devctl as worker gh pr merge <number> --squash` | `gh pr merge <number> --squash`, as the owner. GitHub accepts it only when the ruleset requires no approval (section 6.5) |
-| The owner approves an agent pull request | A normal GitHub approval | Not possible, because the owner is its author. The owner merges through the admin bypass |
+| The owner approves an agent pull request | A normal GitHub approval | Not possible, because the owner is its author. The owner merges it in GitHub's web interface, through the admin bypass |
 | Revisions | Countable from GitHub (Spec 3) | "unknown: needs Agent identity" (Spec 3) |
 
-No agent runs `gh pr merge --admin`, with or without Agent identity: the Harness guardrails deny it, and `devctl as` refuses it (Spec 1). The verdict text of section 3.6 is for the Lead and the owner. No metric counts it.
+No agent runs `gh pr merge --admin`, pushes to the default branch, or merges, writes a ref or commits through `gh api`, with or without Agent identity. The Harness guardrails deny each form of these that Spec 1 lists, and `devctl as` also refuses `--admin` and a push to the default branch (Spec 1). An agent merges only with `gh pr merge`, and in every setup the merge guard, a rule of `devctl hook`, checks that merge before it runs (section 6.2). The guardrails match command lines, so a script or a tool the hook does not see can get past them. The verdict text of section 3.6 is for the Lead and the owner. No metric counts it.
 
 ### 3.4 Settings the skills read
 
-Spec 1 seeds `[escalation]` and `[roster]` in `.rapid-ship/project.toml`. This spec reads them, and adds `[tracker]` and `[design]` (proposal). The file is in the Protected set, so changing the Mode, the Roster, the tracker or the spec location is a pull request the owner approves.
+Spec 1 seeds `[escalation]` and `[roster]` in `.rapid-ship/project.toml`. This spec reads them, and adds `[tracker]` and `[design]`. The file is in the Protected set, so changing the Mode, the Roster, the tracker or the spec location is a pull request the owner approves.
 
 ```toml
 [escalation]                     # seeded by Spec 1; section 6.2 says how rs-lead reads it
 every_pr = true                  # Walk. false: the Protected set and the kinds below
 kinds = [
   "a pull request that removes a behavioural test",
+  "a pull request that declares Over the diff cap:",
 ]
 revision_rounds = 3              # a PR that reached this many Revision rounds goes to the owner
 
 # Optional (Spec 1). Only an owner who uses more than one Provider needs a Roster.
 # Without one, the Lead's Harness chooses its subagents' models.
 # [roster.worker]
-# harness = "codex"              # claude, codex or agy
+# harness = "codex"              # any Harness; claude, codex and agy have built-in routes
 # model = "<exact model ID>"     # used exactly as written
 #
 # [roster.reviewer]
-# harness = "claude"
+# harness = "pi"                 # a Harness without a built-in route needs a command
 # model = "<exact model ID>"
+# command = "<headless command with {prompt} and {model}>"
 
 [tracker]                        # added by this spec
 name = "linear"                  # selects .agents/skills/rs-breakdown/references/trackers/linear.md
@@ -153,15 +155,17 @@ specs = "docs/specs"             # a repository directory, or "tracker" for trac
 
 devctl rejects an unknown key (Spec 1), so Spec 2's plan teaches its settings loader `[tracker]` and `[design]`. An unknown key or a wrong type in either makes the settings unreadable, and `devctl check` reports a blocked step (exit 2). Any key under `[tracker.<name>]` is accepted, because the mapping note defines those keys. devctl only validates `[tracker]`; it never contacts the tracker.
 
-The Focus is never stored. `rs-lead` asks for it in each Session.
+A Roster may name any Harness, including an API-backed one such as pi. `claude`, `codex` and `agy` have built-in routes (section 6.4). Any other Harness needs a headless command template that the owner supplies, which starts it with the spawn prompt and the model. The key that holds it, `command`, with `{prompt}` where the spawn prompt goes and `{model}` where the model goes, is proposal 13.3.8.
+
+The Focus is never stored. `rs-lead` asks for it in each Session. No setting limits how many Sessions or Workers run.
 
 ### 3.5 Branches and pull requests
 
 - One task has one branch and one pull request. The branch name contains the task's tracker ID, such as `pro-123-reject-duplicate-emails`, so the tracker's GitHub integration links it.
-- The pull request body starts with `Task: <ID>` and the task's link. `rs-pr` (Spec 1) writes the rest: a summary, the `## Evidence` section with each command run and its result, a `Not covered:` line, and `Removed tests:` with a reason for each removed test. An `Over the diff cap:` line appears only when the owner accepted the overage. devctl's `evidence` and `diff` steps check these (Spec 1).
+- The pull request body starts with `Task: <ID>` and the task's link. `rs-pr` (Spec 1) writes the rest: a summary, the `## Evidence` section with each command run and its result, a `Not covered:` line, and `Removed tests:` with a reason for each removed test. An `Over the diff cap:` line, with its reason, puts the pull request on the escalation list (section 6.2). It appears only when the owner accepted the overage first (proposal 13.3.9). devctl's `evidence` and `diff` steps check these (Spec 1).
 - A branch that falls behind its base merges the base branch. It is never rebased after a push, because the guardrails deny force pushes.
 - Every merge is a squash merge; the ruleset allows no other method (Spec 1).
-- A pull request that changes a path in the Protected set is brought to the owner in every Mode.
+- A pull request that changes a path in the Protected set is brought to the owner in every Mode, and the owner merges it in GitHub's web interface (section 6.2).
 
 ### 3.6 The review verdict
 
@@ -240,7 +244,7 @@ Nits
 | Milestone | A dated delivery checkpoint that can be demonstrated: the unit the owner hands a Lead | A name, the date the owner sets, a demo statement saying what the owner will see on that date, and links to its specs |
 | Epic | One capability inside a milestone, delivered in several pull requests | A link to its spec |
 | Story | Optional: a slice of an epic that users can see, used only when the epic ships in more than one slice | The user-visible outcome |
-| Task | Exactly one pull request within devctl's diff cap: 500 added and removed lines, not counting binary files, Kit-managed files and lock files (Spec 1) | Acceptance criteria, a test plan and its blocked-by links (section 5.2) |
+| Task | Exactly one pull request within devctl's diff cap: 1,500 added and removed lines, not counting files the cap excludes by extension, such as `.md`, `.txt` and `.log`, or binary, lock and Kit-managed files (Spec 1) | Acceptance criteria, a test plan and its blocked-by links (section 5.2) |
 
 Only a task becomes a pull request. A Lead runs tasks; it never runs an epic or a story as one unit of work.
 
@@ -257,7 +261,7 @@ The behaviour this task makes work, as a user or caller sees it.
 
 ## Test plan
 - Seam: the interface the tests drive
-- Tier: unit or behavioural, as `[tests] unit` classes the test files
+- Tier: unit or behavioural, as the test settings in `project.toml` class the test files (Spec 1)
 - One test per criterion above, written to fail first
 - `./devctl check` passes
 
@@ -277,7 +281,7 @@ None, or the Protected paths and escalation kinds this task will touch.
 
 ### 5.3 Inputs, steps, outputs
 
-**Inputs:** the approved spec; ARCHITECTURE.md, GLOSSARY.md, the ADRs and the code; the tracker's mapping note; `[tracker]`, `[escalation]` and `[tests] unit` from `project.toml`; the tracker's existing milestones and open tasks.
+**Inputs:** the approved spec; ARCHITECTURE.md, GLOSSARY.md, the ADRs and the code; the tracker's mapping note; `[tracker]`, `[escalation]` and the test settings from `project.toml`; the tracker's existing milestones and open tasks.
 
 **Steps:**
 
@@ -288,7 +292,7 @@ None, or the Protected paths and escalation kinds this task will touch.
 5. Size each task. Estimate its diff, tests and documentation included. Split any task likely to exceed the diff cap.
 6. Add a blocked-by link only where a task needs another task's merged code or a decision. Give each shared interface to one task. Flag tasks that would change the same files, then link them or merge them.
 7. Check coverage. Map every behaviour in the spec to a task. List deferred behaviour explicitly, so it cannot vanish.
-8. Mark escalation. In each task, name the Protected paths and the escalation kinds it will touch.
+8. Mark escalation. In each task, name the Protected paths and the escalation kinds it will touch. A task that prevents a Correction changes its existing ledger entry, which counts as Protected (Spec 3).
 9. Present the draft as a numbered list: each task's title, what blocks it and what it delivers. Ask about granularity, the links, and tasks to merge or split. Repeat until the owner approves.
 10. Publish to the tracker through the Harness's connection, following the mapping note (section 3.2). Publish in dependency order, so each blocked-by link points at a real record.
 11. Report the milestone's link and its frontier: the tasks with no open blockers, which a Lead can start at once.
@@ -344,23 +348,24 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 
 **Inputs:**
 
-- The Focus, from the owner: a milestone or chosen tasks, and in Walk a cap on parallel Workers.
+- The Focus, from the owner: a milestone or chosen tasks.
+- What `./devctl doctor` reports.
 - `[escalation]`, `[roster]` and `[tracker]` from `project.toml`, and whether Agent identity is on (section 3.3).
 - `.github/CODEOWNERS` and the default branch's ruleset, read with `gh`.
 - The Focus's records in the tracker, through the Harness's connection.
 - The Lead's own Harness. `rs-lead` asks the owner when it cannot tell.
-- For the Flight help only: the latest `devctl metrics` report (Spec 3).
 
 **Steps:**
 
-1. Read the settings, CODEOWNERS and the ruleset. Check that the Session's checkout is on the default branch with no local changes; section 9.2 says why. Run `./devctl doctor`, and note what it reports about the Harnesses the Roster names. When the Roster names agy and the Lead's Harness is not agy, doctor's agy sign-in probe would run agy inside this Session (Spec 1, section 6), which Google's consumer terms do not support. Give that warning first (section 6.4), and offer that the owner runs `./devctl doctor` in a terminal instead.
-2. Ask for the Focus. Read its tasks from the tracker, and show the frontier (section 5.5). In Walk, ask for the Worker cap, and suggest 3. In Flight the cap is optional.
-3. Resolve the Roster (section 6.4). Without a Roster, state that the Lead's Harness chooses its subagents' models. With one, choose a route for each role and give every warning that applies.
-4. State the Mode from the escalation list (section 6.2). Check that CODEOWNERS agrees with it, and explain any mismatch (section 6.5).
-5. Fill `references/brief-template.md` (section 6.6).
-6. Show the brief, and tell the owner its limit: rapid-ship cannot see which model a subagent receives or whether the Lead follows the brief, while CI and the ruleset hold either way. The owner confirms the brief or changes the Focus.
-7. Follow the brief as the Lead. The owner may instead copy the brief into another Session.
-8. When the owner asks to change the Mode or the Roster, prepare the pull request that changes `project.toml`, and CODEOWNERS where needed (section 6.5). The owner approves and merges it.
+1. Run `./devctl doctor` before anything else. When it cannot read the settings, it exits 2 and names the problem. Then stop and help the owner fix the settings: while `devctl hook` cannot read them, it still applies G1 to G4 and the merge guard, but G5, G7 and G8 give no decision, so the asks before Protected edits and Agent identity's denies are lost (Spec 1). When `[roster]` names agy and the Lead's Harness is not agy, doctor's agy sign-in probe would run agy inside this Session (Spec 1, section 6), which Google's consumer terms do not support. Give that warning first (section 6.4), and offer that the owner runs `./devctl doctor` in a terminal instead. Every other Session, such as a Worker's or a Reviewer's, runs `./devctl doctor --settings` first, as the seeded root AGENTS.md asks; it reads only the settings and starts no probe (a proposal in Spec 1).
+2. Read the settings, CODEOWNERS and the ruleset. Check the Session's checkout: it has no local changes, and after `git fetch`, `HEAD` is the commit that `origin/<default branch>` names. Any branch is fine, so a Session in its own worktree qualifies. Section 9.2 says why.
+3. Ask for the Focus: a milestone or chosen tasks. Read its tasks from the tracker, and show the frontier (section 5.5).
+4. Resolve the Roster (section 6.4). Without a Roster, state that the Lead's Harness chooses its subagents' models. With one, choose a route for each role and give every warning that applies.
+5. State the Mode from the escalation list (section 6.2). Check that CODEOWNERS agrees with it, and explain any mismatch (section 6.5).
+6. Fill `references/brief-template.md` (section 6.6).
+7. Show the brief, and tell the owner its limit: rapid-ship cannot see which model a subagent receives or whether the Lead follows the brief, while CI and any ruleset hold either way. The owner confirms the brief or changes the Focus.
+8. Follow the brief as the Lead. The owner may instead copy the brief into another Session.
+9. When the owner asks to change the Mode or the Roster, prepare the pull request that changes `project.toml`, and CODEOWNERS where needed (section 6.5). The owner approves and merges it.
 
 **Outputs:** the Lead brief, in the conversation only; optionally one pull request that changes `[escalation]` or `[roster]`, and CODEOWNERS.
 
@@ -377,23 +382,28 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 
 The escalation list is the Protected set plus what `[escalation]` adds:
 
-| Kind | Setting | What enforces it |
+| Kind | Setting | What holds it |
 | --- | --- | --- |
-| The Protected set | Always on | With Agent identity: GitHub, through CODEOWNERS and the ruleset. Without it, in Walk: the ruleset, which leaves only the owner's admin bypass, and the guardrail that denies that bypass to agents. Without it, in Flight: the brief, and the guardrails' ask-before-edit rules |
-| Every pull request | `every_pr = true` | With Agent identity: GitHub, through the CODEOWNERS line `* @<owner>` and the ruleset. Without it: the ruleset, which leaves only the owner's admin bypass, and the guardrail that denies that bypass to agents |
+| The Protected set | Always on | In every setup, the merge guard (Spec 1): a rule of `devctl hook` that denies an agent's `gh pr merge` of a pull request that touches the Protected set. With or without Agent identity, the guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that Spec 1 lists. `gh pr merge` is then the only recognised way for an agent to merge. The owner merges such a pull request in GitHub's web interface. The guardrails also ask the owner before an agent edits a Protected path. With Agent identity and a ruleset, GitHub enforces the Protected set too, through CODEOWNERS and the ruleset. Otherwise the merge guard holds it alone, and it is a guardrail: advice that a misbehaving agent can bypass, for example through a script or a tool the hook does not see |
+| Every pull request | `every_pr = true` | With Agent identity: GitHub, through the CODEOWNERS line `* @<owner>` and the ruleset. Without it: the ruleset requires an approval that the owner cannot give their own pull request, which leaves only the owner's admin bypass, and the guardrails deny agents `gh pr merge --admin` and the other recognised ways to land a change on the default branch (Spec 1). That is a guardrail: advice that a misbehaving agent can bypass. Without a ruleset: the brief only (proposal 13.3.10) |
 | A pull request that removes a behavioural test | Seeded in `kinds` | The brief. devctl's `diff` step classes each removed test as unit or behavioural (Spec 1) |
+| A pull request that declares `Over the diff cap:` | Seeded in `kinds` | The brief. devctl's `diff` step reports the declaration (Spec 1) |
 | A pull request that reached N rounds ending in changes requested | `revision_rounds` | The brief |
 | Each kind the owner adds | `kinds` | The brief. The Lead judges whether a pull request is of that kind |
 
-Agents run under the owner's sign-ins, and the guardrails stop habits, not a determined agent (Spec 1). An agent that gets around them can act as the owner with or without Agent identity. Without Agent identity that is also the routine path: the owner's credentials can merge through the admin bypass, and only the deny rule on `gh pr merge --admin` keeps the Lead from it.
+In every setup, the merge guard also denies an agent's merge while `devctl check` has not passed on the pull request's head commit. A GitHub Free private repository has no rulesets, so there the merge guard is what rejects a failing check at merge. The merge guard acts only on `gh pr merge`, which the other guardrails leave as the only recognised way for an agent to merge, and only in a Harness whose hooks run `devctl hook` (section 6.4).
 
-With `every_pr = true` the Mode is Walk. With `every_pr = false` it is Flight, and the kinds the owner adds place it anywhere between the two ends. When an added kind is a set of paths, `rs-lead` offers to add those paths to the Protected set in CODEOWNERS instead, where GitHub can enforce them.
+Agents run under the owner's sign-ins and, with Agent identity on, within reach of both App keys; the owner accepts that ([ADR 0004](../../adr/0004-team-management-boundary.md)). The guardrails, the merge guard included, stop habits and mistakes, and a misbehaving agent can bypass them (Spec 1). Without Agent identity, the owner's credentials can merge through the admin bypass, and only the guardrails keep the Lead from it.
+
+With `every_pr = true` the Mode is Walk. With `every_pr = false` it is Flight, and the kinds the owner adds place it anywhere between the two ends. When an added kind is a set of paths, `rs-lead` offers to add those paths to the Protected set in CODEOWNERS instead, where the merge guard enforces them, and GitHub too with Agent identity and a ruleset.
+
+In Walk the owner reviews every pull request, launches the Sessions and watches them, with the Workers they start. rapid-ship neither asks nor counts how many Sessions or Workers run. Its documentation advises running at most 3 Workers at once in Walk, for the owner's cognitive load.
 
 A pull request on the escalation list goes through three steps:
 
 1. The Lead takes it to "ready for the owner": `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open. At the revision-round limit, the Lead stops the rounds instead.
 2. The Lead tells the owner the link, the task, which kinds put it on the list, the last verdict, and the nits it skipped.
-3. The Lead moves on to other tasks. With Agent identity, the owner approves, then merges or asks the Lead to merge. Without it, the owner merges through the bypass.
+3. The Lead moves on to other tasks. The owner merges a Protected pull request in GitHub's web interface. For any other pull request on the list, with Agent identity, the owner approves, then merges or asks the Lead to merge; without it, the owner merges it in GitHub's web interface, through the admin bypass where the ruleset requires an approval.
 
 The Lead merges any other pull request itself when `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open.
 
@@ -421,8 +431,9 @@ No Harness runs another vendor's model as a native subagent, so a Roster that cr
 | agy | agy | Native subagent, only when the Agent's model is the Lead Session's own or a tier | `inherit`, `flash` or `pro` only |
 | Any | agy | Shell, from the worktree: `agy -p "<prompt>" --model <slug>`. This is also the route to the Claude and GPT-OSS models in agy's catalog | `--model`, a slug that `agy models` lists |
 | agy | Claude Code or Codex | Shell: the `claude -p` or `codex exec` command above, started outside agy's terminal sandbox | As in those rows |
+| Any | Any other Harness, such as pi | Shell, from the worktree: the `command` template in `[roster.<role>]`, with `{prompt}` and `{model}` filled in | Where the template puts `{model}` |
 
-Native is preferred when the Agent's Harness is the Lead's own and it can take the exact model. The `<prompt>` tells the Agent to follow `rs-work` or `rs-review` and carries the spawn details of section 6.6. Whatever the route, the Provider can be a subscription, an API key or a gateway, and the route is the same.
+Native is preferred when the Agent's Harness is the Lead's own and it can take the exact model. The `<prompt>` tells the Agent to follow `rs-work` or `rs-review` and carries the spawn details of section 6.6. For a Worker, `<worktree>` and "from the worktree" mean the task's worktree; for a Reviewer, they mean a checkout of the base branch (section 8). Whatever the route, the Provider can be a subscription, an API key or a gateway, and the route is the same.
 
 `rs-lead` gives each warning when it offers the route:
 
@@ -435,14 +446,16 @@ Native is preferred when the Agent's Harness is the Lead's own and it can take t
 - **The Codex plugin's review gate.** The plugin's optional Stop-hook review gate can loop and drain usage limits, so the brief leaves it off. The plugin needs Node 18.18 or later and uses the owner's existing Codex sign-in.
 - **Nested sandboxes.** A CLI started from a sandboxed Lead runs inside that sandbox, and a sandbox inside another generally fails.
 - **Headless approvals.** A headless Worker can do only what the project's Harness settings allow without a prompt. `rs-lead` names what is missing and the owner decides. It never adds a bypass flag such as `--dangerously-skip-permissions`.
+- **Guardrails in Codex and agy are unconfirmed.** Whether Codex's and agy's hooks fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139, the first task of Spec 1's plan 5. Until it confirms them, `rs-lead` warns that a Codex or agy Worker or Reviewer may run without the Harness guardrails. The pre-commit hook, CI and any ruleset hold either way.
+- **A Harness without a built-in route.** The Kit ships guardrail settings only for Claude Code, Codex and agy (Spec 1). A Session on any other Harness, Lead or Agent, runs without the Harness guardrails, the merge guard included; the pre-commit hook, CI and any ruleset still hold. `rs-lead` gives this warning for the Lead's own Harness too, when the Kit has no wiring for it. It uses the owner's `command` as written and never adds a flag to it.
 
 ### 6.5 Helping the owner fly
 
-When the owner wants fewer pull requests brought to them, `rs-lead` shows the current escalation list, CODEOWNERS, whether Agent identity is on, whether the default branch has a ruleset, and the latest `devctl metrics` report with any Suggested threshold breach. When to fly is the owner's call. Then:
+When the owner wants fewer pull requests brought to them, `rs-lead` first offers `rs-preflight` (Spec 3): an advisory readiness review of the metrics to watch, Alarms and incident integrations, scheduled gardening, the escalation list, Agent identity and the ruleset. `rs-preflight` never gates and never changes the Mode. When to fly is the owner's call. Then:
 
-- **With Agent identity,** `rs-lead` prepares one Protected pull request with two changes: `[escalation] every_pr = false`, with the kinds the owner adds, and CODEOWNERS with the `* @<owner>` line removed and the Protected set uncommented (Spec 1). Once the owner merges it, the Lead merges other pull requests as the Worker App, which cannot use the owner's bypass, so GitHub still requires the owner for every Protected path. Whether GitHub counts the Reviewer App's approval toward the ruleset's required approval is Spec 1's open question.
-- **Without Agent identity,** an agent's pull request comes from the owner's account, so the owner's own review cannot meet a required review. For a solo owner, the Lead can merge only if the ruleset drops its review requirement. CODEOWNERS then binds no one, and the Protected set becomes advice that the brief and the guardrails' ask rules carry. `rs-lead` explains this trade, and offers Agent identity (Spec 1) as the alternative. The owner decides and changes the repository setting; `rs-lead` never changes it.
-- **Without a ruleset,** such as in a private repository on GitHub Free (backlog PRO-100), GitHub enforces no escalation kind in any Mode, and `rs-lead` says so.
+- **With Agent identity,** `rs-lead` prepares one Protected pull request with two changes: `[escalation] every_pr = false`, with the kinds the owner adds, and CODEOWNERS with the `* @<owner>` line removed and the Protected set uncommented (Spec 1). Once the owner merges it, the Lead merges other pull requests as the Worker App while it acts through `devctl as`. The Worker App cannot use the owner's bypass, so GitHub still requires the owner for every Protected path. The ruleset's required approvals stay at 1 until the live trial shows whether GitHub counts the Reviewer App's approval. If it does not, the count becomes 0 and code-owner review stays required, so CODEOWNERS alone decides who must approve (Spec 1).
+- **Without Agent identity,** an agent's pull request comes from the owner's account, so the owner's own review cannot meet a required review. For a solo owner, the Lead can merge only if the ruleset drops its review requirement. CODEOWNERS then binds no one on GitHub. The merge guard still denies the Lead's merge of a Protected pull request, or of one whose head has not passed `devctl check`; it is a guardrail, which a misbehaving agent can bypass. Flight without Agent identity is a supported choice. `rs-lead` explains this trade, and offers Agent identity as the alternative; [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) says when it is recommended. The owner decides and changes the repository setting; `rs-lead` never changes it.
+- **Without a ruleset,** such as in a private repository on GitHub Free (backlog PRO-100), GitHub enforces no escalation kind in any Mode. The merge guard is then the only check at merge: it rejects a pull request whose head has not passed `devctl check`, and a Protected pull request. `rs-lead` says so.
 
 Returning to Walk is the reverse pull request, which `rs-lead` prepares whenever the owner asks. Metrics never move the Mode.
 
@@ -459,7 +472,6 @@ and the repository's AGENTS.md.
 ## Focus
 - Work on: <milestone and link | task IDs>.
 - The frontier now: <task IDs>.
-- Run at most <N> Workers at once.
 
 ## Agents
 - <No Roster:> Choose the models for Workers and Reviewers yourself.
@@ -483,13 +495,15 @@ and the repository's AGENTS.md.
 3. Move the task to its started state in the tracker.
 4. Start a Worker in that worktree. Tell it: follow `.agents/skills/rs-work/SKILL.md`; the
    task ID and text; the worktree, branch and base commit; whether Agent identity is <on|off>;
-   that it must never push to the default branch, force-push, skip hooks or review its own
-   change; and to end with the rs-work report.
+   that it must run `./devctl check` before it reports, and never push to the default branch,
+   force-push, skip hooks or review its own change; and to end with the rs-work report.
 5. Wait for every Worker you started before you summarize.
 6. Treat a Worker's report as a claim. Read the pull request's `devctl check` result yourself.
 7. For each new head commit, start a new Reviewer with its own context: never the Worker
-   that wrote the change, and never yourself if you wrote it. Tell it: follow
-   `.agents/skills/rs-review/SKILL.md`; the pull request, the head SHA and the task.
+   that wrote the change, and never yourself if you wrote it. Start it in a checkout of the
+   base branch, such as your own checkout at `origin/<default branch>`, never in the task's
+   worktree. Tell it: follow the base branch's `.agents/skills/rs-review/SKILL.md` in that
+   checkout; the pull request, the head SHA and the task.
 8. Triage the verdict (below). Send blocking findings to a Worker for that pull request,
    with the pull request, the findings and the task.
 9. Bring the pull request to the owner, or merge it, as the Mode says.
@@ -525,13 +539,13 @@ and the repository's AGENTS.md.
 - A guardrail refuses an action. Never work around a guardrail.
 
 ## Never
-- Use `--no-verify`, force-push, or run `gh pr merge --admin`.
+- Use `--no-verify`, force-push, push to the default branch, run `gh pr merge --admin`, or merge, write a ref or commit through `gh api`.
 - Edit `.rapid-ship/kit.lock` by hand, or change a Protected path without the owner.
 - Merge a pull request that is on the escalation list.
 - Add a permission-bypass flag to a Worker or a Reviewer.
 ```
 
-The spawn details in steps 4 and 7 restate the constraints that matter, because only Claude Code documents that subagents inherit the project's instructions (section 9.2). The Corrections ledger's place and format are Spec 3's. Spec 3 proposes keeping the ledger outside the Protected set, so that adding an entry needs no Protected pull request.
+The spawn details in steps 4 and 7 restate the constraints that matter, because only Claude Code documents that subagents inherit the project's instructions (section 9.2). The Corrections ledger's place and format are Spec 3's. A pull request may add a new entry without the owner. A change to an existing entry, such as its status, or its removal counts as Protected, so the owner signs off on it (Spec 3).
 
 ## 7. `rs-work`
 
@@ -549,12 +563,12 @@ The spawn details in steps 4 and 7 restate the constraints that matter, because 
 1. Check the inputs. If one is missing, stop and report `blocked`.
 2. Check the workspace: you are in the worktree, on the branch, with no uncommitted changes, and the base commit is in its history. If not, stop and report `blocked`.
 3. Read the task, the spec it links, the AGENTS.md guides of the areas you will touch, their Rules, the Patterns, and GLOSSARY.md.
-4. Scope the change. List the areas you expect to change. Stop and report `blocked` if the task needs a path outside its scope, a Protected path it does not name, a decision its spec leaves open, or a diff over the diff cap. Say what is needed. Never widen the task yourself. Declare `Over the diff cap:` only when the Lead says the owner accepted the overage.
+4. Scope the change. List the areas you expect to change. Stop and report `blocked` if the task needs a path outside its scope, a Protected path it does not name, a decision its spec leaves open, or a diff over the diff cap. Say what is needed. Never widen the task yourself. Declare `Over the diff cap:` only when the Lead says the owner accepted the overage (proposal 13.3.9); that pull request then goes to the owner in every Mode.
 5. Work test-first with `rs-tdd`. For each acceptance criterion, write a test, watch it fail, make it pass, and commit. The pre-commit hook runs `./devctl check --tier fast`.
 6. Follow the Patterns. Use each Pattern's reference implementation; never add a second way to do the same task.
 7. Never add a suppression on your own. An exception needs an entry in `.rapid-ship/exceptions.toml`, which is Protected: stop and report `blocked`.
-8. Update the documents the task names. When the task prevents Corrections in the ledger, set each entry's `status` to `prevented` and its `prevented_by` to the new mechanism (Spec 3).
-9. Run `./devctl check`. Fix every failure in the code. Never weaken a test, delete one to pass, or skip a hook. A blocked step (exit 2) is not a pass: report it.
+8. Update the documents the task names. When the task prevents Corrections in the ledger, set each entry's `status` to `implemented` and its `prevented_by` to the new mechanism (Spec 3). That change to existing entries counts as Protected, so the owner signs off on it.
+9. Run the full `./devctl check` before you report done; no hook runs it when you stop. Fix every failure in the code. Never weaken a test, delete one to pass, or skip a hook. A blocked step (exit 2) is not a pass: report it.
 10. Push the branch and open the pull request as section 3.3 says. Write its body with `rs-pr`, as section 3.5 says: the `Task:` line, Evidence, `Not covered:`, and each removed test with its reason.
 11. End with the report below.
 
@@ -600,17 +614,18 @@ Blocker: <what the Lead or the owner must decide, or none>
 **Steps:**
 
 1. Check the inputs. If one is missing, stop and report it.
-2. Check independence. If your Session or subagent wrote any commit in this pull request, stop and report that you are not independent.
-3. Pin the head. Read the pull request's current head SHA. If it differs from the one you were given, stop and report that the head moved.
-4. Read the code at that head, in your own worktree or through git. Never edit it.
-5. Read the task and its spec, then the standards: the AGENTS.md guides and their Rules, the Patterns, GLOSSARY.md and the ADRs. If the pull request changes a standard or an agent instruction, read that file at the base commit (`git show <base>:<path>`) and judge by the base version.
-6. Read `devctl check`'s result on the head. A failed step is a blocking finding. If the check has not finished, say so in the summary.
-7. Judge the task. Is each acceptance criterion met, and tested by a test that can fail? Are the failure and boundary cases covered? Does the change do anything the task did not ask for? Does the Evidence match the diff? Is each removed test declared, with a sound reason?
-8. Judge the standards: the Rules, the Patterns, the ADRs, the glossary's terms, and the documents the change makes wrong. Apply the forked smell baseline as judgement calls, which the repository's documented standards override. Skip what `devctl check` already enforces.
-9. Classify each finding with the table below. Give it its rungs and, when blocking, its category and its prevention. Take the category from `docs/corrections/` when the mistake repeats an entry there.
-10. For a re-review, check each blocking thread of earlier verdicts. Resolve the thread when its fix holds, with GitHub's `resolveReviewThread` mutation. Otherwise, keep that thread open and list the finding again under Blocking, without a second inline comment.
-11. Check that this head has no review whose body starts with `rapid-ship review:`. Then post yours in the format of section 3.6, on the head SHA as `commit_id`, as section 3.3 says: through `POST /repos/{owner}/{repo}/pulls/{number}/reviews` with the body, the event and an inline comment for each blocking finding with a location.
-12. End with the report below.
+2. Check your checkout. It must be a checkout of the pull request's base branch with no local changes: after `git fetch`, `git merge-base --is-ancestor HEAD origin/<base branch>` succeeds. If not, stop and report it. You run under the instructions and hooks of your checkout, so they must come from the base branch, never from the change under review.
+3. Check independence. If your Session or subagent wrote any commit in this pull request, stop and report that you are not independent.
+4. Pin the head. Read the pull request's current head SHA. If it differs from the one you were given, stop and report that the head moved.
+5. Read the change only through git: `gh pr diff <number>`, or `git fetch origin pull/<number>/head` and then `git show <head SHA>:<path>` and `git diff origin/<base branch>...<head SHA>`. Never check out the head, run its code or edit it.
+6. Read the task and its spec, then the standards from your checkout: the AGENTS.md guides and their Rules, the Patterns, GLOSSARY.md and the ADRs. When the pull request changes a standard or an agent instruction, judge by your checkout's version, which is the base branch's.
+7. Read `devctl check`'s result on the head. A failed step is a blocking finding. If the check has not finished, say so in the summary.
+8. Judge the task. Is each acceptance criterion met, and tested by a test that can fail? Are the failure and boundary cases covered? Does the change do anything the task did not ask for? Does the Evidence match the diff? Is each removed test declared, with a sound reason?
+9. Judge the standards: the Rules, the Patterns, the ADRs, the glossary's terms, and the documents the change makes wrong. Apply the forked smell baseline as judgement calls, which the repository's documented standards override. Skip what `devctl check` already enforces.
+10. Classify each finding with the table below. Give it its rungs and, when blocking, its category and its prevention. Take the category from `docs/corrections/` when the mistake repeats an entry there.
+11. For a re-review, check each blocking thread of earlier verdicts. Resolve the thread when its fix holds, with GitHub's `resolveReviewThread` mutation. Otherwise, keep that thread open and list the finding again under Blocking, without a second inline comment.
+12. Check that this head has no review whose body starts with `rapid-ship review:`. Then post yours in the format of section 3.6, on the head SHA as `commit_id`, as section 3.3 says: through `POST /repos/{owner}/{repo}/pulls/{number}/reviews` with the body, the event and an inline comment for each blocking finding with a location.
+13. End with the report below.
 
 | Blocking | Nit |
 | --- | --- |
@@ -638,6 +653,7 @@ Review: <url>
 **Never:**
 
 - Edit code, commit or push.
+- Check out the head of the pull request, or run its code.
 - Approve a change you wrote, or review a head other than the one you pinned.
 - Post a second verdict for a head.
 - Resolve a thread whose fix you did not verify.
@@ -646,7 +662,7 @@ Review: <url>
 
 ## 9. What a Lead brief may claim about each Harness
 
-A Lead brief is advice to a Harness that rapid-ship does not control, so it relies only on documented behaviour. The facts here come from rapid-ship's [Harness research of 2026-10-16](../../trials/2026-10-16-harness-native-features.md), done with Claude Code 2.1.287, Codex CLI 0.162.0 and agy 1.3.5, and from each vendor's documentation listed in section 9.4. The research marked several points unconfirmed; section 13 lists them.
+A Lead brief is advice to a Harness that rapid-ship does not control, so it relies only on documented behaviour. The facts here come from rapid-ship's [Harness research of 2026-10-16](../../trials/2026-10-16-harness-native-features.md), done with Claude Code 2.1.287, Codex CLI 0.162.0 and agy 1.3.5, and from each vendor's documentation listed in section 9.4. The research marked several points unconfirmed; section 13.1 lists them.
 
 ### 9.1 What the brief may rely on in all three
 
@@ -654,7 +670,7 @@ A Lead brief is advice to a Harness that rapid-ship does not control, so it reli
 2. **Skills in `.agents/skills`.** Codex and agy read that directory; Claude Code reads the `.claude/skills` links.
 3. **Parallel subagents of the same vendor.** The Lead can start several, wait for all of them, and return one summary. The brief states how the work is divided, that the Lead waits, and what the summary holds.
 4. **A Reviewer as a separate subagent** with its own context.
-5. **Hooks that deny a tool call,** which carry the Harness guardrails (Spec 1).
+5. **Hooks that deny a tool call,** which carry the Harness guardrails and the merge guard (Spec 1). Whether Codex's and agy's hooks also fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139 (section 9.2).
 6. **Headless entry points** for starting another vendor's CLI: `claude -p`, `codex exec` and `codex review`, and `agy -p`.
 
 ### 9.2 What the brief must not assume
@@ -663,7 +679,7 @@ A Lead brief is advice to a Harness that rapid-ship does not control, so it reli
 | --- | --- | --- | --- |
 | Model per subagent | An alias or full ID on each spawn. With `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, the `CLAUDE_CODE_SUBAGENT_MODEL` environment variable overrides it | Any model of the parent's Provider, on each spawn | Only `inherit`, `flash` or `pro`. An exact slug applies to the whole Session |
 | Subagents inherit the project's instructions | Documented: CLAUDE.md, settings hooks and permissions | Only the sandbox and approval settings are documented | Only permissions, command prefixes and the sandbox are documented |
-| Settings hooks fire inside subagents | Documented | Unconfirmed | Unconfirmed |
+| Settings hooks fire inside subagents | Documented | Unconfirmed until the hook spike (PRO-139) | Unconfirmed until the hook spike (PRO-139) |
 | A worktree per subagent | `isolation: worktree`, branched from the default branch | Unconfirmed; `codex --worktree` covers a whole Session | A `branch` workspace mode; how to request it is unconfirmed |
 | Native review command | `/code-review` | `/review` and `codex review` | None |
 | Parallel limits | 20 concurrent subagents by default, nested 3 deep | Set by `agents.max_concurrent_threads_per_session`. The docs caution against parallel write-heavy work | None documented; nesting capped at 10 |
@@ -676,12 +692,13 @@ The brief therefore:
 - Says "wait for every Worker" rather than "run in the foreground". In Claude Code's fork mode, the default in interactive Sessions since v2.1.232, subagents always run in the background.
 - Treats a native review command as an extra input to a Reviewer, never as a substitute for `rs-review`. Claude Code's `/code-review` follows CLAUDE.md, but it does not produce the verdict format of section 3.6.
 - Never requires an experimental, interactive-only or paid-only feature: Claude Code's agent teams, dynamic workflows, agent view, routines and `/code-review ultra`; agy's `/boost` and `/teamwork-preview`; Codex's `codex app-server`. Codex removed `codex mcp-server` in 0.154.0.
-- Asks for a Lead started from a clean checkout of the default branch, because a Claude Code subagent in its own worktree takes its instruction files from the main conversation, not from its worktree.
-- Never claims that the Harness will follow it, or that a subagent received the named model. rapid-ship cannot see either. CI and the ruleset hold regardless.
+- Asks for a Lead started from a clean checkout at `origin/<default branch>`, on any branch, because a Claude Code subagent in its own worktree takes its instruction files from the main conversation, not from its worktree.
+- Starts every Reviewer in a checkout of the base branch, so the Reviewer runs under the base branch's instructions and hooks, never under those of the change it reviews.
+- Never claims that the Harness will follow it, or that a subagent received the named model. rapid-ship cannot see either. CI and any ruleset hold regardless.
 
 ### 9.3 Other Harnesses and desktop apps
 
-Any other Harness gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer through a shell route. Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
+rapid-ship supports any Harness, including API-backed ones such as pi. Any Harness other than the three gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit, but no guardrail settings (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer through a shell route. A Roster names such a Harness with the owner's headless `command` (section 6.4). Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
 
 ### 9.4 Sources
 
@@ -704,9 +721,11 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 - **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk of running agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, `rs-lead`'s warning on that route is acknowledged rather than a blocker.
 - **Models:** this repository uses each chosen model exactly as named and stops instead of falling back, as its root AGENTS.md requires.
 
-## 11. What changed on 2026-10-16
+## 11. What changed on 2026-10-16 and 2026-10-19
 
 The Walk-flow draft of 2026-10-15 is withdrawn, and this spec replaces it as Spec 2. Under [ADR 0004](../../adr/0004-team-management-boundary.md), rapid-ship no longer runs the Lead's loop: `devctl dispatch`, `watch`, `pr`, `review` and `merge`, Claims, Takeovers, per-role sandboxed launches, the attempt limit and the five-Worker cap are gone. `rs-plan` became `rs-breakdown` and gained milestones. `rs-walk` became `rs-lead`, which writes a brief instead of running a loop. `rs-playbook-author` is dropped. The `ready-for-agent` label and the epic approval state are dropped, because a task's state and its blockers say whether it is ready. The review-round limit became the `revision_rounds` escalation kind. Kept from the draft: the Linear state conventions, the rule that the Lead never guesses why a pull request closed, the "changes agent instructions" flag, one verdict per head commit, and squash merges only.
+
+The owner's second review on 2026-10-19 settled the proposals this spec listed and changed six things. The Walk Worker cap is gone: rapid-ship takes no notice of how many Sessions or Workers run. The Stop-hook check is gone from the guardrails, so `rs-work` runs `./devctl check` itself before it reports. The diff cap became 1,500 lines with documentation files excluded, and a declared overage became an escalation kind. Every Reviewer starts in a checkout of the base branch. The Roster accepts any Harness with a headless command. The merge guard holds the Protected set and a passed `devctl check` in every setup.
 
 ## 12. Testing
 
@@ -724,29 +743,38 @@ The skills are instructions, so most of their validation is dog-fooding: real ru
 | --- | --- | --- |
 | `rs-design` | On hello-rapid-ship, design one small feature from a one-line idea. On rapid-ship, design the next feature the owner picks | Every question carried a recommended answer, the owner made every decision, the spec follows the template, and an ADR exists only for a real trade-off. The owner judges the result |
 | `rs-breakdown` | Break the hello-rapid-ship design into one milestone in its tracker project. On rapid-ship, break down Spec 3 for its plan | Every task has the template's sections and native blocked-by links, the frontier holds at least two independent tasks, and every resulting pull request stays within the diff cap without an `Over the diff cap:` declaration |
-| `rs-lead` | Start a Lead with the brief in Claude Code, in Codex and in agy, on hello-rapid-ship in Walk. Repeat for each Roster route this repository uses, including the Codex plugin's `/codex:rescue` | The brief has every template section, claims nothing section 9 rules out, and gives each warning of section 6.4 for its route |
-| `rs-work` | A Worker on each Harness implements a task. The seeded tasks include one too large for the cap and one that requires removing a test | A failing test precedes its code in the branch's history; `devctl check` passed before the pull request opened; the body carries Evidence, `Not covered:` and the declared removal; the oversized task stopped as `blocked` |
-| `rs-review` | Review hello-rapid-ship pull requests with seeded defects: a missed acceptance criterion, a test that cannot fail, a Pattern bypass and a naming nit. Run once with Agent identity and once without | The first three are blocking with a plausible rung and the naming issue is a nit; there is one verdict per head; with Agent identity it is a real review from the Reviewer App, without it a `COMMENT` review; the next Reviewer resolves exactly the threads it verified |
-| Flight help | On hello-rapid-ship with Agent identity, the pull request that sets `every_pr = false` and narrows CODEOWNERS | After it merges, the Lead merges a pull request outside the escalation list as the Worker App, GitHub refuses a Protected pull request without the owner's approval, and the guardrails deny `gh pr merge --admin`. Without Agent identity, `rs-lead`'s explanation is recorded and the ruleset is left unchanged |
+| `rs-lead` | Start a Lead with the brief in Claude Code, in Codex and in agy, on hello-rapid-ship in Walk, once from a worktree on another branch. Repeat for each Roster route this repository uses, including the Codex plugin's `/codex:rescue` and one owner-supplied `command`. Once, make `project.toml` unreadable first | The brief has every template section, claims nothing section 9 rules out, and gives each warning of section 6.4 for its route. `/codex:rescue` carries an `rs-work` and an `rs-review` prompt. With unreadable settings, `rs-lead` stops at its first step and names the problem doctor reported |
+| Roster under parallel subagents | With a Roster that names a Worker and a Reviewer Agent, run a Claude Code Lead that starts many background subagents in parallel through a dynamic workflow (typed `ultracode`), and a Codex Lead that runs several subagents in parallel. The brief never requires either (section 9.2); this trial checks that the Roster survives them | Every Worker for a coding task and every Reviewer for a review ran on the Harness and model the Roster names, as the Harness's transcript or the route's command line shows. Other subagents, such as ones that explore the code, are not checked. A failure changes the brief or the routes, or the documentation names that mode as one the Roster does not survive |
+| `rs-work` | A Worker on each Harness implements a task. The seeded tasks include one too large for the diff cap and one that requires removing a test | A failing test precedes its code in the branch's history; `devctl check` passed before the pull request opened; the body carries Evidence, `Not covered:` and the declared removal; the oversized task stopped as `blocked` |
+| `rs-review` | Review hello-rapid-ship pull requests with seeded defects: a missed acceptance criterion, a test that cannot fail, a Pattern bypass and a naming nit. Add one pull request that also weakens `rs-review`'s own text. Run once with Agent identity and once without | The first three are blocking with a plausible rung and the naming issue is a nit; the Reviewer ran in a checkout of the base branch and judged the weakened skill by the base version; there is one verdict per head; with Agent identity it is a real review from the Reviewer App, without it a `COMMENT` review; the next Reviewer resolves exactly the threads it verified |
+| Flight help | On hello-rapid-ship with Agent identity, the pull request that sets `every_pr = false` and narrows CODEOWNERS | After it merges, the Lead merges a pull request outside the escalation list as the Worker App, GitHub refuses a Protected pull request without the owner's approval, the merge guard denies the Lead's merge of a Protected pull request and of one whose head failed `devctl check`, and the guardrails deny `gh pr merge --admin`. Without Agent identity, `rs-lead`'s explanation is recorded and the ruleset is left unchanged |
 
 The trials on Linear also confirm the facts the mapping note relies on: the integration's moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests. `./devctl doctor --skills` lists the five skills in each Harness.
 
-Each `rs-lead` trial also records what the Lead did: a worktree per Worker, the cap respected, every Worker awaited, a fresh Reviewer per head, nits skipped, blocking findings fixed, escalation at the round limit, and in-session Corrections appended. Adherence is the Harness's, so these observations improve the brief's wording; they are never a pass or a fail of rapid-ship.
+Each `rs-lead` trial also records what the Lead did: a worktree per Worker, every Worker awaited, a fresh Reviewer per head in a checkout of the base branch, nits skipped, blocking findings fixed, escalation at the round limit, and in-session Corrections appended. Apart from the Roster trial, these observations improve the brief's wording and are never a pass or a fail of rapid-ship, because adherence is the Harness's.
 
 ## 13. Open items
 
-1. **Revision rounds as an escalation kind (proposal).** `revision_rounds`, 3 by default, replaces the review-round limit. The owner confirms the kind and its default.
-2. **`[tracker]` and `[design]` (proposal).** Spec 1 removed `[linear]`, because devctl never talks to the tracker. This spec adds `[tracker]`, which the skills read and devctl only validates, and `[design]`. Spec 2's plan adds both to devctl's settings loader.
-3. **The diff cap** is still Spec 1's proposal: 500 added and removed lines, its exclusions, and the `Over the diff cap:` declaration. A Worker declares an overage only after the owner accepted it before the work, so no escalation kind sends such a pull request back to the owner. This spec sizes tasks to the cap.
-4. **The Walk Worker cap (proposal).** `rs-lead` suggests 3.
-5. **Review threads (proposal).** Blocking findings become inline threads, nits stay in the body, and only a later Reviewer or the owner resolves a thread. This relies on Spec 1's ruleset keeping required thread resolution.
-6. **`devctl as` and the approval count in Flight.** This spec uses Spec 1's proposed `devctl as` interface. Spec 1 also decides whether GitHub counts the Reviewer App's approval toward the ruleset's required approval.
-7. **The review layout (proposal).** A fixed text layout with a category per blocking finding, which `rs-garden` reads as a model, instead of plan 4's fenced `rapid-ship-verdict` block.
-8. **Linear conventions (proposal).** `rs-breakdown` publishes only approved tasks, straight into an unstarted state such as Todo; a deferred task moves back to Backlog; and `ready-for-agent` and the epic approval state are dropped. The trials on Linear verify the facts the note relies on (section 12).
-9. **Codex Workers through the shell.** The withdrawn Walk-flow draft recorded that Codex's `workspace-write` sandbox cannot commit in a linked worktree on macOS. If that holds, a `codex exec` Worker cannot commit, and the trial decides between the Lead committing for it and the owner choosing another sandbox.
-10. **agy's terms.** The warning in section 6.4 cites Google's consumer terms as ADR 0001 records them. The research of 2026-10-16 could not confirm Google's terms for scripted `agy -p` use, so the warning needs a primary source.
-11. **The Codex plugin route.** That `/codex:rescue` can carry a prompt that follows `rs-work` or `rs-review` is unverified; the `rs-lead` trial confirms it.
-12. **Unconfirmed Harness facts** from section 9.2: whether Codex and agy subagents receive the AGENTS.md chain and fire hooks, whether Codex can give a subagent its own worktree, and how agy requests its `branch` mode.
-13. **Other Harnesses in the Roster.** Routes exist for `claude`, `codex` and `agy`. pi and others need a route, such as a headless command the owner supplies.
-14. **Several Agents for one role,** for example one per kind of task.
-15. **`rs-pr` (a dependency on Spec 1's proposal).** Section 3.5 and `rs-work` step 10 rely on `rs-pr`, which Spec 1 proposes with four other engineering skills. If the owner drops it, `rs-work` writes the pull request body from section 3.5 itself.
+### 13.1 Facts that the spike and the trials confirm
+
+The owner decided how each of these is settled. Only the result is pending.
+
+1. **Codex and agy hooks.** Whether their hooks fire inside subagents and headless Sessions, and whether Codex hooks can ask. The hook spike, backlog item PRO-139, settles this as the first task of Spec 1's plan 5. Until then, the warning in section 6.4 applies.
+2. **Other Harness facts** from section 9.2: whether Codex and agy subagents receive the AGENTS.md chain, whether Codex can give a subagent its own worktree, and how agy requests its `branch` mode. The `rs-lead` trials settle them.
+3. **Codex Workers through the shell.** The withdrawn Walk-flow draft recorded that Codex's `workspace-write` sandbox cannot commit in a linked worktree on macOS. If the trial shows that this still holds, it decides between the Lead committing for the Worker and the owner choosing another sandbox.
+4. **The Codex plugin route.** The `rs-lead` trial checks that `/codex:rescue` can carry a prompt that follows `rs-work` or `rs-review`.
+5. **The ruleset's approval count in Flight with Agent identity.** Required approvals stay at 1 until the live trial shows whether GitHub counts the Reviewer App's approval (section 6.5, and Spec 1).
+6. **Linear's GitHub integration:** its moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests (section 12).
+
+### 13.2 Left open by the owner
+
+7. **Several Agents for one role,** for example one per kind of task. Each role has one Agent until then; adopting several would extend `[roster]`.
+
+### 13.3 Proposals in this spec
+
+The owner has not decided these yet.
+
+8. **The key for the Roster's command (proposal).** The owner decided that a Harness without a built-in route runs from a headless command template that the owner supplies (sections 3.4 and 6.4). The drafter's details are the key's name, `command`, and its `{prompt}` and `{model}` placeholders. Spec 1 owns `[roster]`, so it validates the key and says what `devctl doctor` checks for such a Harness, such as that the command's program is on `PATH`.
+9. **Prior acceptance of a diff-cap overage (proposal).** The owner decided that a pull request that declares `Over the diff cap:` is a default escalation kind, which Spec 1 seeds in `kinds`, so the owner sees every such pull request. The drafter's detail: `rs-work` declares an overage only after the owner accepted it, as the Lead relays (sections 3.5 and 7), so a Worker stops as `blocked` before it builds a pull request the owner may reject. In Flight that asks the owner twice. The alternative: a Worker declares an overage with its reason and no prior acceptance, and the escalation kind brings the pull request to the owner.
+10. **The merge guard in Walk without a ruleset (proposal).** Without Agent identity, Walk under a ruleset holds as a guardrail: the ruleset requires an approval that the owner cannot give their own pull request, and the guardrails keep the owner's bypass from the Lead by denying `gh pr merge --admin` and the other recognised ways to land a change on the default branch (Spec 1). On a repository without a ruleset, such as a private one on GitHub Free, the Lead could still merge a green, unprotected pull request with `gh pr merge`. The proposal: the merge guard also denies every agent merge while `every_pr = true`, so Walk holds there too. Spec 1 owns the guard, which must also match merges made through `./devctl as worker gh`.
+11. **The Reviewer's checkout (proposal).** The Lead starts a Reviewer in its own checkout or in a new worktree at `origin/<base branch>`. `rs-review` accepts any clean checkout whose `HEAD` is an ancestor of `origin/<base branch>` (section 8).
