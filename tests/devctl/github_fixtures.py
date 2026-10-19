@@ -19,11 +19,12 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from check_workspace import project_settings
-from devctl import process
+from devctl import identity, process
 from devctl.doctor_items import DoctorContext, OwnerReadError
 from devctl.github.app import GitHubAccess
 from devctl.process import ProcessResult
-from devctl.settings import Agent, App, Harness, ProjectSettings
+from devctl.repo import Repo
+from devctl.settings import Agent, App, Harness, ProjectSettings, Role
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
@@ -39,6 +40,7 @@ from github_fakes import (
     RecordedOwner,
     Remote,
     RepoFiles,
+    RunAs,
     git,
 )
 
@@ -154,6 +156,22 @@ def project() -> ProjectSettings:
             "reviewer": Agent("claude", "claude-opus-5-5"),
         },
     )
+
+
+@pytest.fixture
+def run_as(
+    access: GitHubAccess, project: ProjectSettings, monkeypatch: pytest.MonkeyPatch
+) -> RunAs:
+    """devctl as in the working directory, with o/r on the simulated GitHub and the test keys.
+
+    settings= replaces the project fixture's settings.
+    """
+    monkeypatch.setattr(identity, "project_access", lambda settings: access)
+
+    def run(role: Role, action: str, *arguments: str, settings: ProjectSettings = project) -> int:
+        return identity.run_as(Repo.discover(Path.cwd()), settings, role, action, list(arguments))
+
+    return run
 
 
 @pytest.fixture

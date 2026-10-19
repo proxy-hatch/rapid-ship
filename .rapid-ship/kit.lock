@@ -151,7 +151,7 @@ sha256 = "a37294ed357b4dc19f2c8df528535cfbb382af0f27cb5b47e8d9abaa28160bd1"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "d9152c711e8b191e0b37a231e16def8969de89e675efe650e08a9cb9aee4cae9"
+sha256 = "81f61e1aa026799d29da7a9a286657b2041c2dabeb98d9053d496fd1c92216e5"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
@@ -212,6 +212,11 @@ sha256 = "506891f77aac35312676963e58654da70f7806c62b74ad6686e2faf055df9c7a"
 path = "tools/devctl/devctl/harness.py"
 kind = "managed"
 sha256 = "9473ed2cecfedc297bb12a6af106bad280834777da8318a47e939f91568a576c"
+
+[[file]]
+path = "tools/devctl/devctl/identity.py"
+kind = "managed"
+sha256 = "b62b7aec77e983f9943a2e5a2e69ea778e0a21e788f8d8703e5e6371eaa44d70"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

@@ -57,6 +57,7 @@ class Call:
 Reply = tuple[Any, ...]  # (status, body) or (status, body, headers)
 Handler = Callable[[Call, re.Match[str]], Reply]
 MakeContext = Callable[..., DoctorContext]
+RunAs = Callable[..., int]  # the run_as fixture: (role, action, *arguments, settings=...)
 
 
 @dataclass(frozen=True)
