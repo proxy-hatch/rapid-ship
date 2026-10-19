@@ -106,7 +106,7 @@ Where the old code, Spec 1 and the index differ, this plan follows the index and
 
 ## Checked facts
 
-Rows marked "old plan" were checked on 2026-10-14 and are recorded in the superseded [GitHub commands plan](2026-10-14-github-commands.md#checked-facts); Task 10 rechecks the live ones.
+Rows marked "old plan" were checked on 2026-10-14 and are recorded in the [GitHub commands plan](https://github.com/proxy-hatch/rapid-ship/blob/928fbe493977ae41d2012e19baff3e861fd5b0e8/docs/superpowers/plans/2026-10-14-github-commands.md#checked-facts), the old plan 4, since deleted; Task 10 rechecks the live ones.
 
 | Fact | Source |
 | --- | --- |
