@@ -270,7 +270,7 @@ def test_cli_app_calls_run_app_with_the_real_dependencies(
         return 0
 
     monkeypatch.setattr(cli, "run_app", record)
-    monkeypatch.chdir(tmp_path)  # app reads no Kit file, so it needs no work tree
+    monkeypatch.chdir(tmp_path)  # app runs outside a work tree too
     assert cli.main(["app", "--repository", "o/r"]) == 0
     [(repository, kwargs)] = calls
     assert repository == "o/r"
