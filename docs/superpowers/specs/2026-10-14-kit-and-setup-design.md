@@ -36,7 +36,7 @@ Built in plan 1. The last commit that contains the controller is tagged `archive
 1. The controller code and its tests were deleted: `rapid_ship/execution/`, `rapid_ship/trust/` and `rapid_ship/project/`; the old `cli.py`, `models.py`, `storage.py`, `logs.py`, `protocol_json.py`, `metrics.py`, `github_metrics.py` and templates; the root controller `devctl` with its build and smoke scripts; the `tests/typecheck_*.py` fixtures; and `examples/`.
 2. `rapid_ship/files.py` stayed. `rapid_ship/process.py` moved into devctl in plan 3. The console script is `rapid-ship`.
 3. The `rapid-ship` and `rapid-ship-improve` skills were deleted. `rapid-ship-engineering` stays until plan 7's Kit skills replace it; the optional `rs-contribute` replaces `rapid-ship-improve`.
-4. The controller-era records left the current documentation, and the remaining old guides start with a "Historical" line. The tag keeps the records, as the [orchestrator note](../../archive/orchestrator/README.md) says.
+4. The controller-era records and guides left the current documentation. Only `docs/getting-started.md` remains, with a "Historical" line under its title. The tag keeps the deleted records and guides, as the [orchestrator note](../../archive/orchestrator/README.md) says.
 5. `README.md`, `ARCHITECTURE.md`, the root `AGENTS.md` and `CLAUDE.md` were rewritten for the Kit.
 
 Later plans reused these parts of the tagged commit:
