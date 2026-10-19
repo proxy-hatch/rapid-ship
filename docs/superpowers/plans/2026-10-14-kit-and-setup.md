@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as six plans, in this order. Each one ends with a working, tested repository and its own PR. Plans 1 to 3 are built. Plans 4 to 6 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); each gets its own plan document, written from this index before its work starts. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
+Spec 1 is built as six plans, in this order. Each one ends with a working, tested repository and its own PR. Plans 1 to 4 are built. Plans 4 to 6 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); each gets its own plan document, written from this index before its work starts. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -351,7 +351,7 @@ Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `ta
 - This repository's `.rapid-ship/project.toml`, edited in place because it is seeded, and its `.rapid-ship/gate.toml`, deleted.
 - Tests: `tests/devctl/test_devctl_settings*.py`, `test_devctl_doctor*.py`, `test_devctl_harness.py`, `test_devctl_github_api*.py`, `test_devctl_github_app*.py`, `test_devctl_askpass*.py`, `test_devctl_identity*.py`, `test_devctl_probe_worktree.py`, `github_fakes.py`, `github_fixtures.py`, `fixtures/github/`; `tests/test_kit_app*.py`; `tests/conftest.py`.
 - Tests that use what task 2 removes: `tests/devctl/check_workspace.py`, `test_devctl_diff_removed_tests.py`, `test_devctl_check_cli.py`, `test_devctl_cli.py` for the `gate.toml` error, and `tests/test_kit_contents.py` for the seeded `gate.toml` and the `linear` and `dispatch` tables.
-- Docs: `ARCHITECTURE.md`, the root `AGENTS.md` (its link to `gate.toml`), `rapid_ship/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, and the trial record under `docs/trials/`.
+- Docs: `README.md`, `ARCHITECTURE.md`, the root `AGENTS.md` (its link to `gate.toml`), `rapid_ship/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, the status lines of Spec 1, this index and the rapid-ship design, and the trial record under `docs/trials/`.
 
 **Tasks:**
 

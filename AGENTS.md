@@ -2,13 +2,14 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the six plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet: plans 4 to 6 (doctor and Agent identity; Kit standards and Harness guardrails; `rs-setup` and `rs-health`), [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics and gardening.
+Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet: plans 5 and 6 (Kit standards and Harness guardrails; `rs-setup` and `rs-health`), [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics and gardening.
 
 ## Commands
 
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Session per Harness.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.

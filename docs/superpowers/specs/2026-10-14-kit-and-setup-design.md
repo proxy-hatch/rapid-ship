@@ -1,6 +1,6 @@
 # Spec 1: Kit and Setup
 
-**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)). Plans 1 to 3 are built. Plans 4 to 6 are proposed in the [plan index](../plans/2026-10-14-kit-and-setup.md). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. A detail marked **Proposal** is not yet confirmed by the owner; [section 11](#11-questions) lists each one.
+**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)). Plans 1 to 4 are built. Plans 5 and 6 are proposed in the [plan index](../plans/2026-10-14-kit-and-setup.md). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. A detail marked **Proposal** is not yet confirmed by the owner; [section 11](#11-questions) lists each one.
 
 ## 1. Scope and outcome
 

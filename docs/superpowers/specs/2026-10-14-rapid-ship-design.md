@@ -165,7 +165,7 @@ Each skill is one real directory under `.agents/skills/<name>/`, which Codex and
 
 Three specs:
 
-1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md)**, mostly built: the `rapid-ship` command, `devctl check` and `doctor`, the Harness guardrails, the README and ARCHITECTURE seeds, the Pattern mechanism, optional Agent identity, `rs-setup` and `rs-health`. Plans 1 to 3 built `init`, `status`, `sync` and `devctl check`. The [plan index](../plans/2026-10-14-kit-and-setup.md) lists the rest: plan 4, doctor and Agent identity; plan 5, Kit standards and Harness guardrails; plan 6, `rs-setup` and `rs-health`.
+1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md)**, mostly built: the `rapid-ship` command, `devctl check` and `doctor`, the Harness guardrails, the README and ARCHITECTURE seeds, the Pattern mechanism, optional Agent identity, `rs-setup` and `rs-health`. Plans 1 to 4 built `init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. The [plan index](../plans/2026-10-14-kit-and-setup.md) lists the rest: plan 5, Kit standards and Harness guardrails; plan 6, `rs-setup` and `rs-health`.
 2. **[Delivery skills](2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
 3. **[Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger and `rs-garden`.
 
