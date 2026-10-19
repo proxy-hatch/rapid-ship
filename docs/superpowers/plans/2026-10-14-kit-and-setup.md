@@ -6,9 +6,9 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
-| 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
-| 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
-| 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
+| 1 | [Remove the old controller](https://github.com/proxy-hatch/rapid-ship/pull/28) | 2 | — | Built: PR #28, `codex/remove-controller` |
+| 2 | [The rapid-ship CLI](https://github.com/proxy-hatch/rapid-ship/pull/29): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
+| 3 | [`devctl check`](https://github.com/proxy-hatch/rapid-ship/pull/30), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first; its live trials and this repository's Agent identity are pending Owner steps |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its wiring, the standards seeds and checks, documented settings with the Roster's `command`, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Planned: four PRs |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
@@ -18,9 +18,18 @@ PRs #28 to #30 form a stack on the design PR, #27: each is based on the one befo
 
 Each merge deleted the Walk-flow draft, which only #30's root AGENTS.md and ARCHITECTURE.md linked. On each branch, commits after the merge updated the root AGENTS.md, ARCHITECTURE.md and README.md, and `rapid_ship/AGENTS.md`, for the re-scope and for what that branch has built.
 
-Two plan documents are superseded and kept as history: [GitHub commands](2026-10-14-github-commands.md), the old plan 4, built on `codex/github-commands` and never merged; and [Kit skills](2026-10-14-kit-skills.md), the old plan 5, never started.
+The two plan documents that plans 4 to 7 replace were deleted: GitHub commands, the old plan 4, built on `codex/github-commands` and never merged; and Kit skills, the old plan 5, never started. Plan 4's outline below lists what it took from `codex/github-commands`.
 
-This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 4 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records. Plan 4's plan document, `2026-10-16-doctor-and-agent-identity.md`, is on its branches.
+A `git merge-tree` simulation shows that merging #27's deletions of 2026-10-20 up into #28, #29 and #30 conflicts on each branch. Resolve every branch the same way:
+
+1. Keep the plan documents of the branch's own PR and the PRs below it. #28 keeps `2026-10-14-remove-controller.md`, #29 also keeps `2026-10-14-rapid-ship-cli.md`, and #30 also keeps `2026-10-14-devctl-check.md`.
+2. Delete `2026-10-14-github-commands.md`, which #30 modified. `2026-10-14-kit-skills.md` is deleted without a conflict.
+3. Take #27's `docs/archive/AGENTS.md` and orchestrator note. In `docs/AGENTS.md`, take #27's lines on the ADRs and the archive, and keep the branch's other lines.
+4. On #28, delete the controller-era records that plan 1 moved into `docs/archive/orchestrator/`: `authority.md`, `environments.md`, `runtime-choice.md`, `session-handoffs.md` and `trials/`. The archive keeps one short note for each dropped body of work, and the tag `archive/controller-2026-10` keeps these records, as the [orchestrator note](../../archive/orchestrator/README.md) says. The tag lacks only the status lines and link fixes that #28 added.
+5. On #28, point each link to those records at its copy at the tag, `https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/<path>`. The links are in `docs/bootstrap-validation.md`, `docs/getting-started.md`, `docs/model-harnesses.md`, `docs/usage.md` and `docs/trials/AGENTS.md`. The site build fails on a broken link, so run it before committing the merge.
+6. #29 and #30 take steps 4 and 5 when #28, then #29, merges up into them.
+
+This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 4 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records. Each plan document lives in its plan's PRs: plans 1 to 3 in PRs #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, on its branches.
 
 ## Conventions for every plan
 
@@ -359,7 +368,7 @@ def answer(
 Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `task` key, the `## Lessons` section, and the Evidence line `Over the diff cap: <reason>`, read only inside `## Evidence`, like `Removed tests:`. Plan 6 adds the TypeScript suppressions, with a table of rule names like plan 3's. Plan 3 also built these details, which Spec 1 leaves out:
 
 - A suppression's rules join sorted, separated by `,` (`E501,F401`), and an entry's `rule` is normalised the same way. The marker follows the suppression on its line: `# noqa: S603  # rs-exception: EX-1`. The seeded `exceptions.toml` holds comments only.
-- [Plan 3's suppression table](2026-10-14-devctl-check.md#task-7-exceptions-step) maps each suppression form to its rule name, such as `type-ignore`, `no-cover`, `mypy:ignore-errors`, `mypy:disable-error-code`, `skip`, `importorskip`, `autouse`, `gitleaks` and `zizmor:a,b`. Every `exceptions.toml` entry uses these names, including those that `rs-setup` writes for existing suppressions (plan 7).
+- Plan 3's suppression table, PR #30, task 7, maps each suppression form to its rule name, such as `type-ignore`, `no-cover`, `mypy:ignore-errors`, `mypy:disable-error-code`, `skip`, `importorskip`, `autouse`, `gitleaks` and `zizmor:a,b`. Every `exceptions.toml` entry uses these names, including those that `rs-setup` writes for existing suppressions (plan 7).
 - The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`).
 - In the Evidence section, a command is a list item that starts with a code span, a colon and text, or a fenced block whose first non-empty line starts with `$ ` and that has another non-empty line. `Not covered:` starts a line outside code, with text after the colon. Backticks around a removed test's identity are optional, and `<name>` is `test_x` or `TestA::test_x`.
 

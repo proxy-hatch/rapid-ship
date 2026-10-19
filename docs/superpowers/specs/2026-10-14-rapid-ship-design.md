@@ -1,6 +1,6 @@
 # rapid-ship design
 
-*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), and on 2026-10-19 after the owner's second review. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
+*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), and on 2026-10-19 after the owner's second review. The owner's reviews of PR #27 on those dates settled what this design states, and [Open](#open) lists what is still open. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
 
 ## The problem
 
@@ -210,34 +210,10 @@ Three specs:
 
 Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, Windows, and rewriting the documentation site.
 
-[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule, and [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded.
+[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule. ADR 0003 was withdrawn before merge.
 
 ## Open
 
 - **The ruleset's approval count with Agent identity in Flight.** It stays `1` until the live ruleset trial. If GitHub does not count the Reviewer App's approval, it becomes `0` with code-owner review still required, so CODEOWNERS alone decides who must approve. The trial decides, and Spec 1 records the result.
 - **The Codex and agy guardrails.** Until plan 5's spike (PRO-139) confirms that their hooks fire, including inside subagents, the design claims the guardrails for Claude Code only.
 - **Who may generate a shared App's key (PRO-105).** For an organisation's Apps, each developer generates their own private key as an App manager of both Apps, so nobody else handles it. GitHub documents that App managers manage an App's settings, but not that this includes generating its private keys. The organisation trial among plan 4's follow-ups settles it; if App managers cannot, the organisation admin generates one key for each developer and hands it over securely. The App manager route costs this: an App manager can also change the App's settings.
-
-## What changed
-
-**On 2026-10-16** the design moved to the team-management boundary. These parts were cut:
-
-- `devctl dispatch`, `pr`, `review`, `merge` and `watch`; Claims, Release, Takeover, the Session registry and the gate log.
-- The Lead's event loop (the Walk-flow draft), per-role sandboxed launches, `attempt_limit`, `review_round_limit` and the five-Worker cap.
-- rapid-orchestrator, dropped rather than deferred.
-- The Flight lease, automatic demotion, the Pre-flight gate, the attack-PR set and the Investigator. Rollbacks became a project-defined metric.
-- Linear as the only tracker, subscription sign-ins as a product rule, Agent identity as a requirement, doctor's tracker item, and the test-bed spec.
-- The activity "Plan" became Breakdown, and `rs-plan` and `rs-walk` gave way to `rs-breakdown` and `rs-lead`.
-
-**On 2026-10-19**, after the owner's second review:
-
-- The cap on parallel Workers left the Focus, the Lead brief and the settings. rapid-ship only advises at most 3 Workers at once in Walk.
-- The Stop-hook check was dropped as too heavy. The merge guard joined `devctl hook`, so the Protected set and a passing `devctl check` hold at merge in every setup, and the guardrails deny the other ways the hook recognises to land a change on the default branch, a `git push` to it included.
-- Pre-flight returned as `rs-preflight`, an advisory review that never gates.
-- The Kit ships a starter Pattern set for each stack, not only the Pattern format. Spec 1 gained the TypeScript stack and several stacks in one repository as plan 6, and `rs-setup` and `rs-health` moved to plan 7.
-- The diff cap became 1,500 lines, not counting `.md`, `.txt` and `.log` files, and a PR over it goes to the owner by default.
-- A Roster may name any Harness, and a Reviewer starts from the base branch.
-- Changing or removing a Corrections ledger entry became a Protected change.
-- [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) gained the advice on when to set up Agent identity and the team design, and [ADR 0004](../../adr/0004-team-management-boundary.md) records Flight's credential safeguards as rejected.
-- A later round, 2b, settled five proposals: in Walk the Lead merges a PR only when the owner says so, and the merge guard has no Walk rule; the merge guard reads CODEOWNERS from the PR's base branch; organisation-owned repositories are supported from the start (PRO-105); every Worker and Reviewer Session starts with `./devctl doctor --settings`; and the `[[stack]]` shape and Kit migrations on their own branch and PR are decided.
-- A last round, 2c, settled the remaining proposals. Most stand as drafted, among them `--match-head-commit` on every agent merge and the owner accepting a diff-cap overage before the work. The Python and TypeScript stacks each name a profiler, such as py-spy for Python; `init` searches the whole repository for stack roots and proposes them; partial reverts count under Reverts, matched by similarity; the metrics window has no upper limit; and only a change to an existing ledger entry is Protected, with the ledger's README in CODEOWNERS. Incidents reach gardening only through a metric the project writes, so the `incidents` flag and the incident issue form were dropped.
