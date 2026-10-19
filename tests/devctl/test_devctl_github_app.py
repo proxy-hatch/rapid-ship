@@ -113,3 +113,11 @@ def test_mac_keychain_decodes_hex_output_and_maps_exit_44(app_keys: AppKeys) -> 
     with pytest.raises(AppError) as caught:
         MacKeychain(run=lambda argv: ProcessResult(argv, 0, "not a key\n", "", 0.0)).read("s")
     assert "not a key" not in str(caught.value)
+
+
+def test_rapid_ship_and_devctl_agree_on_services_and_permissions() -> None:
+    from devctl.github import app
+    from rapid_ship import github_app
+
+    assert github_app.KEYCHAIN_SERVICE == app.KEYCHAIN_SERVICE
+    assert github_app.APP_PERMISSIONS == app.APP_PERMISSIONS

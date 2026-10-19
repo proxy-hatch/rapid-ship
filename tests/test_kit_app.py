@@ -1,0 +1,387 @@
+"""Offline: rapid-ship app with a simulated browser, GitHub conversion endpoint and Keychain."""
+
+import html
+import json
+import re
+import subprocess
+import threading
+import tomllib
+import webbrowser
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from http.client import HTTPConnection
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+import pytest
+
+from rapid_ship import cli
+from rapid_ship.github_app import (
+    AppSetupError,
+    MacKeychainStore,
+    OwnerGet,
+    StoredApp,
+    gh_owner_get,
+    run_app,
+)
+
+Captured = list[tuple[str, dict[str, Any]]]
+
+# The App ID and requested permissions of each App, by the end of the App's name.
+REQUESTED: dict[str, tuple[int, dict[str, str]]] = {
+    "-rs-worker": (
+        11,
+        {"contents": "write", "pull_requests": "write", "issues": "write", "metadata": "read"},
+    ),
+    "-rs-reviewer": (12, {"pull_requests": "write", "contents": "read", "metadata": "read"}),
+}
+# What the owner's gh login reads: o owns o/r, and org/r belongs to an organization.
+OWNER_READS: dict[str, object] = {
+    "repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "User"}},
+    "repos/org/r": {"id": 3, "owner": {"login": "org", "id": 4, "type": "Organization"}},
+    "user": {"login": "o", "id": 1},
+}
+
+
+class FakeStore:
+    """A Keychain that keeps each App's record and key in two dicts, by service."""
+
+    def __init__(self) -> None:
+        self.apps: dict[str, StoredApp] = {}
+        self.keys: dict[str, bytes] = {}
+
+    def find(self, service: str) -> StoredApp | None:
+        return self.apps.get(service)
+
+    def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
+        self.apps[service] = app
+        self.keys[service] = private_key
+
+
+class FakeSecurity:
+    """`security` over a dict of generic-password items: service -> its -a, -j and -X values.
+
+    As security does, an add without -U leaves an existing item as it was and fails.
+    """
+
+    def __init__(self) -> None:
+        self.argvs: list[list[str]] = []
+        self.inputs: list[str] = []  # each line that security -i read on stdin
+        self.items: dict[str, dict[str, str]] = {}
+
+    def __call__(self, argv: list[str], input_text: str | None) -> subprocess.CompletedProcess[str]:
+        self.argvs.append(argv)
+        if argv == ["security", "-i"]:
+            assert input_text is not None
+            self.inputs.append(input_text)
+            command, *words = input_text.split()
+            assert command == "add-generic-password"
+            update = "-U" in words
+            words = [word for word in words if word != "-U"]
+            options = dict(zip(words[::2], words[1::2], strict=True))
+            if options["-s"] in self.items and not update:
+                # errSecDuplicateItem (-25299). security -i exits with the failed command's status.
+                duplicate = (
+                    "security: SecKeychainItemCreateFromContent (<default>): "
+                    "The specified item already exists in the keychain.\n"
+                    "add-generic-password: returned -25299\n"
+                )
+                return subprocess.CompletedProcess(argv, 45, "", duplicate)
+            self.items[options["-s"]] = {flag: options[flag] for flag in ("-a", "-j", "-X")}
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        assert argv[:3] == ["security", "find-generic-password", "-s"]
+        item = self.items.get(argv[3])
+        if item is None:
+            missing = "security: The specified item could not be found in the keychain.\n"
+            return subprocess.CompletedProcess(argv, 44, "", missing)
+        if argv[4:] == ["-w"]:
+            return subprocess.CompletedProcess(argv, 0, item["-X"] + "\n", "")
+        assert argv[4:] == []
+        # The format of keychain_utilities.c print_keychain_item_attributes.
+        attributes = (
+            'keychain: "/Users/o/Library/Keychains/login.keychain-db"\n'
+            'class: "genp"\n'
+            "attributes:\n"
+            f'    "acct"<blob>="{item["-a"]}"\n'
+            f'    "icmt"<blob>="{item["-j"]}"\n'
+            f'    "svce"<blob>="{argv[3]}"\n'
+        )
+        return subprocess.CompletedProcess(argv, 0, attributes, "")
+
+
+class FakeConversions:
+    """GitHub's POST /app-manifests/<code>/conversions. The code is the name of the App it creates.
+
+    rapid-ship never parses the key, so a PEM-shaped test text stands in for it.
+    """
+
+    def __init__(self) -> None:
+        self.url = ""
+        self.permissions: dict[str, str] | None = None  # granted instead of the requested ones
+        self.status = 201
+        self.changes: dict[str, object] = {}  # reply fields that replace the usual ones
+        self.requests: list[tuple[str, str | None]] = []  # each path and Authorization header
+
+    def pem_for(self, name: str) -> bytes:
+        return f"-----BEGIN RSA PRIVATE KEY-----\n{name}\n-----END RSA PRIVATE KEY-----\n".encode()
+
+    def reply(self, path: str) -> dict[str, object]:
+        name = path.removeprefix("/app-manifests/").removesuffix("/conversions")
+        [(app_id, requested)] = [app for end, app in REQUESTED.items() if name.endswith(end)]
+        return {
+            "id": app_id,
+            "slug": name,
+            "pem": self.pem_for(name).decode(),
+            "client_secret": "client-secret",
+            "webhook_secret": None,
+            "permissions": requested if self.permissions is None else self.permissions,
+            "html_url": f"https://github.com/apps/{name}",
+            **self.changes,
+        }
+
+
+def _conversion_handler(fake: FakeConversions) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            fake.requests.append((self.path, self.headers.get("Authorization")))
+            body = json.dumps(fake.reply(self.path)).encode()
+            self.send_response(fake.status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            """Silent."""
+
+    return Handler
+
+
+@contextmanager
+def serve_conversions() -> Iterator[FakeConversions]:
+    fake = FakeConversions()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _conversion_handler(fake))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    fake.url = f"http://127.0.0.1:{server.server_port}"
+    try:
+        yield fake
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.fixture
+def conversions() -> Iterator[FakeConversions]:
+    with serve_conversions() as fake:
+        yield fake
+
+
+@pytest.fixture
+def store() -> FakeStore:
+    return FakeStore()
+
+
+@pytest.fixture
+def owner_get() -> OwnerGet:
+    def get(path: str) -> object:
+        return OWNER_READS[path]
+
+    return get
+
+
+def http_get(url: str) -> tuple[int, str]:
+    parts = urlsplit(url)
+    connection = HTTPConnection(parts.netloc, timeout=5)
+    connection.request("GET", f"{parts.path}?{parts.query}" if parts.query else parts.path)
+    response = connection.getresponse()
+    return response.status, response.read().decode()
+
+
+def found(pattern: str, text: str) -> str:
+    match = re.search(pattern, text)
+    assert match is not None, pattern
+    return match.group(1)
+
+
+def github_browser(captured: Captured) -> Callable[[str], None]:
+    """Act as the owner's browser and GitHub: read the form, reject a forged callback,
+    then call back."""
+
+    def open_browser(start_url: str) -> None:
+        _, page = http_get(start_url)
+        action = found(r'action="([^"]+)"', page)
+        manifest: dict[str, Any] = json.loads(
+            html.unescape(found(r'name="manifest" value="([^"]+)"', page))
+        )
+        captured.append((action, manifest))
+        callback = manifest["redirect_url"]
+        state = html.unescape(action).split("state=", 1)[1]
+        assert http_get(f"{callback}?code=c0de&state=wrong")[0] == 400
+        assert http_get(f"{callback}?code={manifest['name']}&state={state}")[0] == 200
+
+    return open_browser
+
+
+def test_cli_app_calls_run_app_with_the_real_dependencies(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def record(repository: str, **kwargs: object) -> int:
+        calls.append((repository, kwargs))
+        return 0
+
+    monkeypatch.setattr(cli, "run_app", record)
+    monkeypatch.chdir(tmp_path)  # app reads no Kit file, so it needs no work tree
+    assert cli.main(["app", "--repository", "o/r"]) == 0
+    [(repository, kwargs)] = calls
+    assert repository == "o/r"
+    assert isinstance(kwargs["store"], MacKeychainStore)
+    assert kwargs["owner_get"] is gh_owner_get
+    assert kwargs["open_browser"] is webbrowser.open
+
+
+def test_creates_both_apps_and_prints_install_urls(
+    conversions: FakeConversions,
+    store: FakeStore,
+    owner_get: OwnerGet,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    captured: Captured = []
+    assert (
+        run_app(
+            "o/r",
+            store=store,
+            owner_get=owner_get,
+            open_browser=github_browser(captured),
+            api_url=conversions.url,
+            timeout_seconds=10,
+        )
+        == 0
+    )
+    (action, worker), (_, reviewer) = captured
+    assert action.startswith("https://github.com/settings/apps/new?state=")
+    assert (worker["public"], worker["default_events"], "hook_attributes" in worker) == (
+        False,
+        [],
+        False,
+    )
+    assert worker["default_permissions"] == {
+        "contents": "write",
+        "pull_requests": "write",
+        "issues": "write",
+        "metadata": "read",
+    }
+    assert reviewer["default_permissions"] == {
+        "pull_requests": "write",
+        "contents": "read",
+        "metadata": "read",
+    }
+    assert worker["redirect_url"].startswith("http://127.0.0.1:")
+    assert len(worker["name"]) <= 34
+    assert store.keys["rapid-ship/worker-app"] == conversions.pem_for(worker["name"])
+    out = capsys.readouterr().out
+    assert "Worker App: ID 11" in out
+    assert "Reviewer App: ID 12" in out
+    assert "/installations/new/permissions?suggested_target_id=1&repository_ids[]=2" in out
+    assert "BEGIN" not in out
+    assert "client-secret" not in out
+    assert not [p for p in tmp_path.rglob("*") if p.is_file() and b"BEGIN" in p.read_bytes()]
+
+
+def test_existing_apps_are_only_printed(
+    store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store.apps = {
+        "rapid-ship/worker-app": StoredApp(11, "o-rs-worker"),
+        "rapid-ship/reviewer-app": StoredApp(12, "o-rs-reviewer"),
+    }
+    opened: list[str] = []
+    assert run_app("o/r", store=store, owner_get=owner_get, open_browser=opened.append) == 0
+    assert opened == []
+    assert (
+        "https://github.com/apps/o-rs-worker/installations/new/permissions"
+        in capsys.readouterr().out
+    )
+
+
+def test_organization_repositories_are_refused(store: FakeStore, owner_get: OwnerGet) -> None:
+    opened: list[str] = []
+    assert run_app("org/r", store=store, owner_get=owner_get, open_browser=opened.append) == 1
+    assert (opened, store.keys) == ([], {})
+
+
+def test_permission_mismatch_keeps_the_key_and_exits_1(
+    conversions: FakeConversions, store: FakeStore, owner_get: OwnerGet
+) -> None:
+    conversions.permissions = {"contents": "write", "metadata": "read"}
+    assert (
+        run_app(
+            "o/r",
+            store=store,
+            owner_get=owner_get,
+            open_browser=github_browser([]),
+            api_url=conversions.url,
+            timeout_seconds=10,
+        )
+        == 1
+    )
+    assert "rapid-ship/worker-app" in store.keys
+
+
+def test_no_callback_times_out_with_exit_2(store: FakeStore, owner_get: OwnerGet) -> None:
+    assert (
+        run_app(
+            "o/r",
+            store=store,
+            owner_get=owner_get,
+            open_browser=lambda url: None,
+            timeout_seconds=0.2,
+        )
+        == 2
+    )
+
+
+def test_keychain_add_passes_the_key_on_stdin_only() -> None:
+    security = FakeSecurity()
+    pem = b"-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n"
+    MacKeychainStore(run=security).add("rapid-ship/worker-app", StoredApp(11, "o-rs-worker"), pem)
+    assert ["security", "-i"] in security.argvs
+    assert all(pem.hex() not in arg for argv in security.argvs for arg in argv)
+    assert MacKeychainStore(run=security).find("rapid-ship/worker-app") == StoredApp(
+        11, "o-rs-worker"
+    )
+
+
+def test_keychain_add_refuses_a_line_security_would_cut() -> None:
+    security = FakeSecurity()
+    with pytest.raises(AppSetupError, match="too long"):
+        MacKeychainStore(run=security).add(
+            "rapid-ship/worker-app", StoredApp(11, "s"), b"-----BEGIN " + b"A" * 2100
+        )
+    assert security.argvs == []
+
+
+def test_the_printed_settings_lines_are_the_github_table(
+    store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store.apps = {
+        "rapid-ship/worker-app": StoredApp(11, "o-rs-worker"),
+        "rapid-ship/reviewer-app": StoredApp(12, "o-rs-reviewer"),
+    }
+    assert run_app("o/r", store=store, owner_get=owner_get, open_browser=lambda url: None) == 0
+    lines = [line.strip() for line in capsys.readouterr().out.splitlines() if "_app_" in line]
+    assert tomllib.loads("\n".join(lines)) == {
+        "worker_app_id": 11,
+        "worker_app_slug": "o-rs-worker",
+        "reviewer_app_id": 12,
+        "reviewer_app_slug": "o-rs-reviewer",
+    }
