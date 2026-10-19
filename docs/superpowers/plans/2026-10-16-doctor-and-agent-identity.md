@@ -7292,9 +7292,14 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
 - GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: Pending owner step. Nothing was observed: no `reviewDecision` and no run state were read. The commands are under "Task 10: pending Owner steps" below, and the PR body's `Not covered:` line names this gap until the owner's record fills it.
 - `PROBE_MODELS` as confirmed or corrected in Task 10 Step 13: Pending owner step. Unconfirmed: `harness.py` still holds `haiku` (claude), `gpt-6-luna` (codex) and `gemini-3.8-flash-low` (agy), the values of the Checked facts.
 - PR URL, base, and the `devctl check` run: Pending owner step. No PR exists, so there is no PR URL and no `devctl check` run on GitHub. The base is `codex/devctl-check` while #30 is open, and `main` once it is merged. The PR body is written and passes `./devctl check --tier full --base origin/codex/devctl-check --pr-body <body>` with exit 0 (above). The commands are under "Task 11: pending Owner steps" below.
+- Final whole-branch review: two Important findings, handled after this record was first filled in.
+  - R1, fixed in `ab473c6` (fix: pass doctor's tools the owner's sign-in and proxy variables). doctor's tools ran with only `PATH`, `HOME` and the locale, so a sign-in held only in the environment, such as `GH_TOKEN`, an API key, a gateway, Bedrock, Vertex, `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, read as missing. Each tool doctor runs now gets the owner's proxy and certificate variables, where the owner's files live, and its own sign-in variables (`SIGN_IN_VARIABLES` in `doctor_items.py`). `devctl as` passes `gh` and `git push` the proxy and certificate variables only. The 17 new tests are offline and simulated, with fake tools that answer from their own environment: `tests/devctl/test_devctl_doctor_environment.py`, and one test each in `test_devctl_doctor_skills.py`, `test_devctl_identity.py` and `test_devctl_askpass_limits.py`. Which variables each real Harness reads is unconfirmed.
+  - R2, recorded and not fixed, because the fix needs a spec decision: doctor's CODEOWNERS item cannot pass on an organisation-owned repository (Remaining limits, below). Its Linear task is a pending Owner step under "Task 11: pending Owner steps".
+  - Re-run on `ab473c6`, live as above: `./devctl check --tier full --base origin/codex/devctl-check` exit 1, with only `diff` failing, on the same three removed tests and 33 Protected paths; the same with the PR body exit 0, every step passed; `uv run rapid-ship status --strict` exit 0, "37 managed files unchanged."; `uv run pytest -q` "1284 passed in 193.93s (0:03:13)", exit 0; `./devctl doctor` exit 1, the same 14 lines as above and "doctor: 9 ok, 5 missing, 0 unknown"; each `--help` exit 0; `npm --prefix website ci --no-audit --no-fund` exit 0 and `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` After this entry was written, the build ran again from the work tree and exited 0 with the same line and no broken-link warning.
 - Remaining limits, including at least: Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`; a Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier; organisation-owned repositories cannot install the owner's private Apps; and this repository's own ruleset and GitHub settings wait for plan 6:
   - Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`. A Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier.
-  - Organisation-owned repositories cannot install the owner's private Apps.
+  - Organisation-owned repositories cannot install the owner's private Apps, and doctor's CODEOWNERS item cannot pass on one. doctor takes the code owner from the repository's owner (`tools/devctl/devctl/doctor_github.py:134`), so it asks for `* @<organisation>`, which is not a valid code owner, and reports the owner's correct `* @<login>` as wrong; doctor never exits 0 there. The fix needs a spec decision, to record the owner's login or to scope Spec 1 to personal repositories, and must land before plan 6's `rs-setup` runs doctor for owners.
+  - devctl's own REST client, which mints App tokens and reads the Apps, does not use `HTTPS_PROXY`. Where GitHub is reachable only through a proxy, `devctl as` and doctor's App items cannot mint a token.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
   - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps.
@@ -7732,3 +7737,21 @@ git add docs/superpowers/plans/2026-10-14-kit-and-setup.md
 git commit -m "docs: mark plan 4 built in the plan index" -m "Co-Authored-By: <the model that writes the commit>"
 git push
 ```
+
+#### Before merge: record the organisation-repository limit in Linear
+
+Pending owner step. The final whole-branch review (R2) asks for a Linear task before merge, and no agent changes Linear (controller ruling 3). The owner creates it in this repository's Linear team, through Linear's official MCP or its web app, with this title and description:
+
+```text
+Title: doctor: the CODEOWNERS item cannot pass on an organisation-owned repository
+
+doctor takes the code owner from the repository's owner: tools/devctl/devctl/doctor_github.py:134 sets owner = repository.split("/", 1)[0], and codeowners_problems in doctor_rules.py then requires `* @<owner>` in Walk, and owner lines on the Protected set in Flight. On an organisation-owned repository that asks for `* @<organisation>`. An organisation login is neither a user nor a team, so it is not a valid code owner, and the owner's correct `* @<login>` is reported wrong. doctor therefore never exits 0 for such a repository.
+
+`rapid-ship app` already refuses organisation repositories (rapid_ship/github_app.py:413-417), but nothing scopes Walk or doctor to personal accounts, and Spec 1 is silent.
+
+Decide in Spec 1: record the owner's login, which `rapid-ship init --owner LOGIN` already takes but .rapid-ship/project.toml does not keep, or scope Spec 1 to personal repositories. Then fix doctor before plan 6's rs-setup runs it for owners.
+
+Found by plan 4's final whole-branch review (R2). Recorded as a limit in the plan 4 PR body and in the plan's Verification record.
+```
+
+Must observe: the task exists in Linear. Record its ID beside the organisation-repository limit in "Remaining limits" above and in the PR body.
