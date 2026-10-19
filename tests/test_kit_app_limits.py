@@ -22,6 +22,7 @@ from test_kit_app import (
     github_browser,
     http_get,
     reads,
+    rsa_key,
     serve_conversions,
 )
 
@@ -206,6 +207,41 @@ def test_only_the_missing_app_is_created(capsys: pytest.CaptureFixture[str]) -> 
     assert "Reviewer App: ID 12 (o-rs-reviewer)" in out
     assert "Record each App's ID and slug, as printed above, in .rapid-ship/project.toml" in out
     assert 'worker_app_slug = "o-old-worker"' in out
+
+
+@pytest.mark.parametrize(
+    ("status", "changes", "message"),
+    [
+        (500, {"message": "Server Error"}, "GitHub returned 500: Server Error"),
+        (200, {"owner": None}, "GitHub's record of App 11 has no App ID, slug or owner ID"),
+    ],
+    ids=["server error", "no owner"],
+)
+def test_a_get_app_reply_that_rapid_ship_cannot_use_changes_nothing(
+    status: int, changes: dict[str, object], message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """GET /app under the key of an item whose App GitHub does not show to gh fails, or answers
+    without the App's owner: the command stops before it changes anything."""
+    store = FakeStore()
+    app, name = StoredApp(11, "o-rs-worker"), "rapid-ship/worker-app/11"
+    store.apps[name], store.keys[name] = app, rsa_key("o/worker")
+    before = dict(store.apps)
+    opened: list[str] = []
+    with serve_conversions() as api:
+        api.register(store.keys[name], app, {"login": "o", "id": 1, "type": "User"})
+        api.app_status, api.app_changes = status, changes
+        code = run_app(
+            "o/r",
+            store=store,
+            owner_get=reads(OWNER_READS),
+            open_browser=opened.append,
+            api_url=api.url,
+            timeout_seconds=0.1,
+        )
+    assert code == 2
+    assert (store.apps, opened) == (before, [])
+    out, err = capsys.readouterr()
+    assert (out, err) == ("", f"rapid-ship: {message}\n")
 
 
 def run_refused(repository: str, owner_get: OwnerGet) -> tuple[int, list[str], dict[str, bytes]]:

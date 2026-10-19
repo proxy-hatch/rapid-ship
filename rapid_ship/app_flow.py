@@ -1,10 +1,12 @@
-"""rapid-ship app's manifest flow, through which GitHub creates one App and hands over its key.
+"""rapid-ship app's calls to GitHub as an App: the manifest flow, and GET /app under a key.
 
-A server on 127.0.0.1 serves a page that posts the manifest to GitHub, then takes GitHub's
-one-time code on its callback. The code buys the App's ID, slug and private key (Spec 1 section
-3). The page posts to the settings of the account that will own the App: a user's own, or an
-organisation's, which only its admins open. rapid_ship may not import devctl, so the permissions
-here repeat devctl's, and a test keeps the two equal.
+In the manifest flow, GitHub creates one App and hands over its key. A server on 127.0.0.1 serves
+a page that posts the manifest to GitHub, then takes GitHub's one-time code on its callback. The
+code buys the App's ID, slug and private key (Spec 1 section 3). The page posts to the settings of
+the account that will own the App: a user's own, or an organisation's, which only its admins open.
+GET /app, under a token that a key signs, tells which App the key belongs to and which account
+owns it, for a private App too. rapid_ship may not import devctl, so the permissions here repeat
+devctl's, and a test keeps the two equal.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import re
 import secrets
 import sys
 import threading
+import time
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -24,6 +27,11 @@ from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Literal, TypeGuard
 from urllib.parse import parse_qs, urlsplit
+
+import jwt
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 from rapid_ship.app_keychain import SLUG, AppSetupError, StoredApp
 
@@ -47,10 +55,14 @@ _DESCRIPTIONS = {
     "reviewer": "rapid-ship Reviewers post their verdicts on pull requests.",
 }
 _MAX_APP_NAME = 34  # GitHub's limit on an App's name
-_CONVERSION_TIMEOUT_SECONDS = 30.0
+_API_TIMEOUT_SECONDS = 30.0
 _POLL_SECONDS = 0.05  # how soon the flow's server stops once the code has come
 _MAX_REPLY_BYTES = 1024 * 1024
 _CODE = re.compile(r"[A-Za-z0-9_-]{1,128}")
+
+
+class KeyRefused(AppSetupError):
+    """A key cannot sign a token that GitHub accepts: GitHub refused it, or it cannot sign one."""
 
 
 @dataclass(frozen=True)
@@ -58,6 +70,14 @@ class CreatedApp:
     app: StoredApp
     private_key: bytes
     permissions: dict[str, str]
+
+
+@dataclass(frozen=True)
+class OwnedApp:
+    """An App and the ID of the account that owns it, as GET /app shows them."""
+
+    app: StoredApp
+    owner_id: int
 
 
 @dataclass(frozen=True)
@@ -196,20 +216,33 @@ def _wait_for_code(
         thread.join()
 
 
-def _convert(code: str, api_url: str) -> object:
-    """Exchange the one-time code for the App. The code is the credential, as in Probot."""
+@dataclass(frozen=True)
+class _Reply:
+    status: int
+    reason: str
+    parsed: object  # the JSON reply, or None when it is too long or not JSON
+
+    @property
+    def failure(self) -> str:
+        message = as_record(self.parsed).get("message") or self.reason
+        return f"GitHub returned {self.status}: {str(message)[:MAX_MESSAGE_CHARACTERS]}"
+
+
+def _call(method: str, path: str, api_url: str, authorization: str | None = None) -> _Reply:
+    """Send one request to GitHub's REST API. No message includes the authorization."""
     parts = urlsplit(api_url)
     loopback = parts.scheme == "http" and parts.hostname == "127.0.0.1"
     if not (parts.scheme == "https" or loopback) or not parts.hostname:
         raise AppSetupError("the GitHub API URL must use https (http only on 127.0.0.1)")
     factory = HTTPSConnection if parts.scheme == "https" else HTTPConnection
-    connection = factory(parts.hostname, parts.port, timeout=_CONVERSION_TIMEOUT_SECONDS)
-    target = f"{parts.path.rstrip('/')}/app-manifests/{code}/conversions"
+    connection = factory(parts.hostname, parts.port, timeout=_API_TIMEOUT_SECONDS)
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "rapid-ship"}
+    if authorization is not None:
+        headers["Authorization"] = authorization
     try:
-        connection.request("POST", target, headers=headers)
+        connection.request(method, f"{parts.path.rstrip('/')}{path}", headers=headers)
         reply = connection.getresponse()
-        status, data = reply.status, reply.read(_MAX_REPLY_BYTES + 1)
+        status, reason, data = reply.status, reply.reason, reply.read(_MAX_REPLY_BYTES + 1)
     except (OSError, HTTPException, ValueError) as error:
         raise AppSetupError(f"could not reach GitHub: {type(error).__name__}") from None
     finally:
@@ -217,11 +250,56 @@ def _convert(code: str, api_url: str) -> object:
     try:
         parsed = None if len(data) > _MAX_REPLY_BYTES else json.loads(data)
     except (ValueError, RecursionError):
-        parsed = None  # _created_app reports what is missing
-    if not 200 <= status < 300:
-        message = as_record(parsed).get("message") or reply.reason
-        raise AppSetupError(f"GitHub returned {status}: {str(message)[:MAX_MESSAGE_CHARACTERS]}")
-    return parsed
+        parsed = None  # each caller reports what is missing
+    return _Reply(status, reason, parsed)
+
+
+def _convert(code: str, api_url: str) -> object:
+    """Exchange the one-time code for the App. The code is the credential, as in Probot."""
+    reply = _call("POST", f"/app-manifests/{code}/conversions", api_url)
+    if not 200 <= reply.status < 300:
+        raise AppSetupError(reply.failure)
+    return reply.parsed
+
+
+def _app_jwt(private_key: bytes, app_id: int) -> str:
+    """A token for GitHub's App API, with the claims of devctl's app_jwt."""
+    # Loaded here, as devctl does: PyJWT raises AttributeError for a public key.
+    try:
+        key = load_pem_private_key(private_key, password=None)
+    except (ValueError, TypeError, UnsupportedAlgorithm):
+        raise KeyRefused("the key is not a readable, unencrypted PEM private key") from None
+    if not isinstance(key, RSAPrivateKey):
+        raise KeyRefused("the key is not an RSA private key")
+    issued = int(time.time())
+    # 60 s back for clock drift; 9 minutes ahead stays under GitHub's 10-minute limit.
+    claims = {"iat": issued - 60, "exp": issued + 540, "iss": str(app_id)}
+    return jwt.encode(claims, key, algorithm="RS256")
+
+
+def app_of_key(private_key: bytes, app_id: int, *, api_url: str = API_URL) -> OwnedApp:
+    """The App with app_id and its owner, as GitHub shows them to a token that the key signs.
+
+    GitHub shows its owner's gh no private App, but answers GET /app for an App's own token. It
+    refuses the token when the App or that key no longer exists, or when the key is another App's.
+    The token goes only into the request's Authorization header.
+    """
+    reply = _call("GET", "/app", api_url, f"Bearer {_app_jwt(private_key, app_id)}")
+    if reply.status in (401, 404):
+        raise KeyRefused(reply.failure)
+    if not 200 <= reply.status < 300:
+        raise AppSetupError(reply.failure)
+    found = as_record(reply.parsed)
+    found_id, slug = found.get("id"), found.get("slug")
+    owner_id = as_record(found.get("owner")).get("id")
+    if (
+        not is_id(found_id)
+        or not isinstance(slug, str)
+        or not SLUG.fullmatch(slug)
+        or not is_id(owner_id)
+    ):
+        raise AppSetupError(f"GitHub's record of App {app_id} has no App ID, slug or owner ID")
+    return OwnedApp(StoredApp(found_id, slug), owner_id)
 
 
 def orphaned(error: AppSetupError, settings_url: str) -> AppSetupError:

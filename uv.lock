@@ -576,6 +576,7 @@ name = "rapid-ship"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "tomli-w" },
 ]
 
@@ -591,7 +592,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "tomli-w", specifier = ">=1.2,<2" }]
+requires-dist = [
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
+    { name = "tomli-w", specifier = ">=1.2,<2" },
+]
 
 [package.metadata.requires-dev]
 dev = [

@@ -3,11 +3,14 @@ and GitHub.
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of the
 repository's owner whose key the Keychain holds, else it creates one. GitHub shows gh no private
-App, even its owner's, so a Keychain item whose App GitHub does not show stops the command before
-it creates anything. A key kept under plan 4's item name, which has no App ID, is re-stored under
-the new name, and the old item stays. No test reads the real Keychain or contacts GitHub.
+App, even its owner's, so for an item whose App GitHub does not show, GET /app under a token that
+the item's key signs tells whose App it is. An item whose key cannot tell stops the command
+before it creates anything. A key kept under plan 4's item name, which has no App ID, is
+re-stored under the new name, and the old item stays. No test reads the real Keychain or contacts
+GitHub.
 """
 
+import html
 import subprocess
 import webbrowser
 from collections.abc import Mapping
@@ -16,17 +19,19 @@ from pathlib import Path
 
 import pytest
 from test_kit_app import (
+    ORG_ADMIN,
     OWNER_READS,
     PUBLIC_APPS,
     Captured,
+    FakeConversions,
     FakeSecurity,
     FakeStore,
     github_browser,
     reads,
+    rsa_key,
     serve_conversions,
 )
 
-from devctl.settings import App, SettingsError, load_project
 from rapid_ship import cli
 from rapid_ship.app_keychain import (
     LEGACY_SERVICE,
@@ -185,12 +190,33 @@ reviewer_app_slug = ""
 """
 
 
-def keychain(*, old_names: bool) -> FakeStore:
+# Each account as GET /app shows an App's owner: the user o, and the organisation org.
+ACCOUNTS: dict[str, dict[str, object]] = {
+    "o": {"login": "o", "id": 1, "type": "User"},
+    "org": {"login": "org", "id": 4, "type": "Organization"},
+}
+# No server listens here, so a test that would contact GitHub's API by mistake fails instead.
+NO_API = "http://127.0.0.1:1"
+
+
+def keychain(*, old_names: bool, keys: Mapping[str, bytes] = KEYS) -> FakeStore:
     """A Keychain with the owner's two Apps, under plan 4's names or under names with App IDs."""
     store = FakeStore()
     for role, app in APPS.items():
         name = LEGACY_SERVICE[role] if old_names else keychain_service(role, app.app_id)
-        store.apps[name], store.keys[name] = app, KEYS[role]
+        store.apps[name], store.keys[name] = app, keys[role]
+    return store
+
+
+def keyed_keychain(
+    api: FakeConversions, apps: Mapping[str, StoredApp], owner: str, *, old_names: bool = False
+) -> FakeStore:
+    """A Keychain with each role's App and a real key, which GET /app accepts as owner's App."""
+    store = FakeStore()
+    for role, app in apps.items():
+        name = LEGACY_SERVICE[role] if old_names else keychain_service(role, app.app_id)
+        store.apps[name], store.keys[name] = app, rsa_key(f"{owner}/{role}")
+        api.register(store.keys[name], app, ACCOUNTS[owner])
     return store
 
 
@@ -200,6 +226,7 @@ def run(
     log: list[str],
     opened: list[str],
     answers: Mapping[str, object] = OWNER_READS,
+    api_url: str = NO_API,
 ) -> int:
     """Run app for o/r with a browser that never calls back, so a wrong create ends in 0.1 s."""
     return run_app(
@@ -208,6 +235,7 @@ def run(
         owner_get=reads(answers, log),
         open_browser=opened.append,
         recorded=recorded,
+        api_url=api_url,
         timeout_seconds=0.1,
     )
 
@@ -326,100 +354,137 @@ def test_without_recorded_apps_the_owners_apps_in_the_keychain_are_used(
     assert "Record each App's ID and slug, as printed above" in out
 
 
-@pytest.mark.parametrize("old_names", [False, True])
-def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
-    old_names: bool, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    ("repository", "old_names"), [("o/r", False), ("o/r", True), ("org/r", False)]
+)
+def test_without_recorded_apps_a_private_app_is_confirmed_with_its_own_key(
+    repository: str, old_names: bool, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """GitHub answers 404 for the owner's private App, as for a deleted one, so rapid-ship cannot
-    confirm it. It creates no second pair, and prints the [github] lines that record the Apps."""
-    store = keychain(old_names=old_names)
+    """A second repository of the same owner, a user or an organisation, gets no second pair of
+    Apps. GitHub shows gh no private App, so GET /app, under a token that the item's key signs,
+    tells which account owns it. A member who is not an admin uses the organisation's Apps too.
+    Plan 4's items, which a user's repository needed, are re-stored under the new name."""
+    owner = repository.split("/")[0]
+    apps = {role: StoredApp(app.app_id, f"{owner}-rs-{role}") for role, app in APPS.items()}
+    log: list[str] = []
+    opened: list[str] = []
+    with serve_conversions() as api:
+        store = keyed_keychain(api, apps, owner, old_names=old_names)
+        keys = {role: rsa_key(f"{owner}/{role}") for role in ROLES}
+        before = dict(store.apps)
+        code = run_app(
+            repository,
+            store=store,
+            owner_get=reads(OWNER_READS, log),
+            open_browser=opened.append,
+            api_url=api.url,
+            timeout_seconds=0.1,
+        )
+    assert (code, opened) == (0, [])
+    assert app_reads(log) == [f"apps/{owner}-rs-worker", f"apps/{owner}-rs-reviewer"]
+    assert "user/memberships/orgs/org" not in log
+    assert [path for path, _ in api.requests] == ["/app", "/app"]
+    for role, app in apps.items():
+        assert store.apps[keychain_service(role, app.app_id)] == app
+        assert store.keys[keychain_service(role, app.app_id)] == keys[role]
+    assert all(store.apps[name] == app for name, app in before.items())  # nothing replaced
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert ("Re-stored the Worker App's key" in out) is old_names
+    assert f"Worker App: ID 11 ({owner}-rs-worker)" in out
+    owner_id = ACCOUNTS[owner]["id"]
+    assert f"suggested_target_id={owner_id}&repository_ids[]=" in out
+    assert "Record each App's ID and slug, as printed above" in out
+    assert "BEGIN" not in out
+
+
+@pytest.mark.parametrize(
+    ("repository", "holder", "new_page"),
+    [
+        ("org/r", "o", "https://github.com/organizations/org/settings/apps/new"),
+        ("o/r", "org", "https://github.com/settings/apps/new"),
+    ],
+)
+def test_keychain_apps_whose_keys_show_another_accounts_app_are_skipped(
+    repository: str, holder: str, new_page: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An organisation admin who holds the keys of their own Apps, and a developer who holds an
+    organisation's. GitHub shows gh neither private App, and GET /app under each item's key names
+    another account than the repository's owner. So the owner's Apps are created, the items stay,
+    and no message tells the developer to record another account's App."""
+    held = {role: StoredApp(app.app_id + 10, f"{holder}-rs-{role}") for role, app in APPS.items()}
+    log: list[str] = []
+    captured: Captured = []
+    with serve_conversions() as api:
+        store = keyed_keychain(api, held, holder)
+        before = dict(store.apps)
+        code = run_app(
+            repository,
+            store=store,
+            owner_get=reads({**OWNER_READS, **ORG_ADMIN}, log),
+            open_browser=github_browser(captured),
+            api_url=api.url,
+            timeout_seconds=10,
+        )
+    assert code == 0
+    assert app_reads(log) == [f"apps/{holder}-rs-worker", f"apps/{holder}-rs-reviewer"]
+    assert [path for path, _ in api.requests if path == "/app"] == ["/app", "/app"]
+    pages = [html.unescape(action).split("?state=", 1)[0] for action, _ in captured]
+    assert pages == [new_page] * 2
+    owner = repository.split("/")[0]
+    assert [manifest["name"] for _, manifest in captured] == [
+        f"{owner}-rs-worker",
+        f"{owner}-rs-reviewer",
+    ]
+    assert sorted(set(store.apps) - set(before)) == [
+        "rapid-ship/reviewer-app/12",
+        "rapid-ship/worker-app/11",
+    ]
+    assert all(store.apps[name] == app for name, app in before.items())
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert f"https://github.com/apps/{owner}-rs-worker/installations/new/permissions" in out
+    assert "ID 21" not in out
+    assert "ID 22" not in out
+    assert "BEGIN" not in out
+
+
+@pytest.mark.parametrize("old_names", [False, True])
+@pytest.mark.parametrize("key", ["refused", "unusable"])
+def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
+    old_names: bool, key: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """GitHub shows gh no private App, and the item's key cannot tell whose App it is: GitHub
+    refuses a token that the key signs, as it does once the App or that key is deleted, or the key
+    cannot sign one. rapid-ship creates no App beside one that may still exist, and prints no
+    [github] lines for an App it could not confirm as the owner's."""
+    keys = {role: rsa_key(f"gone/{role}") for role in ROLES} if key == "refused" else KEYS
+    reason = {
+        "refused": "GitHub returned 401: A JSON web token could not be decoded",
+        "unusable": "the key is not a readable, unencrypted PEM private key",
+    }[key]
+    store = keychain(old_names=old_names, keys=keys)
     before = dict(store.apps)
     log: list[str] = []
     opened: list[str] = []
-    assert run(store, {}, log, opened) == 1
+    with serve_conversions() as api:  # it knows neither key
+        assert run(store, {}, log, opened, api_url=api.url) == 1
     assert (store.apps, opened) == (before, [])
     assert app_reads(log) == ["apps/o-rs-worker", "apps/o-rs-reviewer"]
     worker = LEGACY_SERVICE["worker"] if old_names else "rapid-ship/worker-app/11"
     reviewer = LEGACY_SERVICE["reviewer"] if old_names else "rapid-ship/reviewer-app/12"
     out, err = capsys.readouterr()
     assert err == (
-        f"rapid-ship: Keychain item {worker} holds a key of the Worker App 11 (o-rs-worker), and "
-        "GitHub does not show that App to gh, as it shows no private App. If GitHub has no such "
-        f"App any more, delete the item with: security delete-generic-password -s {worker}\n"
+        f"rapid-ship: Keychain item {worker} holds a key of the Worker App 11 (o-rs-worker). "
+        "GitHub does not show that App to gh, as it shows no private App, and the key cannot "
+        f"confirm whose App it is: {reason}. If GitHub has no such App or key any more, delete "
+        f"the item with: security delete-generic-password -s {worker}\n"
         f"rapid-ship: Keychain item {reviewer} holds a key of the Reviewer App 12 "
-        "(o-rs-reviewer), and GitHub does not show that App to gh, as it shows no private App. "
-        "If GitHub has no such App any more, delete the item with: security "
-        f"delete-generic-password -s {reviewer}\n"
-        "rapid-ship: To use the Keychain's Apps, record these lines under [github] in o/r's "
-        ".rapid-ship/project.toml, then run rapid-ship app again in its work tree:\n"
-        '  repository = "o/r"\n'
-        "  worker_app_id = 11\n"
-        '  worker_app_slug = "o-rs-worker"\n'
-        "  reviewer_app_id = 12\n"
-        '  reviewer_app_slug = "o-rs-reviewer"\n'
+        "(o-rs-reviewer). GitHub does not show that App to gh, as it shows no private App, and "
+        f"the key cannot confirm whose App it is: {reason}. If GitHub has no such App or key any "
+        f"more, delete the item with: security delete-generic-password -s {reviewer}\n"
     )
     assert out == ""
-
-
-def printed_lines(err: str) -> list[str]:
-    """The [github] lines that a stop printed, indented under its last message."""
-    return [line.strip() for line in err.splitlines() if line.startswith("  ")]
-
-
-def test_a_stop_beside_a_role_with_no_app_says_to_record_both_apps_before_committing(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """The Reviewer App's creation failed after the Worker App's, so only the Worker App's item
-    exists. devctl refuses a [github] table that records one App, so the stop says so."""
-    store = FakeStore()
-    name = keychain_service("worker", 11)
-    store.apps[name], store.keys[name] = APPS["worker"], KEYS["worker"]
-    before = dict(store.apps)
-    opened: list[str] = []
-    assert run(store, {}, [], opened) == 1
-    assert (store.apps, opened) == (before, [])
-    out, err = capsys.readouterr()
-    assert err.endswith(
-        "rapid-ship: To use the Keychain's Apps, record these lines under [github] in o/r's "
-        ".rapid-ship/project.toml, then run rapid-ship app again in its work tree:\n"
-        '  repository = "o/r"\n'
-        "  worker_app_id = 11\n"
-        '  worker_app_slug = "o-rs-worker"\n'
-        "rapid-ship: That run creates the Reviewer App and prints its lines. Record them too "
-        "before you run ./devctl or commit: devctl refuses a [github] table that records only "
-        "one App.\n"
-    )
-    assert out == ""
-    write_settings(tmp_path, 'stack = "python"\n[github]\n' + "\n".join(printed_lines(err)))
-    with pytest.raises(SettingsError, match="record both or neither"):
-        load_project(tmp_path)
-
-
-def test_the_printed_lines_name_a_shown_app_and_the_first_of_several_items(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """GitHub shows the owner's Worker App, now public, and neither Reviewer App whose key the
-    Keychain holds. The lines record both roles, so that devctl accepts them."""
-    store = keychain(old_names=False)
-    other = keychain_service("reviewer", 13)
-    store.apps[other], store.keys[other] = StoredApp(13, "p-rs-reviewer"), KEYS["reviewer"]
-    before = dict(store.apps)
-    answers = {**OWNER_READS, "apps/o-rs-worker": PUBLIC_APPS["apps/o-rs-worker"]}
-    opened: list[str] = []
-    assert run(store, {}, [], opened, answers) == 1
-    assert (store.apps, opened) == (before, [])
-    err = capsys.readouterr().err
-    assert "Worker App 11 (o-rs-worker), and GitHub does not show" not in err
-    assert "Reviewer App 13 (p-rs-reviewer), and GitHub does not show" in err
-    assert err.endswith(
-        '  repository = "o/r"\n'
-        "  worker_app_id = 11\n"
-        '  worker_app_slug = "o-rs-worker"\n'
-        "  reviewer_app_id = 12\n"
-        '  reviewer_app_slug = "o-rs-reviewer"\n'
-        "rapid-ship: Several Keychain items hold a Reviewer App's key, and the lines name the "
-        "first above; record the one o/r uses.\n"
-    )
 
 
 def test_an_app_github_shows_as_the_owners_is_used_beside_an_item_it_does_not_show() -> None:
@@ -643,18 +708,13 @@ def test_cli_app_passes_the_apps_that_the_work_tree_records(
     assert "rapid-ship: .rapid-ship/project.toml is not valid TOML" in capsys.readouterr().err
 
 
-def test_apps_recorded_without_the_repository_stop_until_the_printed_lines_are_recorded(
+def test_apps_recorded_without_the_repository_are_found_by_their_keys(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """rapid-ship init without --repository seeds repository = "". IDs recorded under it are not
-    the target's, so the stop prints the repository line too. Recorded as printed, the lines let
-    the next run use the Apps, and devctl accepts them."""
-    store = keychain(old_names=False)
+    """rapid-ship init without --repository seeds repository = "", so IDs recorded under it are
+    not the target's. The command finds the Apps by their Keychain items instead, and creates
+    none."""
     opened: list[str] = []
-    monkeypatch.setattr(cli, "MacKeychainStore", lambda: store)
-    monkeypatch.setattr(cli, "gh_owner_get", reads(OWNER_READS))
-    monkeypatch.setattr(cli, "run_app", partial(run_app, timeout_seconds=0.1))
-    monkeypatch.setattr(webbrowser, "open", opened.append)
     ids = "".join(
         f'{role}_app_id = {app.app_id}\n{role}_app_slug = "{app.slug}"\n'
         for role, app in APPS.items()
@@ -662,16 +722,16 @@ def test_apps_recorded_without_the_repository_stop_until_the_printed_lines_are_r
     write_settings(git_repo, f'stack = "python"\n[github]\nrepository = ""\n{ids}')
     monkeypatch.chdir(git_repo)
     assert recorded_apps(git_repo, "o/r") == {}
-    assert cli.main(["app", "--repository", "o/r"]) == 1
-    lines = printed_lines(capsys.readouterr().err)
-    assert lines[:1] == ['repository = "o/r"']
-    write_settings(git_repo, 'stack = "python"\n[github]\n' + "\n".join(lines) + "\n")
-    assert cli.main(["app", "--repository", "o/r"]) == 0
+    with serve_conversions() as api:
+        store = keyed_keychain(api, APPS, "o")
+        monkeypatch.setattr(cli, "MacKeychainStore", lambda: store)
+        monkeypatch.setattr(cli, "gh_owner_get", reads(OWNER_READS))
+        monkeypatch.setattr(cli, "run_app", partial(run_app, api_url=api.url, timeout_seconds=0.1))
+        monkeypatch.setattr(webbrowser, "open", opened.append)
+        assert cli.main(["app", "--repository", "o/r"]) == 0
     assert opened == []
-    out = capsys.readouterr().out
-    assert out.endswith("Both Apps are recorded; ./devctl doctor confirms each installation.\n")
-    settings = load_project(git_repo)
-    assert (settings.worker_app, settings.reviewer_app) == (
-        App(11, "o-rs-worker"),
-        App(12, "o-rs-reviewer"),
-    )
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert "Worker App: ID 11 (o-rs-worker)" in out
+    assert "Reviewer App: ID 12 (o-rs-reviewer)" in out
+    assert out.endswith("./devctl doctor then confirms each installation.\n")

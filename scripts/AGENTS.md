@@ -11,4 +11,4 @@ The smoke uses only the standard library. Its `run` starts every command, `git l
 The step itself is in [tools/devctl/devctl_project/](../tools/devctl/devctl_project/__init__.py). For changes to it, run `uv run pytest tests/devctl/test_devctl_project_steps.py`.
 For skill changes, also run `uv run pytest tests/test_skill_discovery.py`.
 Run `./devctl check` for the full suite. The website keeps its separate `npm --prefix website run build` check.
-To check a build in the checkout itself, run `uv build --clear`, then `uv run python scripts/smoke_distribution.py`. The smoke needs uv's cache or the network for `tomli-w` and hatchling.
+To check a build in the checkout itself, run `uv build --clear`, then `uv run python scripts/smoke_distribution.py`. The smoke needs uv's cache or the network for hatchling and rapid-ship's dependencies: `tomli-w`, and PyJWT with its `crypto` extra.

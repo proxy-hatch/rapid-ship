@@ -9,13 +9,22 @@ import tomllib
 import webbrowser
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from functools import cache
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    load_pem_private_key,
+)
 
 from rapid_ship import cli
 from rapid_ship.app_keychain import AppSetupError, MacKeychainStore, StoredApp, keychain_service
@@ -157,10 +166,19 @@ class FakeSecurity:
         return subprocess.CompletedProcess(argv, 0, attributes(argv[3], item["-a"], item["-j"]), "")
 
 
-class FakeConversions:
-    """GitHub's POST /app-manifests/<code>/conversions. The code is the name of the App it creates.
+@cache
+def rsa_key(name: str) -> bytes:
+    """A real RSA private key in PEM, made once for each name, for a key that must sign a token."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption())
 
-    rapid-ship never parses the key, so a PEM-shaped test text stands in for it.
+
+class FakeConversions:
+    """GitHub's POST /app-manifests/<code>/conversions, whose code is the name of the App it
+    creates, and GET /app, which answers for the App whose key signed the bearer token.
+
+    rapid-ship never parses a created App's key, so a PEM-shaped test text stands in for it. A key
+    that signs a token must be real, as rsa_key makes one.
     """
 
     def __init__(self) -> None:
@@ -169,6 +187,32 @@ class FakeConversions:
         self.status = 201
         self.changes: dict[str, object] = {}  # reply fields that replace the usual ones
         self.requests: list[tuple[str, str | None]] = []  # each path and Authorization header
+        # GET /app's record of each registered App, and the public key that checks its tokens.
+        self.keyed: dict[int, tuple[rsa.RSAPublicKey, dict[str, object]]] = {}
+        self.app_status = 200  # GET /app's status for a token it accepts
+        self.app_changes: dict[str, object] = {}  # GET /app's reply fields that replace the usual
+
+    def register(self, private_key: bytes, app: StoredApp, owner: Mapping[str, object]) -> None:
+        """Let GET /app answer as app, which owner owns, for a token that private_key signed."""
+        loaded = load_pem_private_key(private_key, password=None)
+        assert isinstance(loaded, rsa.RSAPrivateKey)
+        record = {"id": app.app_id, "slug": app.slug, "owner": dict(owner)}
+        self.keyed[app.app_id] = (loaded.public_key(), record)
+
+    def app_reply(self, authorization: str | None) -> tuple[int, dict[str, object]]:
+        """GET /app: 401 unless a registered App's key signed a current token for that App."""
+        token = (authorization or "").removeprefix("Bearer ")
+        try:
+            issuer = jwt.decode(token, options={"verify_signature": False})["iss"]
+            public_key, record = self.keyed[int(issuer)]
+            claims = jwt.decode(
+                token, public_key, algorithms=["RS256"], options={"require": ["iat", "exp"]}
+            )
+        except (jwt.PyJWTError, KeyError, TypeError, ValueError):
+            return 401, {"message": "A JSON web token could not be decoded"}
+        if claims["exp"] - claims["iat"] > 600:  # GitHub's limit on a token's lifetime
+            return 401, {"message": "'Expiration time' claim ('exp') is too far in the future"}
+        return self.app_status, {**record, **self.app_changes}
 
     def pem_for(self, name: str) -> bytes:
         return f"-----BEGIN RSA PRIVATE KEY-----\n{name}\n-----END RSA PRIVATE KEY-----\n".encode()
@@ -192,8 +236,19 @@ def _conversion_handler(fake: FakeConversions) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
             fake.requests.append((self.path, self.headers.get("Authorization")))
-            body = json.dumps(fake.reply(self.path)).encode()
-            self.send_response(fake.status)
+            self._send(fake.status, fake.reply(self.path))
+
+        def do_GET(self) -> None:
+            authorization = self.headers.get("Authorization")
+            fake.requests.append((self.path, authorization))
+            if self.path == "/app":
+                self._send(*fake.app_reply(authorization))
+            else:
+                self._send(404, {"message": "Not Found"})
+
+        def _send(self, status: int, reply: dict[str, object]) -> None:
+            body = json.dumps(reply).encode()
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
