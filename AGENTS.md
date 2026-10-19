@@ -1,8 +1,16 @@
 # rapid-ship
 
-rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the six plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
+rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet: plans 5 and 6 (Kit standards and Harness guardrails; `rs-setup` and `rs-health`), [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics and gardening.
+Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 is built in PRs #31 to #33, which are not merged yet. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
+
+- Plan 4's follow-ups, which support repositories that an organisation owns from the start (backlog item PRO-105). They land on #31 to #33 before those merge.
+- Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
+- Plan 6, the TypeScript stack and several stacks in one repository.
+- Plan 7, `rs-setup` and `rs-health`.
+- [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.
+
+The settings hold the Roster, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
 
 ## Commands
 
