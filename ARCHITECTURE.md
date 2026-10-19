@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built on this branch. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This branch, PR #31, holds the first part of plan 4: its settings and the App token code. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -9,15 +9,16 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
 | devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI |
+| App token code | `tools/devctl/devctl/github/` | The REST client, App installation tokens and the askpass helper for git. No command calls them on this branch; plan 4's doctor and `devctl as` do |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
-| Seeded files | `.rapid-ship/project.toml`, `gate.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
+| Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Distribution smoke | `scripts/smoke_distribution.py` | Checks the built wheel and runs its `rapid-ship` in scratch repositories |
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 7's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Plans 4 to 7 of Spec 1, Spec 2 and Spec 3 are not on this branch ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. The rest of plan 4, plans 5 to 7 of Spec 1, Spec 2 and Spec 3 are not on this branch ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -38,7 +39,7 @@ Nothing here runs as a service. Plans 4 to 7 of Spec 1, Spec 2 and Spec 3 are no
 
 A managed file is copied byte for byte, and `sync` replaces it with each new template. A seeded file substitutes `{{project_name}}`, `{{package}}`, `{{owner}}` and `{{repository}}`, is written once and then belongs to the project. An empty owner or repository renders as `<owner>` or `<repository>` and comments out its line, which only TOML and CODEOWNERS templates allow. The Python stack's new-project seeds, a `pyproject.toml` with a skeleton package and test, are written only when `init` finds no `pyproject.toml`. Each `.claude/skills/<name>` is a relative symlink to `.agents/skills/<name>`; the Kit has no skills yet. A project lists the Kit paths it owns under `[kit] exclude` in `.rapid-ship/project.toml`, and `sync` never touches them.
 
-The settings seeds date from before the re-scope. `project.toml` has `[linear]`, `[dispatch]` and `[release]` tables and a commented-out `[agents]` example, and `gate.toml` holds the Mode, a Flight lease and promotion and demotion thresholds. devctl's settings loaders still accept them, and validate all but the threshold values. Only the `diff` step acts on any of them: when `gate.toml` sets Flight, it notes that a declared behavioural-test removal waits for the owner. The settled design drops these tables, including `[dispatch]`'s `max_workers` cap on parallel Workers, and only advises at most 3 Workers at once in Walk. Plan 4 replaces them with the Roster, the escalation list and each App's ID and slug.
+The `project.toml` seeds hold the settings of the re-scope: `[github]` with each App's ID and slug, `[escalation]` for the escalation list, and a commented-out `[roster]` example for the Roster. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and names what replaced each. The Kit no longer seeds or reads `gate.toml`. The settled design sets no cap on parallel Workers, and only advises at most 3 Workers at once in Walk.
 
 ## The lock
 
@@ -46,7 +47,7 @@ The settings seeds date from before the re-scope. `project.toml` has `[linear]`,
 
 ## devctl and `devctl check`
 
-The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML. Today devctl has `--version` and `check`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
+The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. Today devctl has `--version` and `check`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
 
 `./devctl check [--tier fast|full] [--json] [--base REV] [--pr-body PATH]` runs the steps below in order and prints one line per step: passed, failed, blocked or not applicable. It exits 0 when every applicable step passed, 1 when a step failed and 2 when a step could not run. A blocked step never counts as passed, and 2 outranks 1. The default tier is `full`.
 
