@@ -222,7 +222,7 @@ class FakeKeychain:
         try:
             return self.items[service]
         except KeyError:
-            raise KeychainMissing(f"Keychain item {service} not found") from None
+            raise KeychainMissing(service) from None
 
 
 GIT_IDENTITY = {

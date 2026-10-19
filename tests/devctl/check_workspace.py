@@ -29,6 +29,7 @@ def project_settings(**changes: object) -> ProjectSettings:
     base = ProjectSettings(
         stack="python",
         repository=None,
+        code_owner=None,
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(), revision_rounds=3),

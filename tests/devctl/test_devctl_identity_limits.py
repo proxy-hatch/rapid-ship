@@ -13,7 +13,7 @@ from devctl import cli, identity, process
 from devctl.github.app import GitHubAccess
 from devctl.repo import Repo
 from devctl.settings import ProjectSettings
-from github_fakes import FakeGitHub, FakeHarness, FakeKeychain, Remote, RunAs, git
+from github_fakes import WORKER_ID, FakeGitHub, FakeHarness, FakeKeychain, Remote, RunAs, git
 
 
 def install_gh(fakes: FakeHarness, body: str) -> None:
@@ -86,7 +86,11 @@ def test_a_missing_key_exits_2_before_any_tool_runs(
     no_keys = replace(access, keychain=FakeKeychain({}))
     monkeypatch.setattr(identity, "project_access", lambda settings: no_keys)
     assert identity.run_as(Repo.discover(Path.cwd()), project, "worker", "push", []) == 2
-    assert "devctl: Keychain item rapid-ship/worker-app not found" in capsys.readouterr().err
+    assert capsys.readouterr().err == (
+        f"devctl: Keychain item rapid-ship/worker-app/{WORKER_ID} not found; run rapid-ship app, "
+        "which re-stores a key kept under rapid-ship/worker-app, "
+        "or rapid-ship app --import-key worker\n"
+    )
 
 
 @pytest.mark.usefixtures("worktree")

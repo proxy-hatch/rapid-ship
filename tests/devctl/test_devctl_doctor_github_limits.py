@@ -5,7 +5,6 @@ live GitHub, gh login or Keychain is read."""
 import base64
 import dataclasses
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -22,6 +21,7 @@ from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
     REVIEWER_PERMISSIONS,
+    WORKER_ID,
     FakeGitHub,
     FakeKeychain,
     MakeContext,
@@ -136,6 +136,39 @@ def test_codeowners_reads_what_the_base_branch_holds(
     assert detail in item.detail
 
 
+@pytest.mark.parametrize("code_owner", ["@octocat", "@o/platform-team"], ids=["login", "team"])
+def test_codeowners_is_checked_against_the_code_owner_not_the_repository_owner(
+    ctx_github: MakeContext, recorded: RecordedOwner, code_owner: str
+) -> None:
+    context = ctx_github()
+    context = dataclasses.replace(
+        context, project=dataclasses.replace(context.project, code_owner=code_owner)
+    )
+    recorded.serve(CODEOWNERS, contents(f"* {code_owner}\n"))
+    assert by_name(github_items(context))["CODEOWNERS"].status == "ok"
+    # o owns o/r, as an organisation would, but only the recorded code owner counts.
+    recorded.serve(CODEOWNERS, contents("* @o\n"))
+    item = by_name(github_items(context))["CODEOWNERS"]
+    assert (item.status, item.detail) == (
+        "missing",
+        f"the one active CODEOWNERS line is not * {code_owner}",
+    )
+
+
+def test_codeowners_is_missing_while_no_code_owner_is_recorded(
+    ctx_github: MakeContext, recorded: RecordedOwner
+) -> None:
+    context = ctx_github()
+    context = dataclasses.replace(
+        context, project=dataclasses.replace(context.project, code_owner=None)
+    )
+    items = by_name(github_items(context))
+    assert items["CODEOWNERS"].status == "missing"
+    assert "set [github] code_owner in .rapid-ship/project.toml" in items["CODEOWNERS"].detail
+    assert CODEOWNERS not in recorded.paths
+    assert items["ruleset"].status == "ok"
+
+
 def test_codeowners_is_read_at_the_default_branch_whatever_its_name(
     ctx_github: MakeContext, recorded: RecordedOwner
 ) -> None:
@@ -231,21 +264,24 @@ def test_the_ruleset_must_name_the_default_branch_and_exclude_nothing_of_it() ->
 
 
 def test_codeowners_owners_are_compared_without_regard_to_case() -> None:
-    assert codeowners_problems("# note\n\n*  @O   # the owner\n", True, "o", "python") == []
-    assert codeowners_problems("* @o @team\n", True, "o", "python")
-    assert codeowners_problems("* @o\n* @o\n", True, "o", "python")
-    assert codeowners_problems("# only a comment\n", True, "o", "python")
+    assert codeowners_problems("# note\n\n*  @O   # the owner\n", True, "@o", "python") == []
+    assert codeowners_problems("* @o @team\n", True, "@o", "python")
+    assert codeowners_problems("* @o\n* @o\n", True, "@o", "python")
+    assert codeowners_problems("# only a comment\n", True, "@o", "python")
+    team = "@my-org/platform-team"
+    assert codeowners_problems("* @My-Org/Platform-Team\n", True, team, "python") == []
+    assert codeowners_problems(f"* {team}\n", True, "@My-Org/Platform-Team", "python") == []
 
 
 def test_a_flight_path_must_be_owned_by_the_owner_alone() -> None:
     lines = "".join(f"/{path} @o\n" for path in PROTECTED_PATHS)
-    assert codeowners_problems(lines, False, "o", "agnostic") == []
+    assert codeowners_problems(lines, False, "@o", "agnostic") == []
     # The last line for a path is the one GitHub applies.
-    assert codeowners_problems(lines + "/devctl @other\n", False, "o", "agnostic")
-    assert codeowners_problems(lines + "/devctl @o\n", False, "o", "agnostic") == []
+    assert codeowners_problems(lines + "/devctl @other\n", False, "@o", "agnostic")
+    assert codeowners_problems(lines + "/devctl @o\n", False, "@o", "agnostic") == []
     for owners in ("@other", "@o @other", ""):
         changed = lines.replace("/devctl @o\n", f"/devctl {owners}\n")
-        assert "for: devctl" in " ".join(codeowners_problems(changed, False, "o", "agnostic"))
+        assert "for: devctl" in " ".join(codeowners_problems(changed, False, "@o", "agnostic"))
 
 
 def test_a_run_without_github_access_leaves_the_apps_unknown(ctx_github: MakeContext) -> None:
@@ -283,10 +319,14 @@ def test_a_missing_key_names_the_command_that_creates_it(
     ctx_github: MakeContext, keychain_without_reviewer: FakeKeychain
 ) -> None:
     items = by_name(github_items(ctx_github(keychain=keychain_without_reviewer)))
+    tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
+    expected = (
+        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; run {tagged}, "
+        "which re-stores a key kept under rapid-ship/reviewer-app, "
+        f"or {tagged} --import-key reviewer"
+    )
     for name in ("Reviewer App installation", "Reviewer App key"):
-        assert "Keychain item rapid-ship/reviewer-app not found" in items[name].detail
-    command = r"; run uvx --from git\+\S+@v0\.2\.0 rapid-ship app$"
-    assert re.search(command, items["Reviewer App key"].detail)
+        assert items[name].detail == expected
 
 
 def test_a_key_that_is_not_a_pem_is_unknown_and_quotes_none_of_it(
@@ -294,8 +334,8 @@ def test_a_key_that_is_not_a_pem_is_unknown_and_quotes_none_of_it(
 ) -> None:
     keychain = FakeKeychain(
         {
-            "rapid-ship/worker-app": app_keys["worker"][0],
-            "rapid-ship/reviewer-app": b"-----BEGIN PRIVATE KEY-----\nnot a key\n",
+            f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0],
+            f"rapid-ship/reviewer-app/{REVIEWER_ID}": b"-----BEGIN PRIVATE KEY-----\nnot a key\n",
         }
     )
     items = by_name(github_items(ctx_github(keychain=keychain)))

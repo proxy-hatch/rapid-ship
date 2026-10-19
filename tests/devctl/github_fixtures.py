@@ -62,11 +62,11 @@ def app_keys() -> dict[str, tuple[bytes, bytes]]:
 
 @pytest.fixture
 def keychain(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
-    """Both test keys under the Keychain services that rapid-ship app writes."""
+    """Both test keys under the Keychain items that rapid-ship app writes, named by App ID."""
     return FakeKeychain(
         {
-            "rapid-ship/worker-app": app_keys["worker"][0],
-            "rapid-ship/reviewer-app": app_keys["reviewer"][0],
+            f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0],
+            f"rapid-ship/reviewer-app/{REVIEWER_ID}": app_keys["reviewer"][0],
         }
     )
 
@@ -74,7 +74,7 @@ def keychain(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
 @pytest.fixture
 def keychain_without_reviewer(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
     """A Keychain that holds only the Worker App's key."""
-    return FakeKeychain({"rapid-ship/worker-app": app_keys["worker"][0]})
+    return FakeKeychain({f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0]})
 
 
 @pytest.fixture
@@ -146,9 +146,11 @@ def recorded_argv(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 @pytest.fixture
 def project() -> ProjectSettings:
-    """o/r with a Roster of two Harnesses and both Apps recorded, so Agent identity is on."""
+    """o/r with @o as its code owner, a Roster of two Harnesses and both Apps recorded, so Agent
+    identity is on."""
     return project_settings(
         repository="o/r",
+        code_owner="@o",
         worker_app=App(WORKER_ID, "rs-worker"),
         reviewer_app=App(REVIEWER_ID, "rs-reviewer"),
         roster={

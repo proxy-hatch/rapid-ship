@@ -3,6 +3,8 @@ stack = "python"
 
 [github]
 repository = "proxy-hatch/rapid-ship"
+# The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".
+code_owner = "@proxy-hatch"
 # Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
 worker_app_id = 5376519
 worker_app_slug = "proxy-hatch-rs-worker"

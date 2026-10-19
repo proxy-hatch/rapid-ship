@@ -122,6 +122,11 @@ def _decoded(contents: Mapping[str, object]) -> str:
 
 def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, object]) -> Item:
     name = "CODEOWNERS"
+    # An organisation cannot be a code owner, so the repository's owner is never the default.
+    code_owner = ctx.project.code_owner
+    if code_owner is None:
+        detail = f'set [github] code_owner in {PROJECT}: "@login" or "@organisation/team"'
+        return _github(name, "missing", detail)
     default = _field(repo, "default_branch")
     # GitHub reads CODEOWNERS from the base branch, so that is the file doctor reads.
     path = f"repos/{repository}/contents/.github/CODEOWNERS?ref={quote(default, safe='/')}"
@@ -131,9 +136,8 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
         if error.status == 404:
             return _github(name, "missing", f".github/CODEOWNERS is not on {default}")
         return _unreadable(name, ".github/CODEOWNERS", error)
-    owner = repository.split("/", 1)[0]
     every_pr = ctx.project.escalation.every_pr
-    problems = codeowners_problems(text, every_pr, owner, ctx.project.stack)
+    problems = codeowners_problems(text, every_pr, code_owner, ctx.project.stack)
     if problems:
         return _github(name, "missing", "; ".join(problems))
     return _github(name, "ok", f".github/CODEOWNERS on {default} matches {_mode(every_pr)}")

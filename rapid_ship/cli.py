@@ -178,7 +178,9 @@ def _init(root: Path, args: argparse.Namespace) -> int:
     if result.skipped:
         _print_paths("Skipped existing seeded files; rs-setup merges them:", result.skipped)
     if not variables["owner"]:
-        sys.stdout.write("CODEOWNERS has no owner line yet; rs-setup writes it.\n")
+        sys.stdout.write(
+            "CODEOWNERS has no owner line and [github] code_owner is empty; rs-setup writes both.\n"
+        )
     commit = result.commit[:12]
     if result.base is None:
         sys.stdout.write(

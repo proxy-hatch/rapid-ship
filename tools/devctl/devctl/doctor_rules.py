@@ -205,8 +205,9 @@ def ruleset_problems(
 def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:
     """Each active CODEOWNERS line as (pattern, owners), the owners in lower case.
 
-    GitHub compares logins without regard to case. Blank lines and comments, whole-line or after
-    the owners, are not active.
+    GitHub compares logins, an organisation's included, without regard to case; doctor compares a
+    team's name the same way. Blank lines and comments, whole-line or after the owners, are not
+    active.
     """
     lines: list[tuple[str, tuple[str, ...]]] = []
     for raw in text.splitlines():
@@ -217,17 +218,17 @@ def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:
     return lines
 
 
-def _walk_problems(lines: Sequence[tuple[str, tuple[str, ...]]], owner: str) -> list[str]:
-    wanted = f"* @{owner}"
+def _walk_problems(lines: Sequence[tuple[str, tuple[str, ...]]], code_owner: str) -> list[str]:
+    wanted = f"* {code_owner}"
     if len(lines) != 1:
         return [f"Walk needs exactly one active CODEOWNERS line, {wanted}; found {len(lines)}"]
-    if lines[0] != ("*", (f"@{owner.lower()}",)):
+    if lines[0] != ("*", (code_owner.lower(),)):
         return [f"the one active CODEOWNERS line is not {wanted}"]
     return []
 
 
 def _protected_set_problems(
-    lines: Sequence[tuple[str, tuple[str, ...]]], owner: str, stack: Stack
+    lines: Sequence[tuple[str, tuple[str, ...]]], code_owner: str, stack: Stack
 ) -> list[str]:
     problems: list[str] = []
     if any(pattern == "*" for pattern, _ in lines):
@@ -237,19 +238,20 @@ def _protected_set_problems(
     # The last line for a pattern is the one GitHub applies.
     owned = {pattern.removeprefix("/"): owners for pattern, owners in lines}
     required = (*PROTECTED_PATHS, *(PYTHON_PROTECTED_PATHS if stack == "python" else ()))
-    unowned = [path for path in required if owned.get(path) != (f"@{owner.lower()}",)]
+    unowned = [path for path in required if owned.get(path) != (code_owner.lower(),)]
     if unowned:
-        problems.append(f"CODEOWNERS must name only @{owner} for: {', '.join(unowned)}")
+        problems.append(f"CODEOWNERS must name only {code_owner} for: {', '.join(unowned)}")
     return problems
 
 
-def codeowners_problems(text: str, every_pr: bool, owner: str, stack: Stack) -> list[str]:
+def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack) -> list[str]:
     """What keeps CODEOWNERS from matching the Mode (Spec 1 section 6): the * line when every_pr
-    is true, the Protected set otherwise."""
+    is true, the Protected set otherwise. code_owner is [github] code_owner, with its @: a login
+    or an organisation's team."""
     lines = _active_lines(text)
     if every_pr:
-        return _walk_problems(lines, owner)
-    return _protected_set_problems(lines, owner, stack)
+        return _walk_problems(lines, code_owner)
+    return _protected_set_problems(lines, code_owner, stack)
 
 
 def installation_problems(found: Mapping[str, object], role: Role) -> list[str]:

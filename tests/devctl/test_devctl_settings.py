@@ -49,6 +49,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
     assert project == ProjectSettings(
         stack="python",
         repository=None,
+        code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(SEEDED_KIND,), revision_rounds=3),
@@ -101,6 +102,37 @@ def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
     assert project.agent_identity
 
 
+@pytest.mark.parametrize("code_owner", ["@octocat", "@Octo-Cat", "@my-org/platform-team"])
+def test_a_code_owner_loads_as_codeowners_writes_it(tmp_path: Path, code_owner: str) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = "{code_owner}"\n')
+
+    assert load_project(tmp_path).code_owner == code_owner
+
+
+@pytest.mark.parametrize("github", ['[github]\ncode_owner = ""\n', "[github]\n", ""])
+def test_an_empty_or_absent_code_owner_is_unset(tmp_path: Path, github: str) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n' + github)
+
+    assert load_project(tmp_path).code_owner is None
+
+
+@pytest.mark.parametrize(
+    "value", ['"octocat"', '"@"', '"@org/"', '"@-bad"', '"@a/b/c"', '"@octocat "', "7"]
+)
+def test_an_invalid_code_owner_names_the_file_the_key_and_both_forms(
+    tmp_path: Path, value: str
+) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = {value}\n')
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    message = str(raised.value)
+    assert message.startswith(PROJECT)
+    assert "code_owner" in message
+    assert '"@login" or "@organisation/team"' in message
+
+
 def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     write(
         tmp_path,
@@ -126,6 +158,11 @@ REPLACED_BY = {
 
 def test_every_removed_table_is_tested() -> None:
     assert sorted(REMOVED_TABLES) == sorted(REPLACED_BY)
+
+
+def test_the_dispatch_message_claims_no_worker_cap() -> None:
+    # rapid-ship takes no notice of how many Sessions run (ADR 0004), so nothing caps Workers.
+    assert "cap" not in REMOVED_TABLES["dispatch"]
 
 
 @pytest.mark.parametrize(("table", "replacement"), sorted(REPLACED_BY.items()))
@@ -166,6 +203,8 @@ def test_map_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
 def test_this_repository_settings_load() -> None:
     project = load_project(ROOT)
     assert (project.repository, project.source_roots) == ("proxy-hatch/rapid-ship", ("rapid_ship",))
+    # .github/CODEOWNERS names @proxy-hatch on every line.
+    assert project.code_owner == "@proxy-hatch"
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
     assert project.excluded == ()
     assert project.escalation.every_pr  # Walk

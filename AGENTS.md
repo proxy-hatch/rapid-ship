@@ -10,7 +10,7 @@ Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devc
 - Plan 7, `rs-setup` and `rs-health`.
 - [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.
 
-The settings hold the Roster, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
+The settings hold the code owner, the Roster, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
 
 ## Commands
 

@@ -24,6 +24,9 @@ _GENERATED = frozenset(
     {".venv", "__pycache__", ".DS_Store"}
 )  # names skipped in every template tree
 _MANIFEST_KEYS = ("seeded", "new_project", "executable", "optional_skills", "variables")
+# Derived from owner when rendering, so a lock that predates it still renders. project.toml
+# reads code_owner = "" as unset, so an empty one stays "" instead of a commented placeholder.
+_CODE_OWNER = "code_owner"
 
 
 class KitError(Exception):
@@ -91,6 +94,8 @@ def render_files(
     """Render every template for one project, sorted by path. root=None means the packaged ones."""
     root = root or packaged_templates()
     manifest = load_manifest(root)
+    owner = variables.get("owner", "")
+    variables = {**variables, _CODE_OWNER: f"@{owner}" if owner else ""}
     unknown = sorted(set(optional) - manifest.optional_skills)
     if unknown:
         raise KitError(f"unknown optional Kit skill {unknown[0]!r}")
@@ -185,7 +190,7 @@ def _render_text(
     """Substitute {{name}} in a seeded template.
 
     An empty value renders as <name> and comments out its line in a TOML file or CODEOWNERS.
-    Any other file refuses an empty value.
+    Any other file refuses an empty value. An empty code_owner renders as nothing.
     """
     lines: list[str] = []
     for line in text.splitlines(keepends=True):
@@ -193,14 +198,18 @@ def _render_text(
         for name in names:
             if name not in declared or name not in variables:
                 raise KitError(f"{path}: unknown template variable {name!r}")
-        empty = [name for name in names if not variables[name]]
-        line = _VARIABLE.sub(lambda match: variables[match.group(1)] or f"<{match.group(1)}>", line)
+        empty = [name for name in names if not variables[name] and name != _CODE_OWNER]
+        line = _VARIABLE.sub(lambda match: _value(match.group(1), variables), line)
         if empty and not line.lstrip().startswith("#"):
             if not (path.endswith(".toml") or PurePosixPath(path).name == "CODEOWNERS"):
                 raise KitError(f"{path}: {empty[0]} must not be empty")
             line = "# " + line
         lines.append(line)
     return "".join(lines)
+
+
+def _value(name: str, variables: Mapping[str, str]) -> str:
+    return variables[name] or ("" if name == _CODE_OWNER else f"<{name}>")
 
 
 def _kept_by_git(root: Path) -> frozenset[str] | None:
