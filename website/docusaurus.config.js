@@ -32,8 +32,6 @@ module.exports = {
         });
       } else if (params.filePath === path.join(repositoryRoot, 'ARCHITECTURE.md')) {
         Object.assign(result.frontMatter, {slug: '/architecture'});
-      } else if (params.filePath === path.join(repositoryRoot, 'docs/model-harnesses.md')) {
-        Object.assign(result.frontMatter, {slug: '/docs/agents'});
       }
       return result;
     },
@@ -64,7 +62,6 @@ module.exports = {
       logo: {alt: 'rapid-ship boat', src: 'logo.jpeg'},
       items: [
         {type: 'doc', docId: 'docs/getting-started', label: 'Get started', position: 'left'},
-        {type: 'doc', docId: 'docs/usage', label: 'Usage', position: 'left'},
         {type: 'doc', docId: 'ARCHITECTURE', label: 'Architecture', position: 'left'},
         {href: 'https://github.com/proxy-hatch/rapid-ship', label: 'GitHub', position: 'right'},
       ],

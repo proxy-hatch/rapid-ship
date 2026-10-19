@@ -1,6 +1,6 @@
 # Spec 3: Metrics and gardening
 
-**Status: revised on 2026-10-19 with the owner's decisions from the second review.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md). Terms follow `GLOSSARY.md` at the repository root.
+**Status: revised on 2026-10-19 with the owner's decisions from the second review.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
 
 ## 1. Scope and outcome
 
@@ -629,13 +629,7 @@ From Spec 2:
 
 ## 15. What changed
 
-**On 2026-10-16** this spec replaced the earlier plan for a third spec, "Metrics and the gate". There is no `devctl gate`, no Mode file, no Flight lease, no Pre-flight gate, no attack-PR set and no Investigator, and no promotion or demotion window. Rollbacks split into Reverts, a basic metric, and deploy rollbacks, which a project defines. `gate.toml` gives way to `metrics.toml`. The Corrections ledger and `rs-garden`, which the withdrawn Walk-flow draft listed as not yet designed, are designed here.
-
-Two earlier designs are reused. The rule that missing data is unknown, and counting Revisions by reviewed head commit, come from the historical metrics guide, `docs/metrics.md`. A ledger entry's `rungs` and `prevention` mean what they meant in the verdict of plan 4's `devctl review`, which was never merged, and what they mean in Spec 2's verdict.
-
-**On 2026-10-19,** after the owner's second review, Pre-flight returned as `rs-preflight`, an advisory review that never gates. Incidents became a source of Corrections, and a severe first Correction gets a proposed task. The ledger's statuses became the owner's dispositions, and every change to an existing entry needs the owner. Partial reverts are detected. Scheduling became advice, which dropped the table of each Harness's scheduler.
-
-A last round the same day, 2c, settled the drafter's details. Partial reverts count under `reverts`, with sections matched by similarity. `window` has no upper limit, and a run that uses up the GitHub API allowance reports the affected metrics as unknown. Only a change to an existing ledger entry is Protected, CODEOWNERS holds the ledger's README, and an entry added with a closed status is an accepted limit. Incidents reach gardening only through an incident metric that the project writes, so the `incidents` flag and the incident issue form are gone. The gardening cadence, the definition of a severe first Correction and `rs-preflight`'s details stand as drafted.
+The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them round 2c, settled what this spec states. The open questions are in section 17.
 
 ## 16. Testing
 
