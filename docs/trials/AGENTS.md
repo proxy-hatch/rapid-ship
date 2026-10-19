@@ -1,7 +1,7 @@
 # Trial evidence
 
 This directory records observations and reproduction artifacts, including unsuccessful probes.
-The controller-era runtime trials and their frozen bundles moved to the [archive](../archive/orchestrator/trials/2026-10-11-runtime-comparison.md).
+The controller-era runtime trials and their frozen bundles are at the tag `archive/controller-2026-10`, starting from the [runtime comparison](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/trials/2026-10-11-runtime-comparison.md).
 
 Record the tested versions, conditions, commands, results, and limits for each trial.
 Identify deterministic simulations, live provider calls, and later reruns separately.
