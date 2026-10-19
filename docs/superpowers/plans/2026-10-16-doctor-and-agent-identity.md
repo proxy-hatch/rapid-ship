@@ -7288,7 +7288,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   build exit 0
   ```
   Rebuilt after this record was filled in, from the same work tree: `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` and no broken-link warning or error. The built page for this plan holds the "Task 11: pending Owner steps" subsection.
-- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: Pending owner step. No agent ran Task 10 Steps 1 to 14, so there are no live results, no report under `docs/trials/`, no live ruleset fixture and no approval-count answer, and Step 17 has not run. Each step's command and what it must observe are under "Task 10: pending Owner steps" below.
+- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: Pending owner step. No agent ran Task 10 Steps 1 to 14. Outside the trial, the equivalents of Steps 3 to 5 ran on this repository on 2026-10-19, and no output was kept; "Task 10: pending Owner steps" below records what is known. There is no report under `docs/trials/`, no live ruleset fixture and no approval-count answer, and Step 17 has not run. Each step's command and what it must observe are under "Task 10: pending Owner steps" below.
 - GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: Pending owner step. Nothing was observed: no `reviewDecision` and no run state were read. The commands are under "Task 10: pending Owner steps" below, and the PR body's `Not covered:` line names this gap until the owner's record fills it.
 - `PROBE_MODELS` as confirmed or corrected in Task 10 Step 13: Pending owner step. Unconfirmed: `harness.py` still holds `haiku` (claude), `gpt-6-luna` (codex) and `gemini-3.8-flash-low` (agy), the values of the Checked facts.
 - PR URL, base, and the `devctl check` run: Pending owner step. No PR exists, so there is no PR URL and no `devctl check` run on GitHub. The base is `codex/devctl-check` while #30 is open, and `main` once it is merged. The PR body is written and passes `./devctl check --tier full --base origin/codex/devctl-check --pr-body <body>` with exit 0 (above). The commands are under "Task 11: pending Owner steps" below.
@@ -7302,13 +7302,15 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   - devctl's own REST client, which mints App tokens and reads the Apps, does not use `HTTPS_PROXY`. Where GitHub is reachable only through a proxy, `devctl as` and doctor's App items cannot mint a token.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
-  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps.
+  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps. The doctor run on this repository suggests that the installation object carries `app_slug`, but its output was not kept (Task 10 Step 5, below).
   - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
   - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
 ### Task 10: pending Owner steps
 
-Every step of Task 10 is an Owner step, and no agent ran any of them: no GitHub App was created, nothing was pushed, no live GitHub call was made and no Harness Session was started. Below, each step has the exact command and what it must observe, copied from Task 10, so the owner's session can be compared with them. Nothing here is a result. Each of Steps 1 to 17 stays "Pending owner step", neither a pass nor a skip, until the owner's record of Steps 2 to 14 replaces its entry with the exit code, the output and a live mark.
+Every step of Task 10 is an Owner step, and no agent ran any of them. Outside the trial, on 2026-10-19, the owner created the Worker App and the Reviewer App and installed both on this repository, `proxy-hatch/rapid-ship`; `./devctl doctor` then ran here. Commit `699fe95` records both Apps under `[github]` in this repository's `.rapid-ship/project.toml`, and its message is the only record of these runs: no command output or exit code was kept. Steps 3 to 5 below start with what is known of them. The trial itself has not run: it works in `rs-trial`, and `gh api repos/proxy-hatch/rs-trial` returned 404 on 2026-10-20.
+
+Below, each step has the exact command and what it must observe, copied from Task 10, so the owner's session can be compared with them. Apart from the runs on this repository in Steps 3 to 5, nothing here is a result. Each of Steps 1 to 17 stays "Pending owner step" for the trial, neither a pass nor a skip, until the owner's record of Steps 2 to 14 replaces its entry with the exit code, the output and a live mark.
 
 Where this stood at `c2f0a70`, the base of this record: `docs/trials/` holds no `*-agent-identity.md` report and `docs/trials/AGENTS.md` links none; `tests/devctl/fixtures/github/ruleset.json` is still the offline fixture from Task 5, the ruleset the index specifies with `id` 9, `source` `o/r` and `required_approving_review_count` 1; `doctor_rules.py` still requires an approval; the index's approval-count paragraph, Spec 1 section 8, step 7.3 and Spec 1 section 11's open item read as drafted; and `PROBE_MODELS` in `harness.py` holds `haiku`, `gpt-6-luna` and `gemini-3.8-flash-low`, the values of the Checked facts.
 
@@ -7352,7 +7354,9 @@ Record: every version, the owner's GitHub plan, and the fast check's exit code.
 
 #### Step 3: create the Apps
 
-Pending owner step. The owner completes both browser pages that `rapid-ship app` opens.
+Run outside the trial: on 2026-10-19 the owner ran `rapid-ship app`, which created the Worker App, ID 5376519 (`proxy-hatch-rs-worker`), and the Reviewer App, ID 5376520 (`proxy-hatch-rs-reviewer`). `699fe95` records the four `[github]` lines. Not kept: the exit code, the install URLs, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, whether `security` showed a dialog while storing each key, and the two "stored" lines.
+
+Pending owner step on `rs-trial`. The owner completes both browser pages that `rapid-ship app` opens.
 
 ```sh
 uvx --from "$PLAN4" rapid-ship app; echo "exit $?"
@@ -7366,7 +7370,9 @@ Record: the printed lines (IDs, slugs, `[github]` lines and install URLs), the e
 
 #### Step 4: install the Apps and record them
 
-Pending owner step. The owner opens both printed install URLs and installs each App on `rs-trial` only. In `.rapid-ship/project.toml` they set `worker_app_id`, `worker_app_slug`, `reviewer_app_id` and `reviewer_app_slug` under `[github]` to the four printed lines, then run:
+Run outside the trial: the owner installed both Apps on `proxy-hatch/rapid-ship`, not on `rs-trial`. `699fe95` (2026-10-19) sets this repository's `[github]` values to `worker_app_id = 5376519`, `worker_app_slug = "proxy-hatch-rs-worker"`, `reviewer_app_id = 5376520` and `reviewer_app_slug = "proxy-hatch-rs-reviewer"`. The step's push to `rs-trial` did not run. The installation date was not recorded.
+
+Pending owner step on `rs-trial`. The owner opens both printed install URLs and installs each App on `rs-trial` only. In `.rapid-ship/project.toml` they set `worker_app_id`, `worker_app_slug`, `reviewer_app_id` and `reviewer_app_slug` under `[github]` to the four printed lines, then run:
 
 ```sh
 WORKER_ID=$(python3 -c 'import tomllib; print(tomllib.load(open(".rapid-ship/project.toml", "rb"))["github"]["worker_app_id"])')
@@ -7380,7 +7386,9 @@ Record: the four recorded values and the push's result.
 
 #### Step 5: doctor reads both Apps
 
-Pending owner step.
+Run outside the trial: before `699fe95` (2026-10-19), `./devctl doctor` ran in this repository; who ran it is not recorded. That commit's message says that doctor reports all four `agent identity` items ok: the Worker App installation, the Reviewer App installation, the Worker App key and the Reviewer App key. The doctor output and its exit code were not kept, so the state of doctor's other items is unknown. An ok installation item would mean that the installation object carries `app_slug`, because that item compares it with the recorded slug (`_installation_item` in `doctor_github.py`); this is an inference, not an observation. Nothing records a run of the `installation` command that prints the installation object's keys, or of the `security ... -w` read, so whether a macOS dialog appears is unknown.
+
+Pending owner step on `rs-trial`.
 
 ```sh
 ./devctl doctor; echo "exit $?"
