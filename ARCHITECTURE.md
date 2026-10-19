@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This branch, PR #31, holds the first part of plan 4: its settings and the App token code. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This branch, PR #32, holds plan 4's settings, its App token code and `devctl doctor`. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -8,8 +8,8 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | --- | --- | --- |
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
-| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI |
-| App token code | `tools/devctl/devctl/github/` | The REST client, App installation tokens and the askpass helper for git. No command calls them on this branch; plan 4's doctor and `devctl as` do |
+| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack |
+| App token code | `tools/devctl/devctl/github/` | The REST client, App installation tokens and the askpass helper for git. `devctl doctor` checks the Apps with them; plan 4's `devctl as` will use them too |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
 | Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
@@ -47,7 +47,7 @@ The `project.toml` seeds hold the settings of the re-scope: `[github]` with each
 
 ## devctl and `devctl check`
 
-The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. Today devctl has `--version` and `check`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
+The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. devctl has `--version`, `check` and `doctor`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
 
 `./devctl check [--tier fast|full] [--json] [--base REV] [--pr-body PATH]` runs the steps below in order and prints one line per step: passed, failed, blocked or not applicable. It exits 0 when every applicable step passed, 1 when a step failed and 2 when a step could not run. A blocked step never counts as passed, and 2 outranks 1. The default tier is `full`.
 

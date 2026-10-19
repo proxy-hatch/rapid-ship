@@ -2,9 +2,9 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. Plan 4 is built in PRs #31 to #33, which are not merged yet; this branch, #31, holds its settings and the App token code. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
+Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. Plan 4 is built in PRs #31 to #33, which are not merged yet; this branch, #32, holds its settings, the App token code and `devctl doctor`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
 
-- The rest of plan 4: `devctl doctor` in #32, and `rapid-ship app` and `devctl as` in #33. Its follow-ups support repositories that an organisation owns from the start (backlog item PRO-105).
+- The rest of plan 4: `rapid-ship app` and `devctl as`, in #33. Its follow-ups support repositories that an organisation owns from the start (backlog item PRO-105).
 - Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
@@ -17,6 +17,7 @@ The settings hold the Roster, the escalation list and each App's ID and slug. de
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Session per Harness.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.
