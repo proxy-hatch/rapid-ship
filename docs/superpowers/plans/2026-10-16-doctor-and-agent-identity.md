@@ -7109,7 +7109,7 @@ Pushing it is an Owner step. The owner runs `git push` from this plan's worktree
 Fill in after Task 11. Record actual output, not expectations. Mark live, offline and simulated results separately; a skipped or blocked step is not a pass.
 
 - Baseline on #30's head (Task 1 Step 1): commit, `./devctl check` and `status --strict` exit codes: #30's head is `928fbe4` (PR #30 was open when Step 1 ran). This branch started at `a7177bc`, which adds this plan to it. Task 1's report records, before any change, `./devctl check --base origin/codex/devctl-check` with every step passed and `evidence` not applicable (the report prints no exit code), and `uv run rapid-ship status --strict` exit 0 with "24 managed files unchanged." These are Task 1's reported results; Task 11 did not re-run the baseline.
-- Each task's commit and its test command's result (Tasks 1 to 9): These are the implementers' reported results. Every test is offline and simulated, and each task also ran the whole suite once before its commit. Task 11 re-ran the whole suite on `82d03f0` (see `uv run pytest -q` below).
+- Each task's commit and its test command's result (Tasks 1 to 9): These are the implementers' reported results. The plan-4 tests behind them are offline and simulated: a fake GitHub on 127.0.0.1, a fake Keychain, local bare repositories and fake Harness executables. Each task also ran the whole suite once before its commit, and the whole suite is not all offline: two of its files need network access and gitleaks 8.30.1 (see `uv run pytest -q` below). Task 11 re-ran the whole suite on `82d03f0`.
   - Task 1, `24e7a2b` (fix: let run_process finish when macOS refuses SIGTERM, and share first_line): `uv run pytest tests/devctl/test_devctl_process.py -q`, 23 passed; whole suite 764 passed.
   - Task 2, `7e87fe4` (feat: read the Roster, the escalation list and both Apps from project.toml): `uv run pytest tests/devctl/test_devctl_settings.py -q`, 53 passed; `uv run pytest tests/devctl tests/test_kit_contents.py tests/test_kit_dogfood.py -q`, 477 passed; whole suite 777 passed.
   - Task 3, `9cd2c95` (feat: mint App installation tokens and pass them to git through askpass): the GitHub client, App, askpass, kit-step and kit-contents test files, 109 passed; whole suite 832 passed.
@@ -7208,7 +7208,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   37 managed files unchanged.
   status exit 0
   ```
-- `uv run pytest -q`: passed, failed and skipped counts: 1267 passed, 0 failed, 0 skipped, in 178.07 s, exit 0, on `82d03f0`. All of them are offline and simulated tests: a fake GitHub on 127.0.0.1, a fake Keychain, local bare repositories and fake Harness executables. The summary line names no failed, skipped, xfailed or errored test.
+- `uv run pytest -q`: passed, failed and skipped counts: 1267 passed, 0 failed, 0 skipped, in 178.07 s, exit 0, on `82d03f0`. The results are of two kinds. The plan-4 tests (doctor, the token code, `rapid-ship app` and `devctl as`) are offline and simulated: a fake GitHub on 127.0.0.1, a fake Keychain, local bare repositories and fake Harness executables. `tests/devctl/test_devctl_check_integration.py` and `tests/devctl/test_devctl_project_dogfood.py` ran live, as `tests/AGENTS.md` says they need: with network access (PyPI, pip-audit's lookups, and `uv run --locked rapid-ship sync --in-place` in a copy of the work tree) and gitleaks 8.30.1 on `PATH`. `tests/test_gitleaks_settings.py` ran real gitleaks offline. The summary line names no failed, skipped, xfailed or errored test.
   ```text
   1267 passed in 178.07s (0:02:58)
   pytest exit 0
@@ -7297,7 +7297,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   - Organisation-owned repositories cannot install the owner's private Apps.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
-  - Nothing in this record is a live result except `./devctl check`, `./devctl doctor` and the docs site build. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps.
+  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps.
   - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
   - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
