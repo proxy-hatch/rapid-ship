@@ -388,6 +388,26 @@ def test_an_unexpected_owner_read_is_an_error(
     assert "rapid-ship: GitHub's record of " in capsys.readouterr().err
 
 
+def test_exists_reads_no_secret_and_counts_an_item_rapid_ship_did_not_write() -> None:
+    security = FakeSecurity()
+    store = MacKeychainStore(run=security)
+    assert store.exists("rapid-ship/worker-app/11") is False
+    security.items["rapid-ship/worker-app/11"] = {"-X": "2d2d"}  # added by hand: no -a or -j
+    assert store.exists("rapid-ship/worker-app/11") is True
+    looked_up = ["security", "find-generic-password", "-s", "rapid-ship/worker-app/11"]
+    assert security.argvs == [looked_up, looked_up]
+
+    def locked(argv: list[str], input_text: str | None) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, 51, "", "security: User interaction is not allowed."
+        )
+
+    with pytest.raises(
+        AppSetupError, match="could not read Keychain item rapid-ship/worker-app/11"
+    ):
+        MacKeychainStore(run=locked).exists("rapid-ship/worker-app/11")
+
+
 def test_find_reads_no_secret_and_refuses_an_item_rapid_ship_did_not_write() -> None:
     security = FakeSecurity()
     store = MacKeychainStore(run=security)

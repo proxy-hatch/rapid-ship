@@ -73,6 +73,7 @@ def keychain_service(role: str, app_id: int) -> str:
 
 
 class KeychainStore(Protocol):
+    def exists(self, service: str) -> bool: ...
     def find(self, service: str) -> StoredApp | None: ...
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None: ...
     def read_key(self, service: str) -> bytes: ...
@@ -111,15 +112,27 @@ class MacKeychainStore:
     def __init__(self, run: Runner = run_command) -> None:
         self.run = run
 
-    def find(self, service: str) -> StoredApp | None:
+    def _attributes(self, service: str) -> str | None:
+        """The item's attributes as security prints them, or None when no item has the name."""
         # Without -w, security prints the item's attributes only, never its secret.
         result = self.run(["security", "find-generic-password", "-s", service], None)
         if result.returncode == _ITEM_NOT_FOUND:
             return None
         if result.returncode != 0:
             raise AppSetupError(f"could not read Keychain item {service}")
-        account = _ACCOUNT.search(result.stdout)
-        comment = _COMMENT.search(result.stdout)
+        return result.stdout
+
+    def exists(self, service: str) -> bool:
+        """Whether an item has the name, even one that rapid-ship app did not write: devctl
+        reads an item by its name alone."""
+        return self._attributes(service) is not None
+
+    def find(self, service: str) -> StoredApp | None:
+        attributes = self._attributes(service)
+        if attributes is None:
+            return None
+        account = _ACCOUNT.search(attributes)
+        comment = _COMMENT.search(attributes)
         if account is None or comment is None:
             raise AppSetupError(f"Keychain item {service} was not written by rapid-ship app")
         return StoredApp(int(account.group(1)), comment.group(1))

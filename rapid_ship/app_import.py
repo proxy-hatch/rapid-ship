@@ -94,7 +94,7 @@ def import_key(
                 "work tree once [github] records the App's ID and slug"
             )
         service = keychain_service(role, recorded.app_id)
-        if store.find(service) is not None:
+        if store.exists(service):
             raise _Refused(
                 f"Keychain item {service} already exists, and rapid-ship never replaces one; "
                 "./devctl doctor checks the key it holds. To replace a key that no longer works, "

@@ -180,6 +180,15 @@ def test_an_app_that_project_toml_does_not_record_gets_no_key(
     )
 
 
+# The refusal when the Worker App 11's item exists, whoever wrote it.
+EXISTS = (
+    "rapid-ship: Keychain item rapid-ship/worker-app/11 already exists, and rapid-ship never "
+    "replaces one; ./devctl doctor checks the key it holds. To replace a key that no longer "
+    "works, delete the item with: security delete-generic-password -s "
+    "rapid-ship/worker-app/11, then run this again. Nothing was stored.\n"
+)
+
+
 def test_an_existing_item_is_left_in_place(
     developer: Developer, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -191,14 +200,22 @@ def test_an_existing_item_is_left_in_place(
     assert developer.run("worker", stdin) == 1
     assert developer.security.items == {"rapid-ship/worker-app/11": held}
     assert (developer.security.inputs, developer.api.requests, stdin.tell()) == ([], [], 0)
-    out, err = capsys.readouterr()
-    assert out == ""
-    assert err == (
-        "rapid-ship: Keychain item rapid-ship/worker-app/11 already exists, and rapid-ship never "
-        "replaces one; ./devctl doctor checks the key it holds. To replace a key that no longer "
-        "works, delete the item with: security delete-generic-password -s "
-        "rapid-ship/worker-app/11, then run this again. Nothing was stored.\n"
-    )
+    assert capsys.readouterr() == ("", EXISTS)
+
+
+def test_an_item_rapid_ship_did_not_write_is_left_in_place(
+    developer: Developer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An item added by hand has no App ID or slug, and devctl reads its key by name alone."""
+    held = {"-X": rsa_key("held/worker").hex()}
+    developer.security.items["rapid-ship/worker-app/11"] = dict(held)
+    key = rsa_key("developer/worker")
+    developer.api.register(key, APPS["worker"], ORGANISATION)
+    stdin = io.BytesIO(key)
+    assert developer.run("worker", stdin) == 1
+    assert developer.security.items == {"rapid-ship/worker-app/11": held}
+    assert (developer.security.inputs, developer.api.requests, stdin.tell()) == ([], [], 0)
+    assert capsys.readouterr() == ("", EXISTS)
 
 
 @pytest.mark.parametrize(

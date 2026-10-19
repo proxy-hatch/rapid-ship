@@ -87,6 +87,9 @@ class FakeStore:
         self.apps: dict[str, StoredApp] = {}
         self.keys: dict[str, bytes] = {}
 
+    def exists(self, service: str) -> bool:
+        return service in self.apps
+
     def find(self, service: str) -> StoredApp | None:
         return self.apps.get(service)
 
@@ -108,21 +111,26 @@ class FakeStore:
         return sorted(named, key=lambda app: app.app_id)
 
 
-def attributes(service: str, account: str, comment: str) -> str:
+def attributes(service: str, account: str | None, comment: str | None) -> str:
     """One generic-password item as keychain_utilities.c print_keychain_item_attributes prints
-    it for find-generic-password and dump-keychain."""
+    it for find-generic-password and dump-keychain. None is an attribute the item lacks."""
+
+    def blob(value: str | None) -> str:
+        return "<NULL>" if value is None else f'"{value}"'
+
     return (
         'keychain: "/Users/o/Library/Keychains/login.keychain-db"\n'
         'class: "genp"\n'
         "attributes:\n"
-        f'    "acct"<blob>="{account}"\n'
-        f'    "icmt"<blob>="{comment}"\n'
+        f'    "acct"<blob>={blob(account)}\n'
+        f'    "icmt"<blob>={blob(comment)}\n'
         f'    "svce"<blob>="{service}"\n'
     )
 
 
 class FakeSecurity:
     """`security` over a dict of generic-password items: service -> its -a, -j and -X values.
+    An item added by hand can lack -a and -j.
 
     As security does, an add without -U leaves an existing item as it was and fails.
     """
@@ -153,7 +161,10 @@ class FakeSecurity:
             self.items[options["-s"]] = {flag: options[flag] for flag in ("-a", "-j", "-X")}
             return subprocess.CompletedProcess(argv, 0, "", "")
         if argv == ["security", "dump-keychain"]:
-            dump = [attributes(name, item["-a"], item["-j"]) for name, item in self.items.items()]
+            dump = [
+                attributes(name, item.get("-a"), item.get("-j"))
+                for name, item in self.items.items()
+            ]
             return subprocess.CompletedProcess(argv, 0, "".join(dump), "")
         assert argv[:3] == ["security", "find-generic-password", "-s"]
         item = self.items.get(argv[3])
@@ -163,7 +174,8 @@ class FakeSecurity:
         if argv[4:] == ["-w"]:
             return subprocess.CompletedProcess(argv, 0, item["-X"] + "\n", "")
         assert argv[4:] == []
-        return subprocess.CompletedProcess(argv, 0, attributes(argv[3], item["-a"], item["-j"]), "")
+        found = attributes(argv[3], item.get("-a"), item.get("-j"))
+        return subprocess.CompletedProcess(argv, 0, found, "")
 
 
 @cache
