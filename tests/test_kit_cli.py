@@ -112,7 +112,10 @@ def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(
     assert main(["init", "--stack", "agnostic"]) == 0
 
     assert "# * @<owner>" in (git_repo / ".github/CODEOWNERS").read_text().splitlines()
-    assert "CODEOWNERS has no owner line yet; rs-setup writes it." in capsys.readouterr().out
+    assert (
+        "CODEOWNERS has no owner line and [github] code_owner is empty; rs-setup writes both."
+        in capsys.readouterr().out
+    )
 
 
 @pytest.mark.parametrize(
