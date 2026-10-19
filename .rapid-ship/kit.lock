@@ -36,7 +36,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "7795b0edf14248f3e4307fe68343138bbcc22ba2cb2730ed093c8a8b4ec4763d"
+template_sha256 = "b5e0c1f1cde1f3818117bce493464bf076b4b9d06a69ff588caf48fa8892a539"
 
 [[file]]
 path = "AGENTS.md"
@@ -201,7 +201,7 @@ sha256 = "7b605a6849bd8ed37335d6d4019ff15e205773da22718ab949f6bd130b3770e7"
 [[file]]
 path = "tools/devctl/devctl/github/app.py"
 kind = "managed"
-sha256 = "74fcdb9c37c28e5224bb61c6dfa1b4745ef459beef6737ad5e386df2210f592c"
+sha256 = "52d35888559015e285c7ee78809e513c1d1420c082bcfe8bef722ee3439467c8"
 
 [[file]]
 path = "tools/devctl/devctl/github/askpass.py"
@@ -226,7 +226,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "fa2c3a4402d0a7d39b12c956f734fec9ddbb3cc511320bd2c952e8b3e8e0ebf4"
+sha256 = "042185e55825c0329f9e21f5f1be46128773d992c36eed39e194bb51af9d9696"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

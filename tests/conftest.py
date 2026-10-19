@@ -18,7 +18,7 @@ seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
 new_project = ["pyproject.toml", "src/__package__/__init__.py"]
 executable = ["devctl"]
 optional_skills = ["rs-extra"]
-variables = ["owner", "package", "project_name", "repository"]
+variables = ["code_owner", "owner", "package", "project_name", "repository"]
 """
 
 TEMPLATE_FILES = {

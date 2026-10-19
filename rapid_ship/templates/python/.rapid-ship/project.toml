@@ -3,6 +3,8 @@ stack = "python"
 
 [github]
 repository = "{{repository}}"
+# The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".
+code_owner = "{{code_owner}}"
 # Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
 worker_app_id = 0
 worker_app_slug = ""

@@ -17,7 +17,7 @@ from typing import Literal, cast, get_args
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-Harness = Literal["claude", "codex", "agy"]  # Proposal: Spec 1 section 11, Roster Harnesses
+Harness = Literal["claude", "codex", "agy"]  # the Harnesses with built-in routes (Spec 1 section 4)
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
@@ -25,8 +25,7 @@ ROLES: tuple[Role, ...] = ("worker", "reviewer")
 REMOVED_TABLES = {
     "agents": "name each role's Harness and exact model under [roster.worker] and "
     "[roster.reviewer] instead",
-    "dispatch": "rapid-ship no longer starts Workers, and the Lead brief's Focus caps parallel "
-    "Workers; delete the table",
+    "dispatch": "rapid-ship no longer starts Workers; delete the table",
     "linear": "devctl never talks to the issue tracker; delete the table",
     "release": "a project defines its own deploy metrics (Spec 3); delete the table",
 }
@@ -34,6 +33,7 @@ REMOVED_TABLES = {
 _TABLES = {"stack", "github", "escalation", "roster", "kit", "map", "tests"}
 _GITHUB_KEYS = {
     "repository",
+    "code_owner",
     "worker_app_id",
     "worker_app_slug",
     "reviewer_app_id",
@@ -41,6 +41,8 @@ _GITHUB_KEYS = {
 }
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _APP_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")  # the slugs GitHub gives Apps
+# A code owner as CODEOWNERS writes it: "@login" or "@organisation/team".
+_CODE_OWNER = re.compile(r"@[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9][A-Za-z0-9_.-]*)?")
 _EXCEPTION_ID = re.compile(r"EX-[1-9][0-9]*")
 _EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
@@ -72,6 +74,7 @@ class Escalation:
 class ProjectSettings:
     stack: Stack
     repository: str | None  # "owner/name"
+    code_owner: str | None  # "@login" or "@organisation/team"; None when "" or absent
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
@@ -218,6 +221,14 @@ def _apps(github: _Table, repository: str | None) -> tuple[App | None, App | Non
     return worker, reviewer
 
 
+def _code_owner(github: _Table) -> str | None:
+    value = github.values.get("code_owner", "")
+    # A number fails here too, so its message also says what the key accepts.
+    if not isinstance(value, str) or (value and not _CODE_OWNER.fullmatch(value)):
+        raise github._error("code_owner", '"@login" or "@organisation/team"')
+    return value or None
+
+
 def _escalation(top: _Table) -> Escalation:
     table = top.table("escalation", {"every_pr", "kinds", "revision_rounds"})
     return Escalation(
@@ -258,6 +269,7 @@ def load_project(root: Path) -> ProjectSettings:
     return ProjectSettings(
         stack=stack,
         repository=repository,
+        code_owner=_code_owner(github),
         worker_app=worker_app,
         reviewer_app=reviewer_app,
         escalation=_escalation(top),

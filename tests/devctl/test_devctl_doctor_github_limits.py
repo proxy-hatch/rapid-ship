@@ -5,7 +5,6 @@ live GitHub, gh login or Keychain is read."""
 import base64
 import dataclasses
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -22,6 +21,7 @@ from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
     REVIEWER_PERMISSIONS,
+    WORKER_ID,
     FakeGitHub,
     FakeKeychain,
     MakeContext,
@@ -283,10 +283,14 @@ def test_a_missing_key_names_the_command_that_creates_it(
     ctx_github: MakeContext, keychain_without_reviewer: FakeKeychain
 ) -> None:
     items = by_name(github_items(ctx_github(keychain=keychain_without_reviewer)))
+    tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
+    expected = (
+        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; run {tagged}, "
+        "which re-stores a key kept under rapid-ship/reviewer-app, "
+        f"or {tagged} --import-key reviewer"
+    )
     for name in ("Reviewer App installation", "Reviewer App key"):
-        assert "Keychain item rapid-ship/reviewer-app not found" in items[name].detail
-    command = r"; run uvx --from git\+\S+@v0\.2\.0 rapid-ship app$"
-    assert re.search(command, items["Reviewer App key"].detail)
+        assert items[name].detail == expected
 
 
 def test_a_key_that_is_not_a_pem_is_unknown_and_quotes_none_of_it(
@@ -294,8 +298,8 @@ def test_a_key_that_is_not_a_pem_is_unknown_and_quotes_none_of_it(
 ) -> None:
     keychain = FakeKeychain(
         {
-            "rapid-ship/worker-app": app_keys["worker"][0],
-            "rapid-ship/reviewer-app": b"-----BEGIN PRIVATE KEY-----\nnot a key\n",
+            f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0],
+            f"rapid-ship/reviewer-app/{REVIEWER_ID}": b"-----BEGIN PRIVATE KEY-----\nnot a key\n",
         }
     )
     items = by_name(github_items(ctx_github(keychain=keychain)))

@@ -22,4 +22,4 @@ new_project = [
 ]
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
 optional_skills = []
-variables = ["owner", "package", "project_name", "repository"]
+variables = ["code_owner", "owner", "package", "project_name", "repository"]

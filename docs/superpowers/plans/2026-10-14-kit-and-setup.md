@@ -392,7 +392,7 @@ MIGRATIONS: tuple[Migration, ...]
 
 ### Plan 4 follow-ups, before #31 to #33 merge
 
-The owner's decisions of 2026-10-19 change plan 4's built code: organisation-owned repositories are supported from the start, which brings backlog item PRO-105 into scope. Each change lands on the PR that holds its file and is merged up the stack. Edit devctl only under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`.
+The owner's decisions of 2026-10-19 change plan 4's built code: organisation-owned repositories are supported from the start, which brings backlog item PRO-105 into scope. Each change lands on the PR that holds its file and is merged up the stack. Their plan is [Plan 4 follow-ups](2026-10-20-plan4-follow-ups.md). Edit devctl only under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`.
 
 1. **doctor's code owner (#31, #32).** `settings.py` accepts `[github] code_owner`, `"@<login>"` or `"@<organisation>/<team>"`, and the project templates and this repository's `project.toml` record it. `doctor_github.py`'s CODEOWNERS item checks CODEOWNERS against it instead of the repository's owner, and reports the item missing while the key is unset (Spec 1 sections 4 and 6).
 2. **The organisation flow (#33).** `rapid_ship/github_app.py` stops refusing a repository that an organisation owns, and creates its Apps through the organisation manifest flow at `https://github.com/organizations/<organisation>/settings/apps/new`. `rapid-ship app --import-key {worker,reviewer}` stores a key that a developer generated on GitHub, read on stdin (Spec 1 section 3).
