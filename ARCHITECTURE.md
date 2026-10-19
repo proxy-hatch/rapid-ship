@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in six plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This branch, PR #31, holds the first part of plan 4: its settings and the App token code. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -9,15 +9,16 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
 | devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI |
+| App token code | `tools/devctl/devctl/github/` | The REST client, App installation tokens and the askpass helper for git. No command calls them on this branch; plan 4's doctor and `devctl as` do |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
-| Seeded files | `.rapid-ship/project.toml`, `gate.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
+| Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Distribution smoke | `scripts/smoke_distribution.py` | Checks the built wheel and runs its `rapid-ship` in scratch repositories |
-| Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 6's Kit skills replace it |
+| Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 7's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Plans 4 to 6 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. The rest of plan 4, plans 5 to 7 of Spec 1, Spec 2 and Spec 3 are not on this branch ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -38,13 +39,15 @@ Nothing here runs as a service. Plans 4 to 6 of Spec 1, Spec 2 and Spec 3 are de
 
 A managed file is copied byte for byte, and `sync` replaces it with each new template. A seeded file substitutes `{{project_name}}`, `{{package}}`, `{{owner}}` and `{{repository}}`, is written once and then belongs to the project. An empty owner or repository renders as `<owner>` or `<repository>` and comments out its line, which only TOML and CODEOWNERS templates allow. The Python stack's new-project seeds, a `pyproject.toml` with a skeleton package and test, are written only when `init` finds no `pyproject.toml`. Each `.claude/skills/<name>` is a relative symlink to `.agents/skills/<name>`; the Kit has no skills yet. A project lists the Kit paths it owns under `[kit] exclude` in `.rapid-ship/project.toml`, and `sync` never touches them.
 
+The `project.toml` seeds hold the settings of the re-scope: `[github]` with each App's ID and slug, `[escalation]` for the escalation list, and a commented-out `[roster]` example for the Roster. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and names what replaced each. The Kit no longer seeds or reads `gate.toml`. The settled design sets no cap on parallel Workers, and only advises at most 3 Workers at once in Walk.
+
 ## The lock
 
 `.rapid-ship/kit.lock` records the Kit version, the stack, the variables and one entry per Kit file: a content hash for a managed file, a link target for a managed symlink and the template's hash for a seeded file. An entry moves from managed to seeded when the project edits or deletes the file, and back through `sync --revert`. The Kit version is the package version. `rapid-ship` writes the lock; nobody edits it by hand.
 
 ## devctl and `devctl check`
 
-The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML. Today devctl has `--version` and `check`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
+The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. Today devctl has `--version` and `check`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
 
 `./devctl check [--tier fast|full] [--json] [--base REV] [--pr-body PATH]` runs the steps below in order and prints one line per step: passed, failed, blocked or not applicable. It exits 0 when every applicable step passed, 1 when a step failed and 2 when a step could not run. A blocked step never counts as passed, and 2 outranks 1. The default tier is `full`.
 
@@ -96,18 +99,19 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans:
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines four more plans. Plan 4 is built in PRs #31 to #33, which are not merged yet; plans 5 to 7 are not started.
 
-- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the Roster and the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged and is kept as history.
-- **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** `devctl hook` and its wiring for Claude Code, Codex and agy; the README.md and ARCHITECTURE.md seeds; the Pattern `task` key; the `SKILL.md` rule; the diff cap; and the Harness settings in CODEOWNERS.
-- **[Plan 6, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
+- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the Roster and the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged and is kept as history. Its follow-ups land on #31 to #33 before they merge, so that repositories an organisation owns are supported from the start (backlog item PRO-105): doctor's CODEOWNERS item checked against a recorded code owner, the organisation's App manifest flow, a key that each developer imports, and Keychain names that carry the App's ID.
+- **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** first a spike on whether the Codex and agy hooks fire, including inside subagents (backlog item PRO-139). Then `devctl hook` and its wiring for Claude Code, Codex and agy, with the merge guard, which denies an agent's `gh pr merge` until `devctl check` passes on the PR's head commit, and whenever the PR touches the Protected set. Then the README.md and ARCHITECTURE.md seeds; `devctl doctor --settings`; the Pattern `task` key and `## Lessons` section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap; the Corrections ledger rule; documented and validated settings, with the Roster's `command`; `sync`'s migrations; and the Harness settings in CODEOWNERS.
+- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
+- **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
 
 Two more specs get their own plans later:
 
 - **[Spec 2, Delivery skills](docs/superpowers/specs/2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
-- **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger and `rs-garden`.
+- **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden`, and `rs-preflight`, the advisory readiness review before the owner widens the Mode toward Flight.
 
-Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges; Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). [ADR 0001](docs/adr/0001-subscription-logins-only.md) is this repository's own rule, not product behaviour: its agents use subscription sign-ins only. [ADR 0003](docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded by ADR 0004.
+Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges, the merge guard also checks each agent merge, and Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). [ADR 0001](docs/adr/0001-subscription-logins-only.md) is this repository's own rule, not product behaviour: its agents use subscription sign-ins only. [ADR 0003](docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded by ADR 0004.
 
 ## What was removed
 
