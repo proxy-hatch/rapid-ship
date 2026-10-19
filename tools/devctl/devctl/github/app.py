@@ -1,9 +1,10 @@
 """GitHub App keys, App JWTs, installation tokens and token-bearing git.
 
-Each App's private key lives in the macOS Keychain. A command reads it, signs a short-lived JWT
-and mints one installation token, restricted to one repository and the App's permissions. Keys
-and tokens stay in memory: nothing here writes one to disk, puts one in argv or prints one.
-git receives a token only from askpass.py, through the environment of that one git command.
+Each App's private key lives in the macOS Keychain, in an item named for the role and the App's
+ID: rapid-ship/<role>-app/<App ID>. A command reads it, signs a short-lived JWT and mints one
+installation token, restricted to one repository and the App's permissions. Keys and tokens stay
+in memory: nothing here writes one to disk, puts one in argv or prints one. git receives a token
+only from askpass.py, through the environment of that one git command.
 """
 
 from __future__ import annotations
@@ -30,10 +31,6 @@ from devctl.github.api import API_URL, GitHubApi, GitHubError, json_object
 from devctl.process import ProcessResult
 from devctl.settings import ProjectSettings, Role, SettingsError
 
-KEYCHAIN_SERVICE: dict[Role, str] = {
-    "worker": "rapid-ship/worker-app",
-    "reviewer": "rapid-ship/reviewer-app",
-}
 # Spec 1 section 3. Every token asks for exactly these, never the installation's whole grant.
 APP_PERMISSIONS: dict[Role, dict[str, str]] = {
     "worker": {
@@ -58,7 +55,26 @@ class AppError(DevctlError):
 
 
 class KeychainMissing(AppError):
-    """The Keychain has no item for an App's key."""
+    """The Keychain has no item for an App's key.
+
+    With the role, the message names the rapid-ship commands that store the key.
+    """
+
+    def __init__(self, service: str, role: Role | None = None) -> None:
+        self.service = service
+        self.role = role
+        super().__init__(self.message())
+
+    def message(self, app_command: str = "rapid-ship app") -> str:
+        """The text, with app_command as the command that runs `rapid-ship app`."""
+        missing = f"Keychain item {self.service} not found"
+        if self.role is None:
+            return missing
+        # Plan 4 named the item without the App ID; `rapid-ship app` re-stores such a key.
+        return (
+            f"{missing}; run {app_command}, which re-stores a key kept under "
+            f"rapid-ship/{self.role}-app, or {app_command} --import-key {self.role}"
+        )
 
 
 class AppNotInstalled(AppError):
@@ -104,16 +120,28 @@ class MacKeychain:
             raise AppError(f"could not read Keychain item {service}") from None
         cut = result.timed_out or result.stdout_truncated or result.stderr_truncated
         if not cut and result.returncode == _ITEM_NOT_FOUND:
-            raise KeychainMissing(f"Keychain item {service} not found")
+            raise KeychainMissing(service)
         if cut or result.returncode != 0:
             raise AppError(f"could not read Keychain item {service}")
         return _decode_secret(result.stdout)
 
 
-def keychain_private_key(role: Role, keychain: Keychain | None = None) -> bytes:
-    """The PEM private key of the role's App."""
+def keychain_service(role: Role, app_id: int) -> str:
+    """The Keychain item that holds the key of the role's App with app_id.
+
+    The ID in the name lets one machine hold the keys of several Apps for one role.
+    """
+    return f"rapid-ship/{role}-app/{app_id}"
+
+
+def keychain_private_key(role: Role, app_id: int, keychain: Keychain | None = None) -> bytes:
+    """The PEM private key of the role's App, whose ID [github] records."""
     store = keychain if keychain is not None else MacKeychain()
-    return store.read(KEYCHAIN_SERVICE[role])
+    service = keychain_service(role, app_id)
+    try:
+        return store.read(service)
+    except KeychainMissing:
+        raise KeychainMissing(service, role) from None  # the store knows no role to advise on
 
 
 def _signing_key(private_key: bytes) -> RSAPrivateKey:
@@ -141,7 +169,9 @@ def app_jwt(private_key: bytes, app_id: int, now: float | None = None) -> str:
 
 def _app_client(role: Role, app_id: int, keychain: Keychain | None, api_url: str) -> GitHubApi:
     """A REST client that acts as the App itself, with a fresh JWT."""
-    return GitHubApi(app_jwt(keychain_private_key(role, keychain), app_id), base_url=api_url)
+    return GitHubApi(
+        app_jwt(keychain_private_key(role, app_id, keychain), app_id), base_url=api_url
+    )
 
 
 def _installation(app: GitHubApi, role: Role, repository: str) -> dict[str, object]:
@@ -223,21 +253,20 @@ def project_access(project: ProjectSettings) -> GitHubAccess:
 
 
 def guarded_message(error: Exception, root: Path | None) -> str:
-    """The error's text. With root, a missing Keychain item adds the command that creates it."""
-    message = str(error)
+    """The error's text. With root, a missing Keychain item's remedy pins rapid-ship's version."""
     if root is None or not isinstance(error, KeychainMissing):
-        return message
-    # MacKeychain does not know the project, so the remedy is added here.
+        return str(error)
+    # The Keychain code does not know the project, so the pinned command is added here.
     try:
-        return f"{message}; run {rapid_ship_command(root, 'app')}"
+        return error.message(rapid_ship_command(root, "app"))
     except KitLockError:
-        return message
+        return str(error)
 
 
 def run_guarded(action: Callable[[], int], *, root: Path | None = None) -> int:
     """Run a command's action. A known error goes to stderr, and the command exits 2.
 
-    With root, a missing Keychain item names the rapid-ship command that creates the Apps.
+    With root, a missing Keychain item names the rapid-ship commands that store the key.
     """
     try:
         return action()

@@ -48,11 +48,11 @@ def app_keys() -> dict[str, tuple[bytes, bytes]]:
 
 @pytest.fixture
 def keychain(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
-    """Both test keys under the Keychain services that rapid-ship app writes."""
+    """Both test keys under the Keychain items that rapid-ship app writes, named by App ID."""
     return FakeKeychain(
         {
-            "rapid-ship/worker-app": app_keys["worker"][0],
-            "rapid-ship/reviewer-app": app_keys["reviewer"][0],
+            f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0],
+            f"rapid-ship/reviewer-app/{REVIEWER_ID}": app_keys["reviewer"][0],
         }
     )
 
@@ -60,7 +60,7 @@ def keychain(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
 @pytest.fixture
 def keychain_without_reviewer(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
     """A Keychain that holds only the Worker App's key."""
-    return FakeKeychain({"rapid-ship/worker-app": app_keys["worker"][0]})
+    return FakeKeychain({f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0]})
 
 
 @pytest.fixture

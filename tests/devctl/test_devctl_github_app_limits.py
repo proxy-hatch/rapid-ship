@@ -56,9 +56,9 @@ def test_a_key_that_cannot_sign_is_an_app_error(app_keys: AppKeys, which: str) -
 )
 def test_a_failed_keychain_read_is_an_app_error_without_output(result: ProcessResult) -> None:
     with pytest.raises(AppError) as caught:
-        MacKeychain(run=lambda argv: result).read("rapid-ship/worker-app")
+        MacKeychain(run=lambda argv: result).read("rapid-ship/worker-app/101")
     assert not isinstance(caught.value, KeychainMissing)
-    assert str(caught.value) == "could not read Keychain item rapid-ship/worker-app"
+    assert str(caught.value) == "could not read Keychain item rapid-ship/worker-app/101"
 
 
 def test_a_keychain_tool_that_cannot_start_is_an_app_error() -> None:
@@ -69,10 +69,10 @@ def test_a_keychain_tool_that_cannot_start_is_an_app_error() -> None:
         MacKeychain(run=absent).read("s")
 
 
-def test_a_jwt_signed_for_another_app_is_refused(
-    github: FakeGitHub, keychain: FakeKeychain
-) -> None:
-    # The Worker key signs as the Reviewer App's ID, so GitHub cannot verify the signature.
+def test_a_jwt_signed_for_another_app_is_refused(github: FakeGitHub, app_keys: AppKeys) -> None:
+    # The item named for the Reviewer App's ID holds the Worker key, which then signs as the
+    # Reviewer App, so GitHub cannot verify the signature.
+    keychain = FakeKeychain({f"rapid-ship/worker-app/{REVIEWER_ID}": app_keys["worker"][0]})
     with pytest.raises(GitHubError) as caught:
         installation_token("worker", "o/r", REVIEWER_ID, keychain=keychain, api_url=github.url)
     assert caught.value.status == 401
@@ -149,8 +149,12 @@ def test_run_guarded_passes_the_actions_exit_code_and_other_errors() -> None:
 def test_missing_key_message_stays_as_raised_without_a_readable_lock(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    missing = KeychainMissing("Keychain item rapid-ship/worker-app not found")
+    missing = KeychainMissing("rapid-ship/worker-app/101", "worker")
     assert run_guarded(_raises(missing), root=tmp_path) == 2  # tmp_path has no kit.lock
     assert run_guarded(_raises(missing)) == 2
-    expected = "devctl: Keychain item rapid-ship/worker-app not found\n"
+    expected = (
+        "devctl: Keychain item rapid-ship/worker-app/101 not found; run rapid-ship app, "
+        "which re-stores a key kept under rapid-ship/worker-app, "
+        "or rapid-ship app --import-key worker\n"
+    )
     assert capsys.readouterr().err == expected * 2
