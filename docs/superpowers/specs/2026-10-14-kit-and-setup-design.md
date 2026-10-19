@@ -44,11 +44,13 @@ Later plans reused these parts of the tagged commit:
 | Source at the tag | Reused in |
 | --- | --- |
 | `rapid_ship/files.py`: `atomic_replace`. `rapid_ship/project/configuration.py`: `_safe_path` (lines 33-44), which refuses a path outside the project or through a symlink, and the create-only write in `_copy_skill` (lines 218-222), which never overwrites | The rapid-ship CLI (plan 2), which ported both into `files.py` as `safe_path` and `create_file` |
-| `rapid_ship/process.py`, the bounded process runner | devctl (plan 3), with the caller's `PATH` and truncation reported in flags rather than in the output. Plan 4 added two more fixes from its old branch (`de800ae`, `98082fb`) |
+| `rapid_ship/process.py`, the bounded process runner | devctl (plan 3), with the caller's `PATH` and truncation reported in flags rather than in the output. Plan 4 added two more fixes from its old branch, `codex/github-commands` (`de800ae`, `98082fb`) |
 | `scripts/check_repository.py` and `scripts/check.py` | devctl's `map` step and `devctl check` (plan 3), which deleted both scripts |
 | `rapid_ship/trust/github.py` `inspect_protection` | Replaced by doctor's ruleset item (plan 4), which reads rulesets rather than branch protection |
 | `tests/typecheck_*.py`, `assert_type` fixtures checked by mypy | The `type:` reference kind (section 5) |
 | `docs/metrics.md`: definitions and the rule that a missing metric is unknown | Spec 3 |
+
+`codex/github-commands` is not on GitHub, so its commits resolve only in the owner's clone. The [GitHub commands plan at `928fbe4`](https://github.com/proxy-hatch/rapid-ship/blob/928fbe493977ae41d2012e19baff3e861fd5b0e8/docs/superpowers/plans/2026-10-14-github-commands.md) describes its work.
 
 ## 3. The rapid-ship CLI
 

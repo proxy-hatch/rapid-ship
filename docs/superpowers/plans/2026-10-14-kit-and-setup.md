@@ -18,7 +18,7 @@ PRs #28 to #30 form a stack on the design PR, #27: each is based on the one befo
 
 Each merge deleted the Walk-flow draft, which only #30's root AGENTS.md and ARCHITECTURE.md linked. On each branch, commits after the merge updated the root AGENTS.md, ARCHITECTURE.md and README.md, and `rapid_ship/AGENTS.md`, for the re-scope and for what that branch has built.
 
-The two plan documents that plans 4 to 7 replace were deleted: GitHub commands, the old plan 4, built on `codex/github-commands` and never merged; and Kit skills, the old plan 5, never started. Plan 4's outline below lists what it took from `codex/github-commands`.
+The two plan documents that plans 4 to 7 replace were deleted: GitHub commands, the old plan 4, built on `codex/github-commands` and never merged; and Kit skills, the old plan 5, never started. Plan 4's outline below lists what it took from `codex/github-commands`. That branch is not on GitHub: on 2026-10-20 `origin` held neither the branch nor any of the 25 commits it adds, so the commits that this index and Spec 1 cite from it resolve only in the owner's clone. The [GitHub commands plan at `928fbe4`](https://github.com/proxy-hatch/rapid-ship/blob/928fbe493977ae41d2012e19baff3e861fd5b0e8/docs/superpowers/plans/2026-10-14-github-commands.md), a commit of #30, describes the branch's work.
 
 Merging #27's deletions of 2026-10-20 up into #28, #29 and #30 conflicted on each branch, and every merge was resolved the same way. Each branch kept the plan documents of its own PR and the PRs below it, and deleted `2026-10-14-github-commands.md` and `2026-10-14-kit-skills.md`. Each took #27's `docs/archive/AGENTS.md` and orchestrator note, and in `docs/AGENTS.md` it took #27's lines on the ADRs and the archive and kept its other lines.
 
