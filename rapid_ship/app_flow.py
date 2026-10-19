@@ -2,8 +2,9 @@
 
 A server on 127.0.0.1 serves a page that posts the manifest to GitHub, then takes GitHub's
 one-time code on its callback. The code buys the App's ID, slug and private key (Spec 1 section
-3). rapid_ship may not import devctl, so the permissions here repeat devctl's, and a test keeps
-the two equal.
+3). The page posts to the settings of the account that will own the App: a user's own, or an
+organisation's, which only its admins open. rapid_ship may not import devctl, so the permissions
+here repeat devctl's, and a test keeps the two equal.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import TypeGuard
+from typing import Literal, TypeGuard
 from urllib.parse import parse_qs, urlsplit
 
 from rapid_ship.app_keychain import SLUG, AppSetupError, StoredApp
@@ -57,6 +58,21 @@ class CreatedApp:
     app: StoredApp
     private_key: bytes
     permissions: dict[str, str]
+
+
+@dataclass(frozen=True)
+class AppOwner:
+    """The account that owns a repository and its Apps: a user or an organisation."""
+
+    login: str
+    kind: Literal["user", "organisation"]
+
+    @property
+    def apps_settings_url(self) -> str:
+        """The GitHub page that lists the account's Apps; an App's own page adds its slug."""
+        if self.kind == "organisation":
+            return f"{GITHUB_URL}/organizations/{self.login}/settings/apps"
+        return f"{GITHUB_URL}/settings/apps"
 
 
 def as_record(value: object) -> dict[str, object]:
@@ -141,8 +157,8 @@ class _FlowHandler(BaseHTTPRequestHandler):
         """Silent, so a one-time code never reaches the terminal."""
 
 
-def _start_page(manifest: dict[str, object], state: str) -> bytes:
-    action = html.escape(f"{GITHUB_URL}/settings/apps/new?state={state}", quote=True)
+def _start_page(manifest: dict[str, object], state: str, owner: AppOwner) -> bytes:
+    action = html.escape(f"{owner.apps_settings_url}/new?state={state}", quote=True)
     value = html.escape(json.dumps(manifest), quote=True)
     return (
         '<!doctype html>\n<html><head><meta charset="utf-8"><title>rapid-ship app</title></head>'
@@ -154,11 +170,11 @@ def _start_page(manifest: dict[str, object], state: str) -> bytes:
 
 
 def _wait_for_code(
-    role: str, owner_login: str, open_browser: Callable[[str], object], timeout_seconds: float
+    role: str, owner: AppOwner, open_browser: Callable[[str], object], timeout_seconds: float
 ) -> str:
     server = _FlowServer()
-    manifest = app_manifest(role, owner_login, f"http://{server.host}/callback")
-    server.page = _start_page(manifest, server.state)
+    manifest = app_manifest(role, owner.login, f"http://{server.host}/callback")
+    server.page = _start_page(manifest, server.state, owner)
     thread = threading.Thread(
         target=server.serve_forever, kwargs={"poll_interval": _POLL_SECONDS}, daemon=True
     )
@@ -234,15 +250,15 @@ def _created_app(reply: object) -> CreatedApp:
 
 def create_app(
     role: str,
-    owner_login: str,
+    owner: AppOwner,
     *,
     open_browser: Callable[[str], object],
     api_url: str = API_URL,
     timeout_seconds: float = 900.0,
 ) -> CreatedApp:
-    """Run GitHub's manifest flow for the role's App on the owner's personal account."""
-    code = _wait_for_code(role, owner_login, open_browser, timeout_seconds)
+    """Run GitHub's manifest flow for the role's App on the owner's account."""
+    code = _wait_for_code(role, owner, open_browser, timeout_seconds)
     try:
         return _created_app(_convert(code, api_url))
     except AppSetupError as error:  # GitHub sends the code only once it created the App
-        raise orphaned(error, f"{GITHUB_URL}/settings/apps") from None
+        raise orphaned(error, owner.apps_settings_url) from None

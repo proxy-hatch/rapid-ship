@@ -1,6 +1,11 @@
 """rapid-ship app: find or create the owner's Worker and Reviewer Apps, and print how to install
 them.
 
+A repository's owner is a user or an organisation, and a private App installs only on its owner's
+repositories. A user's repository is refused unless gh is signed in as that user. An
+organisation's Apps are created through its own manifest flow, which only its admins can run: any
+member can use Apps that exist, and an App is created only when gh's login is an admin.
+
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of
 the repository's owner whose key the Keychain holds, else it creates the App through GitHub's
 manifest flow (app_flow.py). Spec 1 section 3: app creates only the Apps that do not exist yet.
@@ -29,6 +34,7 @@ from rapid_ship.app_flow import (
     GITHUB_URL,
     MAX_MESSAGE_CHARACTERS,
     TITLES,
+    AppOwner,
     CreatedApp,
     as_record,
     create_app,
@@ -51,6 +57,7 @@ _ROLES = ("worker", "reviewer")
 _SETTINGS = ".rapid-ship/project.toml"
 _GH_TIMEOUT_SECONDS = 60.0
 _REPOSITORY = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
+_LOGIN = re.compile(r"[A-Za-z0-9-]+")
 
 
 class GitHubNotFound(AppSetupError):
@@ -137,13 +144,17 @@ def install_url(slug: str, owner_id: int, repository_id: int) -> str:
 
 @dataclass(frozen=True)
 class _Target:
+    owner: AppOwner
     owner_id: int
-    owner_login: str
     repository_id: int
 
 
 def _target(repository: str, owner_get: OwnerGet) -> _Target:
-    """The repository's owner and ID. Refused unless the owner's gh login owns the repository."""
+    """The repository's owner and ID.
+
+    A user's repository is refused unless the owner's gh login is that user. An organisation's is
+    not: its members use its Apps, and _require_admin checks the login before one is created.
+    """
     if not _REPOSITORY.fullmatch(repository) or ".." in repository:
         raise AppSetupError(f"the repository must be OWNER/NAME, not {repository!r}")
     found = as_record(owner_get(f"repos/{repository}"))
@@ -151,12 +162,17 @@ def _target(repository: str, owner_get: OwnerGet) -> _Target:
     login, owner_id, repository_id = owner.get("login"), owner.get("id"), found.get("id")
     if not isinstance(login, str) or not is_id(owner_id) or not is_id(repository_id):
         raise AppSetupError(f"GitHub's record of {repository} has no owner login or no ID")
-    # A private App installs only on the account that owns it.
+    if owner.get("type") == "Organization":
+        # The login goes into the paths of GitHub's API and of the organisation's settings pages.
+        if not _LOGIN.fullmatch(login):
+            raise AppSetupError(f"GitHub's record of {repository} has no usable owner login")
+        return _Target(AppOwner(login, "organisation"), owner_id, repository_id)
     if owner.get("type") != "User":
-        raise _Refused(
-            f"{repository} belongs to the organization {login}. rapid-ship app creates private "
-            "Apps on your personal account, and they install only on its repositories"
+        raise AppSetupError(
+            f"GitHub's record of {repository} names an owner that is neither a user nor an "
+            "organisation"
         )
+    # A private App installs only on the account that owns it.
     user = as_record(owner_get("user")).get("login")
     if not isinstance(user, str):
         raise AppSetupError("GitHub's record of your account has no login")
@@ -165,7 +181,26 @@ def _target(repository: str, owner_get: OwnerGet) -> _Target:
             f"{repository} belongs to {login}, and gh is signed in as {user}. A private App "
             "installs only on its owner's repositories; sign gh in as the owner"
         )
-    return _Target(owner_id, login, repository_id)
+    return _Target(AppOwner(login, "user"), owner_id, repository_id)
+
+
+def _require_admin(repository: str, organisation: str, owner_get: OwnerGet) -> None:
+    """Refused unless the owner's gh login is an active admin of the organisation.
+
+    Only an organisation's admins create its Apps. GitHub answers 404 when the login is not a
+    member; a member's role is admin, member or billing_manager.
+    """
+    try:
+        membership = as_record(owner_get(f"user/memberships/orgs/{organisation}"))
+    except GitHubNotFound:
+        membership = {}
+    if membership.get("state") != "active" or membership.get("role") != "admin":
+        raise _Refused(
+            f"{repository} belongs to the organisation {organisation}, and gh's login is not an "
+            f"admin of {organisation}: an organisation admin creates its Apps once; ask one to "
+            "run rapid-ship app, or, if the Apps exist, record their IDs and run rapid-ship app "
+            "--import-key <role>"
+        )
 
 
 @dataclass(frozen=True)
@@ -262,19 +297,20 @@ def _ensure_app(
     choice: _Choice,
     target: _Target,
     store: KeychainStore,
-    create: Callable[[str, str], CreatedApp],
+    create: Callable[[str, AppOwner], CreatedApp],
 ) -> tuple[StoredApp, bool]:
     """The role's App and whether its permissions are rapid-ship's. A found App is not checked."""
     if choice.app is not None:
         if choice.old_key is not None:
             _restore(role, choice.app, choice.old_key, store)
         return choice.app, True
-    created = create(role, target.owner_login)
+    created = create(role, target.owner)
     try:
         # Before anything else: GitHub shows the key only once.
         store.add(keychain_service(role, created.app.app_id), created.app, created.private_key)
     except AppSetupError as error:
-        raise orphaned(error, f"{GITHUB_URL}/settings/apps/{created.app.slug}/advanced") from None
+        settings = f"{target.owner.apps_settings_url}/{created.app.slug}/advanced"
+        raise orphaned(error, settings) from None
     return created.app, created.permissions == APP_PERMISSIONS[role]
 
 
@@ -342,7 +378,7 @@ def _report(role: str, app: StoredApp, repository: str, target: _Target, matches
         wanted = ", ".join(f"{name} {level}" for name, level in APP_PERMISSIONS[role].items())
         sys.stdout.write(
             f"  Its permissions differ from rapid-ship's ({wanted}): "
-            f"fix the permissions at {GITHUB_URL}/settings/apps/{app.slug}/permissions\n"
+            f"fix the permissions at {target.owner.apps_settings_url}/{app.slug}/permissions\n"
         )
 
 
@@ -361,7 +397,8 @@ def run_app(
     recorded holds the Apps that the repository's .rapid-ship/project.toml records. 0 when both
     Apps are ready; 1 when the repository is refused, an App's permissions differ, a recorded
     App's key must be imported or a Keychain item's App cannot be confirmed; 2 when the command
-    cannot go on.
+    cannot go on. An organisation's repository is refused when an App must be created and gh's
+    login is not an admin of the organisation.
     """
     create = partial(
         create_app, open_browser=open_browser, api_url=api_url, timeout_seconds=timeout_seconds
@@ -378,6 +415,9 @@ def run_app(
             sys.stderr.write("".join(f"rapid-ship: {stop}\n" for stop in stops))
             sys.stderr.write(_lines_to_record(repository, choices))
             return 1
+        creates = any(choice.app is None for choice in choices.values())
+        if creates and target.owner.kind == "organisation":
+            _require_admin(repository, target.owner.login, owner_get)
         exit_code = 0
         for role, choice in choices.items():
             app, matches = _ensure_app(role, choice, target, store, create)

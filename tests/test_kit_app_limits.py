@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from test_kit_app import (
+    ORG_ADMIN,
     OWNER_READS,
     Captured,
     FakeSecurity,
@@ -20,11 +21,12 @@ from test_kit_app import (
     found,
     github_browser,
     http_get,
+    reads,
     serve_conversions,
 )
 
 from rapid_ship import cli
-from rapid_ship.app_flow import app_manifest, create_app
+from rapid_ship.app_flow import AppOwner, app_manifest, create_app
 from rapid_ship.app_keychain import AppSetupError, MacKeychainStore, StoredApp, run_command
 from rapid_ship.github_app import (
     GitHubNotFound,
@@ -34,9 +36,19 @@ from rapid_ship.github_app import (
     run_app,
 )
 
-
-def owner_reads(path: str) -> object:
-    return OWNER_READS[path]
+# A repository of each kind of owner, and the GitHub page that lists that owner's Apps. gh's
+# login owns o/r and is an admin of the organisation org.
+APP_PAGES = [
+    ("o/r", "https://github.com/settings/apps"),
+    ("org/r", "https://github.com/organizations/org/settings/apps"),
+]
+ADMIN_READS = reads({**OWNER_READS, **ORG_ADMIN})
+# The refusal of a login that is not an admin of the organisation that must create an App.
+NOT_ADMIN = (
+    "rapid-ship: refused: org/r belongs to the organisation org, and gh's login is not an admin "
+    "of org: an organisation admin creates its Apps once; ask one to run rapid-ship app, or, if "
+    "the Apps exist, record their IDs and run rapid-ship app --import-key <role>\n"
+)
 
 
 def get_as_host(url: str, host: str) -> int:
@@ -70,7 +82,11 @@ def test_the_callback_takes_only_its_state_a_plain_code_and_its_own_host(
 
     with serve_conversions() as conversions:
         created = create_app(
-            "worker", "o", open_browser=browser, api_url=conversions.url, timeout_seconds=10
+            "worker",
+            AppOwner("o", "user"),
+            open_browser=browser,
+            api_url=conversions.url,
+            timeout_seconds=10,
         )
     assert answers == [400, 400, 400, 400, 200]
     assert created.app == StoredApp(11, "o-rs-worker")
@@ -80,6 +96,7 @@ def test_the_callback_takes_only_its_state_a_plain_code_and_its_own_host(
     assert "http://127.0.0.1:" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(("repository", "apps_page"), APP_PAGES)
 @pytest.mark.parametrize(
     ("status", "changes", "message"),
     [
@@ -94,6 +111,8 @@ def test_a_conversion_reply_that_rapid_ship_cannot_use_stores_nothing(
     status: int,
     changes: dict[str, object],
     message: str,
+    repository: str,
+    apps_page: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     store = FakeStore()
@@ -101,9 +120,9 @@ def test_a_conversion_reply_that_rapid_ship_cannot_use_stores_nothing(
         conversions.status = status
         conversions.changes = changes
         code = run_app(
-            "o/r",
+            repository,
             store=store,
-            owner_get=owner_reads,
+            owner_get=ADMIN_READS,
             open_browser=github_browser([]),
             api_url=conversions.url,
             timeout_seconds=10,
@@ -112,13 +131,14 @@ def test_a_conversion_reply_that_rapid_ship_cannot_use_stores_nothing(
     assert store.keys == {}
     out, err = capsys.readouterr()
     assert message in err
-    assert "delete the App at https://github.com/settings/apps and run rapid-ship app again" in err
+    assert f"delete the App at {apps_page} and run rapid-ship app again" in err
     assert "BEGIN" not in out + err
     assert "client-secret" not in out + err
 
 
+@pytest.mark.parametrize(("repository", "apps_page"), APP_PAGES)
 def test_a_key_github_returned_but_rapid_ship_could_not_store_names_the_app_to_delete(
-    capsys: pytest.CaptureFixture[str],
+    repository: str, apps_page: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     class FullStore(FakeStore):
         def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
@@ -126,9 +146,9 @@ def test_a_key_github_returned_but_rapid_ship_could_not_store_names_the_app_to_d
 
     with serve_conversions() as conversions:
         code = run_app(
-            "o/r",
+            repository,
             store=FullStore(),
-            owner_get=owner_reads,
+            owner_get=ADMIN_READS,
             open_browser=github_browser([]),
             api_url=conversions.url,
             timeout_seconds=10,
@@ -136,19 +156,21 @@ def test_a_key_github_returned_but_rapid_ship_could_not_store_names_the_app_to_d
     assert code == 2
     err = capsys.readouterr().err
     assert "could not write Keychain item rapid-ship/worker-app/11" in err
-    assert "https://github.com/settings/apps/o-rs-worker/advanced" in err
+    owner = repository.split("/")[0]
+    assert f"delete the App at {apps_page}/{owner}-rs-worker/advanced" in err
 
 
+@pytest.mark.parametrize(("repository", "apps_page"), APP_PAGES)
 def test_a_permission_mismatch_names_the_settings_page_and_still_creates_the_reviewer(
-    capsys: pytest.CaptureFixture[str],
+    repository: str, apps_page: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store = FakeStore()
     with serve_conversions() as conversions:
         conversions.permissions = {"contents": "write", "metadata": "read"}
         code = run_app(
-            "o/r",
+            repository,
             store=store,
-            owner_get=owner_reads,
+            owner_get=ADMIN_READS,
             open_browser=github_browser([]),
             api_url=conversions.url,
             timeout_seconds=10,
@@ -156,8 +178,9 @@ def test_a_permission_mismatch_names_the_settings_page_and_still_creates_the_rev
     assert code == 1
     assert sorted(store.keys) == ["rapid-ship/reviewer-app/12", "rapid-ship/worker-app/11"]
     out = capsys.readouterr().out
-    assert "fix the permissions at https://github.com/settings/apps/o-rs-worker/permissions" in out
-    assert "https://github.com/settings/apps/o-rs-reviewer/permissions" in out
+    owner = repository.split("/")[0]
+    assert f"fix the permissions at {apps_page}/{owner}-rs-worker/permissions" in out
+    assert f"{apps_page}/{owner}-rs-reviewer/permissions" in out
 
 
 def test_only_the_missing_app_is_created(capsys: pytest.CaptureFixture[str]) -> None:
@@ -209,12 +232,91 @@ def test_a_repository_of_another_user_is_refused(capsys: pytest.CaptureFixture[s
     assert "rapid-ship: refused: u/r belongs to u, and gh is signed in as o" in err
 
 
-def test_an_organization_is_refused_even_when_gh_could_act_for_it(
+@pytest.mark.parametrize(
+    "membership",
+    [
+        None,
+        {"state": "active", "role": "member"},
+        {"state": "pending", "role": "admin"},
+        {"state": "active", "role": "billing_manager"},
+        ["admin"],
+    ],
+    ids=["not a member", "member", "pending admin", "billing manager", "not a record"],
+)
+def test_an_organisation_member_who_is_not_an_admin_creates_no_app(
+    membership: object, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """GitHub answers 404 when the login is not a member of the organisation."""
+    answers = dict(OWNER_READS)
+    if membership is not None:
+        answers["user/memberships/orgs/org"] = membership
+    log: list[str] = []
+    assert run_refused("org/r", reads(answers, log)) == (1, [], {})
+    assert log == ["repos/org/r", "user/memberships/orgs/org"]
+    out, err = capsys.readouterr()
+    assert (out, err) == ("", NOT_ADMIN)
+
+
+def test_a_member_who_is_not_an_admin_is_refused_before_any_key_is_re_stored(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    reads = {**OWNER_READS, "user": {"login": "org"}}  # cannot happen; shows the type rule
-    assert run_refused("org/r", reads.__getitem__) == (1, [], {})
-    assert "rapid-ship: refused: org/r belongs to the organization org" in capsys.readouterr().err
+    """GitHub shows the organisation's Worker App, whose key plan 4's item holds, and the
+    Reviewer App must be created. The refusal comes before the Worker App's key is re-stored."""
+    store = FakeStore()
+    old = "rapid-ship/worker-app"
+    store.apps[old] = StoredApp(11, "org-rs-worker")
+    store.keys[old] = b"-----BEGIN TEST KEY-----\nnot a real key\n-----END TEST KEY-----\n"
+    answers = {**OWNER_READS, "apps/org-rs-worker": {"id": 11, "owner": {"login": "org", "id": 4}}}
+    opened: list[str] = []
+    code = run_app(
+        "org/r",
+        store=store,
+        owner_get=reads(answers),
+        open_browser=opened.append,
+        timeout_seconds=0.1,
+    )
+    assert (code, opened, list(store.apps)) == (1, [], [old])
+    assert capsys.readouterr().err == NOT_ADMIN
+
+
+def test_a_membership_read_that_fails_otherwise_is_an_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def forbidden(path: str) -> object:
+        if path == "user/memberships/orgs/org":
+            raise AppSetupError(f"gh api {path} failed: gh: Forbidden (HTTP 403)")
+        return OWNER_READS[path]
+
+    assert run_refused("org/r", forbidden) == (2, [], {})
+    assert capsys.readouterr().err == (
+        "rapid-ship: gh api user/memberships/orgs/org failed: gh: Forbidden (HTTP 403)\n"
+    )
+
+
+def test_an_organisation_developer_with_recorded_apps_and_no_key_is_told_to_import_one(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The repository records the organisation's Apps, and this machine holds no key for them.
+    The command reads no membership, opens no browser and names --import-key."""
+    recorded = {
+        "worker": StoredApp(11, "org-rs-worker"),
+        "reviewer": StoredApp(12, "org-rs-reviewer"),
+    }
+    log: list[str] = []
+    opened: list[str] = []
+    store = FakeStore()
+    code = run_app(
+        "org/r",
+        store=store,
+        owner_get=reads(OWNER_READS, log),
+        open_browser=opened.append,
+        recorded=recorded,
+        timeout_seconds=0.1,
+    )
+    assert (code, log, opened, store.apps) == (1, ["repos/org/r"], [], {})
+    err = capsys.readouterr().err
+    assert "then run rapid-ship app --import-key worker with the key on stdin\n" in err
+    assert "then run rapid-ship app --import-key reviewer with the key on stdin\n" in err
 
 
 @pytest.mark.parametrize("repository", ["o", "o/r/x", "o/../r", "o/r?per_page=1", "/r"])
@@ -238,6 +340,9 @@ def test_a_repository_that_is_not_owner_slash_name_reads_nothing(
         {"repos/o/r": {"id": 2, "owner": "o"}, "user": {"login": "o"}},
         {"repos/o/r": {"id": True, "owner": {"login": "o", "id": 1, "type": "User"}}},
         {"repos/o/r": OWNER_READS["repos/o/r"], "user": ["o"]},
+        {"repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "Enterprise"}}},
+        # The organisation's login goes into GitHub paths and URLs.
+        {"repos/o/r": {"id": 2, "owner": {"login": "o/../x", "id": 1, "type": "Organization"}}},
     ],
 )
 def test_an_unexpected_owner_read_is_an_error(

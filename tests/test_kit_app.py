@@ -31,9 +31,10 @@ REQUESTED: dict[str, tuple[int, dict[str, str]]] = {
     ),
     "-rs-reviewer": (12, {"pull_requests": "write", "contents": "read", "metadata": "read"}),
 }
-# What the owner's gh login reads: o owns o/r, and org/r belongs to an organization. o also owns
+# What the owner's gh login reads: o owns o/r, and org/r belongs to an organisation. o also owns
 # the private Apps o-rs-worker (11) and o-rs-reviewer (12). GitHub shows gh no private App, even
-# its owner's, so apps/o-rs-worker is a 404, as every path missing here is.
+# its owner's, so apps/o-rs-worker is a 404, as every path missing here is. So is the login's
+# membership of org: the login is not a member of it.
 OWNER_READS: dict[str, object] = {
     "repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "User"}},
     "repos/org/r": {"id": 3, "owner": {"login": "org", "id": 4, "type": "Organization"}},
@@ -43,6 +44,14 @@ OWNER_READS: dict[str, object] = {
 PUBLIC_APPS: dict[str, object] = {
     "apps/o-rs-worker": {"id": 11, "slug": "o-rs-worker", "owner": {"login": "o", "id": 1}},
     "apps/o-rs-reviewer": {"id": 12, "slug": "o-rs-reviewer", "owner": {"login": "o", "id": 1}},
+}
+# GitHub's GET /user/memberships/orgs/org when gh's login is an admin of org.
+ORG_ADMIN: dict[str, object] = {
+    "user/memberships/orgs/org": {
+        "state": "active",
+        "role": "admin",
+        "organization": {"login": "org", "id": 4},
+    }
 }
 
 
@@ -349,10 +358,55 @@ def test_existing_apps_are_only_printed(
     )
 
 
-def test_organization_repositories_are_refused(store: FakeStore, owner_get: OwnerGet) -> None:
+def test_an_organisation_admin_creates_its_apps_through_the_organisation_flow(
+    conversions: FakeConversions, store: FakeStore, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A private App installs only on its owner's repositories, so an organisation's repository
+    gets Apps that the organisation owns. An admin of the organisation creates them."""
+    log: list[str] = []
+    captured: Captured = []
+    code = run_app(
+        "org/r",
+        store=store,
+        owner_get=reads({**OWNER_READS, **ORG_ADMIN}, log),
+        open_browser=github_browser(captured),
+        api_url=conversions.url,
+        timeout_seconds=10,
+    )
+    assert code == 0
+    assert log == ["repos/org/r", "user/memberships/orgs/org"]
+    pages = [html.unescape(action).split("?state=", 1)[0] for action, _ in captured]
+    assert pages == ["https://github.com/organizations/org/settings/apps/new"] * 2
+    assert [manifest["name"] for _, manifest in captured] == ["org-rs-worker", "org-rs-reviewer"]
+    assert sorted(store.keys) == ["rapid-ship/reviewer-app/12", "rapid-ship/worker-app/11"]
+    out = capsys.readouterr().out
+    assert (
+        "https://github.com/apps/org-rs-worker/installations/new/permissions"
+        "?suggested_target_id=4&repository_ids[]=3"
+    ) in out
+
+
+def test_an_organisations_recorded_apps_need_no_admin(
+    store: FakeStore, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A member who is not an admin uses the Apps that the repository records, whose keys this
+    machine holds. Only creating an App needs an admin."""
+    apps = {"worker": StoredApp(11, "org-rs-worker"), "reviewer": StoredApp(12, "org-rs-reviewer")}
+    store.apps = {keychain_service(role, app.app_id): app for role, app in apps.items()}
+    log: list[str] = []
     opened: list[str] = []
-    assert run_app("org/r", store=store, owner_get=owner_get, open_browser=opened.append) == 1
-    assert (opened, store.keys) == ([], {})
+    code = run_app(
+        "org/r",
+        store=store,
+        owner_get=reads(OWNER_READS, log),
+        open_browser=opened.append,
+        recorded=apps,
+    )
+    assert (code, log, opened) == (0, ["repos/org/r"], [])
+    assert (
+        "https://github.com/apps/org-rs-reviewer/installations/new/permissions"
+        "?suggested_target_id=4&repository_ids[]=3"
+    ) in capsys.readouterr().out
 
 
 def test_permission_mismatch_keeps_the_key_and_exits_1(
