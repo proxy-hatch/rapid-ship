@@ -2,14 +2,14 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 is built in three PRs, #31 to #33, which are not merged yet. Plans 5 to 7 are proposed. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); the owner's second review of the design PR, on 2026-10-19, added plan 6 and moved `rs-setup` and `rs-health` to plan 7. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 is built in three PRs, #31 to #33, which are not merged yet; its follow-ups land on them before they merge. Plans 5 to 7 are proposed. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); the owner's second review of the design PR, on 2026-10-19, added plan 6 and moved `rs-setup` and `rs-health` to plan 7. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
 | 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
-| 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its live trials and this repository's Agent identity are pending Owner steps |
+| 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first; its live trials and this repository's Agent identity are pending Owner steps |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its wiring, the standards seeds and checks, documented settings with the Roster's `command`, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Proposed: four PRs |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Proposed: three PRs |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Proposed: three PRs |
@@ -27,9 +27,9 @@ This index fixes the layout and the names, signatures and formats that more than
 - Every command in both CLIs is one word followed by arguments:
   - `rapid-ship init [--stack NAME[=DIRECTORY]]... [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`; until plan 6, `--stack {python,agnostic}` names one stack at the root
   - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place] [--revert PATH]...`
-  - `rapid-ship app [--repository OWNER/NAME]` (plan 4)
+  - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups, Proposal)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH] [--install]`; `--install` from plan 6
-  - `devctl doctor [--skills]`, with `--settings` from plan 5 (Proposal), `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
+  - `devctl doctor [--skills]`, with `--settings` from plan 5, `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
   - `devctl hook {claude,codex,agy} pre-tool` (plan 5)
 - Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2.
 - Every refusal and error names the problem, what it blocks and the next step (guided rectifying), and still stops at the first error and shows its cause.
@@ -51,7 +51,7 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
   __init__.py  __main__.py
   cli.py                         # build_parser(), main(argv): init, status, sync; app (plan 4)
   files.py                       # atomic_replace, UnsafePath, relative_parts, safe_path, create_file
-  github_app.py                  # plan 4: rapid-ship app's manifest flow, Keychain storage, install URLs
+  github_app.py                  # plan 4: rapid-ship app's manifest flows, key import, Keychain storage, install URLs
   upstream.lock                  # plan 7: upstream files of forked skills
   kit/
     templates.py lock.py git.py init.py existing_checks.py status.py sync.py writes.py pull_request.py
@@ -194,6 +194,7 @@ class Escalation:
 class ProjectSettings:
     stacks: tuple[ProjectStack, ...]  # plan 6; plan 4 has stack: Stack, one stack at the root
     repository: str | None  # "owner/name"
+    code_owner: str | None  # plan 4's follow-ups: "@login" or "@organisation/team"
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
@@ -213,7 +214,7 @@ def load_project(root: Path) -> ProjectSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
 ```
 
-Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. It refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and the message names what replaced each. Plan 5 adds `command` to the Roster, and plan 6 replaces `stack` with `[[stack]]`; each change comes with the migration that `sync` proposes (Spec 1 section 3). Spec 2's plan adds `[tracker]` and `[design]`.
+Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`, and its follow-ups add `[github] code_owner`. It refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and the message names what replaced each. Plan 5 adds `command` to the Roster, and plan 6 replaces `stack` with `[[stack]]`; each change comes with the migration that `sync` proposes (Spec 1 section 3). Spec 2's plan adds `[tracker]` and `[design]`.
 
 ### doctor (plan 4; plans 5 and 6 add items)
 
@@ -251,7 +252,8 @@ def ruleset_problems(
     every_pr: bool,
     agent_identity: bool,
 ) -> list[str]: ...  # plan 7's test checks rs-setup's ruleset.json with it
-# plan 6: one call per stack
+# plan 6: one call per stack. From plan 4's follow-ups, owner is [github] code_owner,
+# never the repository's owner
 def codeowners_problems(text: str, every_pr: bool, owner: str, stack: Stack) -> list[str]: ...
 ```
 
@@ -266,8 +268,12 @@ One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_ap
 
 ```python
 # devctl/github/app.py
-KEYCHAIN_SERVICE: dict[Role, str]  # "rapid-ship/worker-app", "rapid-ship/reviewer-app"
 APP_PERMISSIONS: dict[Role, dict[str, str]]  # Spec 1 section 3
+
+
+# plan 4's follow-ups: "rapid-ship/<role>-app/<App ID>", replacing plan 4's KEYCHAIN_SERVICE,
+# which had no App ID
+def keychain_service(role: Role, app_id: int) -> str: ...
 
 
 class DevctlError(Exception): ...  # exit 2
@@ -291,7 +297,7 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 ```
 
 - A token lives in memory only, one per command. `gh` receives it only as `GH_TOKEN` in its own environment, with `GH_REPO`; git receives it only through `devctl/github/askpass.py`, which reads `RAPID_SHIP_GIT_TOKEN`.
-- `rapid_ship/github_app.py` keeps its own `KEYCHAIN_SERVICE` and `APP_PERMISSIONS`, because `rapid_ship` cannot import devctl. A parity test keeps them equal to devctl's.
+- `rapid_ship/github_app.py` keeps its own `keychain_service` and `APP_PERMISSIONS`, because `rapid_ship` cannot import devctl. A parity test keeps them equal to devctl's.
 
 ### `devctl hook` and the merge guard (plan 5)
 
@@ -338,7 +344,7 @@ def answer(
 ) -> tuple[str, int]: ...  # stdout, exit code; never 2
 ```
 
-`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push` or a ref path. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in. It reads CODEOWNERS from the PR's base branch (Proposal, Spec 1 section 11), applies the `diff` step's ledger rule to the PR's file statuses, and reads the status of each ledger entry the PR adds (Proposal). It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
+`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push` or a ref path. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in. It reads CODEOWNERS from the PR's base branch, never its head, applies the `diff` step's ledger rule to the PR's file statuses, and reads the status of each ledger entry the PR adds (Proposal). It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
 
 ### CODEOWNERS (plan 2 seeds it; plans 3 to 7 read or write it)
 
@@ -384,15 +390,23 @@ MIGRATIONS: tuple[Migration, ...]
 
 ## Plan 4: Doctor and Agent identity
 
-**State:** built in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`), which are not merged yet. Its plan document, `2026-10-16-doctor-and-agent-identity.md` on those branches, holds the tasks and the verification record. Its live trials (task 10) and the Linear task for the organisation-repository limit are pending Owner steps. The outline below is kept as the plan was written.
+**State:** built in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`), which are not merged yet. Its plan document, `2026-10-16-doctor-and-agent-identity.md` on those branches, holds the tasks and the verification record. The follow-ups below land on those PRs first. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is kept as the plan was written.
 
-Two more items remain before #33 merges:
+### Plan 4 follow-ups, before #31 to #33 merge
 
-- **Owner step: this repository's Agent identity.** The owner created the Worker App (ID 5376519, `proxy-hatch-rs-worker`) and the Reviewer App (ID 5376520, `proxy-hatch-rs-reviewer`) with `rapid-ship app` on 2026-10-19. Install both on `proxy-hatch/rapid-ship`, commit their IDs and slugs under `[github]` in #33's `.rapid-ship/project.toml`, and run `./devctl doctor`, which confirms each installation and key. Until then this repository does not have Agent identity on.
-- **Text in #33's devctl templates that the owner's review of 2026-10-19 made wrong.** Correct each one under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`:
-  - the `[dispatch]` removal message in `settings.py`, which says that the Lead brief's Focus caps parallel Workers; rapid-ship takes no notice of how many Sessions run;
-  - the comment `# Proposal: Spec 1 section 11, Roster Harnesses` on `Harness` in `settings.py`: any Harness is decided, and plan 5 builds it;
-  - the note `(Spec 1 section 6, a Proposal)` on `probed_harnesses` in `doctor_skills.py`: the owner accepted it.
+The owner's decisions of 2026-10-19 change plan 4's built code: organisation-owned repositories are supported from the start, which brings backlog item PRO-105 into scope. Each change lands on the PR that holds its file and is merged up the stack. Edit devctl only under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`.
+
+1. **doctor's code owner (#31, #32).** `settings.py` accepts `[github] code_owner`, `"@<login>"` or `"@<organisation>/<team>"`, and the project templates and this repository's `project.toml` record it. `doctor_github.py`'s CODEOWNERS item checks CODEOWNERS against it instead of the repository's owner, and reports the item missing while the key is unset (Spec 1 sections 4 and 6).
+2. **The organisation flow (#33).** `rapid_ship/github_app.py` stops refusing a repository that an organisation owns, and creates its Apps through the organisation manifest flow at `https://github.com/organizations/<organisation>/settings/apps/new`. `rapid-ship app --import-key {worker,reviewer}` stores a key that a developer generated on GitHub, read on stdin (Spec 1 section 3).
+3. **Keychain names (#31, #33).** Each item's name carries the App's ID, `rapid-ship/<role>-app/<App ID>`, in `devctl/github/app.py` and `rapid_ship/github_app.py`, with their parity test. The owner's two items of 2026-10-19 still have the old names; `rapid-ship app` re-stores such an item under its new name, reading the App ID from the item's account.
+4. **Text that the owner's review of 2026-10-19 made wrong (#31, #32):**
+   - the `[dispatch]` removal message in `settings.py`, which still says that the Lead brief's Focus caps parallel Workers; rapid-ship takes no notice of how many Sessions run;
+   - the comment `# Proposal: Spec 1 section 11, Roster Harnesses` on `Harness` in `settings.py`: any Harness is decided, and plan 5 builds it;
+   - the note `(Spec 1 section 6, a Proposal)` on `probed_harnesses` in `doctor_skills.py`: the owner accepted it.
+5. **Owner step: the organisation trial.** On a test organisation, an admin runs `rapid-ship app`; a developer, made an App manager of both Apps, generates a key and imports it with `--import-key`; and `./devctl doctor` passes with a team as the code owner. The trial settles whether an App manager may generate a private key (Spec 1 section 11).
+6. **Owner step: this repository's Agent identity.** The owner created the Worker App (ID 5376519, `proxy-hatch-rs-worker`) and the Reviewer App (ID 5376520, `proxy-hatch-rs-reviewer`) with `rapid-ship app` on 2026-10-19. Install both on `proxy-hatch/rapid-ship`, commit their IDs and slugs under `[github]` in #33's `.rapid-ship/project.toml`, and run `./devctl doctor`, which confirms each installation and key. Until then this repository does not have Agent identity on.
+
+### Plan 4 outline, as written
 
 **Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the token code and `devctl as`. Move the settings to the re-scope: the Roster, the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
 
@@ -435,7 +449,7 @@ Two more items remain before #33 merges:
 
 ## Plan 5: Kit standards and Harness guardrails
 
-**Goal:** Confirm the guardrails in Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring; the README.md and ARCHITECTURE.md seeds with map rule 8; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings, with the Roster's `command`; and `sync`'s migrations.
+**Goal:** Confirm the guardrails in Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings, with the Roster's `command`; and `sync`'s migrations.
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
@@ -443,7 +457,7 @@ Two more items remain before #33 merges:
 | --- | --- | --- |
 | 5.1 | 1 | The hook spike, backlog PRO-139: a trial record, and the Spec 1 edits its result needs. No product code |
 | 5.2 | 2 to 8 | Guardrails: `devctl hook`, the merge guard, the wiring and the CODEOWNERS additions, with their live trial |
-| 5.3 | 9 to 14 | Standards: the seeds, map rules 5, 7 and 8, the Python starter Patterns, the diff cap, the ledger rule and the CI concurrency |
+| 5.3 | 9 to 14 | Standards: the seeds, `doctor --settings`, map rules 5, 7 and 8, the Python starter Patterns, the diff cap, the ledger rule and the CI concurrency |
 | 5.4 | 15 to 17 | Settings and migrations: documented seeds, the Roster's `command`, and `sync`'s migrations |
 
 If review finds a PR too large, it splits at a task boundary.
@@ -452,7 +466,7 @@ If review finds a PR too large, it splits at a task boundary.
 
 - 5.1: the trial record under `docs/trials/` and `docs/trials/AGENTS.md`; Spec 1 sections 4 and 11 where the result changes them.
 - 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/devctl/`, then vendored with `sync`: `codeowners.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `cli.py`, `check/diff.py`, `doctor_local.py`, `doctor_rules.py`. Kit templates: `common/.claude/settings.json`, `common/.codex/hooks.json`, `common/.agents/hooks.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: `.github/CODEOWNERS`, edited in place, and the three wiring files, created by `sync`. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/<harness>/`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
-- 5.3: devctl templates: `check/map.py`, `check/diff.py`, `check/evidence.py`, `check/stacks/python.py`. Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/AGENTS.md`, `python/AGENTS.md`, `common/docs/patterns/README.md`, the Python starter Patterns with their reference code and tests under `python/`, `{python,agnostic}/.rapid-ship/project.toml` for the new escalation kind, `common/.github/workflows/devctl-check.yml`, `kit.toml`. This repository: the root `AGENTS.md` and `.rapid-ship/project.toml`, edited in place, and the workflow through `sync`. Tests: `tests/devctl/test_devctl_map_*.py`, `test_devctl_diff_*.py`, `test_devctl_evidence_step.py`, `test_devctl_ci_templates.py`, `tests/test_kit_contents.py`, `tests/test_kit_templates*.py`.
+- 5.3: devctl templates: `check/map.py`, `check/diff.py`, `check/evidence.py`, `check/stacks/python.py`, and `cli.py` and `doctor.py` for `--settings`. Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/AGENTS.md`, `python/AGENTS.md`, `common/docs/patterns/README.md`, the Python starter Patterns with their reference code and tests under `python/`, `{python,agnostic}/.rapid-ship/project.toml` for the new escalation kind, `common/.github/workflows/devctl-check.yml`, `kit.toml`. This repository: the root `AGENTS.md` and `.rapid-ship/project.toml`, edited in place, and the workflow through `sync`. Tests: `tests/devctl/test_devctl_map_*.py`, `test_devctl_diff_*.py`, `test_devctl_evidence_step.py`, `test_devctl_doctor*.py`, `test_devctl_ci_templates.py`, `tests/test_kit_contents.py`, `tests/test_kit_templates*.py`.
 - 5.4: devctl templates: `settings.py`, `doctor_signin.py`, `doctor_skills.py`, `harness.py`. `rapid_ship/kit/migrations.py`, `rapid_ship/kit/sync.py`, `rapid_ship/cli.py`. Kit templates: every seeded TOML file, both CODEOWNERS templates and the CI workflow, for their comments. Tests: `tests/devctl/test_devctl_settings*.py`, `test_devctl_doctor_*.py`, `test_devctl_harness.py`, `tests/test_kit_migrations*.py`, `tests/test_kit_sync*.py`, and the seed-documentation test.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
 
@@ -466,7 +480,7 @@ If review finds a PR too large, it splits at a task boundary.
 6. The seeded wiring files, `kit.toml`, doctor's wiring items, and this repository's wiring through `sync`.
 7. The CODEOWNERS additions in both templates, doctor's `PROTECTED_PATHS`, and this repository's CODEOWNERS.
 8. Live trial, an Owner step: each rule in each Harness the spike confirmed, in the lead Session and inside a subagent; the merge guard on real PRs through `gh pr merge` and `devctl as worker gh pr merge`, and G3 denying a merge through `gh api` and a `git push` to the default branch.
-9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. The owner decides the `./devctl doctor --settings` proposal first. If it is accepted, this task adds the option, and the root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-lead` and `rs-preflight` do (Spec 1 section 6).
+9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. `./devctl doctor --settings`, which reads and validates only the settings, spends no quota and starts no probe. The root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-lead` and `rs-preflight` do (Spec 1 section 6).
 10. The Pattern `task` key and `## Lessons` section: the seeded README and map rule 5.
 11. The Python starter Patterns, for error handling, configuration and input validation, with reference code and tests in the new-project skeleton, passing map rule 5 and `./devctl check` on a new project.
 12. The `SKILL.md` rule in map rule 7.

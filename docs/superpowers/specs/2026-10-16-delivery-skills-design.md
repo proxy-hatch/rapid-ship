@@ -357,7 +357,7 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 
 **Steps:**
 
-1. Run `./devctl doctor` before anything else. When it cannot read the settings, it exits 2 and names the problem. Then stop and help the owner fix the settings: while `devctl hook` cannot read them, it still applies G1 to G4 and the merge guard, but G5, G7 and G8 give no decision, so the asks before Protected edits and Agent identity's denies are lost (Spec 1). When `[roster]` names agy and the Lead's Harness is not agy, doctor's agy sign-in probe would run agy inside this Session (Spec 1, section 6), which Google's consumer terms do not support. Give that warning first (section 6.4), and offer that the owner runs `./devctl doctor` in a terminal instead. Every other Session, such as a Worker's or a Reviewer's, runs `./devctl doctor --settings` first, as the seeded root AGENTS.md asks; it reads only the settings and starts no probe (a proposal in Spec 1).
+1. Run `./devctl doctor` before anything else. When it cannot read the settings, it exits 2 and names the problem. Then stop and help the owner fix the settings: while `devctl hook` cannot read them, it still applies G1 to G4 and the merge guard, but G5, G7 and G8 give no decision, so the asks before Protected edits and Agent identity's denies are lost (Spec 1). When `[roster]` names agy and the Lead's Harness is not agy, doctor's agy sign-in probe would run agy inside this Session (Spec 1, section 6), which Google's consumer terms do not support. Give that warning first (section 6.4), and offer that the owner runs `./devctl doctor` in a terminal instead. Every other Session, such as a Worker's or a Reviewer's, runs `./devctl doctor --settings` first, as the seeded root AGENTS.md asks; it reads only the settings and starts no probe (Spec 1, section 6).
 2. Read the settings, CODEOWNERS and the ruleset. Check the Session's checkout: it has no local changes, and after `git fetch`, `HEAD` is the commit that `origin/<default branch>` names. Any branch is fine, so a Session in its own worktree qualifies. Section 9.2 says why.
 3. Ask for the Focus: a milestone or chosen tasks. Read its tasks from the tracker, and show the frontier (section 5.5).
 4. Resolve the Roster (section 6.4). Without a Roster, state that the Lead's Harness chooses its subagents' models. With one, choose a route for each role and give every warning that applies.
@@ -385,7 +385,7 @@ The escalation list is the Protected set plus what `[escalation]` adds:
 | Kind | Setting | What holds it |
 | --- | --- | --- |
 | The Protected set | Always on | In every setup, the merge guard (Spec 1): a rule of `devctl hook` that denies an agent's `gh pr merge` of a pull request that touches the Protected set. With or without Agent identity, the guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that Spec 1 lists. `gh pr merge` is then the only recognised way for an agent to merge. The owner merges such a pull request in GitHub's web interface. The guardrails also ask the owner before an agent edits a Protected path. With Agent identity and a ruleset, GitHub enforces the Protected set too, through CODEOWNERS and the ruleset. Otherwise the merge guard holds it alone, and it is a guardrail: advice that a misbehaving agent can bypass, for example through a script or a tool the hook does not see |
-| Every pull request | `every_pr = true` | With Agent identity: GitHub, through the CODEOWNERS line `* @<owner>` and the ruleset. Without it: the ruleset requires an approval that the owner cannot give their own pull request, which leaves only the owner's admin bypass, and the guardrails deny agents `gh pr merge --admin` and the other recognised ways to land a change on the default branch (Spec 1). That is a guardrail: advice that a misbehaving agent can bypass. Without a ruleset: the brief only (proposal 13.3.10) |
+| Every pull request | `every_pr = true` | With Agent identity: GitHub, through the CODEOWNERS line `* @<owner>` and the ruleset. Without it: the ruleset requires an approval that the owner cannot give their own pull request, which leaves only the owner's admin bypass, and the guardrails deny agents `gh pr merge --admin` and the other recognised ways to land a change on the default branch (Spec 1). That is a guardrail: advice that a misbehaving agent can bypass. Without a ruleset, with or without Agent identity: the brief and the owner's instruction, which are advice; the merge guard still denies a merge of a pull request whose head has not passed `devctl check` or that touches the Protected set |
 | A pull request that removes a behavioural test | Seeded in `kinds` | The brief. devctl's `diff` step classes each removed test as unit or behavioural (Spec 1) |
 | A pull request that declares `Over the diff cap:` | Seeded in `kinds` | The brief. devctl's `diff` step reports the declaration (Spec 1) |
 | A pull request that reached N rounds ending in changes requested | `revision_rounds` | The brief |
@@ -397,13 +397,13 @@ Agents run under the owner's sign-ins and, with Agent identity on, within reach 
 
 With `every_pr = true` the Mode is Walk. With `every_pr = false` it is Flight, and the kinds the owner adds place it anywhere between the two ends. When an added kind is a set of paths, `rs-lead` offers to add those paths to the Protected set in CODEOWNERS instead, where the merge guard enforces them, and GitHub too with Agent identity and a ruleset.
 
-In Walk the owner reviews every pull request, launches the Sessions and watches them, with the Workers they start. rapid-ship neither asks nor counts how many Sessions or Workers run. Its documentation advises running at most 3 Workers at once in Walk, for the owner's cognitive load.
+In Walk the Lead brings every pull request to the owner and merges one only when the owner says so. The owner also launches the Sessions and watches them, with the Workers they start. rapid-ship neither asks nor counts how many Sessions or Workers run. Its documentation advises running at most 3 Workers at once in Walk, for the owner's cognitive load.
 
 A pull request on the escalation list goes through three steps:
 
 1. The Lead takes it to "ready for the owner": `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open. At the revision-round limit, the Lead stops the rounds instead.
 2. The Lead tells the owner the link, the task, which kinds put it on the list, the last verdict, and the nits it skipped.
-3. The Lead moves on to other tasks. The owner merges a Protected pull request in GitHub's web interface. For any other pull request on the list, with Agent identity, the owner approves, then merges or asks the Lead to merge; without it, the owner merges it in GitHub's web interface, through the admin bypass where the ruleset requires an approval.
+3. The Lead moves on to other tasks, and merges a pull request on the list only when the owner says so. The owner merges a Protected pull request in GitHub's web interface. For any other pull request on the list, with Agent identity, the owner approves, then merges or asks the Lead to merge; without it, the owner merges it in GitHub's web interface, through the admin bypass where the ruleset requires an approval, or, without a ruleset, merges it or asks the Lead to.
 
 The Lead merges any other pull request itself when `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open.
 
@@ -482,8 +482,9 @@ and the repository's AGENTS.md.
 - Prefer a Reviewer from a different Provider than the Worker.
 
 ## Mode: <Walk | Flight>
-- Bring these pull requests to the owner instead of merging them: <every pull request |
-  the Protected set, and the kinds listed>.
+- Bring these pull requests to the owner: <every pull request | the Protected set, and the
+  kinds listed>. Merge one only when the owner tells you to, and never one that touches the
+  Protected set: the owner merges those.
 - <Flight:> Merge any other pull request yourself, with a squash merge, when `devctl check`
   passed on its head, the latest verdict on that head is approve, and no blocking thread is open.
 
@@ -541,7 +542,7 @@ and the repository's AGENTS.md.
 ## Never
 - Use `--no-verify`, force-push, push to the default branch, run `gh pr merge --admin`, or merge, write a ref or commit through `gh api`.
 - Edit `.rapid-ship/kit.lock` by hand, or change a Protected path without the owner.
-- Merge a pull request that is on the escalation list.
+- Merge a pull request on the escalation list unless the owner tells you to.
 - Add a permission-bypass flag to a Worker or a Reviewer.
 ```
 
@@ -725,7 +726,7 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 
 The Walk-flow draft of 2026-10-15 is withdrawn, and this spec replaces it as Spec 2. Under [ADR 0004](../../adr/0004-team-management-boundary.md), rapid-ship no longer runs the Lead's loop: `devctl dispatch`, `watch`, `pr`, `review` and `merge`, Claims, Takeovers, per-role sandboxed launches, the attempt limit and the five-Worker cap are gone. `rs-plan` became `rs-breakdown` and gained milestones. `rs-walk` became `rs-lead`, which writes a brief instead of running a loop. `rs-playbook-author` is dropped. The `ready-for-agent` label and the epic approval state are dropped, because a task's state and its blockers say whether it is ready. The review-round limit became the `revision_rounds` escalation kind. Kept from the draft: the Linear state conventions, the rule that the Lead never guesses why a pull request closed, the "changes agent instructions" flag, one verdict per head commit, and squash merges only.
 
-The owner's second review on 2026-10-19 settled the proposals this spec listed and changed six things. The Walk Worker cap is gone: rapid-ship takes no notice of how many Sessions or Workers run. The Stop-hook check is gone from the guardrails, so `rs-work` runs `./devctl check` itself before it reports. The diff cap became 1,500 lines with documentation files excluded, and a declared overage became an escalation kind. Every Reviewer starts in a checkout of the base branch. The Roster accepts any Harness with a headless command. The merge guard holds the Protected set and a passed `devctl check` in every setup.
+The owner's second review on 2026-10-19 settled the proposals this spec listed and changed six things. The Walk Worker cap is gone: rapid-ship takes no notice of how many Sessions or Workers run. The Stop-hook check is gone from the guardrails, so `rs-work` runs `./devctl check` itself before it reports. The diff cap became 1,500 lines with documentation files excluded, and a declared overage became an escalation kind. Every Reviewer starts in a checkout of the base branch. The Roster accepts any Harness with a headless command. The merge guard holds the Protected set and a passed `devctl check` in every setup. A later round the same day kept the merge guard free of a Walk rule: in Walk the Lead merges a pull request only when the owner says so.
 
 ## 12. Testing
 
@@ -776,5 +777,4 @@ The owner has not decided these yet.
 
 8. **The key for the Roster's command (proposal).** The owner decided that a Harness without a built-in route runs from a headless command template that the owner supplies (sections 3.4 and 6.4). The drafter's details are the key's name, `command`, and its `{prompt}` and `{model}` placeholders. Spec 1 owns `[roster]`, so it validates the key and says what `devctl doctor` checks for such a Harness, such as that the command's program is on `PATH`.
 9. **Prior acceptance of a diff-cap overage (proposal).** The owner decided that a pull request that declares `Over the diff cap:` is a default escalation kind, which Spec 1 seeds in `kinds`, so the owner sees every such pull request. The drafter's detail: `rs-work` declares an overage only after the owner accepted it, as the Lead relays (sections 3.5 and 7), so a Worker stops as `blocked` before it builds a pull request the owner may reject. In Flight that asks the owner twice. The alternative: a Worker declares an overage with its reason and no prior acceptance, and the escalation kind brings the pull request to the owner.
-10. **The merge guard in Walk without a ruleset (proposal).** Without Agent identity, Walk under a ruleset holds as a guardrail: the ruleset requires an approval that the owner cannot give their own pull request, and the guardrails keep the owner's bypass from the Lead by denying `gh pr merge --admin` and the other recognised ways to land a change on the default branch (Spec 1). On a repository without a ruleset, such as a private one on GitHub Free, the Lead could still merge a green, unprotected pull request with `gh pr merge`. The proposal: the merge guard also denies every agent merge while `every_pr = true`, so Walk holds there too. Spec 1 owns the guard, which must also match merges made through `./devctl as worker gh`.
-11. **The Reviewer's checkout (proposal).** The Lead starts a Reviewer in its own checkout or in a new worktree at `origin/<base branch>`. `rs-review` accepts any clean checkout whose `HEAD` is an ancestor of `origin/<base branch>` (section 8).
+10. **The Reviewer's checkout (proposal).** The Lead starts a Reviewer in its own checkout or in a new worktree at `origin/<base branch>`. `rs-review` accepts any clean checkout whose `HEAD` is an ancestor of `origin/<base branch>` (section 8).

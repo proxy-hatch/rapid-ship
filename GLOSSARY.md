@@ -14,10 +14,10 @@ The supervision level the owner chooses for a project, set by its escalation lis
 _Avoid_: phase, stage
 
 **Escalation list**:
-The kinds of pull request a Lead must bring to the owner instead of merging them itself. The Protected set is always on it.
+The kinds of pull request a Lead must bring to the owner instead of merging them on its own. The Protected set is always on it.
 
 **Walk**:
-The Mode whose escalation list holds every pull request.
+The Mode whose escalation list holds every pull request. The Lead merges one only when the owner says so.
 _Avoid_: training wheels, supervised trial, start
 
 **Flight**:
@@ -73,7 +73,7 @@ A constraint on changes, marked either as enforced by a named check or as adviso
 The Kit's project settings for each supported Harness, which connect `devctl hook` to the Harness's hook events so that it can deny or ask before risky agent actions. They stop habits and mistakes; a misbehaving agent can bypass them.
 
 **Merge guard**:
-The rule of `devctl hook`, on in every setup, that denies an agent's `gh pr merge` when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set. The other guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) lists. It matches command lines, so a script or a tool the hook does not see can get past it. It runs only in a Harness wired to `devctl hook`. On a GitHub Free private repository, which has no ruleset, it is the enforcement.
+The rule of `devctl hook`, on in every setup, that denies an agent's `gh pr merge` when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. The other guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) lists. It matches command lines, so a script or a tool the hook does not see can get past it. It runs only in a Harness wired to `devctl hook`. On a GitHub Free private repository, which has no ruleset, it is the enforcement.
 
 ### Agents
 
@@ -112,7 +112,7 @@ One conversation in a Harness, resumable by its ID.
 _Avoid_: attempt, run
 
 **Agent identity**:
-The optional pair of GitHub Apps that agents act as: one opens and merges pull requests, the other posts reviews. With it, GitHub can tell an agent's pull request or review from the owner's, the owner can approve agent pull requests, and CODEOWNERS binds the Lead in Flight while it acts through `devctl as`. Without it, agents act as the owner and the metrics that need that distinction are unknown. It matters most to a solo owner on GitHub Free with a public repository; a team shares one pair, with a private key for each developer.
+The optional pair of GitHub Apps that agents act as: one opens and merges pull requests, the other posts reviews. With it, GitHub can tell an agent's pull request or review from the owner's, the owner can approve agent pull requests, and CODEOWNERS binds the Lead in Flight while it acts through `devctl as`. Without it, agents act as the owner and the metrics that need that distinction are unknown. It matters most to a solo owner on GitHub Free with a public repository; a team shares one pair per repository owner, a person or an organisation, with a private key for each developer.
 
 ### Improving the path
 
