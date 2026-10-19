@@ -276,7 +276,7 @@ def _by_key(
         try:
             shown = app_of(key, app.app_id)
         except KeyRefused as refusal:
-            stops.append(_unconfirmed(role, service, app, str(refusal)))
+            stops.append(_unconfirmed(role, service, app, target, str(refusal)))
             continue
         if shown.app.app_id == app.app_id and shown.owner_id == target.owner_id:
             old_key = key if service == LEGACY_SERVICE[role] else None
@@ -354,12 +354,18 @@ def _no_key(role: str, app: StoredApp) -> str:
     )
 
 
-def _unconfirmed(role: str, service: str, app: StoredApp, reason: str) -> str:
+def _unconfirmed(role: str, service: str, app: StoredApp, target: _Target, reason: str) -> str:
+    # An App that still exists is recorded before its item goes: with neither, the next run
+    # would create a second App beside it.
     return (
         f"Keychain item {service} holds a key of the {TITLES[role]} {app.app_id} ({app.slug}). "
         "GitHub does not show that App to gh, as it shows no private App, and the key cannot "
-        f"confirm whose App it is: {reason}. If GitHub has no such App or key any more, delete "
-        f"the item with: security delete-generic-password -s {service}"
+        f"confirm whose App it is: {reason}. If the App is {target.owner.login}'s and still "
+        f"exists, first record its ID and slug under [github] in {_SETTINGS}. Then, if GitHub no "
+        "longer has this key, delete the item, generate a new private key in the App's settings "
+        f"on GitHub and run rapid-ship app --import-key {role} with the new key on stdin. If "
+        "GitHub has no such App any more, delete the item and record nothing. Delete the item "
+        f"with: security delete-generic-password -s {service}"
     )
 
 

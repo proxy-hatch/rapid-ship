@@ -474,16 +474,23 @@ def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
     worker = LEGACY_SERVICE["worker"] if old_names else "rapid-ship/worker-app/11"
     reviewer = LEGACY_SERVICE["reviewer"] if old_names else "rapid-ship/reviewer-app/12"
     out, err = capsys.readouterr()
-    assert err == (
-        f"rapid-ship: Keychain item {worker} holds a key of the Worker App 11 (o-rs-worker). "
-        "GitHub does not show that App to gh, as it shows no private App, and the key cannot "
-        f"confirm whose App it is: {reason}. If GitHub has no such App or key any more, delete "
-        f"the item with: security delete-generic-password -s {worker}\n"
-        f"rapid-ship: Keychain item {reviewer} holds a key of the Reviewer App 12 "
-        "(o-rs-reviewer). GitHub does not show that App to gh, as it shows no private App, and "
-        f"the key cannot confirm whose App it is: {reason}. If GitHub has no such App or key any "
-        f"more, delete the item with: security delete-generic-password -s {reviewer}\n"
-    )
+
+    def stop(service: str, title: str, role: str) -> str:
+        """Deleting the item of an App that still exists would let the next run create a second
+        App, so the advice records such an App before the item is deleted."""
+        app = APPS[role]
+        return (
+            f"rapid-ship: Keychain item {service} holds a key of the {title} {app.app_id} "
+            f"({app.slug}). GitHub does not show that App to gh, as it shows no private App, and "
+            f"the key cannot confirm whose App it is: {reason}. If the App is o's and still "
+            "exists, first record its ID and slug under [github] in .rapid-ship/project.toml. "
+            "Then, if GitHub no longer has this key, delete the item, generate a new private key "
+            f"in the App's settings on GitHub and run rapid-ship app --import-key {role} with the "
+            "new key on stdin. If GitHub has no such App any more, delete the item and record "
+            f"nothing. Delete the item with: security delete-generic-password -s {service}\n"
+        )
+
+    assert err == stop(worker, "Worker App", "worker") + stop(reviewer, "Reviewer App", "reviewer")
     assert out == ""
 
 
