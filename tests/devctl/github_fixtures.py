@@ -144,9 +144,11 @@ def recorded_argv(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 @pytest.fixture
 def project() -> ProjectSettings:
-    """o/r with a Roster of two Harnesses and both Apps recorded, so Agent identity is on."""
+    """o/r with @o as its code owner, a Roster of two Harnesses and both Apps recorded, so Agent
+    identity is on."""
     return project_settings(
         repository="o/r",
+        code_owner="@o",
         worker_app=App(WORKER_ID, "rs-worker"),
         reviewer_app=App(REVIEWER_ID, "rs-reviewer"),
         roster={

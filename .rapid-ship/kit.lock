@@ -161,7 +161,7 @@ sha256 = "1e7bf3dbe0292ed68cb0fbf4bd0e517b21716e83c6b99c6758bf6ada3c1e82e3"
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
 kind = "managed"
-sha256 = "829147d2f45b5ba648df9c1256ec81572c75e2990d4b190083fff99782d7cdb5"
+sha256 = "fb7579b1c41d2827fb87e81f119a064cc03ed0b85f1baa1029a15ed07bbfa299"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
@@ -176,7 +176,7 @@ sha256 = "973a16c93c218dc7336618e729fc9e2d9fa125882d142ef6b3205e08e62374d3"
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "b8737bada31c493c30242e36eae8d8a3e98e933857b9f9e5ff57ad38a357c483"
+sha256 = "bd6440290442726a16c30c4e879cee2932e8094fd80ba15dddc7aadfe7205417"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_signin.py"
@@ -186,7 +186,7 @@ sha256 = "fb45bd653d364dcef458551999a7ef7de9da5aafe01fe5e8b445abc8dd9409c8"
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
-sha256 = "11e248528004fcc409de1032beb83fc41d32820034b6b18ae378f74c2ae3a18b"
+sha256 = "a493ee3a1c4d4bdb99099d6a44cf1f0db8ebe03aa4dca97b6695fa5d9e8c17ca"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
