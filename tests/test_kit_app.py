@@ -191,6 +191,7 @@ class FakeConversions:
         self.keyed: dict[int, tuple[rsa.RSAPublicKey, dict[str, object]]] = {}
         self.app_status = 200  # GET /app's status for a token it accepts
         self.app_changes: dict[str, object] = {}  # GET /app's reply fields that replace the usual
+        self.app_headers: dict[str, str] = {}  # GET /app's extra reply headers, such as Location
 
     def register(self, private_key: bytes, app: StoredApp, owner: Mapping[str, object]) -> None:
         """Let GET /app answer as app, which owner owns, for a token that private_key signed."""
@@ -242,15 +243,19 @@ def _conversion_handler(fake: FakeConversions) -> type[BaseHTTPRequestHandler]:
             authorization = self.headers.get("Authorization")
             fake.requests.append((self.path, authorization))
             if self.path == "/app":
-                self._send(*fake.app_reply(authorization))
+                self._send(*fake.app_reply(authorization), fake.app_headers)
             else:
                 self._send(404, {"message": "Not Found"})
 
-        def _send(self, status: int, reply: dict[str, object]) -> None:
+        def _send(
+            self, status: int, reply: dict[str, object], headers: Mapping[str, str] | None = None
+        ) -> None:
             body = json.dumps(reply).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
 
@@ -264,7 +269,10 @@ def _conversion_handler(fake: FakeConversions) -> type[BaseHTTPRequestHandler]:
 def serve_conversions() -> Iterator[FakeConversions]:
     fake = FakeConversions()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _conversion_handler(fake))
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # A short poll, so that shutdown returns soon after each test.
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
     thread.start()
     fake.url = f"http://127.0.0.1:{server.server_port}"
     try:

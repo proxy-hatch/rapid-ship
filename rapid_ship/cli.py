@@ -10,6 +10,7 @@ from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
+from rapid_ship.app_import import import_key
 from rapid_ship.app_keychain import AppSetupError, MacKeychainStore
 from rapid_ship.github_app import current_repository, gh_owner_get, recorded_apps, run_app
 from rapid_ship.kit.git import work_tree_root
@@ -110,6 +111,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="OWNER/NAME",
         help="the GitHub repository to install the Apps on; default: the one gh finds here",
     )
+    app.add_argument(
+        "--import-key",
+        choices=("worker", "reviewer"),
+        help=(
+            "store your own private key, read on stdin, for the role's App that "
+            ".rapid-ship/project.toml records, once GitHub accepts a token it signs"
+        ),
+    )
     return parser
 
 
@@ -117,7 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = build_parser().parse_args(argv)
         if args.command == "app":  # app needs no work tree
-            return _app(args.repository)
+            return _app(args.repository, args.import_key)
         root = work_tree_root(Path.cwd())
         if args.command == "init":
             return _init(root, args)
@@ -138,7 +147,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
 
-def _app(repository: str | None) -> int:
+def _app(repository: str | None, import_role: str | None) -> int:
     try:
         target = repository or current_repository()
         # Inside a work tree, the Apps its .rapid-ship/project.toml records for target.
@@ -146,6 +155,14 @@ def _app(repository: str | None) -> int:
     except AppSetupError as error:
         sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
+    if import_role is not None:
+        return import_key(
+            import_role,
+            target,
+            recorded.get(import_role),
+            sys.stdin.buffer,
+            store=MacKeychainStore(),
+        )
     return run_app(
         target,
         store=MacKeychainStore(),

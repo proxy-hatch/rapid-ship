@@ -65,6 +65,10 @@ class KeyRefused(AppSetupError):
     """A key cannot sign a token that GitHub accepts: GitHub refused it, or it cannot sign one."""
 
 
+class KeyUnusable(KeyRefused):
+    """A key cannot sign a token: it is no readable, unencrypted RSA PEM private key."""
+
+
 @dataclass(frozen=True)
 class CreatedApp:
     app: StoredApp
@@ -268,9 +272,9 @@ def _app_jwt(private_key: bytes, app_id: int) -> str:
     try:
         key = load_pem_private_key(private_key, password=None)
     except (ValueError, TypeError, UnsupportedAlgorithm):
-        raise KeyRefused("the key is not a readable, unencrypted PEM private key") from None
+        raise KeyUnusable("the key is not a readable, unencrypted PEM private key") from None
     if not isinstance(key, RSAPrivateKey):
-        raise KeyRefused("the key is not an RSA private key")
+        raise KeyUnusable("the key is not an RSA private key")
     issued = int(time.time())
     # 60 s back for clock drift; 9 minutes ahead stays under GitHub's 10-minute limit.
     claims = {"iat": issued - 60, "exp": issued + 540, "iss": str(app_id)}
