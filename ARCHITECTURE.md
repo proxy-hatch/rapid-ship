@@ -6,7 +6,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 
 | Part | Where | What it does |
 | --- | --- | --- |
-| `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: creates the owner's Worker and Reviewer Apps for Agent identity |
+| `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py`, `app_flow.py`, `app_keychain.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: creates the owner's Worker and Reviewer Apps for Agent identity |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
 | devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push` |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |

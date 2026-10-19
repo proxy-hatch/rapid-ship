@@ -24,17 +24,14 @@ from test_kit_app import (
 )
 
 from rapid_ship import cli
+from rapid_ship.app_flow import app_manifest, create_app
+from rapid_ship.app_keychain import AppSetupError, MacKeychainStore, StoredApp, run_command
 from rapid_ship.github_app import (
-    AppSetupError,
-    MacKeychainStore,
+    GitHubNotFound,
     OwnerGet,
-    StoredApp,
-    app_manifest,
-    create_app,
     current_repository,
     gh_owner_get,
     run_app,
-    run_command,
 )
 
 
@@ -138,7 +135,7 @@ def test_a_key_github_returned_but_rapid_ship_could_not_store_names_the_app_to_d
         )
     assert code == 2
     err = capsys.readouterr().err
-    assert "could not write Keychain item rapid-ship/worker-app" in err
+    assert "could not write Keychain item rapid-ship/worker-app/11" in err
     assert "https://github.com/settings/apps/o-rs-worker/advanced" in err
 
 
@@ -157,7 +154,7 @@ def test_a_permission_mismatch_names_the_settings_page_and_still_creates_the_rev
             timeout_seconds=10,
         )
     assert code == 1
-    assert sorted(store.keys) == ["rapid-ship/reviewer-app", "rapid-ship/worker-app"]
+    assert sorted(store.keys) == ["rapid-ship/reviewer-app/12", "rapid-ship/worker-app/11"]
     out = capsys.readouterr().out
     assert "fix the permissions at https://github.com/settings/apps/o-rs-worker/permissions" in out
     assert "https://github.com/settings/apps/o-rs-reviewer/permissions" in out
@@ -165,20 +162,21 @@ def test_a_permission_mismatch_names_the_settings_page_and_still_creates_the_rev
 
 def test_only_the_missing_app_is_created(capsys: pytest.CaptureFixture[str]) -> None:
     store = FakeStore()
-    store.apps["rapid-ship/worker-app"] = StoredApp(7, "o-old-worker")
+    store.apps["rapid-ship/worker-app/7"] = StoredApp(7, "o-old-worker")
+    answers = {**OWNER_READS, "apps/o-old-worker": {"id": 7, "owner": {"login": "o", "id": 1}}}
     captured: Captured = []
     with serve_conversions() as conversions:
         code = run_app(
             "o/r",
             store=store,
-            owner_get=owner_reads,
+            owner_get=answers.__getitem__,
             open_browser=github_browser(captured),
             api_url=conversions.url,
             timeout_seconds=10,
         )
     assert code == 0
     assert [manifest["name"] for _, manifest in captured] == ["o-rs-reviewer"]
-    assert list(store.keys) == ["rapid-ship/reviewer-app"]
+    assert list(store.keys) == ["rapid-ship/reviewer-app/12"]
     out = capsys.readouterr().out
     assert "Worker App: ID 7 (o-old-worker)" in out
     assert "Reviewer App: ID 12 (o-rs-reviewer)" in out
@@ -430,3 +428,17 @@ def test_the_app_name_fits_github_34_characters(login: str, name: str) -> None:
     assert manifest["name"] == name
     assert len(name) <= 34
     assert manifest["url"] == "https://github.com/proxy-hatch/rapid-ship"
+
+
+@pytest.mark.parametrize(
+    ("stderr", "not_found"),
+    [("gh: Not Found (HTTP 404)", True), ("gh: Bad credentials (HTTP 401)", False)],
+)
+def test_gh_owner_get_tells_a_404_from_other_errors(
+    stderr: str, not_found: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_gh(tmp_path, monkeypatch, f"echo '{stderr}' >&2\nexit 1")
+    with pytest.raises(AppSetupError) as caught:
+        gh_owner_get("apps/gone")
+    assert isinstance(caught.value, GitHubNotFound) is not_found
+    assert str(caught.value) == f"gh api apps/gone failed: {stderr}"

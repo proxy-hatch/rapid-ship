@@ -165,11 +165,8 @@ def test_mac_keychain_decodes_hex_output_and_maps_exit_44(app_keys: AppKeys) -> 
 
 def test_rapid_ship_and_devctl_agree_on_services_and_permissions() -> None:
     from devctl.github import app
-    from rapid_ship import github_app
+    from rapid_ship import app_flow, app_keychain
 
-    # Until plan 4's follow-up Task 4, rapid-ship app writes the old item names, which devctl no
-    # longer reads. devctl's name is the old one plus the App ID, where Task 4 re-stores an old
-    # item's key; Task 4 replaces this with keychain_service parity.
     for role in ROLES:
-        assert app.keychain_service(role, 7) == f"{github_app.KEYCHAIN_SERVICE[role]}/7"
-    assert github_app.APP_PERMISSIONS == app.APP_PERMISSIONS
+        assert app_keychain.keychain_service(role, 7) == app.keychain_service(role, 7)
+    assert app_flow.APP_PERMISSIONS == app.APP_PERMISSIONS

@@ -10,13 +10,8 @@ from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
-from rapid_ship.github_app import (
-    AppSetupError,
-    MacKeychainStore,
-    current_repository,
-    gh_owner_get,
-    run_app,
-)
+from rapid_ship.app_keychain import AppSetupError, MacKeychainStore
+from rapid_ship.github_app import current_repository, gh_owner_get, recorded_apps, run_app
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
 from rapid_ship.kit.pull_request import REVERT
@@ -121,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = build_parser().parse_args(argv)
-        if args.command == "app":  # app reads no Kit file, so it needs no work tree
+        if args.command == "app":  # app needs no work tree
             return _app(args.repository)
         root = work_tree_root(Path.cwd())
         if args.command == "init":
@@ -146,12 +141,25 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _app(repository: str | None) -> int:
     try:
         target = repository or current_repository()
+        # Inside a work tree, the Apps its .rapid-ship/project.toml records for target.
+        recorded = recorded_apps(root, target) if (root := _work_tree()) else {}
     except AppSetupError as error:
         sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
     return run_app(
-        target, store=MacKeychainStore(), owner_get=gh_owner_get, open_browser=webbrowser.open
+        target,
+        store=MacKeychainStore(),
+        owner_get=gh_owner_get,
+        open_browser=webbrowser.open,
+        recorded=recorded,
     )
+
+
+def _work_tree() -> Path | None:
+    try:
+        return work_tree_root(Path.cwd())
+    except KitRefusal:  # outside a work tree
+        return None
 
 
 def _init(root: Path, args: argparse.Namespace) -> int:

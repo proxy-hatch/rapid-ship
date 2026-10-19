@@ -66,7 +66,7 @@ remove_when = "The test makes the directory unreadable in a way that also stops 
 
 [[exception]]
 id = "EX-11"
-path = "rapid_ship/github_app.py"
+path = "rapid_ship/app_keychain.py"
 rule = "S603"
 reason = "rapid-ship app runs security and gh with fixed arguments and no shell; rapid_ship may not import devctl's runner"
 remove_when = "Ruff stops reporting S603 for list arguments without a shell"

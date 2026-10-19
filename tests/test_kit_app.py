@@ -7,7 +7,7 @@ import subprocess
 import threading
 import tomllib
 import webbrowser
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,14 +18,8 @@ from urllib.parse import urlsplit
 import pytest
 
 from rapid_ship import cli
-from rapid_ship.github_app import (
-    AppSetupError,
-    MacKeychainStore,
-    OwnerGet,
-    StoredApp,
-    gh_owner_get,
-    run_app,
-)
+from rapid_ship.app_keychain import AppSetupError, MacKeychainStore, StoredApp, keychain_service
+from rapid_ship.github_app import GitHubNotFound, OwnerGet, gh_owner_get, run_app
 
 Captured = list[tuple[str, dict[str, Any]]]
 
@@ -37,16 +31,35 @@ REQUESTED: dict[str, tuple[int, dict[str, str]]] = {
     ),
     "-rs-reviewer": (12, {"pull_requests": "write", "contents": "read", "metadata": "read"}),
 }
-# What the owner's gh login reads: o owns o/r, and org/r belongs to an organization.
+# What the owner's gh login reads: o owns o/r and the Apps o-rs-worker (11) and o-rs-reviewer
+# (12), and org/r belongs to an organization.
 OWNER_READS: dict[str, object] = {
     "repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "User"}},
     "repos/org/r": {"id": 3, "owner": {"login": "org", "id": 4, "type": "Organization"}},
     "user": {"login": "o", "id": 1},
+    "apps/o-rs-worker": {"id": 11, "slug": "o-rs-worker", "owner": {"login": "o", "id": 1}},
+    "apps/o-rs-reviewer": {"id": 12, "slug": "o-rs-reviewer", "owner": {"login": "o", "id": 1}},
 }
 
 
+def reads(answers: Mapping[str, object], log: list[str] | None = None) -> OwnerGet:
+    """The owner's gh over answers: a path it does not hold is GitHub's 404."""
+
+    def get(path: str) -> object:
+        if log is not None:
+            log.append(path)
+        if path not in answers:
+            raise GitHubNotFound(f"gh api {path} failed: gh: Not Found (HTTP 404)")
+        return answers[path]
+
+    return get
+
+
 class FakeStore:
-    """A Keychain that keeps each App's record and key in two dicts, by service."""
+    """A Keychain that keeps each App's record and key in two dicts, by service.
+
+    As the Keychain does, add never replaces an existing item.
+    """
 
     def __init__(self) -> None:
         self.apps: dict[str, StoredApp] = {}
@@ -56,8 +69,34 @@ class FakeStore:
         return self.apps.get(service)
 
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
+        if service in self.apps:
+            raise AppSetupError(f"could not write Keychain item {service}")
         self.apps[service] = app
         self.keys[service] = private_key
+
+    def read_key(self, service: str) -> bytes:
+        if service not in self.keys:
+            raise AppSetupError(f"Keychain item {service} not found")
+        return self.keys[service]
+
+    def listed(self, role: str) -> list[StoredApp]:
+        named = [
+            app for name, app in self.apps.items() if name == keychain_service(role, app.app_id)
+        ]
+        return sorted(named, key=lambda app: app.app_id)
+
+
+def attributes(service: str, account: str, comment: str) -> str:
+    """One generic-password item as keychain_utilities.c print_keychain_item_attributes prints
+    it for find-generic-password and dump-keychain."""
+    return (
+        'keychain: "/Users/o/Library/Keychains/login.keychain-db"\n'
+        'class: "genp"\n'
+        "attributes:\n"
+        f'    "acct"<blob>="{account}"\n'
+        f'    "icmt"<blob>="{comment}"\n'
+        f'    "svce"<blob>="{service}"\n'
+    )
 
 
 class FakeSecurity:
@@ -91,6 +130,9 @@ class FakeSecurity:
                 return subprocess.CompletedProcess(argv, 45, "", duplicate)
             self.items[options["-s"]] = {flag: options[flag] for flag in ("-a", "-j", "-X")}
             return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv == ["security", "dump-keychain"]:
+            dump = [attributes(name, item["-a"], item["-j"]) for name, item in self.items.items()]
+            return subprocess.CompletedProcess(argv, 0, "".join(dump), "")
         assert argv[:3] == ["security", "find-generic-password", "-s"]
         item = self.items.get(argv[3])
         if item is None:
@@ -99,16 +141,7 @@ class FakeSecurity:
         if argv[4:] == ["-w"]:
             return subprocess.CompletedProcess(argv, 0, item["-X"] + "\n", "")
         assert argv[4:] == []
-        # The format of keychain_utilities.c print_keychain_item_attributes.
-        attributes = (
-            'keychain: "/Users/o/Library/Keychains/login.keychain-db"\n'
-            'class: "genp"\n'
-            "attributes:\n"
-            f'    "acct"<blob>="{item["-a"]}"\n'
-            f'    "icmt"<blob>="{item["-j"]}"\n'
-            f'    "svce"<blob>="{argv[3]}"\n'
-        )
-        return subprocess.CompletedProcess(argv, 0, attributes, "")
+        return subprocess.CompletedProcess(argv, 0, attributes(argv[3], item["-a"], item["-j"]), "")
 
 
 class FakeConversions:
@@ -187,10 +220,7 @@ def store() -> FakeStore:
 
 @pytest.fixture
 def owner_get() -> OwnerGet:
-    def get(path: str) -> object:
-        return OWNER_READS[path]
-
-    return get
+    return reads(OWNER_READS)
 
 
 def http_get(url: str) -> tuple[int, str]:
@@ -243,6 +273,7 @@ def test_cli_app_calls_run_app_with_the_real_dependencies(
     assert isinstance(kwargs["store"], MacKeychainStore)
     assert kwargs["owner_get"] is gh_owner_get
     assert kwargs["open_browser"] is webbrowser.open
+    assert kwargs["recorded"] == {}  # outside a work tree, no project.toml records an App
 
 
 def test_creates_both_apps_and_prints_install_urls(
@@ -287,7 +318,7 @@ def test_creates_both_apps_and_prints_install_urls(
     }
     assert worker["redirect_url"].startswith("http://127.0.0.1:")
     assert len(worker["name"]) <= 34
-    assert store.keys["rapid-ship/worker-app"] == conversions.pem_for(worker["name"])
+    assert store.keys["rapid-ship/worker-app/11"] == conversions.pem_for(worker["name"])
     out = capsys.readouterr().out
     assert "Worker App: ID 11" in out
     assert "Reviewer App: ID 12" in out
@@ -301,8 +332,8 @@ def test_existing_apps_are_only_printed(
     store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store.apps = {
-        "rapid-ship/worker-app": StoredApp(11, "o-rs-worker"),
-        "rapid-ship/reviewer-app": StoredApp(12, "o-rs-reviewer"),
+        "rapid-ship/worker-app/11": StoredApp(11, "o-rs-worker"),
+        "rapid-ship/reviewer-app/12": StoredApp(12, "o-rs-reviewer"),
     }
     opened: list[str] = []
     assert run_app("o/r", store=store, owner_get=owner_get, open_browser=opened.append) == 0
@@ -334,7 +365,7 @@ def test_permission_mismatch_keeps_the_key_and_exits_1(
         )
         == 1
     )
-    assert "rapid-ship/worker-app" in store.keys
+    assert "rapid-ship/worker-app/11" in store.keys
 
 
 def test_no_callback_times_out_with_exit_2(store: FakeStore, owner_get: OwnerGet) -> None:
@@ -374,8 +405,8 @@ def test_the_printed_settings_lines_are_the_github_table(
     store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store.apps = {
-        "rapid-ship/worker-app": StoredApp(11, "o-rs-worker"),
-        "rapid-ship/reviewer-app": StoredApp(12, "o-rs-reviewer"),
+        "rapid-ship/worker-app/11": StoredApp(11, "o-rs-worker"),
+        "rapid-ship/reviewer-app/12": StoredApp(12, "o-rs-reviewer"),
     }
     assert run_app("o/r", store=store, owner_get=owner_get, open_browser=lambda url: None) == 0
     lines = [line.strip() for line in capsys.readouterr().out.splitlines() if "_app_" in line]

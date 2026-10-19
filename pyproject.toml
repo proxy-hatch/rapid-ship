@@ -99,6 +99,16 @@ type = "layers"
 layers = ["rapid_ship.cli", "rapid_ship.kit", "rapid_ship.files"]
 
 [[tool.importlinter.contracts]]
+name = "rapid-ship app: the command, then the manifest flow, then the Keychain"
+type = "layers"
+layers = [
+    "rapid_ship.cli",
+    "rapid_ship.github_app",
+    "rapid_ship.app_flow",
+    "rapid_ship.app_keychain",
+]
+
+[[tool.importlinter.contracts]]
 name = "rapid-ship never imports the vendored devctl"
 type = "forbidden"
 source_modules = ["rapid_ship"]
