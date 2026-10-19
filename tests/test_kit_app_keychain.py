@@ -280,6 +280,28 @@ def test_a_recorded_app_with_no_key_here_says_to_import_one(
     assert out == ""
 
 
+def test_no_key_is_re_stored_while_another_recorded_app_has_no_key_here(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The Worker App's plan 4 item holds its key, and this machine has no Reviewer App key."""
+    store = FakeStore()
+    old = LEGACY_SERVICE["worker"]
+    store.apps[old], store.keys[old] = APPS["worker"], KEYS["worker"]
+    before = dict(store.apps)
+    log: list[str] = []
+    opened: list[str] = []
+    assert run(store, dict(APPS), log, opened) == 1
+    assert (store.apps, opened, app_reads(log)) == (before, [], [])
+    out, err = capsys.readouterr()
+    assert err == (
+        "rapid-ship: .rapid-ship/project.toml records the Reviewer App 12 (o-rs-reviewer), and "
+        "this machine has no key for it in Keychain item rapid-ship/reviewer-app/12. Generate a "
+        "private key in the App's settings on GitHub, then run rapid-ship app --import-key "
+        "reviewer with the key on stdin\n"
+    )
+    assert out == ""
+
+
 @pytest.mark.parametrize("old_names", [False, True])
 def test_without_recorded_apps_the_owners_apps_in_the_keychain_are_used(
     old_names: bool, capsys: pytest.CaptureFixture[str]
