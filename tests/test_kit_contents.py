@@ -23,6 +23,10 @@ VARIABLES = {
     "owner": "octo",
     "repository": "octo/demo-app",
 }
+CODE_OWNER_COMMENT = (
+    "# The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "
+    '"@login" or "@organisation/team".'
+)
 SEEDED = {
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
@@ -83,6 +87,7 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
         "stack": stack,
         "github": {
             "repository": "octo/demo-app",
+            "code_owner": "@octo",
             "worker_app_id": 0,
             "worker_app_slug": "",
             "reviewer_app_id": 0,
@@ -102,6 +107,19 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
         "repository"
         not in tomllib.loads(text(stack, ".rapid-ship/project.toml", repository=""))["github"]
     )
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: Stack) -> None:
+    lines = text(stack, ".rapid-ship/project.toml", owner="").splitlines()
+
+    # devctl reads "" as unset; a placeholder there would fail every later devctl command.
+    assert 'code_owner = ""' in lines
+    assert not any("<owner>" in line or "<code_owner>" in line for line in lines)
+    # Spec 1 section 4's comment, directly above the key and below repository.
+    comment = lines.index('code_owner = ""') - 1
+    assert lines[comment] == CODE_OWNER_COMMENT
+    assert lines[comment - 1] == 'repository = "octo/demo-app"'
 
 
 @pytest.mark.parametrize("stack", STACKS)

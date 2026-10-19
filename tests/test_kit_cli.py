@@ -11,6 +11,7 @@ from typing import NoReturn
 
 import pytest
 
+from devctl.settings import load_project
 from rapid_ship.cli import main
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import installed_version
@@ -112,6 +113,28 @@ def test_init_without_an_owner_leaves_the_walk_line_for_rs_setup(
 
     assert "# * @<owner>" in (git_repo / ".github/CODEOWNERS").read_text().splitlines()
     assert "CODEOWNERS has no owner line yet; rs-setup writes it." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("options", "line", "code_owner"),
+    [
+        (["--owner", "octocat"], 'code_owner = "@octocat"', "@octocat"),
+        ([], 'code_owner = ""', None),
+    ],
+)
+def test_init_seeds_the_code_owner_from_the_owner(
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    options: list[str],
+    line: str,
+    code_owner: str | None,
+) -> None:
+    monkeypatch.chdir(git_repo)
+
+    assert main(["init", "--stack", "agnostic", *options]) == 0
+
+    assert line in (git_repo / ".rapid-ship/project.toml").read_text().splitlines()
+    assert load_project(git_repo).code_owner == code_owner  # devctl loads the seed
 
 
 @pytest.fixture

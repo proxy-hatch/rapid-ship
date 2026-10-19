@@ -85,6 +85,22 @@ def test_an_empty_owner_comments_out_its_line(
 
 
 @pytest.mark.parametrize(
+    ("owner", "line"), [("octo", 'code_owner = "@octo"'), ("", 'code_owner = ""')]
+)
+def test_code_owner_is_the_owner_with_an_at_sign_and_stays_empty_without_one(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str], owner: str, line: str
+) -> None:
+    # kit_variables holds only the four variables a lock records, so code_owner is derived.
+    root = make_templates(
+        changes={"agnostic/.rapid-ship/project.toml": '[github]\ncode_owner = "{{code_owner}}"\n'}
+    )
+
+    rendered = by_path(render_files("agnostic", {**kit_variables, "owner": owner}, (), root=root))
+
+    assert rendered[".rapid-ship/project.toml"].content == f"[github]\n{line}\n".encode()
+
+
+@pytest.mark.parametrize(
     ("changes", "variables", "message"),
     [
         (

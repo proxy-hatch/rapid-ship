@@ -76,8 +76,9 @@ def resolve_variables(
     owner: str | None = None,
     repository: str | None = None,
 ) -> dict[str, str]:
-    """The four template variables. These values are substituted into TOML strings and
-    CODEOWNERS, so each is validated. An absent owner or repository is "".
+    """The four template variables the lock records. These values are substituted into TOML
+    strings and CODEOWNERS, so each is validated. An absent owner or repository is "".
+    Rendering derives the fifth, code_owner, from the owner.
     """
     if repository is not None and not _REPOSITORY.fullmatch(repository):
         raise KitError(f"repository {repository!r} is not owner/name; check --repository")
