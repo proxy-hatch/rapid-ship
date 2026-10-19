@@ -154,7 +154,7 @@ Notes beyond the requested list:
 
 Local tests and repository context:
 
-- [R1] `docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md` (this repo)
+- [R1] ADR 0003, Walk on bare sessions, withdrawn before merge; the [orchestrator note](../archive/orchestrator/README.md) links its text (this repo)
 - [R2] `docs/superpowers/specs/2026-10-15-walk-flow-design.md` sections 5 and 9 (this repo)
 
 rea:
