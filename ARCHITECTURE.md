@@ -97,7 +97,7 @@ Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews
 
 ## Dog-fooding
 
-This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy.
+This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy. Its `.rapid-ship/project.toml` records the Worker App, `proxy-hatch-rs-worker` (ID 5376519), and the Reviewer App, `proxy-hatch-rs-reviewer` (ID 5376520), under `[github]`, so Agent identity is on here.
 
 To change devctl, the hook or the CI workflow:
 

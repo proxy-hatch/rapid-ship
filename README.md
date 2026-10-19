@@ -22,7 +22,7 @@ rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-
 
 [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics, gardening and `rs-preflight`.
 
-*Dog-fooding:* this repository is built with its own Kit, and tracks its own tasks in Linear.
+*Dog-fooding:* this repository is built with its own Kit, tracks its own tasks in Linear, and records its own Worker App and Reviewer App for Agent identity.
 
 The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code is kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10), and its guides remain on this site, marked historical.
 
