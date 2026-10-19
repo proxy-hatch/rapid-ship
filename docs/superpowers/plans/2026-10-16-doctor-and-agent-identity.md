@@ -7108,20 +7108,198 @@ Pushing it is an Owner step. The owner runs `git push` from this plan's worktree
 
 Fill in after Task 11. Record actual output, not expectations. Mark live, offline and simulated results separately; a skipped or blocked step is not a pass.
 
-- Baseline on #30's head (Task 1 Step 1): commit, `./devctl check` and `status --strict` exit codes:
-- Each task's commit and its test command's result (Tasks 1 to 9):
-- `./devctl check --tier full --base origin/<base>` without a body: exit code, and each step that did not pass with its details:
-- The same run with `--pr-body`: exit code, the `diff` notes and the `evidence` status:
-- `uv run rapid-ship status --strict`:
-- `uv run pytest -q`: passed, failed and skipped counts:
-- `./devctl doctor` on this repository: every line and the exit code:
-- `--help` of `devctl doctor`, `devctl as` and `rapid-ship app`:
-- Docs site build:
+- Baseline on #30's head (Task 1 Step 1): commit, `./devctl check` and `status --strict` exit codes: #30's head is `928fbe4` (PR #30 was open when Step 1 ran). This branch started at `a7177bc`, which adds this plan to it. Task 1's report records, before any change, `./devctl check --base origin/codex/devctl-check` with every step passed and `evidence` not applicable (the report prints no exit code), and `uv run rapid-ship status --strict` exit 0 with "24 managed files unchanged." These are Task 1's reported results; Task 11 did not re-run the baseline.
+- Each task's commit and its test command's result (Tasks 1 to 9): These are the implementers' reported results. Every test is offline and simulated, and each task also ran the whole suite once before its commit. Task 11 re-ran the whole suite on `82d03f0` (see `uv run pytest -q` below).
+  - Task 1, `24e7a2b` (fix: let run_process finish when macOS refuses SIGTERM, and share first_line): `uv run pytest tests/devctl/test_devctl_process.py -q`, 23 passed; whole suite 764 passed.
+  - Task 2, `7e87fe4` (feat: read the Roster, the escalation list and both Apps from project.toml): `uv run pytest tests/devctl/test_devctl_settings.py -q`, 53 passed; `uv run pytest tests/devctl tests/test_kit_contents.py tests/test_kit_dogfood.py -q`, 477 passed; whole suite 777 passed.
+  - Task 3, `9cd2c95` (feat: mint App installation tokens and pass them to git through askpass): the GitHub client, App, askpass, kit-step and kit-contents test files, 109 passed; whole suite 832 passed.
+  - Task 4, `ad6243e` (feat: report toolchain, Roster sign-ins, guardrails and Kit files in devctl doctor): the doctor-local, kit-summary, python-guardrails, harness and kit-step test files, 282 passed; whole suite 1086 passed.
+  - Task 5, `b1b925c` (feat: check the ruleset, CODEOWNERS and, with Agent identity on, both Apps in devctl doctor): `uv run pytest tests/devctl -q`, 818 passed; whole suite 1148 passed.
+  - Task 6, `0b85534` (feat: compare the skills each Harness loads at HEAD with devctl doctor --skills): the probe-worktree, doctor-skills and doctor-local test files, 176 passed; whole suite 1188 passed.
+  - Task 7, `8d68745` (feat: create and install the Worker and Reviewer Apps with rapid-ship app): `uv run pytest tests/test_kit_app.py tests/test_kit_app_limits.py tests/devctl/test_devctl_github_app.py -q`, 51 passed; whole suite 1231 passed.
+  - Task 8, `fc93c71` (feat: push and run gh as the Worker or Reviewer App with devctl as): `uv run pytest tests/devctl/test_devctl_identity.py tests/devctl/test_devctl_identity_limits.py tests/devctl/test_devctl_cli.py -q`, 42 passed; whole suite 1267 passed. An earlier full-tier run on the same head exited 1 because `uv` could not fetch hatchling ("Network is unreachable") in `test_own_check_steps_still_run_after_sync`; the rerun with no code change exited 0.
+  - Task 9, `c2f0a70` (docs: describe devctl doctor, Agent identity and devctl as in the guides and status lines): Markdown only; `./devctl check --tier fast` exit 0, `npm --prefix website run build` exit 0, `uv run pytest -q -x` 1267 passed.
+  - Task 10, `82d03f0` (docs: record plan 4's live trials as pending Owner steps): Markdown only; it ran no trial step. `uv run ruff format --check` on this plan and `./devctl check --tier fast` exit 0.
+- `./devctl check --tier full --base origin/<base>` without a body: exit code, and each step that did not pass with its details: exit 1, with `<base>` = `codex/devctl-check` because #30 was open. Only `diff` failed, as expected: it names the three tests the re-scope removed, each ending "(pass --pr-body <file> to check a body locally)", and lists the 33 Protected paths the change touches. `evidence` is not applicable ("not a pull request"). Every other step passed, including `exceptions` with EX-11 as the only new entry and `file-size` with `rapid_ship/github_app.py` at 499 lines. Run live on `82d03f0`: the full tier needs network access and gitleaks 8.30.1. The whole output follows.
+  ```text
+  passed         format
+  passed         lint
+  passed         map
+  passed         exceptions
+  passed         file-size
+  passed         kit
+  passed         types
+  passed         contracts
+  passed         tests
+  passed         audit
+  passed         secrets
+  passed         workflows
+  failed         diff
+      removed behavioural test tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model: declare it under 'Removed tests:' in the PR's Evidence section (pass --pr-body <file> to check a body locally)
+      removed behavioural test tests/devctl/test_devctl_diff_removed_tests.py::test_declared_removal_passes_and_flight_waits_for_the_owner: declare it under 'Removed tests:' in the PR's Evidence section (pass --pr-body <file> to check a body locally)
+      removed behavioural test tests/test_kit_contents.py::test_gate_seed_has_the_spec_defaults: declare it under 'Removed tests:' in the PR's Evidence section (pass --pr-body <file> to check a body locally)
+      protected: .rapid-ship/exceptions.toml
+      protected: .rapid-ship/gate.toml
+      protected: .rapid-ship/kit.lock
+      protected: .rapid-ship/project.toml
+      protected: AGENTS.md
+      protected: docs/superpowers/AGENTS.md
+      protected: pyproject.toml
+      protected: rapid_ship/AGENTS.md
+      protected: rapid_ship/templates/AGENTS.md
+      protected: tests/AGENTS.md
+      protected: tools/AGENTS.md
+      protected: tools/devctl/devctl/check/diff.py
+      protected: tools/devctl/devctl/check/kit.py
+      protected: tools/devctl/devctl/check/stacks/python.py
+      protected: tools/devctl/devctl/check/steps.py
+      protected: tools/devctl/devctl/cli.py
+      protected: tools/devctl/devctl/doctor.py
+      protected: tools/devctl/devctl/doctor_github.py
+      protected: tools/devctl/devctl/doctor_items.py
+      protected: tools/devctl/devctl/doctor_local.py
+      protected: tools/devctl/devctl/doctor_rules.py
+      protected: tools/devctl/devctl/doctor_signin.py
+      protected: tools/devctl/devctl/doctor_skills.py
+      protected: tools/devctl/devctl/github/__init__.py
+      protected: tools/devctl/devctl/github/api.py
+      protected: tools/devctl/devctl/github/app.py
+      protected: tools/devctl/devctl/github/askpass.py
+      protected: tools/devctl/devctl/harness.py
+      protected: tools/devctl/devctl/identity.py
+      protected: tools/devctl/devctl/process.py
+      protected: tools/devctl/devctl/settings.py
+      protected: tools/devctl/pyproject.toml
+      protected: tools/devctl/uv.lock
+  not applicable evidence
+      not a pull request
+  passed         vendored
+  passed         distribution
+  passed         python-3.12
+  check exit 1
+  ```
+- The same run with `--pr-body`: exit code, the `diff` notes and the `evidence` status: exit 0, run on `82d03f0` with the PR body written for Step 2 (kept outside Git at `/Users/shawn/workspace/rapid-ship/.worktrees/doctor-agent-identity/.superpowers/sdd/2026-10-16-doctor-and-agent-identity/task-11-pr-body.md`). `diff` passed with a `declared (...)` note for each of the three removed tests, and `evidence` passed. Every other step passed. The output follows, without its 33 `protected:` lines, which are the same as above.
+  ```text
+  passed         format
+  passed         lint
+  passed         map
+  passed         exceptions
+  passed         file-size
+  passed         kit
+  passed         types
+  passed         contracts
+  passed         tests
+  passed         audit
+  passed         secrets
+  passed         workflows
+  passed         diff
+      removed behavioural test tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model: declared ([agents] is removed; test_the_roster_keeps_the_exact_model covers the Roster)
+      removed behavioural test tests/devctl/test_devctl_diff_removed_tests.py::test_declared_removal_passes_and_flight_waits_for_the_owner: declared (gate.toml and the step's Flight note are removed; test_declared_removal_passes_with_its_reason_and_no_mode covers the step)
+      removed behavioural test tests/test_kit_contents.py::test_gate_seed_has_the_spec_defaults: declared (the Kit no longer seeds gate.toml; test_the_kit_no_longer_seeds_gate_toml covers it)
+  passed         evidence
+  passed         vendored
+  passed         distribution
+  passed         python-3.12
+  check exit 0
+  ```
+- `uv run rapid-ship status --strict`: exit 0.
+  ```text
+  Kit 0.1.0 (installed rapid-ship 0.1.0), stack python
+  37 managed files unchanged.
+  status exit 0
+  ```
+- `uv run pytest -q`: passed, failed and skipped counts: 1267 passed, 0 failed, 0 skipped, in 178.07 s, exit 0, on `82d03f0`. All of them are offline and simulated tests: a fake GitHub on 127.0.0.1, a fake Keychain, local bare repositories and fake Harness executables. The summary line names no failed, skipped, xfailed or errored test.
+  ```text
+  1267 passed in 178.07s (0:02:58)
+  pytest exit 0
+  ```
+- `./devctl doctor` on this repository: every line and the exit code: exit 1, live (it read this machine, this repository and GitHub with the owner's `gh` sign-in, as `GET`). No `agent identity` item and no sign-in item appear, because this repository records no Apps (`worker_app_id = 0`, empty slugs) and no Roster. `tools/devctl exclusions` is ok, with the note that this repository holds the Kit templates. Five items are missing; none is a failure of this plan:
+  - `core.hooksPath`: unset in this linked worktree (the pre-commit hook does not run here, so each commit ran `./devctl check --tier fast` by hand).
+  - `CODEOWNERS`: `.github/CODEOWNERS` is in this branch but not on `main`, because `main` (`f7b877b`) does not hold #28 to #30 yet.
+  - `ruleset`, `delete branch on merge` and `fork PR workflow approval`: this repository's own GitHub settings, which plan 6's `rs-setup` applies (an Owner step).
+  ```text
+  ok  toolchain  git: 2.39.5
+  ok  toolchain  uv: /opt/homebrew/bin/uv
+  ok  toolchain  gh: /opt/homebrew/bin/gh
+  ok  toolchain  gh sign-in: gh auth status exited 0
+  ok  toolchain  gitleaks: 8.30.1
+  missing  guardrails  core.hooksPath: core.hooksPath is not set; run git config core.hooksPath .githooks; the pre-commit hook runs devctl check --tier fast
+  ok  guardrails  CI workflow: .github/workflows/devctl-check.yml has a job named devctl check
+  ok  guardrails  Python guardrail settings: meets the Python floor of spec section 4
+  ok  guardrails  tools/devctl exclusions: ruff, mypy and pytest not checked: this repository holds the Kit templates
+  ok  kit  Kit files: Kit 0.1.0: 37 unchanged, 0 modified, 0 excluded; run uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.1.0 rapid-ship status to see template updates
+  missing  github  ruleset: no ruleset targets the default branch
+  missing  github  CODEOWNERS: .github/CODEOWNERS is not on main
+  missing  github  delete branch on merge: turn on Automatically delete head branches in the repository settings
+  missing  github  fork PR workflow approval: approval_policy is first_time_contributors; require approval for all outside contributors under Settings, Actions, General
+  doctor: 9 ok, 5 missing, 0 unknown
+  doctor exit 1
+  ```
+- `--help` of `devctl doctor`, `devctl as` and `rapid-ship app`: each exit 0. doctor's lists `--skills`, `as` lists `{worker,reviewer}` and `{push,gh}`, and `app` lists `--repository OWNER/NAME`.
+  ```text
+  usage: devctl doctor [-h] [--skills]
+
+  Report each item as ok, missing or unknown. Exit 0 when every item is ok, 1
+  when one is missing, 2 when one is unknown.
+
+  options:
+    -h, --help  show this help message and exit
+    --skills    also start one headless Session per Harness in a temporary
+                worktree at HEAD and compare the skills it loads; spends a
+                little quota
+  doctor --help exit 0
+  usage: devctl as [-h] {worker,reviewer} {push,gh} ...
+
+  push: push the current branch to the branch of the same name on GitHub, as the
+  Worker App; it never forces. gh: run gh pr, gh issue or gh api as the role's
+  App. Exit 1 when devctl refuses, 2 when it cannot mint a token or start the
+  tool, otherwise the tool's exit code.
+
+  positional arguments:
+    {worker,reviewer}
+    {push,gh}
+    arguments          gh's arguments; push takes none
+
+  options:
+    -h, --help         show this help message and exit
+  as --help exit 0
+  usage: rapid-ship app [-h] [--repository OWNER/NAME]
+
+  options:
+    -h, --help            show this help message and exit
+    --repository OWNER/NAME
+                          the GitHub repository to install the Apps on; default:
+                          the one gh finds here
+  app --help exit 0
+  ```
+- Docs site build: `npm --prefix website ci --no-audit --no-fund` exit 0 (only npm's allow-scripts notice for `core-js` and `fsevents`), then `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` and no broken-link warning or error. That build ran on `82d03f0`, before this record was filled in.
+  ```text
+
+  > rapid-ship-docs@0.1.0 build
+  > docusaurus build
+
+  [INFO] [en] Creating an optimized production build...
+  [webpackbar] ℹ Compiling Client
+  [webpackbar] ℹ Compiling Server
+  [webpackbar] ✔ Server: Compiled successfully in 7.39s
+  [webpackbar] ✔ Client: Compiled successfully in 11.96s
+  [SUCCESS] Generated static files in "build".
+  [INFO] Use `npm run serve` command to test your build locally.
+  build exit 0
+  ```
+  Rebuilt after this record was filled in, from the same work tree: `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` and no broken-link warning or error. The built page for this plan holds the "Task 11: pending Owner steps" subsection.
 - Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: Pending owner step. No agent ran Task 10 Steps 1 to 14, so there are no live results, no report under `docs/trials/`, no live ruleset fixture and no approval-count answer, and Step 17 has not run. Each step's command and what it must observe are under "Task 10: pending Owner steps" below.
 - GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: Pending owner step. Nothing was observed: no `reviewDecision` and no run state were read. The commands are under "Task 10: pending Owner steps" below, and the PR body's `Not covered:` line names this gap until the owner's record fills it.
 - `PROBE_MODELS` as confirmed or corrected in Task 10 Step 13: Pending owner step. Unconfirmed: `harness.py` still holds `haiku` (claude), `gpt-6-luna` (codex) and `gemini-3.8-flash-low` (agy), the values of the Checked facts.
-- PR URL, base, and the `devctl check` run:
+- PR URL, base, and the `devctl check` run: Pending owner step. No PR exists, so there is no PR URL and no `devctl check` run on GitHub. The base is `codex/devctl-check` while #30 is open, and `main` once it is merged. The PR body is written and passes `./devctl check --tier full --base origin/codex/devctl-check --pr-body <body>` with exit 0 (above). The commands are under "Task 11: pending Owner steps" below.
 - Remaining limits, including at least: Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`; a Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier; organisation-owned repositories cannot install the owner's private Apps; and this repository's own ruleset and GitHub settings wait for plan 6:
+  - Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`. A Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier.
+  - Organisation-owned repositories cannot install the owner's private Apps.
+  - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
+  - Linux and Windows are untested for Agent identity.
+  - Nothing in this record is a live result except `./devctl check`, `./devctl doctor` and the docs site build. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps.
+  - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
+  - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
 ### Task 10: pending Owner steps
 
@@ -7517,3 +7695,40 @@ git commit -m "docs: settle the ruleset's approval count from plan 4's trial" -m
 ```
 
 Must observe: with a count of 0, the grep shows `0` in the fixture, and the second command fails for the new test, for `test_only_flight_without_agent_identity_accepts_no_review_requirement` with `assert NO_APPROVAL not in problems`, and for every test that checks the fixture as the whole ruleset, such as `test_the_rs_setup_ruleset_passes`; after the deletion `uv run pytest tests/devctl -q` passes with the fixture's count of 0. Either way the open item that starts `- **The ruleset's approval count with Agent identity in Flight:**` leaves Spec 1 section 11, the matching line joins the "Answered" list, the fast check and the docs site build pass, and the commit holds the docs, tests, templates, `tools/devctl` and `.rapid-ship/kit.lock`.
+
+### Task 11: pending Owner steps
+
+Steps 1, 2 and 5 of Task 11 ran: Step 1's commands and Step 2's body check are recorded above, and this record is Step 5. Steps 3 and 4 are Owner steps. No agent pushed, opened a pull request or edited one. Neither step is a pass or a skip until the owner's output replaces its entry. The PR body is a file outside Git, `/Users/shawn/workspace/rapid-ship/.worktrees/doctor-agent-identity/.superpowers/sdd/2026-10-16-doctor-and-agent-identity/task-11-pr-body.md`.
+
+#### Step 3: push and open the PR
+
+Pending owner step. The record's commit is already on the branch, so this push carries it. If the owner pushed earlier, `git push` sends it and the PR's checks run again on the new head. The owner runs this from this plan's worktree in their own terminal:
+
+```sh
+if [ "$(gh pr view 30 --json state --jq .state)" = MERGED ]; then BASE=main; else BASE=codex/devctl-check; fi
+BODY=/Users/shawn/workspace/rapid-ship/.worktrees/doctor-agent-identity/.superpowers/sdd/2026-10-16-doctor-and-agent-identity/task-11-pr-body.md
+git push -u origin doctor-agent-identity
+gh pr create --base "$BASE" --head doctor-agent-identity --title "feat: add devctl doctor and optional Agent identity (plan 4)" --body-file "$BODY"
+gh pr checks --watch
+```
+
+Must observe: the `devctl check` job passes. Record the PR URL and the run URL from this output in the field "PR URL, base, and the `devctl check` run" above.
+
+#### Step 4: mark plan 4 built in the index
+
+Pending owner step, which needs the PR's number from Step 3. Task 11's own command expects the index row to read `Proposed` and to link `#plan-4-doctor-and-agent-identity`. At this head the row already links this plan and reads "In progress: branch `doctor-agent-identity`", so that command would match nothing (controller ruling P4). This command matches the row as it is. A dry run on a copy of the index changed only plan 4's row.
+
+```sh
+N=$(gh pr view --json number --jq .number)
+perl -pi -e "s{\| 3, 4, 6, 10 \| 3 \| In progress: branch \`doctor-agent-identity\` \|}{| 3, 4, 6, 10 | 3 | Built: PR #$N, \`doctor-agent-identity\` |}" docs/superpowers/plans/2026-10-14-kit-and-setup.md
+grep -n "^| 4 |" docs/superpowers/plans/2026-10-14-kit-and-setup.md
+```
+
+Must observe: plan 4's row links this plan and reads `Built: PR #<the PR's number>, `doctor-agent-identity``. Then the implementer commits the row on its own, because the record's commit is already made, and the owner pushes it:
+
+```sh
+./devctl check --tier fast
+git add docs/superpowers/plans/2026-10-14-kit-and-setup.md
+git commit -m "docs: mark plan 4 built in the plan index" -m "Co-Authored-By: <the model that writes the commit>"
+git push
+```
