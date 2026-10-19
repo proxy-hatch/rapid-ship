@@ -218,7 +218,7 @@ git switch -c codex/hello
 
 **Check:** Git reports branch `codex/hello`. `doctor` reports `autonomy_ready: false`. This supervised lesson does not enable automatic delivery.
 
-We will start the worker ourselves. We do not register these tasks or run `devctl run`. To learn that separate path, see [controller execution](usage.md#run-through-devctl).
+We will start the worker ourselves. We do not register these tasks or run `devctl run`. To learn that separate path, see [controller execution](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/usage.md#run-through-devctl).
 
 ## 5. Implement with the worker
 
@@ -329,7 +329,7 @@ Expected:
 - `status` shows `tasks: []`. This walkthrough did not dispatch a controller task.
 - Logs show devctl commands. `evidence` shows `receipts: []`. Session checks and review are not controller evidence.
 
-PR revision count measures observed code versions. It is a lower bound, not every commit. See [metrics](metrics.md) for details.
+PR revision count measures observed code versions. It is a lower bound, not every commit. See [metrics](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/metrics.md) for details.
 
 For feedback, start your chosen interview tool again from the project:
 
@@ -382,4 +382,4 @@ Change `docs/design.md` if your design has another path. Answer with your projec
 
 When setup is complete, ask rapid-ship to plan that design. Check the plan before starting a worker. You have now practiced setup → plan → implement → review → PR → measurements.
 
-Use [Usage](usage.md) as a reference for later sessions. See [environments](archive/orchestrator/environments.md) when you are ready to configure controller execution.
+Use [Usage](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/usage.md) as a reference for later sessions. See [environments](https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/environments.md) when you are ready to configure controller execution.

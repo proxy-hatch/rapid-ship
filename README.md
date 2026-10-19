@@ -14,12 +14,12 @@ rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-
 
 *Dog-fooding:* this repository is built with its own Kit, and tracks its own tasks in Linear.
 
-The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code is kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10), and its guides remain on this site, marked historical.
+The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code and guides are kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10). Only its getting-started walkthrough remains on this site, marked historical.
 
 ## Read more
 
 - [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md): the problem, where rapid-ship stops and your Harness takes over, and how the code-quality bar is held.
-- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [six plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
+- [Spec 1: Kit and Setup](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md): what is built first, in [seven plans](docs/superpowers/plans/2026-10-14-kit-and-setup.md).
 - [Architecture](ARCHITECTURE.md): what this repository holds today and how to develop it.
 
 ## Credits
