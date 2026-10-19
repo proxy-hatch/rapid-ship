@@ -2,17 +2,20 @@
 and GitHub.
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of the
-repository's owner whose key the Keychain holds, else it creates one. A key kept under plan 4's
-item name, which has no App ID, is re-stored under the new name, and the old item stays. No test
-reads the real Keychain or contacts GitHub.
+repository's owner whose key the Keychain holds, else it creates one. GitHub shows gh no private
+App, even its owner's, so a Keychain item whose App GitHub does not show stops the command before
+it creates anything. A key kept under plan 4's item name, which has no App ID, is re-stored under
+the new name, and the old item stays. No test reads the real Keychain or contacts GitHub.
 """
 
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 from test_kit_app import (
     OWNER_READS,
+    PUBLIC_APPS,
     Captured,
     FakeSecurity,
     FakeStore,
@@ -32,8 +35,8 @@ from rapid_ship.app_keychain import (
 from rapid_ship.github_app import recorded_apps, run_app
 
 ROLES = ("worker", "reviewer")
-# The owner's Apps, as OWNER_READS has them, and a stand-in for each key: rapid-ship never parses
-# a key.
+# The owner's private Apps, as OWNER_READS has them, and a stand-in for each key: rapid-ship
+# never parses a key.
 APPS = {"worker": StoredApp(11, "o-rs-worker"), "reviewer": StoredApp(12, "o-rs-reviewer")}
 KEYS = {
     role: f"-----BEGIN RSA PRIVATE KEY-----\n{role}\n-----END RSA PRIVATE KEY-----\n".encode()
@@ -168,6 +171,8 @@ attributes:
     "svce"<blob>="rapid-ship/worker-app/14"
     "type"<uint32>=<NULL>
 """
+# GitHub's answers once the owner has made both Apps public.
+SHOWN = {**OWNER_READS, **PUBLIC_APPS}
 SETTINGS = """[github]
 repository = "O/R"
 worker_app_id = 11
@@ -186,12 +191,18 @@ def keychain(*, old_names: bool) -> FakeStore:
     return store
 
 
-def run(store: FakeStore, recorded: dict[str, StoredApp], log: list[str], opened: list[str]) -> int:
+def run(
+    store: FakeStore,
+    recorded: dict[str, StoredApp],
+    log: list[str],
+    opened: list[str],
+    answers: Mapping[str, object] = OWNER_READS,
+) -> int:
     """Run app for o/r with a browser that never calls back, so a wrong create ends in 0.1 s."""
     return run_app(
         "o/r",
         store=store,
-        owner_get=reads(OWNER_READS, log),
+        owner_get=reads(answers, log),
         open_browser=opened.append,
         recorded=recorded,
         timeout_seconds=0.1,
@@ -273,11 +284,12 @@ def test_a_recorded_app_with_no_key_here_says_to_import_one(
 def test_without_recorded_apps_the_owners_apps_in_the_keychain_are_used(
     old_names: bool, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A second repository of the same owner gets no second pair of Apps."""
+    """A second repository of the same owner gets no second pair of Apps. GitHub shows these
+    Apps to gh because the owner made them public."""
     store = keychain(old_names=old_names)
     log: list[str] = []
     opened: list[str] = []
-    assert run(store, {}, log, opened) == 0
+    assert run(store, {}, log, opened, SHOWN) == 0
     assert opened == []
     assert app_reads(log) == ["apps/o-rs-worker", "apps/o-rs-reviewer"]
     for role, app in APPS.items():
@@ -289,6 +301,44 @@ def test_without_recorded_apps_the_owners_apps_in_the_keychain_are_used(
     assert "Record each App's ID and slug, as printed above" in out
 
 
+@pytest.mark.parametrize("old_names", [False, True])
+def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
+    old_names: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """GitHub answers 404 for the owner's private App, as for a deleted one, so rapid-ship cannot
+    confirm it. It creates no second pair, and says how to record the Apps."""
+    store = keychain(old_names=old_names)
+    before = dict(store.apps)
+    log: list[str] = []
+    opened: list[str] = []
+    assert run(store, {}, log, opened) == 1
+    assert (store.apps, opened) == (before, [])
+    assert app_reads(log) == ["apps/o-rs-worker", "apps/o-rs-reviewer"]
+    worker = LEGACY_SERVICE["worker"] if old_names else "rapid-ship/worker-app/11"
+    out, err = capsys.readouterr()
+    assert (
+        f"rapid-ship: Keychain item {worker} holds a key of the Worker App 11 (o-rs-worker), and "
+        "GitHub does not show that App to gh, as it shows no private App. To use it, record "
+        'worker_app_id = 11 and worker_app_slug = "o-rs-worker" under [github] in '
+        ".rapid-ship/project.toml, then run rapid-ship app again. If GitHub has no such App any "
+        f"more, delete the item with: security delete-generic-password -s {worker}\n"
+    ) in err
+    assert 'record reviewer_app_id = 12 and reviewer_app_slug = "o-rs-reviewer" under' in err
+    assert out == ""
+
+
+def test_an_app_github_shows_as_the_owners_is_used_beside_an_item_it_does_not_show() -> None:
+    store = keychain(old_names=False)
+    gone = "rapid-ship/worker-app/9"  # private or deleted: GitHub's 404 either way
+    store.apps[gone], store.keys[gone] = StoredApp(9, "gone-rs-worker"), KEYS["worker"]
+    before = dict(store.apps)
+    log: list[str] = []
+    opened: list[str] = []
+    assert run(store, {}, log, opened, SHOWN) == 0
+    assert (store.apps, opened) == (before, [])
+    assert app_reads(log) == ["apps/gone-rs-worker", "apps/o-rs-worker", "apps/o-rs-reviewer"]
+
+
 def test_an_item_named_by_app_id_is_used_before_the_old_item_of_the_same_app(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -297,16 +347,16 @@ def test_an_item_named_by_app_id_is_used_before_the_old_item_of_the_same_app(
         store.apps[LEGACY_SERVICE[role]], store.keys[LEGACY_SERVICE[role]] = app, KEYS[role]
     before = dict(store.apps)
     log: list[str] = []
-    assert run(store, {}, log, []) == 0
+    assert run(store, {}, log, [], SHOWN) == 0
     assert store.apps == before
     assert app_reads(log) == ["apps/o-rs-worker", "apps/o-rs-reviewer"]
     assert "Re-stored" not in capsys.readouterr().out
 
 
 def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> None:
+    """Apps that GitHub shows as another account's are skipped, and the owner's are created."""
     others = {
         "rapid-ship/worker-app/21": StoredApp(21, "u-rs-worker"),  # another account's App
-        "rapid-ship/worker-app/22": StoredApp(22, "gone-rs-worker"),  # deleted: GitHub's 404
         "rapid-ship/worker-app/23": StoredApp(23, "o-rs-worker"),  # its slug is App 11's now
         "rapid-ship/reviewer-app": StoredApp(31, "u-rs-reviewer"),  # plan 4's item of u's App
     }
@@ -314,7 +364,7 @@ def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> 
     for name, app in others.items():
         store.apps[name], store.keys[name] = app, KEYS["worker"]
     answers = {
-        **OWNER_READS,
+        **SHOWN,
         "apps/u-rs-worker": {"id": 21, "owner": {"login": "u", "id": 6}},
         "apps/u-rs-reviewer": {"id": 31, "owner": {"login": "u", "id": 6}},
     }
@@ -330,12 +380,7 @@ def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> 
             timeout_seconds=10,
         )
     assert code == 0
-    assert app_reads(log) == [
-        "apps/u-rs-worker",
-        "apps/gone-rs-worker",
-        "apps/o-rs-worker",
-        "apps/u-rs-reviewer",
-    ]
+    assert app_reads(log) == ["apps/u-rs-worker", "apps/o-rs-worker", "apps/u-rs-reviewer"]
     assert [manifest["name"] for _, manifest in captured] == ["o-rs-worker", "o-rs-reviewer"]
     assert sorted(set(store.apps) - set(others)) == [
         "rapid-ship/reviewer-app/12",
@@ -349,7 +394,7 @@ def test_every_read_comes_before_any_change(capsys: pytest.CaptureFixture[str]) 
     key is re-stored and before any browser opens."""
     store = keychain(old_names=True)
     before = dict(store.apps)
-    answers = {**OWNER_READS, "apps/o-rs-reviewer": {"slug": "o-rs-reviewer"}}
+    answers = {**SHOWN, "apps/o-rs-reviewer": {"slug": "o-rs-reviewer"}}
     opened: list[str] = []
     code = run_app(
         "o/r",
@@ -376,7 +421,7 @@ def test_re_storing_through_security_passes_the_key_on_stdin_only(
     code = run_app(
         "o/r",
         store=MacKeychainStore(run=security),
-        owner_get=reads(OWNER_READS),
+        owner_get=reads(SHOWN),
         open_browser=opened.append,
         timeout_seconds=0.1,
     )

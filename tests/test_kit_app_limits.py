@@ -163,6 +163,7 @@ def test_a_permission_mismatch_names_the_settings_page_and_still_creates_the_rev
 def test_only_the_missing_app_is_created(capsys: pytest.CaptureFixture[str]) -> None:
     store = FakeStore()
     store.apps["rapid-ship/worker-app/7"] = StoredApp(7, "o-old-worker")
+    # A public App, which GitHub shows to gh.
     answers = {**OWNER_READS, "apps/o-old-worker": {"id": 7, "owner": {"login": "o", "id": 1}}}
     captured: Captured = []
     with serve_conversions() as conversions:

@@ -31,12 +31,16 @@ REQUESTED: dict[str, tuple[int, dict[str, str]]] = {
     ),
     "-rs-reviewer": (12, {"pull_requests": "write", "contents": "read", "metadata": "read"}),
 }
-# What the owner's gh login reads: o owns o/r and the Apps o-rs-worker (11) and o-rs-reviewer
-# (12), and org/r belongs to an organization.
+# What the owner's gh login reads: o owns o/r, and org/r belongs to an organization. o also owns
+# the private Apps o-rs-worker (11) and o-rs-reviewer (12). GitHub shows gh no private App, even
+# its owner's, so apps/o-rs-worker is a 404, as every path missing here is.
 OWNER_READS: dict[str, object] = {
     "repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "User"}},
     "repos/org/r": {"id": 3, "owner": {"login": "org", "id": 4, "type": "Organization"}},
     "user": {"login": "o", "id": 1},
+}
+# The owner's Apps after the owner made them public: GitHub then shows them to gh.
+PUBLIC_APPS: dict[str, object] = {
     "apps/o-rs-worker": {"id": 11, "slug": "o-rs-worker", "owner": {"login": "o", "id": 1}},
     "apps/o-rs-reviewer": {"id": 12, "slug": "o-rs-reviewer", "owner": {"login": "o", "id": 1}},
 }
@@ -329,13 +333,14 @@ def test_creates_both_apps_and_prints_install_urls(
 
 
 def test_existing_apps_are_only_printed(
-    store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
+    store: FakeStore, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store.apps = {
         "rapid-ship/worker-app/11": StoredApp(11, "o-rs-worker"),
         "rapid-ship/reviewer-app/12": StoredApp(12, "o-rs-reviewer"),
     }
     opened: list[str] = []
+    owner_get = reads({**OWNER_READS, **PUBLIC_APPS})
     assert run_app("o/r", store=store, owner_get=owner_get, open_browser=opened.append) == 0
     assert opened == []
     assert (
@@ -402,12 +407,13 @@ def test_keychain_add_refuses_a_line_security_would_cut() -> None:
 
 
 def test_the_printed_settings_lines_are_the_github_table(
-    store: FakeStore, owner_get: OwnerGet, capsys: pytest.CaptureFixture[str]
+    store: FakeStore, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store.apps = {
         "rapid-ship/worker-app/11": StoredApp(11, "o-rs-worker"),
         "rapid-ship/reviewer-app/12": StoredApp(12, "o-rs-reviewer"),
     }
+    owner_get = reads({**OWNER_READS, **PUBLIC_APPS})
     assert run_app("o/r", store=store, owner_get=owner_get, open_browser=lambda url: None) == 0
     lines = [line.strip() for line in capsys.readouterr().out.splitlines() if "_app_" in line]
     assert tomllib.loads("\n".join(lines)) == {

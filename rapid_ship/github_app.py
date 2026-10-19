@@ -4,6 +4,8 @@ them.
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of
 the repository's owner whose key the Keychain holds, else it creates the App through GitHub's
 manifest flow (app_flow.py). Spec 1 section 3: app creates only the Apps that do not exist yet.
+GitHub shows the owner's gh no private App, so a Keychain item whose App GitHub does not show
+stops the command instead: rapid-ship cannot tell whether that App exists.
 The Keychain keeps each key in an item named by App ID (app_keychain.py); a key kept under plan
 4's name is re-stored under the new name, and the old item stays.
 """
@@ -167,29 +169,43 @@ def _target(repository: str, owner_get: OwnerGet) -> _Target:
 
 @dataclass(frozen=True)
 class _Choice:
-    """What run_app does for one role: use app, or create the App when app is None."""
+    """What run_app does for one role: use app, or create the App when app is None.
+
+    Any stop ends the command with exit 1 before it changes anything.
+    """
 
     app: StoredApp | None
     recorded: bool = False  # .rapid-ship/project.toml records app
     restore: bool = False  # app's key is in plan 4's item; copy it to keychain_service's
-    no_key: bool = False  # this machine holds no key for the recorded app
+    stops: tuple[str, ...] = ()  # why the command must not go on, one message each
 
 
-def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool:
+def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool | None:
     """Whether GitHub's App with app's slug is app, and the repository's owner owns it.
 
-    An App that the owner's gh login cannot see, such as a deleted one, is GitHub's 404, and is
-    not the owner's.
+    None when GitHub does not show the App to the owner's gh login. GitHub answers 404 for any
+    private App, even its owner's, and rapid-ship creates private Apps. So None cannot tell the
+    owner's App from a deleted or renamed one.
     """
     try:
         found = as_record(owner_get(f"apps/{app.slug}"))
     except GitHubNotFound:
-        return False
+        return None
     app_id, owner_id = found.get("id"), as_record(found.get("owner")).get("id")
     if not is_id(app_id) or not is_id(owner_id):
         raise AppSetupError(f"GitHub's record of the App {app.slug} has no App ID or no owner ID")
     # The ID too, so an item whose slug now names another App is skipped.
     return app_id == app.app_id and owner_id == target.owner_id
+
+
+def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _Choice:
+    """The recorded App, whose key is in its item or in plan 4's item. Never a new App."""
+    if store.find(keychain_service(role, recorded.app_id)) is not None:
+        return _Choice(recorded, recorded=True)
+    old = store.find(LEGACY_SERVICE[role])
+    if old is not None and old.app_id == recorded.app_id:
+        return _Choice(recorded, recorded=True, restore=True)
+    return _Choice(recorded, recorded=True, stops=(_no_key(role, recorded),))
 
 
 def _choose(
@@ -199,21 +215,25 @@ def _choose(
     store: KeychainStore,
     owner_get: OwnerGet,
 ) -> _Choice:
-    """The role's App: the recorded one, else the owner's App whose key this machine holds."""
+    """The role's App: the recorded one, else the owner's App whose key this machine holds.
+
+    When GitHub shows no item's App as the owner's, an item whose App GitHub does not show at all
+    stops the command, so that rapid-ship creates no second App beside the owner's private one.
+    """
     if recorded is not None:
-        if store.find(keychain_service(role, recorded.app_id)) is not None:
-            return _Choice(recorded, recorded=True)
-        old = store.find(LEGACY_SERVICE[role])
-        held = old is not None and old.app_id == recorded.app_id
-        return _Choice(recorded, recorded=True, restore=held, no_key=not held)
+        return _choose_recorded(role, recorded, store)
     listed, old = store.listed(role), store.find(LEGACY_SERVICE[role])
-    candidates = [(app, False) for app in listed]
+    candidates = [(keychain_service(role, app.app_id), app) for app in listed]
     if old is not None and old.app_id not in {app.app_id for app in listed}:
-        candidates.append((old, True))
-    for app, restore in candidates:
-        if _owned(app, target, owner_get):
-            return _Choice(app, restore=restore)
-    return _Choice(None)
+        candidates.append((LEGACY_SERVICE[role], old))
+    unconfirmed: list[str] = []
+    for service, app in candidates:
+        owned = _owned(app, target, owner_get)
+        if owned:
+            return _Choice(app, restore=service == LEGACY_SERVICE[role])
+        if owned is None:
+            unconfirmed.append(_unconfirmed(role, service, app))
+    return _Choice(None, stops=tuple(unconfirmed))
 
 
 def _restore(role: str, app: StoredApp, store: KeychainStore) -> None:
@@ -257,6 +277,16 @@ def _no_key(role: str, app: StoredApp) -> str:
     )
 
 
+def _unconfirmed(role: str, service: str, app: StoredApp) -> str:
+    return (
+        f"Keychain item {service} holds a key of the {TITLES[role]} {app.app_id} ({app.slug}), "
+        "and GitHub does not show that App to gh, as it shows no private App. To use it, record "
+        f'{role}_app_id = {app.app_id} and {role}_app_slug = "{app.slug}" under [github] in '
+        f"{_SETTINGS}, then run rapid-ship app again. If GitHub has no such App any more, "
+        f"delete the item with: security delete-generic-password -s {service}"
+    )
+
+
 def _report(role: str, app: StoredApp, repository: str, target: _Target, matches: bool) -> None:
     sys.stdout.write(
         f"{TITLES[role]}: ID {app.app_id} ({app.slug})\n"
@@ -286,8 +316,9 @@ def run_app(
     """Find or create each App, then print every App's ID and its install URL for repository.
 
     recorded holds the Apps that the repository's .rapid-ship/project.toml records. 0 when both
-    Apps are ready; 1 when the repository is refused, an App's permissions differ or a recorded
-    App's key must be imported; 2 when the command cannot go on.
+    Apps are ready; 1 when the repository is refused, an App's permissions differ, a recorded
+    App's key must be imported or a Keychain item's App cannot be confirmed; 2 when the command
+    cannot go on.
     """
     create = partial(
         create_app, open_browser=open_browser, api_url=api_url, timeout_seconds=timeout_seconds
@@ -299,11 +330,9 @@ def run_app(
         choices = {
             role: _choose(role, recorded.get(role), target, store, owner_get) for role in _ROLES
         }
-        missing = [
-            _no_key(role, recorded[role]) for role, choice in choices.items() if choice.no_key
-        ]
-        if missing:
-            sys.stderr.write("".join(f"rapid-ship: {message}\n" for message in missing))
+        stops = [stop for choice in choices.values() for stop in choice.stops]
+        if stops:
+            sys.stderr.write("".join(f"rapid-ship: {stop}\n" for stop in stops))
             return 1
         exit_code = 0
         for role, choice in choices.items():
