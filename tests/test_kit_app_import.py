@@ -242,6 +242,17 @@ def test_a_terminal_on_stdin_is_refused_before_it_is_read(
     )
 
 
+def test_a_closed_stdin_stores_nothing(
+    developer: Developer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """With file descriptor 0 closed, as after <&-, Python sets sys.stdin to None."""
+    developer.monkeypatch.setattr(sys, "stdin", None)
+    assert cli.main(["app", "--repository", "org/r", "--import-key", "worker"]) == 1
+    assert developer.stored_nothing()
+    assert developer.api.requests == []
+    assert capsys.readouterr() == ("", "rapid-ship: stdin holds no key. Nothing was stored.\n")
+
+
 def _public_key() -> bytes:
     loaded = load_pem_private_key(rsa_key("developer/worker"), password=None)
     return loaded.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)

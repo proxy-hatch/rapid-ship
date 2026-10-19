@@ -160,7 +160,7 @@ def _app(repository: str | None, import_role: str | None) -> int:
             import_role,
             target,
             recorded.get(import_role),
-            sys.stdin.buffer,
+            None if sys.stdin is None else sys.stdin.buffer,  # None: file descriptor 0 is closed
             store=MacKeychainStore(),
         )
     return run_app(

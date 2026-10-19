@@ -24,8 +24,13 @@ class _Refused(Exception):
     """Nothing is stored; the command exits 1."""
 
 
-def _read_key(role: str, stdin: BinaryIO) -> bytes:
-    """The PEM key on stdin, without the whitespace around it, and with one newline after it."""
+def _read_key(role: str, stdin: BinaryIO | None) -> bytes:
+    """The PEM key on stdin, without the whitespace around it, and with one newline after it.
+
+    stdin is None when file descriptor 0 is closed, which holds no key either.
+    """
+    if stdin is None:
+        raise _Refused("stdin holds no key")
     if stdin.isatty():  # a pasted key would show on the screen
         raise _Refused(
             f"give the key on stdin, as in: rapid-ship app --import-key {role} "
@@ -69,7 +74,7 @@ def import_key(
     role: str,
     repository: str,
     recorded: StoredApp | None,
-    stdin: BinaryIO,
+    stdin: BinaryIO | None,
     *,
     store: KeychainStore,
     api_url: str = API_URL,
