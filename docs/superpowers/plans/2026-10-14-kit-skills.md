@@ -1,6 +1,6 @@
 # Kit skills implementation plan
 
-**Superseded on 2026-10-16** by the re-scope in [ADR 0004](../../adr/0004-team-management-boundary.md). Do not build from this plan; it is kept as history and was never started. Plan 6, [`rs-setup` and `rs-health`](2026-10-14-kit-and-setup.md#plan-6-rs-setup-and-rs-health), replaces it, and `rs-setup` marks existing suppressions itself instead of `rapid-ship adopt`.
+**Superseded on 2026-10-16** by the re-scope in [ADR 0004](../../adr/0004-team-management-boundary.md). Do not build from this plan; it is kept as history and was never started. Plan 7, [`rs-setup` and `rs-health`](2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health), replaces it, and `rs-setup` marks existing suppressions itself instead of `rapid-ship adopt`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
