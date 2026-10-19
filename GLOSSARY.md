@@ -73,7 +73,7 @@ A constraint on changes, marked either as enforced by a named check or as adviso
 The Kit's project settings for each supported Harness, which connect `devctl hook` to the Harness's hook events so that it can deny or ask before risky agent actions. They stop habits and mistakes; a misbehaving agent can bypass them.
 
 **Merge guard**:
-The rule of `devctl hook`, on in every setup, that denies an agent's `gh pr merge` when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. The other guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) lists. It matches command lines, so a script or a tool the hook does not see can get past it. It runs only in a Harness wired to `devctl hook`. On a GitHub Free private repository, which has no ruleset, it is the enforcement.
+The rule of `devctl hook`, on in every setup, that denies an agent's `gh pr merge` when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. It also denies a merge that does not name the head commit it checked with `--match-head-commit`. The other guardrails deny the other ways to land a change on the default branch that the hook recognises: `gh pr merge --admin`, a `git push` to that branch, and the merges, ref writes and commits through `gh api` that [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) lists. It matches command lines, so a script or a tool the hook does not see can get past it. It runs only in a Harness wired to `devctl hook`. On a GitHub Free private repository, which has no ruleset, it is the enforcement.
 
 ### Agents
 
@@ -120,10 +120,10 @@ The optional pair of GitHub Apps that agents act as: one opens and merges pull r
 A change that a human, the Reviewer or an incident, such as an Alarm or an incident report, required of an agent's work.
 
 **Corrections ledger**:
-The repository's record of Corrections and of what was done to prevent each repeat. Agents may add entries; changing or removing an existing entry needs the owner.
+The repository's record of Corrections and of what was done to prevent each repeat. Agents may add entries, which are not checked; changing or removing an existing entry needs the owner.
 
 **Gardening**:
-A recurring pass that adds new Corrections to the Corrections ledger and finds drift: instructions, documents or code that no longer match the repository or its Patterns, and exceptions nothing uses. For each repeated Correction, and for a severe first one such as a security finding, it proposes a fix on the rung that fits: a safe interface, a check, or both, and a skill or advisory Rule only when neither can carry the fix. rapid-ship advises running it on a schedule.
+A recurring pass that adds new Corrections to the Corrections ledger and finds drift: instructions, documents or code that no longer match the repository or its Patterns, and exceptions nothing uses. For each repeated Correction, and for a severe first one such as a security finding, it proposes a fix on the rung that fits: a safe interface, a check, or both, and a skill or advisory Rule only when neither can carry the fix. rapid-ship advises running it on a schedule, at least weekly, and before each Pre-flight.
 
 ### Measuring
 

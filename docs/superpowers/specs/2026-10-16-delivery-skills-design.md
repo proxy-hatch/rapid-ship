@@ -1,10 +1,6 @@
----
-status: proposed
----
-
 # Spec 2: Delivery skills
 
-**Status: proposed on 2026-10-16 and revised on 2026-10-19 with the owner's review decisions.** It applies the owner's re-scope decisions of 2026-10-16 and of the second review on 2026-10-19, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
+**Status: written on 2026-10-16 and revised on 2026-10-19 with the owner's review decisions, which settled every proposal.** It applies the owner's re-scope decisions of 2026-10-16 and of the second review on 2026-10-19, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
 
 ## 1. Outcome and scope
 
@@ -155,14 +151,14 @@ specs = "docs/specs"             # a repository directory, or "tracker" for trac
 
 devctl rejects an unknown key (Spec 1), so Spec 2's plan teaches its settings loader `[tracker]` and `[design]`. An unknown key or a wrong type in either makes the settings unreadable, and `devctl check` reports a blocked step (exit 2). Any key under `[tracker.<name>]` is accepted, because the mapping note defines those keys. devctl only validates `[tracker]`; it never contacts the tracker.
 
-A Roster may name any Harness, including an API-backed one such as pi. `claude`, `codex` and `agy` have built-in routes (section 6.4). Any other Harness needs a headless command template that the owner supplies, which starts it with the spawn prompt and the model. The key that holds it, `command`, with `{prompt}` where the spawn prompt goes and `{model}` where the model goes, is proposal 13.3.8.
+A Roster may name any Harness, including an API-backed one such as pi. `claude`, `codex` and `agy` have built-in routes (section 6.4). Any other Harness needs a headless command template that the owner supplies, which starts it with the spawn prompt and the model. The key that holds it is `command`, with `{prompt}` where the spawn prompt goes and `{model}` where the model goes. Spec 1 validates it, and `devctl doctor` probes such a Harness through it.
 
 The Focus is never stored. `rs-lead` asks for it in each Session. No setting limits how many Sessions or Workers run.
 
 ### 3.5 Branches and pull requests
 
 - One task has one branch and one pull request. The branch name contains the task's tracker ID, such as `pro-123-reject-duplicate-emails`, so the tracker's GitHub integration links it.
-- The pull request body starts with `Task: <ID>` and the task's link. `rs-pr` (Spec 1) writes the rest: a summary, the `## Evidence` section with each command run and its result, a `Not covered:` line, and `Removed tests:` with a reason for each removed test. An `Over the diff cap:` line, with its reason, puts the pull request on the escalation list (section 6.2). It appears only when the owner accepted the overage first (proposal 13.3.9). devctl's `evidence` and `diff` steps check these (Spec 1).
+- The pull request body starts with `Task: <ID>` and the task's link. `rs-pr` (Spec 1) writes the rest: a summary, the `## Evidence` section with each command run and its result, a `Not covered:` line, and `Removed tests:` with a reason for each removed test. An `Over the diff cap:` line, with its reason, puts the pull request on the escalation list (section 6.2). It appears only when the owner accepted the overage before the work. Without that acceptance, a Worker stops as `blocked` before it builds a pull request the owner may reject. devctl's `evidence` and `diff` steps check these (Spec 1).
 - A branch that falls behind its base merges the base branch. It is never rebased after a push, because the guardrails deny force pushes.
 - Every merge is a squash merge; the ruleset allows no other method (Spec 1).
 - A pull request that changes a path in the Protected set is brought to the owner in every Mode, and the owner merges it in GitHub's web interface (section 6.2).
@@ -405,7 +401,7 @@ A pull request on the escalation list goes through three steps:
 2. The Lead tells the owner the link, the task, which kinds put it on the list, the last verdict, and the nits it skipped.
 3. The Lead moves on to other tasks, and merges a pull request on the list only when the owner says so. The owner merges a Protected pull request in GitHub's web interface. For any other pull request on the list, with Agent identity, the owner approves, then merges or asks the Lead to merge; without it, the owner merges it in GitHub's web interface, through the admin bypass where the ruleset requires an approval, or, without a ruleset, merges it or asks the Lead to.
 
-The Lead merges any other pull request itself when `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open.
+The Lead merges any other pull request itself when `devctl check` passed on its head, the latest verdict on that head is approve, and no blocking thread is open. It merges with `gh pr merge <number> --squash --match-head-commit <head SHA>`, through `./devctl as worker gh` with Agent identity, because the merge guard denies a merge that does not name the head it checked (Spec 1).
 
 ### 6.3 Finding triage
 
@@ -487,6 +483,8 @@ and the repository's AGENTS.md.
   Protected set: the owner merges those.
 - <Flight:> Merge any other pull request yourself, with a squash merge, when `devctl check`
   passed on its head, the latest verdict on that head is approve, and no blocking thread is open.
+- Merge with `<gh | ./devctl as worker gh> pr merge <number> --squash --match-head-commit <head SHA>`.
+  The merge guard denies a merge without `--match-head-commit`; its message gives the command to retry.
 
 ## Running a task
 1. Pick a frontier task: unstarted, not labelled needs-human, every blocker done.
@@ -564,7 +562,7 @@ The spawn details in steps 4 and 7 restate the constraints that matter, because 
 1. Check the inputs. If one is missing, stop and report `blocked`.
 2. Check the workspace: you are in the worktree, on the branch, with no uncommitted changes, and the base commit is in its history. If not, stop and report `blocked`.
 3. Read the task, the spec it links, the AGENTS.md guides of the areas you will touch, their Rules, the Patterns, and GLOSSARY.md.
-4. Scope the change. List the areas you expect to change. Stop and report `blocked` if the task needs a path outside its scope, a Protected path it does not name, a decision its spec leaves open, or a diff over the diff cap. Say what is needed. Never widen the task yourself. Declare `Over the diff cap:` only when the Lead says the owner accepted the overage (proposal 13.3.9); that pull request then goes to the owner in every Mode.
+4. Scope the change. List the areas you expect to change. Stop and report `blocked` if the task needs a path outside its scope, a Protected path it does not name, a decision its spec leaves open, or a diff over the diff cap. Say what is needed. Never widen the task yourself. Declare `Over the diff cap:` only when the Lead says the owner accepted the overage; that pull request then goes to the owner in every Mode.
 5. Work test-first with `rs-tdd`. For each acceptance criterion, write a test, watch it fail, make it pass, and commit. The pre-commit hook runs `./devctl check --tier fast`.
 6. Follow the Patterns. Use each Pattern's reference implementation; never add a second way to do the same task.
 7. Never add a suppression on your own. An exception needs an entry in `.rapid-ship/exceptions.toml`, which is Protected: stop and report `blocked`.
@@ -726,7 +724,7 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 
 The Walk-flow draft of 2026-10-15 is withdrawn, and this spec replaces it as Spec 2. Under [ADR 0004](../../adr/0004-team-management-boundary.md), rapid-ship no longer runs the Lead's loop: `devctl dispatch`, `watch`, `pr`, `review` and `merge`, Claims, Takeovers, per-role sandboxed launches, the attempt limit and the five-Worker cap are gone. `rs-plan` became `rs-breakdown` and gained milestones. `rs-walk` became `rs-lead`, which writes a brief instead of running a loop. `rs-playbook-author` is dropped. The `ready-for-agent` label and the epic approval state are dropped, because a task's state and its blockers say whether it is ready. The review-round limit became the `revision_rounds` escalation kind. Kept from the draft: the Linear state conventions, the rule that the Lead never guesses why a pull request closed, the "changes agent instructions" flag, one verdict per head commit, and squash merges only.
 
-The owner's second review on 2026-10-19 settled the proposals this spec listed and changed six things. The Walk Worker cap is gone: rapid-ship takes no notice of how many Sessions or Workers run. The Stop-hook check is gone from the guardrails, so `rs-work` runs `./devctl check` itself before it reports. The diff cap became 1,500 lines with documentation files excluded, and a declared overage became an escalation kind. Every Reviewer starts in a checkout of the base branch. The Roster accepts any Harness with a headless command. The merge guard holds the Protected set and a passed `devctl check` in every setup. A later round the same day kept the merge guard free of a Walk rule: in Walk the Lead merges a pull request only when the owner says so.
+The owner's second review on 2026-10-19 settled the proposals this spec listed and changed six things. The Walk Worker cap is gone: rapid-ship takes no notice of how many Sessions or Workers run. The Stop-hook check is gone from the guardrails, so `rs-work` runs `./devctl check` itself before it reports. The diff cap became 1,500 lines with documentation files excluded, and a declared overage became an escalation kind. Every Reviewer starts in a checkout of the base branch. The Roster accepts any Harness with a headless command. The merge guard holds the Protected set and a passed `devctl check` in every setup. A later round the same day kept the merge guard free of a Walk rule: in Walk the Lead merges a pull request only when the owner says so. A last round, 2c, accepted the remaining details as drafted: the Roster's `command` key with its `{prompt}` and `{model}` placeholders, a diff-cap overage that the owner accepts before the work, a Reviewer in any clean checkout whose `HEAD` is an ancestor of `origin/<base branch>`, and merges that name the checked head with `--match-head-commit`.
 
 ## 12. Testing
 
@@ -770,11 +768,3 @@ The owner decided how each of these is settled. Only the result is pending.
 ### 13.2 Left open by the owner
 
 7. **Several Agents for one role,** for example one per kind of task. Each role has one Agent until then; adopting several would extend `[roster]`.
-
-### 13.3 Proposals in this spec
-
-The owner has not decided these yet.
-
-8. **The key for the Roster's command (proposal).** The owner decided that a Harness without a built-in route runs from a headless command template that the owner supplies (sections 3.4 and 6.4). The drafter's details are the key's name, `command`, and its `{prompt}` and `{model}` placeholders. Spec 1 owns `[roster]`, so it validates the key and says what `devctl doctor` checks for such a Harness, such as that the command's program is on `PATH`.
-9. **Prior acceptance of a diff-cap overage (proposal).** The owner decided that a pull request that declares `Over the diff cap:` is a default escalation kind, which Spec 1 seeds in `kinds`, so the owner sees every such pull request. The drafter's detail: `rs-work` declares an overage only after the owner accepted it, as the Lead relays (sections 3.5 and 7), so a Worker stops as `blocked` before it builds a pull request the owner may reject. In Flight that asks the owner twice. The alternative: a Worker declares an overage with its reason and no prior acceptance, and the escalation kind brings the pull request to the owner.
-10. **The Reviewer's checkout (proposal).** The Lead starts a Reviewer in its own checkout or in a new worktree at `origin/<base branch>`. `rs-review` accepts any clean checkout whose `HEAD` is an ancestor of `origin/<base branch>` (section 8).

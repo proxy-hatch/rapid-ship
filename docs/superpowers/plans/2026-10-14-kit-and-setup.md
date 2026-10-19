@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 is built in three PRs, #31 to #33, which are not merged yet; its follow-ups land on them before they merge. Plans 5 to 7 are proposed. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); the owner's second review of the design PR, on 2026-10-19, added plan 6 and moved `rs-setup` and `rs-health` to plan 7. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 is built in three PRs, #31 to #33, which are not merged yet; its follow-ups land on them before they merge. Plans 5 to 7 are not started. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 replace the old plans 4 and 5 after the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)); the owner's second review of the design PR, on 2026-10-19, added plan 6 and moved `rs-setup` and `rs-health` to plan 7. [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -10,9 +10,9 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the Roster and the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first; its live trials and this repository's Agent identity are pending Owner steps |
-| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its wiring, the standards seeds and checks, documented settings with the Roster's `command`, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Proposed: four PRs |
-| 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Proposed: three PRs |
-| 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Proposed: three PRs |
+| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its wiring, the standards seeds and checks, documented settings with the Roster's `command`, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Planned: four PRs |
+| 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
+| 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: three PRs |
 
 PRs #28 to #30 form a stack on the design PR, #27: each is based on the one before, and none had reached `main` on 2026-10-16. The re-scope landed on #27 first and was then merged up into #28, #29 and #30. Plan 4 starts from the head of #30, and its PRs #31 to #33 continue the stack. The second review's changes of 2026-10-19 land on #27 and are merged up the same way.
 
@@ -27,7 +27,7 @@ This index fixes the layout and the names, signatures and formats that more than
 - Every command in both CLIs is one word followed by arguments:
   - `rapid-ship init [--stack NAME[=DIRECTORY]]... [--owner LOGIN] [--repository OWNER/NAME] [--name NAME] [--package NAME]`; until plan 6, `--stack {python,agnostic}` names one stack at the root
   - `rapid-ship status [--strict] [--json]`, `rapid-ship sync [--in-place] [--revert PATH]...`
-  - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups, Proposal)
+  - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH] [--install]`; `--install` from plan 6
   - `devctl doctor [--skills]`, with `--settings` from plan 5, `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
   - `devctl hook {claude,codex,agy} pre-tool` (plan 5)
@@ -344,7 +344,7 @@ def answer(
 ) -> tuple[str, int]: ...  # stdout, exit code; never 2
 ```
 
-`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push` or a ref path. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in. It reads CODEOWNERS from the PR's base branch, never its head, applies the `diff` step's ledger rule to the PR's file statuses, and reads the status of each ledger entry the PR adds (Proposal). It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
+`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push` or a ref path. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in. It reads CODEOWNERS from the PR's base branch, never its head, and applies the `diff` step's ledger rule to the PR's file statuses; it never reads an added ledger entry. It requires `--match-head-commit` set to the head commit it read, and its denial gives the exact command to retry. It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
 
 ### CODEOWNERS (plan 2 seeds it; plans 3 to 7 read or write it)
 
@@ -352,7 +352,7 @@ def answer(
 - The Protected set follows, commented out, as `# /<path> @<owner>` lines, in Spec 1 section 4's order. Flight uncomments them and removes the `*` line.
 - The `diff` step and `devctl hook` read `<pattern> @<owner>` lines, commented or not, and never treat `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
 - As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope they join with plan 5, which replaces the comment in both CODEOWNERS templates and in this repository's CODEOWNERS. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
-- Plan 6 renders each stack's Protected lines under its directory, such as `# /frontend/package.json @<owner>`. The Corrections ledger rule is devctl's, not a CODEOWNERS line.
+- Plan 6 renders each stack's Protected lines under its directory, such as `# /frontend/package.json @<owner>`. The rule for existing Corrections ledger entries is devctl's, not a CODEOWNERS line. The ledger's format, `/docs/corrections/README.md`, is a CODEOWNERS line, which Spec 3's plan adds.
 
 ### Suppressions, PR body, feature and Pattern front matter
 
@@ -476,15 +476,15 @@ If review finds a PR too large, it splits at a task boundary.
 2. Move the Protected-set reader and matcher from `check/diff.py` into `codeowners.py`, with no change in behaviour.
 3. `devctl hook`'s rules: G1 to G5, G7 and G8 on a normalised tool call, with G3 denying `gh pr merge --admin`, each `gh api` form of Spec 1 section 4 and each form of `git push` to the default branch, tested from a table of command lines and edits, and G1 to G4 with unreadable settings.
 4. The three hook protocols: each Harness's event JSON in, its decision format and exit code out, from recorded fixtures. An internal error exits 1, and `hook_protocols.py` documents the exit codes as a workaround.
-5. The merge guard: `find_merge` for each form, run directly and through `devctl as <role> gh`, with G3 denying the `admin`, `push`, `rest` and `graphql` forms, and `push` with `origin/HEAD` present and missing; `guard` on `gh pr merge` against a fake `OwnerGet` for passed, pending, failed and missing check runs, Protected paths at the base, renames, ledger changes, an entry added as `open` and one added as `implemented`, and a PR it cannot read or an error inside the guard, both denied; no GitHub read for any other command.
+5. The merge guard: `find_merge` for each form, run directly and through `devctl as <role> gh`, with G3 denying the `admin`, `push`, `rest` and `graphql` forms, and `push` with `origin/HEAD` present and missing; `guard` on `gh pr merge` against a fake `OwnerGet` for passed, pending, failed and missing check runs, Protected paths at the base, renames, ledger changes, entries added as `open` and as `implemented`, neither Protected, a merge without `--match-head-commit` or naming another commit, denied with the exact retry, and a PR it cannot read or an error inside the guard, both denied; no GitHub read for any other command.
 6. The seeded wiring files, `kit.toml`, doctor's wiring items, and this repository's wiring through `sync`.
 7. The CODEOWNERS additions in both templates, doctor's `PROTECTED_PATHS`, and this repository's CODEOWNERS.
 8. Live trial, an Owner step: each rule in each Harness the spike confirmed, in the lead Session and inside a subagent; the merge guard on real PRs through `gh pr merge` and `devctl as worker gh pr merge`, and G3 denying a merge through `gh api` and a `git push` to the default branch.
 9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. `./devctl doctor --settings`, which reads and validates only the settings, spends no quota and starts no probe. The root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-lead` and `rs-preflight` do (Spec 1 section 6).
 10. The Pattern `task` key and `## Lessons` section: the seeded README and map rule 5.
-11. The Python starter Patterns, for error handling, configuration and input validation, with reference code and tests in the new-project skeleton, passing map rule 5 and `./devctl check` on a new project.
+11. The Python starter Patterns, for error handling, configuration and input validation, with reference code and tests in the new-project skeleton, passing map rule 5 and `./devctl check` on a new project; and the Python performance Pattern, which documents py-spy, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
 12. The `SKILL.md` rule in map rule 7.
-13. The diff cap: 1,500 lines, its exclusions and the `Over the diff cap:` declaration; the seeded escalation kind; and the ledger rule in the `diff` step, with an entry added as `implemented`, `rejected` or `closed` treated as Protected (Proposal, Spec 1 section 11).
+13. The diff cap: 1,500 lines, its exclusions and the `Over the diff cap:` declaration; the seeded escalation kind; and the ledger rule in the `diff` step: a change to an existing entry is Protected, and an added entry is not checked.
 14. A concurrency group for each push run in the CI workflow, which zizmor still passes.
 15. Documented seeds: a short comment for each key of every seeded TOML file, and for each line or key of every other settings file the Kit ships whose format allows comments, such as CODEOWNERS and the CI workflow; the loaders' range and value checks, errors that name what each key accepts, and the test that holds each seed to its loader.
 16. The Roster's `command`: the settings, and doctor's sign-in and skills probes through it.
@@ -512,7 +512,7 @@ If review finds a PR too large, it splits at a task boundary.
 **Tasks:**
 
 1. `[[stack]]` in the settings and the lock, with its checks; devctl reading the old `stack` key for one Kit version, with a warning; and the migration that rewrites it.
-2. `init --stack NAME[=DIRECTORY]`, detection at the root, and templates rendered under a stack's directory.
+2. `init --stack NAME[=DIRECTORY]`; without it, a recursive search for stack roots that skips vendored and generated directories, proposes what it found, with the `--stack` options and the instruction to confirm them with the owner and rerun, and writes nothing; and templates rendered under a stack's directory.
 3. `project.toml` and CODEOWNERS rendered from every stack, with each stack's Protected lines under its directory; doctor's CODEOWNERS and Python floor items for each stack.
 4. `check` for each stack: the common steps once, and each stack's steps in its directory with their names; file ownership for the exceptions and file-size steps; references resolved against their stack.
 5. This repository stays one Python stack at the root: its `project.toml` migrates in place, and the output of `./devctl check` keeps its step names.
@@ -521,7 +521,7 @@ If review finds a PR too large, it splits at a task boundary.
 8. The diff policy for Vitest: removed tests by their title chain, and tautologies.
 9. doctor's `node` and `npm` items and the TypeScript floor item.
 10. The TypeScript templates: the settings of Spec 1 section 4, documented inline where the format allows, in `tsconfig.json`, `eslint.config.js` and `vite.config.ts`; the React skeleton and its `AGENTS.md`, passing `./devctl check` after `npm install`. Pin the tools and the Node.js version.
-11. The TypeScript starter Patterns, with reference code and tests, passing map rule 5.
+11. The TypeScript starter Patterns, with reference code and tests, passing map rule 5; and the TypeScript performance Pattern, which documents the browser's performance tools and React's Profiler, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
 12. The CI workflow: `actions/setup-node`, pinned by commit SHA and run only when a `package-lock.json` exists, and `./devctl check --tier full --install`; zizmor still passes.
 13. Live trial, an Owner step: `init` and `./devctl check` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, locally and in CI.
 

@@ -53,13 +53,12 @@ The window's span runs from the merge time of its oldest PR to the time of the r
 | ID | Metric | Population | Value |
 | --- | --- | --- | --- |
 | `revisions` | Revisions per merged PR | `agent PRs` only | Mean Revisions per PR in the window |
-| `reverts` | Reverts | `agent PRs`, or `all PRs` without Agent identity | PRs in the window that later commits reverted |
-| `partial_reverts` | Partial reverts | `agent PRs`, or `all PRs` without Agent identity | PRs in the window that later commits partly reverted |
+| `reverts` | Reverts | `agent PRs`, or `all PRs` without Agent identity | PRs in the window that later commits reverted, in whole or in part |
 | `red_merges` | Red merges | `agent PRs`, or `all PRs` without Agent identity | PRs in the window whose merge commit failed `devctl check` |
 | `closed_unmerged` | Closed unmerged | `agent PRs`, or `all PRs` without Agent identity | PRs closed without merging during the span |
 | `corrections` | Corrections | `ledger` | Entries dated in the span, in total and by rung. Agent-reported |
 
-Each count lists the PRs or entries behind it, so the owner can open each one. `partial_reverts` as a metric of its own is a proposal (section 17).
+Each count lists the PRs or entries behind it, so the owner can open each one.
 
 ### Revisions per merged PR
 
@@ -79,18 +78,18 @@ A PR in the window counts as reverted when any of these holds at the time of the
 
 1. A commit on `origin/<default branch>` after the PR's merge commit has a message line `This reverts commit <sha>`, where `<sha>` is the PR's merge commit in full, 40 characters. `git revert` writes this line, also when it reverts a merge commit.
 2. A PR merged into the default branch after it has the body line `Reverts <owner>/<repo>#<number>`. GitHub's Revert button writes this line.
-3. Later commits restored every file the PR changed, by the content check below. This finds a whole revert made by hand.
+3. Later commits undid all or part of the PR, by the content check under "Partial reverts" below. This finds a revert made by hand, whole or partial.
 
-A PR reverted more than once counts once. A revert made by hand that writes neither line and restores no file exactly is missed; `rs-work` undoes a merged commit only with `git revert` (Spec 2). The Kit's ruleset allows squash merges only, so each PR is one commit on the default branch. Under other merge methods only reverts of the commit GitHub records as `merge_commit_sha` are detected. Recent PRs have had less time to be reverted; the count shows what happened up to the report.
+A PR reverted more than once counts once, and a whole revert outranks a partial one. A revert made by hand that writes neither line and that the content check does not match is missed; `rs-work` undoes a merged commit only with `git revert` (Spec 2). The Kit's ruleset allows squash merges only, so each PR is one commit on the default branch. Under other merge methods only reverts of the commit GitHub records as `merge_commit_sha` are detected. Recent PRs have had less time to be reverted; the count shows what happened up to the report.
 
 ### Partial reverts
 
-A PR is partly reverted when later commits on `origin/<default branch>` undid some of it, by restoring selected files or sections, but not all of it. devctl finds this from local git alone, so the check stays deterministic and costs no GitHub request. The method is a proposal (section 17):
+A PR is partly reverted when later commits on `origin/<default branch>` undid some of it, by restoring selected files or sections, but not all of it. Partial reverts count under `reverts`, with whole ones; there is no separate metric. devctl finds them from local git alone, so the check stays deterministic and costs no GitHub request:
 
 - **A restored file.** A later commit leaves a file the PR changed with exactly the content it had before the PR's merge commit. For a file the PR added, that means deleting it; for a file the PR deleted, bringing it back unchanged.
-- **An undone section.** A later commit removes every line that one hunk of the PR added, and adds back every line that hunk removed, in the same file. Lines are compared without leading or trailing whitespace, wherever they now sit. Only a hunk that removed at least one line and changed at least 3 non-blank lines counts, so blank lines, moved braces and pure additions never count alone.
+- **An undone section.** A later commit, in the same file, removes lines similar to the lines that one hunk of the PR added, and adds back lines similar to the lines that hunk removed. Two sets of lines are similar when their similarity ratio is at least 0.8, as Python's `difflib.SequenceMatcher` computes it over the joined lines. Lines are compared without leading or trailing whitespace, wherever they now sit. Similarity catches a section undone with small edits, which an exact match would miss. The live trial tunes the 0.8 threshold (section 17). Only a hunk that removed at least one line and changed at least 3 non-blank lines counts, so blank lines, moved braces and pure additions never count alone.
 
-A PR counts under `reverts` when every file it changed was restored. Otherwise one restored file or one undone section makes it a partial revert. Each item names the files and sections and the commit that undid them. Whole and partial reverts are both Reverts; the report shows them apart.
+A PR is a whole revert when every file it changed was restored. Otherwise one restored file or one undone section makes it a partial revert. Each item says whether the revert was whole or partial, and a partial one names the files and sections and the commit that undid them.
 
 ### Red merges
 
@@ -134,7 +133,7 @@ For a count with `v` known items, `u` unknown items and threshold `m`: breached 
 ./devctl metrics [--window <n>] [--json] [--post]
 ```
 
-- `--window <n>` overrides `window` from `metrics.toml` for this run, within the same range.
+- `--window <n>` overrides `window` from `metrics.toml` for this run. It is an integer of at least 1, with no upper limit.
 - `--json` prints the report as data instead of text.
 - `--post` posts the report as the Action does (section 8). It refuses with exit 2 unless `GITHUB_ACTIONS` is `true` and `GH_TOKEN` is set. On the owner's machine, and in an agent's Session, `devctl metrics` writes nothing.
 
@@ -149,7 +148,9 @@ For a count with `v` known items, `u` unknown items and threshold `m`: breached 
 
 If `.rapid-ship/gate.toml` still exists, the report adds one note: devctl no longer reads it, the owner may delete it, and an old threshold worth keeping belongs in `metrics.toml` (section 6).
 
-The default window takes about 200 GitHub API requests: one per first-parent commit walked and about four per PR in the window. That stays well inside the 1,000 requests per hour that `GITHUB_TOKEN` allows per repository. The content check for reverts reads local git only.
+The default window takes about 200 GitHub API requests: one per first-parent commit walked and about four per PR in the window. That stays well inside the 1,000 requests per hour that `GITHUB_TOKEN` allows per repository, and a larger window costs more. The content check for reverts reads local git only.
+
+When GitHub's API allowance runs out during a run, devctl stops reading GitHub at once. Each metric it could not finish is unknown, with the reason and the time the allowance resets, such as `unknown: GitHub API allowance used up; it resets at 06:12 UTC`. The Action's post says the same. devctl fails fast and never hides the error: it does not retry in silence, and never reports a partial count as complete.
 
 ### Exit codes
 
@@ -157,7 +158,7 @@ The default window takes about 200 GitHub API requests: one per first-parent com
 - **1:** at least one Suggested threshold is breached.
 - **2:** the report could not be built: unreadable settings, `gh` missing or signed out, a GitHub error, or no `origin/<default branch>`. With `--post`, a failed post also exits 2.
 
-Every exit 2 names what failed and the fix, for example `origin/main is missing: run git fetch origin`. devctl fails fast and never hides an error, and it guides the owner to the fix rather than stopping with a bare code. An unknown status shows in the report but never changes the exit code. With `--post`, a breach exits 0 once it has been posted, because posting it is the whole response. A project-defined metric that fails is unknown, not an error (section 7).
+Every exit 2 names what failed and the fix, for example `origin/main is missing: run git fetch origin`. devctl fails fast and never hides an error, and it guides the owner to the fix rather than stopping with a bare code. An unknown status shows in the report but never changes the exit code. An API allowance that runs out is not exit 2: the report is built, with the affected metrics unknown (section 5). With `--post`, a breach exits 0 once it has been posted, because posting it is the whole response. A project-defined metric that fails is unknown, not an error (section 7).
 
 ### Text output
 
@@ -167,8 +168,7 @@ Agent identity: on. Window: the last 30 merged agent PRs, #212 to #268, merged s
 
 metric           population   value                                suggested  status
 revisions        agent PRs    0.7 per PR                           <= 1.0     ok
-reverts          agent PRs    1 (#231)                             <= 1       ok
-partial_reverts  agent PRs    1 (#244: 1 file)                     -          -
+reverts          agent PRs    1 (#244 in part: 1 file)             <= 1       ok
 red_merges       agent PRs    0, 2 unknown (#240, #262)            <= 1       unknown
 closed_unmerged  agent PRs    4 (#219, #225, #250, #266)           <= 3       breached
 corrections      ledger       9 (rung 1: 2, rung 2: 5, rung 3: 3)  -          -
@@ -194,6 +194,7 @@ Corrections are agent-reported: agents write the ledger entries they count.
     {
       "id": "red_merges",
       "title": "Red merges",
+      "kind": "count",
       "population": "agent",
       "value": 0,
       "unknown": 2,
@@ -207,7 +208,7 @@ Corrections are agent-reported: agents write the ledger entries they count.
 }
 ```
 
-`value` is `null` when the whole metric is unknown, and `reason` then says why, such as `needs Agent identity`. Each `partial_reverts` item names the files and sections restored and the commit that restored them. The Corrections metric adds `by_rung`, `repeats` and `not_gardened`.
+`value` is `null` when the whole metric is unknown, and `reason` then says why, such as `needs Agent identity`. Each `reverts` item says whether the revert was whole or partial and names the commit that undid it; a partial one also names the files and sections it undid. `kind` is `incident` for an incident metric (section 7) and `count` for every other metric. An item of an incident metric also carries `time` and `cause`. The Corrections metric adds `by_rung`, `repeats` and `not_gardened`.
 
 ## 6. Settings: `.rapid-ship/metrics.toml`
 
@@ -218,15 +219,14 @@ Corrections are agent-reported: agents write the ledger entries they count.
 # Changes need the owner: this file is in the Protected set.
 # devctl reports a breach and takes no action. It rejects an unknown key or a value out of range.
 
-window = 30   # integer, 1 to 100: the last merged PRs counted
+window = 30   # integer, at least 1: the last merged PRs counted
               # (agent PRs with Agent identity, every PR without it)
 
 [thresholds]  # upper limits, numbers of at least 0; delete a line to report that metric without one
 revisions = 1.0        # mean Revisions per merged PR; needs Agent identity
-reverts = 1            # PRs in the window that later commits reverted
+reverts = 1            # PRs in the window that later commits reverted, in whole or in part
 red_merges = 1         # PRs whose merge commit failed devctl check on the default branch
 closed_unmerged = 3    # PRs closed without merging during the window's span
-# partial_reverts = 2  # PRs that later commits partly reverted
 # corrections = 10     # Corrections ledger entries dated in the span; agent-reported
 # alarms = 0           # a project-defined metric, by its id
 
@@ -236,7 +236,6 @@ closed_unmerged = 3    # PRs closed without merging during the window's span
 # title = "Alarms"
 # source = "issues"        # counts issues with this label opened during the span
 # label = "alarm"
-# incidents = true         # optional, issues only: rs-garden reads these issues as incident reports
 #
 # [[metric]]
 # id = "rollbacks"
@@ -249,13 +248,13 @@ closed_unmerged = 3    # PRs closed without merging during the window's span
 `devctl metrics` exits 2 and lists every problem when:
 
 - the top level or a `[[metric]]` has a key not shown above;
-- `window` is not an integer from 1 to 100;
+- `window` is not an integer of at least 1;
 - a key in `[thresholds]` names no basic or project-defined metric, or its value is not a number of at least 0;
 - a `[[metric]]` lacks `id`, `title` or `source`, lacks a field its source needs, or has an empty text field;
-- `source` is not `issues` or `deployments`, `count` is not `rollbacks` or `failures`, or `incidents` is not `true` or `false` or appears on a `deployments` metric;
+- `source` is not `issues` or `deployments`, or `count` is not `rollbacks` or `failures`;
 - an `id` does not match `[a-z][a-z0-9_]*`, repeats another, or is a basic metric's ID.
 
-Each problem names the key, what is wrong and the allowed values, such as `metrics.toml: window = 0: use an integer from 1 to 100`. The upper limit on `window` keeps the Action well inside its GitHub API allowance (section 5) and is a proposal (section 17).
+Each problem names the key, what is wrong and the allowed values, such as `metrics.toml: window = 0: use an integer of at least 1`. `window` has no upper limit; section 5 says what happens when a large window uses up the GitHub API allowance.
 
 ### Default thresholds
 
@@ -264,8 +263,7 @@ The seeded `gate.toml` of plans 1 to 3 recorded 1.0 Revisions per PR, 1 Rollback
 | Threshold | Default | Why |
 | --- | --- | --- |
 | `revisions` | 1.0 per PR | A mean of 3 would equal the default escalation at 3 Revision rounds (Spec 2), so most PRs would reach the owner before the threshold said anything |
-| `reverts` | 1 in the window | One revert in 30 merged PRs. Deploy rollbacks are project-defined, so they no longer share this count |
-| `partial_reverts` | none seeded | The content check has not been measured on real repositories yet. The comment suggests 2 |
+| `reverts` | 1 in the window | One revert, whole or partial, in 30 merged PRs. Deploy rollbacks are project-defined, so they no longer share this count |
 | `red_merges` | 1 in the window | A merge that breaks the default branch should be rare |
 | `closed_unmerged` | 3 in the window | One closed PR in ten merged ones |
 | `corrections` | none seeded | Corrections are agent-reported, and their trend matters more than a count |
@@ -294,7 +292,7 @@ Two sources read GitHub with the same token as the basic metrics:
 
 | `source` | Fields | Counts |
 | --- | --- | --- |
-| `issues` | `label`; optional `incidents` | Issues with that label opened during the span. Pull requests are not counted |
+| `issues` | `label` | Issues with that label opened during the span. Pull requests are not counted |
 | `deployments` | `environment`; `count`, either `rollbacks` (the default) or `failures` | See below |
 
 For `deployments`, devctl reads the deployments to `environment` and their statuses:
@@ -306,7 +304,9 @@ A deployment whose commit is not in the local history is unknown. Each `deployme
 
 ### Incidents
 
-An incident report is an issue that records something users saw go wrong, such as an outage or corrupted data. With `incidents = true`, an `issues` metric counts incident reports, and `rs-garden` also reads its issues as a source of Corrections (section 10). A report helps most when it names its cause, a PR or a commit; `rs-preflight` offers an issue form that asks for it (section 11). The `incidents` flag is a proposal (section 17).
+An incident is something users saw go wrong, such as an outage or corrupted data. Teams track incidents in their own tools, such as PagerDuty or alarms posted to Slack, and under their own rules, so rapid-ship ships no incident source in its settings. An incident metric is a code metric (below) written for the project, which `rs-preflight` guides the owner through building against their own incident tool (section 11).
+
+Besides its count, an incident metric returns each incident as a record: its URL, its time and, where the record names one, its cause, a PR or a commit. `rs-garden` reads those records as a source of Corrections (section 10). Without an incident metric, gardening records no incident Corrections, although incidents remain a source of Corrections in principle.
 
 ### From code
 
@@ -318,7 +318,7 @@ def metrics() -> list[Metric]:
     return [ProbeFailures()]
 ```
 
-A `Metric` has an `id`, a `title` and `measure(context) -> MetricResult`. The context gives the span's start and end, the window's PRs, the repository, and a read-only helper for `gh api`. A `MetricResult` holds a number, or `None` with a reason when the metric is unknown, and the items behind it, each a label with a URL or a time.
+A `Metric` has an `id`, a `title` and `measure(context) -> MetricResult`. The context gives the span's start and end, the window's PRs, the repository, and a read-only helper for `gh api`. A `MetricResult` holds a number, or `None` with a reason when the metric is unknown, and the items behind it, each a label with a URL or a time. An incident metric is an `IncidentMetric`, whose items are `Incident` records, each with a URL, a time and an optional `cause`, which `rs-garden` reads. devctl marks it `"kind": "incident"` in the JSON output by its class, not by its items, so the mark shows even when it found no incident or is unknown (section 5).
 
 - An empty source is not zero. A metric returns 0 only after it read its source and found nothing. When it cannot read its source, it returns unknown with the reason.
 - A metric that raises an exception or runs longer than 60 seconds is unknown, with the error as its reason. The rest of the report is unaffected.
@@ -353,19 +353,20 @@ The ledger is the directory `docs/corrections/`: one Markdown file per Correctio
 
 ### Agent-reported, signed off by the owner
 
-Agents write the ledger: `rs-garden` from reviews and incident reports, and the Lead from its Session. Corrections is therefore an agent-reported metric. devctl counts the entries exactly, but an agent can miss a Correction or misjudge one, and nothing checks what it left out.
+Agents write the ledger: `rs-garden` from reviews and incident records, and the Lead from its Session. Corrections is therefore an agent-reported metric. devctl counts the entries exactly, but an agent can miss a Correction or misjudge one, and nothing checks what it left out.
 
-The owner signs off on what happens to each Correction. Adding an entry is free, so an agent's PR can record a Correction without the owner. Every other change in the ledger is Protected:
+The owner signs off on what happens to each Correction. Adding an entry is free, so an agent's PR can record a Correction without the owner. Changing what is already recorded needs the owner:
 
-| Change in `docs/corrections/` | Protected |
-| --- | --- |
-| Adding an entry whose status is `open` or `proposed` | No |
-| Updating `last-pass.toml` | No |
-| Adding an entry whose status is `implemented`, `rejected` or `closed` | Yes |
-| Editing, renaming or removing an existing entry, including any change of status | Yes |
-| Any change to `README.md` | Yes |
+| Change in `docs/corrections/` | Protected | Held by |
+| --- | --- | --- |
+| Adding an entry, whatever its status | No | Not checked |
+| Updating `last-pass.toml` | No | Not checked |
+| Editing, renaming or removing an existing entry, including any change of status | Yes | devctl's ledger rule |
+| Any change to `README.md`, the ledger's format | Yes | Its line in CODEOWNERS |
 
-The diff step lists these Protected changes with the Protected paths, and the merge guard counts them as Protected (Spec 1). The Protected set is on the escalation list in every Mode, so the merge guard denies an agent's merge of such a PR, and the owner merges it in GitHub's web interface. CODEOWNERS matches paths only, so GitHub cannot enforce this rule, even with Agent identity and a ruleset. The merge guard is a guardrail, which a misbehaving agent could get around. The details of this table are a proposal (section 17).
+devctl does not read an added entry's status. An agent could therefore add an entry that is already `implemented`, `rejected` or `closed`, which skips the owner's sign-off. The owner accepts that limit; `rs-garden` and the Lead add entries as `open` or `proposed` only.
+
+The diff step lists each change to an existing entry with the Protected paths, and the merge guard counts it as Protected (Spec 1). The Protected set is on the escalation list in every Mode, so the merge guard denies an agent's merge of such a PR, and the owner merges it in GitHub's web interface. CODEOWNERS matches paths only, so it holds `README.md` but cannot tell a new entry from a changed one: GitHub cannot enforce the entry rule, even with Agent identity and a ruleset. The merge guard is a guardrail, which a misbehaving agent could get around.
 
 ### What counts
 
@@ -395,7 +396,7 @@ The Worker read `LINKS_URL` with `os.environ` inside `links.py`. The Reviewer re
 | --- | --- | --- |
 | `date` | yes | The day the Correction was made, UTC |
 | `by` | yes | `reviewer`, `human` or `incident` |
-| `source` | yes | The URL of the review, thread, comment or incident report, or `session` for a Correction the owner gave in a Session |
+| `source` | yes | The URL of the review, thread, comment or incident record, or `session` for a Correction the owner gave in a Session |
 | `pr` | no | The PR whose work was corrected |
 | `path` | no | The file the Correction is about |
 | `category` | yes | A short kebab-case name shared by repeats of the same mistake |
@@ -420,12 +421,12 @@ The rungs are the four in the [design](2026-10-14-rapid-ship-design.md): safe in
 
 | Writer | When | `source` |
 | --- | --- | --- |
-| `rs-garden` | On each pass, from the reviews, review threads and comments on PRs in its range, and from incident reports closed since its last pass | The URL on GitHub |
+| `rs-garden` | On each pass, from the reviews, review threads and comments on PRs in its range, and from the incident records dated since its last pass, when the project has an incident metric | The URL on GitHub, or the incident record's URL |
 | The Lead | When the owner corrects it in the Session. The Lead brief asks for this (Spec 2); whether the Lead does it is up to its Harness | `session` |
 | The PR that lands a prevention | Sets `status: implemented` and `prevented_by` on the entries it prevents. This change is Protected, so the owner signs it off | Unchanged |
 | The owner | At any time, for example to reject or close an entry | Unchanged |
 
-The Lead adds a `session` entry to the open PR the Correction concerns, or to its next PR when none is open. `rs-garden` skips any thread, review, comment or issue whose URL is already a `source`.
+The Lead adds a `session` entry to the open PR the Correction concerns, or to its next PR when none is open. `rs-garden` skips any thread, review, comment or incident record whose URL is already a `source`.
 
 ### `last-pass.toml`
 
@@ -471,13 +472,13 @@ A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md
 ### Steps
 
 1. **Preconditions.** The work tree is clean. Fetch `origin/<default branch>`. If an open PR already changes `docs/corrections/last-pass.toml`, the previous pass is still waiting: stop and point to it. When devctl reports unreadable settings, stop and pass on its message and fix; never work around it.
-2. **Range.** The range starts at `through` from `last-pass.toml` and ends at the tip of `origin/<default branch>`. On the first pass it starts just before the oldest PR in the window that `./devctl metrics --json` reports. When the default branch has not moved since `through` and no incident report has closed since the last pass, report that there is nothing to garden and stop.
+2. **Range.** The range starts at `through` from `last-pass.toml` and ends at the tip of `origin/<default branch>`. On the first pass it starts just before the oldest PR in the window that `./devctl metrics --json` reports. When the default branch has not moved since `through` and no incident record is dated since the last pass, read as in step 4, report that there is nothing to garden and stop.
 3. **Corrections from PRs.** Read the reviews, review threads and comments of every PR merged in the range, and of every PR closed unmerged since the `date` in `last-pass.toml`. With Agent identity, read agent PRs only. Without it, read every PR, because agent PRs cannot be told apart; the ledger then includes Corrections of people's work too. Write one entry per Correction (section 9). When the Correction is a blocking finding in a Reviewer's verdict (Spec 2, section 3.6), copy its rungs and prevention. Otherwise assign them by the ladder.
-4. **Corrections from incidents.** Read the issues of each `issues` metric with `incidents = true` that closed since the `date` in `last-pass.toml`, or since the range's start on the first pass. When a report names its cause and the cause is an agent PR, or a commit of one, write one entry with `by: incident` and the issue's URL as `source`. Without Agent identity, any PR counts as a cause. List each report that names no cause in the PR body, and record nothing for it.
+4. **Corrections from incidents.** The project has an incident metric when `./devctl metrics --json` lists a metric whose `kind` is `incident` (sections 5 and 7). Read the records it returns that are dated since the `date` in `last-pass.toml`, or since the range's start on the first pass. It returns only the records in the window's span, which starts at `window.since`. When the span starts after that date, rerun `./devctl metrics --json --window <n>` with a larger `n`, such as twice the last one, until the span starts on or before it. A larger window cannot help once the window is not full. A run can also leave the incident metric unknown, for example when the GitHub API allowance runs out. In either case, use the widest run that read the metric, and list in the PR body the interval that no run covered. When a record names its cause and the cause is an agent PR, or a commit of one, write one entry with `by: incident` and the record's URL as `source`. Without Agent identity, any PR counts as a cause. List each record that names no cause in the PR body, and record nothing for it. Without an incident metric, record no incident Corrections, and say so in the PR body.
 5. **Repeats.** Group the whole ledger by `category`. Two or more entries in one category, at least one of them `open`, are a repeat. A new entry in a category whose earlier entries are `implemented` means the prevention did not hold. Say so in the PR body.
-6. **Proposals.** Propose one task for each repeat, and for each severe first Correction. A Correction is severe when it is a risk of data loss, exposure or a security hole, as `rs-review`'s table names it (Spec 2), or when it came from an incident; this definition is a proposal (section 17). Propose the task on the rung that fits: a safe interface for structural misuse, a check for local or stylistic problems, or both; a skill or advisory Rule only when neither can carry the fix. For a prevention that did not hold, propose a task that moves the fix to a rung that can hold it. Before creating a task, search the tracker for an open task for the same category, and reuse it if one exists. A task follows Spec 2's task shape and links the entries it would prevent. Its acceptance criteria include setting those entries to `implemented`. Write each new entry it covers as `proposed`, with `task`, and set each existing one to `proposed`; changing an existing entry makes the pass PR Protected (section 9). Without a tracker connection, leave the entries `open` and put each task draft in the PR body.
+6. **Proposals.** Propose one task for each repeat, and for each severe first Correction. A Correction is severe when it is a risk of data loss, exposure or a security hole, as `rs-review`'s table names it (Spec 2), or when it came from an incident. Propose the task on the rung that fits: a safe interface for structural misuse, a check for local or stylistic problems, or both; a skill or advisory Rule only when neither can carry the fix. For a prevention that did not hold, propose a task that moves the fix to a rung that can hold it. Before creating a task, search the tracker for an open task for the same category, and reuse it if one exists. A task follows Spec 2's task shape and links the entries it would prevent. Its acceptance criteria include setting those entries to `implemented`. Write each new entry it covers as `proposed`, with `task`, and set each existing one to `proposed`; changing an existing entry makes the pass PR Protected (section 9). Without a tracker connection, leave the entries `open` and put each task draft in the PR body.
 7. **Drift.** Run the shared audit over the files changed in the range, with the base rule and the starter Patterns (below). Fix doc-only drift in the pass's branch; propose a task for everything else.
-8. **The pass PR.** Write `last-pass.toml` with the range's end. Run `./devctl check --tier fast`. Open one PR from a new branch based on `origin/<default branch>`: with Agent identity through `devctl as worker push` and `devctl as worker gh pr create` (Spec 1), without it with `git push` and `gh pr create`. The body states the range, the new entries, the repeats with their proposals, and the drift with where each item went. It also names any prevention that did not hold, the incident reports that name no cause, and the entries that look ready for the owner's sign-off. It ends with the Evidence section that `devctl check` requires. The diff cap leaves out `.md` files (Spec 1), so ledger entries and doc-only fixes do not count toward it.
+8. **The pass PR.** Write `last-pass.toml` with the range's end. Run `./devctl check --tier fast`. Open one PR from a new branch based on `origin/<default branch>`: with Agent identity through `devctl as worker push` and `devctl as worker gh pr create` (Spec 1), without it with `git push` and `gh pr create`. The body states the range, the new entries, the repeats with their proposals, and the drift with where each item went. It also names any prevention that did not hold, the incident records that name no cause, any interval whose incident records it could not read, and the entries that look ready for the owner's sign-off. It ends with the Evidence section that `devctl check` requires. The diff cap leaves out `.md` files (Spec 1), so ledger entries and doc-only fixes do not count toward it.
 9. **Report** to whoever ran the pass: the PR, the tasks proposed and anything skipped.
 
 ### The shared audit
@@ -510,7 +511,7 @@ The Kit also seeds a starter Pattern set for each stack: error handling, configu
 
 ### Scheduling
 
-rapid-ship advises running `rs-garden` on a schedule, at least weekly, and once before each Pre-flight (proposal, section 17). A regular pass keeps the Corrections count complete and each drift fix small. How the pass is scheduled is the owner's choice: any scheduler that can start a Harness with no person present will do. A scheduled pass has no one to answer a prompt, so the Harness must allow, in advance, what the pass needs: git commits and pushes, `gh` reads, opening the PR, and writing to the tracker.
+rapid-ship advises running `rs-garden` on a schedule, at least weekly, and once before each Pre-flight. A regular pass keeps the Corrections count complete and each drift fix small. How the pass is scheduled is the owner's choice: any scheduler that can start a Harness with no person present will do. A scheduled pass has no one to answer a prompt, so the Harness must allow, in advance, what the pass needs: git commits and pushes, `gh` reads, opening the PR, and writing to the tracker.
 
 One option carries a warning, which the skill gives. A Harness's own GitHub Action on a `schedule` needs a model credential as a repository secret. [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) rejected such a secret for reviews, because a branch pushed to the same repository can edit a workflow and read it. rapid-ship allows this option as a short-term workaround; backlog item PRO-138 records the gap. The option has two more limits. A PR opened with `GITHUB_TOKEN` starts no workflow, so `devctl check` does not run on the pass PR. And the Apps' keys stay in the owner's Keychain (Spec 1), so the pass cannot act as the Worker App.
 
@@ -546,17 +547,17 @@ The owner may change the Mode without running it, and nothing runs it on a sched
    | Metric | What it tells the owner in Flight |
    | --- | --- |
    | `revisions` | How often review sends work back. The Reviewer now judges most PRs without the owner, so rising Revisions mean Workers miss the bar more often |
-   | `reverts`, `partial_reverts` | Merged work that had to be undone: what got past review |
+   | `reverts` | Merged work that had to be undone, in whole or in part: what got past review |
    | `red_merges` | Merges that broke the default branch although each PR's own check passed |
    | `closed_unmerged` | Work the owner threw away, often a task sliced too large or specified too loosely |
    | `corrections` | Where people still hold the bar. Repeats point to a missing rung. Agents report it (section 9) |
    | Alarms, incidents, deploy rollbacks and failures | What users saw. These matter most once the owner reads fewer PRs |
 
-   For each unknown, say what would make it known: Agent identity for Revisions, `git fetch` for PRs not fetched, a gardening pass for PRs not gardened. Say when the window is not full, because a few PRs make every number noisy. Compare each Suggested threshold with the project's history, and suggest a change where a default does not fit.
+   For each unknown, say what would make it known: Agent identity for Revisions, `git fetch` for PRs not fetched, a gardening pass for PRs not gardened. Say when the window is not full, because a few PRs make every number noisy, and advise waiting for a full window before the first step toward Flight. Compare each Suggested threshold with the project's history, and suggest a change where a default does not fit.
 4. **Alarms and incidents.** Guide this project's setup, one signal at a time:
    1. List the signals with the owner: monitoring alerts, uptime probes, error tracking, deploys, incident reports and user reports. A library may have only releases and user reports.
    2. For each signal the owner wants counted, choose a route that devctl reads (section 7). Most alerting and error-tracking tools can open a GitHub issue with a label, which an `issues` metric counts. Most deploy tools can record a GitHub deployment, which a `deployments` metric counts. A signal that reaches neither needs a code metric in `devctl_project` that reads the tool's API; propose it as a task.
-   3. Mark the `issues` metric that counts incident reports with `incidents = true`, so that `rs-garden` reads them for Corrections. Offer an issue form for incident reports that asks for the cause, a PR or a commit.
+   3. For incidents, guide building an incident metric in `devctl_project` against the owner's own incident tool, such as PagerDuty or alarms posted to Slack. It follows the owner's own rules for recording an incident and its cause. It returns each incident with its URL and, where one is named, its cause, a PR or a commit, which `rs-garden` reads for Corrections (section 7). Propose it as a task.
    4. Give the steps to take in each outside tool: what to connect, and which label or environment to use. The owner makes those changes, or confirms each write first.
    5. Check that `./devctl metrics` reports each new metric with a value, not unknown. Where the tool can send a test alert, the owner may send one and see it counted, then remove the label from that issue.
    6. Suggest a threshold for each new metric, such as 0 Alarms in the window.
@@ -566,10 +567,10 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 6. **The escalation list.** Show `[escalation]` and the kinds that always apply, such as the Protected set (Spec 1). Ask which kinds of change the owner still wants to see in Flight, such as migrations, public API changes, authentication or billing. Suggest kinds that fit this project from ARCHITECTURE.md. When a kind is a set of paths, note that adding them to the Protected set lets the merge guard enforce it, and GitHub too with Agent identity and a ruleset (Spec 2, section 6.2).
 7. **Agent identity, ruleset and guardrails.** From doctor's output, state whether Agent identity is on with both Apps installed, and whether the default branch has the ruleset. State whether CODEOWNERS matches the Mode, and whether the Harness wiring that carries the merge guard is in place. Give the advice that Spec 1 sets out for this owner's case: solo with a public repository or a paid plan, solo with a GitHub Free private repository, or a team. Explain what holds the Protected set in Flight here: the merge guard in every setup, and GitHub as well with Agent identity and a ruleset. Say plainly that the merge guard is a guardrail, which a misbehaving agent could get around. Without Agent identity, say that Revisions stay unknown and that Flight needs the ruleset to drop its review requirement (Spec 2, section 6.5). Where the guardrails of the Lead's Harness are not yet confirmed, say so (Spec 1). Where the Lead or an Agent runs on a Harness that the Kit has no wiring for, such as pi, say that the merge guard does not run there, so only the pre-commit hook, CI and any ruleset hold.
 8. **The review.** Show the owner, area by area, what is in place, what is missing and the advice. End with the list of gaps. Give no verdict: whether and when to widen the Mode is the owner's call.
-9. **Agreed changes.** With the owner's yes, open one PR with the repository changes they agreed to: thresholds and project-defined metrics in `metrics.toml`, the metrics Action in `[kit] optional` installed with `rapid-ship sync --in-place`, and the incident issue form. All of these files are in the Protected set, so the owner approves and merges the PR. Run `./devctl check` first. With Agent identity, push and open the PR through `devctl as worker` (Spec 1). When the PR adds the Action under `.github/workflows/`, neither App may push it, so the owner pushes the branch and opens the PR in a terminal (Spec 1). Propose a task in the tracker for each change that needs code.
+9. **Agreed changes.** With the owner's yes, open one PR with the repository changes they agreed to: thresholds and project-defined metrics in `metrics.toml`, and the metrics Action in `[kit] optional` installed with `rapid-ship sync --in-place`. All of these files are in the Protected set, so the owner approves and merges the PR. Run `./devctl check` first. With Agent identity, push and open the PR through `devctl as worker` (Spec 1). When the PR adds the Action under `.github/workflows/`, neither App may push it, so the owner pushes the branch and opens the PR in a terminal (Spec 1). Propose a task in the tracker for each change that needs code.
 10. **Next.** When the owner decides to widen the Mode, point to `rs-lead`, which prepares that PR (Spec 2, section 6.5).
 
-**Outputs:** the review, in the conversation; optionally one PR with the agreed settings; optionally proposed tasks in the tracker.
+**Outputs:** the review, in the conversation; optionally one PR with the agreed settings; optionally proposed tasks in the tracker. `rs-preflight` keeps no record of a review beyond the conversation and that PR.
 
 **Never:**
 
@@ -593,7 +594,7 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 | `tools/devctl/devctl_project/__init__.py` | seeded | New projects get a `metrics()` stub |
 | `docs/AGENTS.md` | seeded | Points to `docs/corrections/` |
 
-Every path above except `docs/corrections/README.md` is in the Protected set by its path, through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md. `docs/corrections/README.md` is Protected through the ledger's rule (section 9). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer (Spec 1). It leaves `gate.toml` in place (section 6).
+Every path above is in the Protected set by its path: through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md, and `docs/corrections/README.md` through its own line, `/docs/corrections/README.md`, which this spec's plan adds to the seeded CODEOWNERS (Spec 1). In an existing project, `rapid-ship sync` proposes that CODEOWNERS line as a migration in its own PR (Spec 1, section 3). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer (Spec 1). It leaves `gate.toml` in place (section 6).
 
 A plan for this spec can build it in six independent slices: `metrics.toml` with the basic metrics; project-defined metrics; the Action; the ledger with its map rule and Protected rule; `rs-garden`; `rs-preflight`.
 
@@ -606,7 +607,7 @@ From Spec 1:
 - The Kit's skills include `rs-preflight`, beside `rs-garden`.
 - `rs-setup` shows the default Suggested thresholds, records the owner's values in `metrics.toml`, and offers the metrics Action. When Agent identity is off, it tells the owner that Revisions will be unknown. It points the owner to `rs-preflight` for Alarms and incidents before the first step toward Flight.
 - The CI template gives each push run on the default branch its own concurrency group, so a later merge never cancels an earlier merge's run (section 3).
-- The diff step's list of Protected changes and the merge guard share one matcher, which also applies the ledger's Protected rule (section 9).
+- The diff step's list of Protected changes and the merge guard share one matcher, which also applies the ledger's Protected rule (section 9). CODEOWNERS lists `/docs/corrections/README.md` in the Protected set.
 - The diff cap leaves out `.md` files, so ledger entries and doc-only fixes do not count toward it.
 - `rapid-ship sync` leaves a leftover `gate.toml` in place, and lists `docs/AGENTS.md` as a seeded file whose template changed (section 6).
 - The starter Patterns for each stack, and the audit in `rs-health`'s `references/audit.md`, which covers the drift in section 10, the base rule and settings entries that match nothing.
@@ -634,24 +635,26 @@ Two earlier designs are reused. The rule that missing data is unknown, and count
 
 **On 2026-10-19,** after the owner's second review, Pre-flight returned as `rs-preflight`, an advisory review that never gates. Incidents became a source of Corrections, and a severe first Correction gets a proposed task. The ledger's statuses became the owner's dispositions, and every change to an existing entry needs the owner. Partial reverts are detected. Scheduling became advice, which dropped the table of each Harness's scheduler.
 
+A last round the same day, 2c, settled the drafter's details. Partial reverts count under `reverts`, with sections matched by similarity. `window` has no upper limit, and a run that uses up the GitHub API allowance reports the affected metrics as unknown. Only a change to an existing ledger entry is Protected, CODEOWNERS holds the ledger's README, and an entry added with a closed status is an accepted limit. Incidents reach gardening only through an incident metric that the project writes, so the `incidents` flag and the incident issue form are gone. The gardening cadence, the definition of a severe first Correction and `rs-preflight`'s details stand as drafted.
+
 ## 16. Testing
 
 **Unit tests**, offline. devctl reads GitHub only through `gh`, so these tests put a fake `gh` on `PATH` that serves recorded responses; the tests that use it are labelled simulated.
 
-- `metrics.toml` validation: each problem listed with its key and the allowed values, an unknown key, `window` out of range, the `source` and `count` values, and `incidents` on a `deployments` metric; the note for a leftover `gate.toml`.
+- `metrics.toml` validation: each problem listed with its key and the allowed values, an unknown key, `window` below 1, a large `window` accepted, and the `source` and `count` values; the note for a leftover `gate.toml`.
 - The window over a local git fixture: the first-parent walk, a skipped direct push, selection by author with and without Agent identity, a window that is not full, and a merged PR that is not fetched.
 - Revisions: distinct heads, two reviewers on one head, a dismissed review that requested changes, a review after the merge ignored, approvals ignored.
 - Reverts: a `git revert` line, a reverted merge commit, the Revert button's body line, both signals counting once, an abbreviated SHA not counted, and a revert by hand that restores every file.
-- Partial reverts over a local git fixture: a restored file, an added file deleted, a deleted file brought back, an undone section, a section undone after other commits moved it, a hunk under 3 non-blank lines ignored, and a pure addition removed later not counted.
+- Partial reverts over a local git fixture, each counted under `reverts` as partial: a restored file, an added file deleted, a deleted file brought back, an undone section, a section undone after other commits moved it, a section undone with small edits above the similarity threshold, one below it not counted, a hunk under 3 non-blank lines ignored, and a pure addition removed later not counted.
 - Red merges: `failure`, `timed_out` and `success`; a cancelled run and a missing run as unknown; a passing rerun that does not clear a failed first attempt.
 - Closed unmerged: a PR closed by an App not counted with Agent identity; a PR closed, reopened and merged not counted.
 - Corrections: totals, an entry with two rungs, repeats, and PRs not gardened after `through`.
 - The status rule, table-driven over `v`, `u` and `m`; a window with no PRs; `needs Agent identity`.
-- Exit codes, the fix named in each exit-2 message, and `--post` refusing outside GitHub Actions.
+- Exit codes, the fix named in each exit-2 message, and `--post` refusing outside GitHub Actions. An API allowance used up mid-run: the affected metrics unknown with the reason and reset time, and no exit 2.
 - `--post` with the fake `gh`: opening the issue, replacing its body, commenting only on a status change, and the first-run comment.
-- Project-defined metrics: the `issues` source, `deployments` rollbacks by ancestry and failures, a code metric returning a value, returning unknown, raising, and timing out.
+- Project-defined metrics: the `issues` source, `deployments` rollbacks by ancestry and failures, a code metric returning a value, returning unknown, raising, and timing out, and an incident metric returning records with and without a cause, and marked `incident` when it returns no record and when it is unknown.
 - The ledger's map rule: each required field, a field outside the table, each status's extra field, references in `prevented_by`, and `last-pass.toml`.
-- The ledger's Protected rule: an added `open` or `proposed` entry and a `last-pass.toml` update are not Protected; an edited, renamed or removed entry, a status change, an entry added as `implemented`, `rejected` or `closed`, and a `README.md` change are.
+- The ledger's Protected rule: an added entry, whatever its status, and a `last-pass.toml` update are not Protected; an edited, renamed or removed entry and a status change are. A `README.md` change is Protected through its CODEOWNERS line.
 - The JSON output against a recorded report.
 
 **Integration tests**, offline and labelled as such:
@@ -661,9 +664,9 @@ Two earlier designs are reused. The rule that missing data is unknown, and count
 
 **Live trials**, recorded under `docs/trials/`:
 
-- `devctl metrics` against a scratch repository on GitHub that has: a PR reverted with the Revert button and one with `git revert`, a PR partly reverted by restoring one file and another by undoing one section, a red merge, two quick merges whose push runs both complete, a PR closed unmerged, and a dismissed review that requested changes. The trial confirms the GitHub behaviour this spec relies on, including what the `review_dismissed` event records and the Revert button's body line. It records each partial revert that the content check missed or invented. It runs with and without Agent identity.
+- `devctl metrics` against a scratch repository on GitHub that has: a PR reverted with the Revert button and one with `git revert`, a PR partly reverted by restoring one file and another by undoing one section, a red merge, two quick merges whose push runs both complete, a PR closed unmerged, and a dismissed review that requested changes. The trial confirms the GitHub behaviour this spec relies on, including what the `review_dismissed` event records and the Revert button's body line. It records each partial revert that the content check missed or invented, including sections undone with small edits, and tunes the similarity threshold from that. It runs with and without Agent identity.
 - The Action on the same repository: its permissions suffice, it opens the issue, replaces the body and comments only on a change.
-- `rs-garden` on a scratch repository with prepared PRs: a blocking finding that was fixed, a nit that was skipped, a request from the owner, two Corrections in one category, a severe first Correction, an incident report that names its cause PR, a swallowed exception, a stale README command, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
+- `rs-garden` on a scratch repository with prepared PRs: a blocking finding that was fixed, a nit that was skipped, a request from the owner, two Corrections in one category, a severe first Correction, an incident record, returned by a project's incident metric, that names its cause PR, another incident record dated after the last pass but before the window's span, which the pass reaches only by widening the window, a swallowed exception, a stale README command, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
 - One unattended, scheduled `rs-garden` pass, which confirms what the Harness must allow in advance.
 - `rs-preflight` on hello-rapid-ship with and without Agent identity, and on a scratch service that records GitHub deployments. The trial records the review, the settings PR, the tasks it proposed and the outside steps it guided. A model writes the review, so the trial records a result, not a pass or fail.
 
@@ -671,14 +674,8 @@ Two earlier designs are reused. The rule that missing data is unknown, and count
 
 ## 17. Open items
 
-These are the drafter's proposals, and questions the owner has not settled. The owner settled the rest on 2026-10-16 and 2026-10-19.
+The owner settled every drafter proposal on 2026-10-16 and 2026-10-19, the last ones in round 2c (section 15). What remains is a fact the live trial measures and two questions the owner left open.
 
-- **The partial-revert check (proposal).** Restored files and undone sections, found from git as section 3 describes. A section counts only when its hunk removed a line and changed at least 3 non-blank lines. A whole revert found this way counts under `reverts` only when every file was restored. Partial reverts get their own metric, `partial_reverts`, with no seeded threshold until the live trial shows how often the check misfires. The alternatives are to count them under `reverts`, or to match sections by similarity instead of exact lines.
-- **A severe first Correction (proposal).** The owner decided that a severe first Correction gets a proposed task. The drafter's definition: a risk of data loss, exposure or a security hole, as `rs-review`'s table names it, or a Correction from an incident.
-- **Incident reports as a source (proposal).** `incidents = true` on an `issues` metric marks its issues as incident reports. `rs-garden` reads those closed since its last pass, and records a Correction for each that names an agent PR or commit as its cause. The alternative is a separate list of labels for `rs-garden`.
-- **The ledger's Protected rule (proposal for the details).** The owner decided that adding an entry is free, and that editing or removing an entry, or changing its status, needs the owner, whose sign-off sets `implemented`, `rejected` or `closed`. The drafter's details: updating `last-pass.toml` needs no owner; and adding an entry that is already `implemented`, `rejected` or `closed` does, which Spec 1's `diff` step and merge guard read from the entry's front matter at the PR's head (Spec 1, section 11).
-- **The `window` range (proposal).** 1 to 100 merged PRs, so the Action stays well inside its hourly GitHub API allowance.
-- **The gardening cadence (proposal).** rapid-ship advises a pass at least weekly, and one before each Pre-flight.
-- **`rs-preflight`'s details (proposal).** It keeps no record of a review beyond the conversation and its settings PR. It offers an issue form for incident reports that asks for the cause. It advises a full window of merged PRs before the first step toward Flight.
+- **The similarity threshold for partial reverts.** An undone section matches at a similarity ratio of at least 0.8 (section 3). The live trial records each partial revert that the content check missed or invented, and tunes the threshold from that.
 - **Unknown and the exit code.** An unknown status never changes the exit code. Whether to add a `--strict` option that also exits 1 on an unknown status, like `rapid-ship status --strict`, is still open.
 - **Lower limits.** Every Suggested threshold is an upper limit. A project-defined metric where more is better, such as deploys per week, has no lower limit yet.
