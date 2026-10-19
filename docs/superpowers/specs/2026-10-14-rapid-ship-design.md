@@ -210,7 +210,7 @@ Three specs:
 
 Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, Windows, and rewriting the documentation site.
 
-[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule, and [ADR 0003](../../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) is superseded.
+[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule. ADR 0003 was withdrawn before merge.
 
 ## Open
 

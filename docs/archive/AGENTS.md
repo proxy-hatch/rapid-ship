@@ -1,7 +1,7 @@
 # Archive
 
-This directory holds records of deferred or abandoned work. Nothing here describes current behaviour.
+This directory records dropped work. Nothing here is planned or describes current behaviour.
 
-- Read [orchestrator](orchestrator/README.md) only when resuming rapid-orchestrator, or when an ADR that defers it is being reconsidered.
-- Do not copy designs or code from here into current work. Check the ADRs in [adr](../adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) first.
-- When a decision defers a body of work, move its documents here with one README that states the status, the decisions, the evidence, and how to resume.
+- [orchestrator](orchestrator/README.md) records rapid-orchestrator, which [ADR 0004](../adr/0004-team-management-boundary.md) dropped, and links its full records by commit.
+- Do not copy designs or code from here into current work. The ADRs in `docs/adr/` state what is decided.
+- When a decision drops a body of work, keep one short note here: the status, what the work was, what its evidence showed, and full-SHA permalinks to the deleted records.
