@@ -137,7 +137,13 @@ def _gh(role: Role, arguments: Sequence[str], access: GitHubAccess, app: App) ->
     if refusal is not None:
         raise Refusal(refusal)
     token = access.token(role, app.id)
-    env = {"GH_TOKEN": token, "GH_REPO": access.repository, "GH_PROMPT_DISABLED": "1"}
+    # The owner's proxy settings, but none of the owner's gh sign-in or hosts: gh acts as the App.
+    env = {
+        **process.passed_variables(process.NETWORK_VARIABLES),
+        "GH_TOKEN": token,
+        "GH_REPO": access.repository,
+        "GH_PROMPT_DISABLED": "1",
+    }
     try:
         result = process.run_process(["gh", *arguments], Path.cwd(), GH_TIMEOUT_SECONDS, env=env)
     except OSError:  # gh is not installed, or cannot start

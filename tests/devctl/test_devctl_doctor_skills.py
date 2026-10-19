@@ -234,6 +234,33 @@ def test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed(
     assert len(worktrees(remote)) == 1
 
 
+def test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable(
+    doctor_ctx: DoctorContext,
+    remote: Remote,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Any sign-in method is ok (Spec 1 section 6), so one the owner's shell exports reaches the
+    # Session; devctl as's variables never do.
+    commit_skills(remote.clone, "rs-tdd")
+    monkeypatch.setenv("GEMINI_API_KEY", "example-value")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("RAPID_SHIP_GIT_TOKEN", "example-value")
+    monkeypatch.setenv("GIT_ASKPASS", "/nowhere/askpass")
+    record = fake_harness.directory / "agy.env"
+    install_script(fake_harness, "agy", f"env > \"{record}\"\necho '{agy_skills(['rs-tdd'])}'")
+    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
+    [item] = skills_items(replace(doctor_ctx, project=solo))
+    assert item.status == "ok"
+    environment = record.read_text().splitlines()
+    assert "GEMINI_API_KEY=example-value" in environment
+    assert "HTTPS_PROXY=http://proxy.invalid:3128" in environment
+    passed = [
+        line for line in environment if line.startswith(("RAPID_SHIP_GIT_TOKEN=", "GIT_ASKPASS="))
+    ]
+    assert passed == []
+
+
 def test_no_token_is_minted_and_the_session_sees_none(
     doctor_ctx: DoctorContext,
     github: FakeGitHub,

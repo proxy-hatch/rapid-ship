@@ -249,8 +249,8 @@ def run_guarded(action: Callable[[], int], *, root: Path | None = None) -> int:
 def git_environment(token: str) -> dict[str, str]:
     """What a token-bearing git command gets on top of run_process's safe environment.
 
-    git sees only these, HOME, LANG and LC_ALL, so the caller's GIT_TRACE*, GIT_CURL_VERBOSE and
-    GIT_CONFIG_* never reach it.
+    git sees only these, the caller's proxy and certificate settings, HOME, LANG and LC_ALL, so
+    the caller's GIT_TRACE*, GIT_CURL_VERBOSE and GIT_CONFIG_* never reach it.
     """
     path = os.environ.get("PATH", os.defpath)
     # askpass.py's shebang finds python3 on PATH, so this interpreter's directory goes first and
@@ -259,6 +259,7 @@ def git_environment(token: str) -> dict[str, str]:
     if sys.executable:
         path = os.pathsep.join([str(Path(sys.executable).parent), path])
     return {
+        **process.passed_variables(process.NETWORK_VARIABLES),
         "PATH": path,
         "GIT_ASKPASS": str(askpass.ASKPASS_PATH),
         "GIT_TERMINAL_PROMPT": "0",

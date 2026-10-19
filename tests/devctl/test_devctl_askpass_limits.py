@@ -94,6 +94,24 @@ def test_askpass_answers_only_username_and_password_prompts(
     assert capsys.readouterr().out == "x-access-token\n"
 
 
+def test_git_environment_passes_the_network_settings_and_no_other_caller_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("SSL_CERT_FILE", "/etc/ssl/example.pem")
+    monkeypatch.setenv("GH_TOKEN", "example-value")
+    monkeypatch.setenv("GIT_TRACE", "1")
+    monkeypatch.setenv("GIT_ASKPASS", "/nowhere/askpass")
+    monkeypatch.setenv(askpass.ASKPASS_VARIABLE, "example-value")
+    env = git_environment("t")
+    assert env["HTTPS_PROXY"] == "http://proxy.invalid:3128"
+    assert env["SSL_CERT_FILE"] == "/etc/ssl/example.pem"
+    assert env["GIT_ASKPASS"] == str(askpass.ASKPASS_PATH)
+    assert env[askpass.ASKPASS_VARIABLE] == "t"
+    assert "GH_TOKEN" not in env
+    assert "GIT_TRACE" not in env
+
+
 def test_git_environment_puts_this_interpreter_first(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     assert git_environment("t")["PATH"] == f"{Path(sys.executable).parent}:/usr/bin:/bin"

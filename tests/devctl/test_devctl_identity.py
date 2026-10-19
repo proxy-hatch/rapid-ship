@@ -178,6 +178,31 @@ def test_gh_runs_as_the_worker_app_with_the_token_only_in_its_environment(
     assert mints == [f"/app/installations/{WORKER_INSTALLATION}/access_tokens"]
 
 
+def test_gh_gets_the_network_settings_and_none_of_the_owners_sign_ins(
+    run_as: RunAs,
+    feature: str,
+    github: FakeGitHub,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    network = {"HTTPS_PROXY": "http://proxy.invalid:3128", "SSL_CERT_FILE": "/etc/ssl/example.pem"}
+    owner = ("GITHUB_TOKEN", "GH_HOST", "GH_ENTERPRISE_TOKEN", "GH_CONFIG_DIR", "ANTHROPIC_API_KEY")
+    for name, value in {**network, **dict.fromkeys(owner, "example-value")}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("GH_TOKEN", "example-owner-value")
+    names = sorted({*network, *owner})
+    install_gh(
+        fake_harness,
+        extra=f"print(json.dumps({{n: os.environ.get(n) for n in {names!r}}}), file=sys.stderr)",
+    )
+    assert run_as("worker", "gh", "pr", "list") == 0
+    out, err = capsys.readouterr()
+    [token] = github.issued_tokens
+    assert json.loads(out)["token_sha256"] == sha256(token)  # the App's token, not the owner's
+    assert json.loads(err) == {**dict.fromkeys(owner), **network}
+
+
 def test_gh_as_the_reviewer_uses_the_reviewer_app(
     run_as: RunAs,
     feature: str,
