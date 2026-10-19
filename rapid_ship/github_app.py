@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tomllib
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
@@ -176,7 +176,9 @@ class _Choice:
 
     app: StoredApp | None
     recorded: bool = False  # .rapid-ship/project.toml records app
-    restore: bool = False  # app's key is in plan 4's item; copy it to keychain_service's
+    # The key in app's plan 4 item, to copy to keychain_service's item. It is read with the other
+    # reads, so a key that cannot be read stops the command before any App is created.
+    old_key: bytes | None = field(default=None, repr=False)
     stops: tuple[str, ...] = ()  # why the command must not go on, one message each
 
 
@@ -204,7 +206,7 @@ def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _C
         return _Choice(recorded, recorded=True)
     old = store.find(LEGACY_SERVICE[role])
     if old is not None and old.app_id == recorded.app_id:
-        return _Choice(recorded, recorded=True, restore=True)
+        return _Choice(recorded, recorded=True, old_key=store.read_key(LEGACY_SERVICE[role]))
     return _Choice(recorded, recorded=True, stops=(_no_key(role, recorded),))
 
 
@@ -230,16 +232,18 @@ def _choose(
     for service, app in candidates:
         owned = _owned(app, target, owner_get)
         if owned:
-            return _Choice(app, restore=service == LEGACY_SERVICE[role])
+            old_key = store.read_key(service) if service == LEGACY_SERVICE[role] else None
+            return _Choice(app, old_key=old_key)
         if owned is None:
             unconfirmed.append(_unconfirmed(role, service, app))
     return _Choice(None, stops=tuple(unconfirmed))
 
 
-def _restore(role: str, app: StoredApp, store: KeychainStore) -> None:
-    """Copy the key in plan 4's item to the item named by App ID. rapid-ship deletes nothing."""
+def _restore(role: str, app: StoredApp, key: bytes, store: KeychainStore) -> None:
+    """Store the key read from plan 4's item in the item named by App ID. rapid-ship deletes
+    nothing."""
     old, new = LEGACY_SERVICE[role], keychain_service(role, app.app_id)
-    store.add(new, app, store.read_key(old))
+    store.add(new, app, key)
     sys.stdout.write(
         f"Re-stored the {TITLES[role]}'s key from Keychain item {old} as {new}. The old item "
         "stays; once ./devctl doctor passes, you can delete it with: "
@@ -256,8 +260,8 @@ def _ensure_app(
 ) -> tuple[StoredApp, bool]:
     """The role's App and whether its permissions are rapid-ship's. A found App is not checked."""
     if choice.app is not None:
-        if choice.restore:
-            _restore(role, choice.app, store)
+        if choice.old_key is not None:
+            _restore(role, choice.app, choice.old_key, store)
         return choice.app, True
     created = create(role, target.owner_login)
     try:

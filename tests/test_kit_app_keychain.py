@@ -410,6 +410,23 @@ def test_every_read_comes_before_any_change(capsys: pytest.CaptureFixture[str]) 
     )
 
 
+@pytest.mark.parametrize("reviewer_recorded", [False, True])
+def test_an_old_key_that_cannot_be_read_stops_the_command_before_any_app_is_created(
+    reviewer_recorded: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The Worker App must be created, and the Reviewer App's plan 4 item holds no key. The key
+    is read before the browser opens, so no App exists when the command stops."""
+    store = FakeStore()
+    store.apps[LEGACY_SERVICE["reviewer"]] = APPS["reviewer"]  # no key in the item
+    before = dict(store.apps)
+    recorded = {"reviewer": APPS["reviewer"]} if reviewer_recorded else {}
+    opened: list[str] = []
+    assert run(store, recorded, [], opened, SHOWN) == 2
+    assert (store.apps, opened) == (before, [])
+    err = capsys.readouterr().err
+    assert err == "rapid-ship: Keychain item rapid-ship/reviewer-app not found\n"
+
+
 def test_re_storing_through_security_passes_the_key_on_stdin_only(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
