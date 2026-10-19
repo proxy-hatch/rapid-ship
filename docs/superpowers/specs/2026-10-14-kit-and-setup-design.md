@@ -27,7 +27,7 @@ rapid-ship works with GitHub today, through `gh` and GitHub's rulesets. Other Gi
 
 ### Dog-fooding
 
-*This paragraph describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit (section 3) and is validated on itself and on its sample project, hello-rapid-ship. Its tracker is Linear. Its agents sign in with vendor subscriptions only, and the owner accepts the risk of running agy inside another Session, including `devctl doctor`'s agy probe ([ADR 0001](../../adr/0001-subscription-logins-only.md)). agy is never a Reviewer here. This repository records these choices as rules in its root AGENTS.md; no Kit file enforces them. It is also a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so it is turning Agent identity on in PR #33. The owner created its Worker and Reviewer Apps with `rapid-ship app` on 2026-10-19. Their keys stay under plan 4's old Keychain names until `rapid-ship app` re-stores them under the new ones (section 3). Installing both Apps, recording them in `[github]` and confirming them with `./devctl doctor` are pending Owner steps of [plan 4](../plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity).
+*This paragraph describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit (section 3) and is validated on itself and on its sample project, hello-rapid-ship. Its tracker is Linear. Its agents sign in with vendor subscriptions only, and the owner accepts the risk of running agy inside another Session, including `devctl doctor`'s agy probe ([ADR 0001](../../adr/0001-subscription-logins-only.md)). agy is never a Reviewer here. This repository records these choices as rules in its root AGENTS.md; no Kit file enforces them. It is also a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so PR #33 turns Agent identity on. The owner created its Worker and Reviewer Apps with `rapid-ship app` on 2026-10-19 and installed both on this repository, and #33 records them in `[github]` ([plan 4](../plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity), follow-up 6). Their keys stay under plan 4's old Keychain names until `rapid-ship app` re-stores them under the new ones (section 3).
 
 ## 2. Removing the old controller
 
@@ -36,7 +36,7 @@ Built in plan 1. The last commit that contains the controller is tagged `archive
 1. The controller code and its tests were deleted: `rapid_ship/execution/`, `rapid_ship/trust/` and `rapid_ship/project/`; the old `cli.py`, `models.py`, `storage.py`, `logs.py`, `protocol_json.py`, `metrics.py`, `github_metrics.py` and templates; the root controller `devctl` with its build and smoke scripts; the `tests/typecheck_*.py` fixtures; and `examples/`.
 2. `rapid_ship/files.py` stayed. `rapid_ship/process.py` moved into devctl in plan 3. The console script is `rapid-ship`.
 3. The `rapid-ship` and `rapid-ship-improve` skills were deleted. `rapid-ship-engineering` stays until plan 7's Kit skills replace it; the optional `rs-contribute` replaces `rapid-ship-improve`.
-4. The controller-era records left the current documentation, and the remaining old guides start with a "Historical" line. The tag keeps the records, as the [orchestrator note](../../archive/orchestrator/README.md) says.
+4. The controller-era records and guides left the current documentation. Only `docs/getting-started.md` remains, with a "Historical" line under its title. The tag keeps the deleted records and guides, as the [orchestrator note](../../archive/orchestrator/README.md) says.
 5. `README.md`, `ARCHITECTURE.md`, the root `AGENTS.md` and `CLAUDE.md` were rewritten for the Kit.
 
 Later plans reused these parts of the tagged commit:
@@ -44,11 +44,13 @@ Later plans reused these parts of the tagged commit:
 | Source at the tag | Reused in |
 | --- | --- |
 | `rapid_ship/files.py`: `atomic_replace`. `rapid_ship/project/configuration.py`: `_safe_path` (lines 33-44), which refuses a path outside the project or through a symlink, and the create-only write in `_copy_skill` (lines 218-222), which never overwrites | The rapid-ship CLI (plan 2), which ported both into `files.py` as `safe_path` and `create_file` |
-| `rapid_ship/process.py`, the bounded process runner | devctl (plan 3), with the caller's `PATH` and truncation reported in flags rather than in the output. Plan 4 added two more fixes from its old branch (`de800ae`, `98082fb`) |
+| `rapid_ship/process.py`, the bounded process runner | devctl (plan 3), with the caller's `PATH` and truncation reported in flags rather than in the output. Plan 4 added two more fixes from its old branch, `codex/github-commands` (`de800ae`, `98082fb`) |
 | `scripts/check_repository.py` and `scripts/check.py` | devctl's `map` step and `devctl check` (plan 3), which deleted both scripts |
 | `rapid_ship/trust/github.py` `inspect_protection` | Replaced by doctor's ruleset item (plan 4), which reads rulesets rather than branch protection |
 | `tests/typecheck_*.py`, `assert_type` fixtures checked by mypy | The `type:` reference kind (section 5) |
 | `docs/metrics.md`: definitions and the rule that a missing metric is unknown | Spec 3 |
+
+`codex/github-commands` is not on GitHub, so its commits resolve only in the owner's clone. The [GitHub commands plan at `928fbe4`](https://github.com/proxy-hatch/rapid-ship/blob/928fbe493977ae41d2012e19baff3e861fd5b0e8/docs/superpowers/plans/2026-10-14-github-commands.md) describes its work.
 
 ## 3. The rapid-ship CLI
 
