@@ -4,7 +4,7 @@ rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI ca
 
 Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
 
-- Plan 4, doctor and Agent identity, with repositories that an organisation owns supported from the start (backlog item PRO-105). It is built in PRs #31 to #33, which are not merged yet.
+- Plan 4, doctor and Agent identity. It is built in PRs #31 to #33, which are not merged yet. Its follow-ups, which add repositories that an organisation owns (backlog item PRO-105), land on them first.
 - Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
