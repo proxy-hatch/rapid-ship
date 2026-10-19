@@ -20,6 +20,15 @@ Each merge deleted the Walk-flow draft, which only #30's root AGENTS.md and ARCH
 
 The two plan documents that plans 4 to 7 replace were deleted: GitHub commands, the old plan 4, built on `codex/github-commands` and never merged; and Kit skills, the old plan 5, never started. Plan 4's outline below lists what it took from `codex/github-commands`.
 
+A `git merge-tree` simulation shows that merging #27's deletions of 2026-10-20 up into #28, #29 and #30 conflicts on each branch. Resolve every branch the same way:
+
+1. Keep the plan documents of the branch's own PR and the PRs below it. #28 keeps `2026-10-14-remove-controller.md`, #29 also keeps `2026-10-14-rapid-ship-cli.md`, and #30 also keeps `2026-10-14-devctl-check.md`.
+2. Delete `2026-10-14-github-commands.md`, which #30 modified. `2026-10-14-kit-skills.md` is deleted without a conflict.
+3. Take #27's `docs/archive/AGENTS.md` and orchestrator note. In `docs/AGENTS.md`, take #27's lines on the ADRs and the archive, and keep the branch's other lines.
+4. On #28, delete the controller-era records that plan 1 moved into `docs/archive/orchestrator/`: `authority.md`, `environments.md`, `runtime-choice.md`, `session-handoffs.md` and `trials/`. The archive keeps one short note for each dropped body of work, and the tag `archive/controller-2026-10` keeps these records, as the [orchestrator note](../../archive/orchestrator/README.md) says. The tag lacks only the status lines and link fixes that #28 added.
+5. On #28, point each link to those records at its copy at the tag, `https://github.com/proxy-hatch/rapid-ship/blob/archive/controller-2026-10/docs/<path>`. The links are in `docs/bootstrap-validation.md`, `docs/getting-started.md`, `docs/model-harnesses.md`, `docs/usage.md` and `docs/trials/AGENTS.md`. The site build fails on a broken link, so run it before committing the merge.
+6. #29 and #30 take steps 4 and 5 when #28, then #29, merges up into them.
+
 This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 4 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records. Each plan document lives in its plan's PRs: plans 1 to 3 in PRs #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, on its branches.
 
 ## Conventions for every plan
