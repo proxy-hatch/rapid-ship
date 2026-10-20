@@ -207,7 +207,7 @@ Three specs:
 2. **[Delivery skills](2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
 3. **[Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden` and `rs-preflight`.
 
-Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, Windows, and rewriting the documentation site.
+Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, and Windows. Plan 7 rewrites the documentation site once `rs-setup` exists.
 
 [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule. ADR 0003 was withdrawn before merge.
 
