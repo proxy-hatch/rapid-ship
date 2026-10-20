@@ -127,7 +127,7 @@ def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: 
 def test_the_settings_seed_names_no_roster_and_still_loads(stack: Stack, tmp_path: Path) -> None:
     seed = text(stack, ".rapid-ship/project.toml")
 
-    # The optional rs-providers skill keeps the Roster in .rapid-ship/providers.md, not here.
+    # rapid-ship does not run agents across several Providers, so the seed names none.
     assert "roster" not in seed.lower()
     assert "Provider" not in seed
     (tmp_path / ".rapid-ship").mkdir()

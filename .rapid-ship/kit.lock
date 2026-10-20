@@ -186,7 +186,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "b974a7652112a0e7b1e01f75d02f7aed7d459f12a19a077e7af162cebdb96f9c"
+sha256 = "69fa2dbee598e73ded5a53b649ccae268559a9c650db1241565053df5bdfe450"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"
