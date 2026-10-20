@@ -24,7 +24,7 @@ Copied from the plan index and Spec 1; every task's requirements include them.
   - `rapid-ship app [--repository OWNER/NAME]` (plan 4)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH]`
   - `devctl doctor [--skills]`, `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
-  - `devctl hook {claude,codex,agy} {pre-tool,stop}` (plan 5)
+  - `devctl hook claude pre-tool` (plan 5); each later wiring adds its Harness
 - Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code; `devctl hook` follows each Harness's hook protocol and exits 1 on an internal error, never 2 (index).
 - doctor "exits 0 when everything is ok, 1 when something is missing and 2 when an item could not be checked" (Spec 1 section 6).
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed (index).
@@ -911,7 +911,7 @@ from typing import Literal, cast, get_args
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)
+# the Harnesses doctor --skills probes (Spec 1 section 6)
 Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
@@ -2940,7 +2940,8 @@ The ruleset, CODEOWNERS, branch deletion and fork-approval items come over from 
 # devctl/doctor_rules.py
 ADMIN_ROLE_ID = 5
 GITHUB_ACTIONS_APP_ID = 15368
-PROTECTED_PATHS: tuple[str, ...]  # plan 5 widens .agents/skills/ to .agents/ and adds .codex/
+# Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/
+PROTECTED_PATHS: tuple[str, ...]
 PYTHON_PROTECTED_PATHS: tuple[str, ...]
 NO_APPROVAL = "no pull_request rule requires an approval"
 def ruleset_problems(
@@ -3366,7 +3367,7 @@ from devctl.settings import Role, Stack
 ADMIN_ROLE_ID = 5  # the repository admin role; plan 4's live trial reads it back
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
 # The Protected set of the seeded CODEOWNERS (Spec 1 section 4), in its order, with the devctl
-# shim. Plan 5 widens .agents/skills/ to .agents/ and adds .codex/ for the Harness guardrail wiring.
+# shim. Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
