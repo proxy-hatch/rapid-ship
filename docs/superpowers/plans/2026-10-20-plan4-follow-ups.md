@@ -147,9 +147,9 @@ The owner's decision of 2026-10-20 descopes running agents across several Provid
 
 **Interfaces:**
 - Consumes: Task 8's `ProjectSettings` without `roster`.
-- Produces: `probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]` returns each of `claude`, `codex` and `agy` on `PATH`; doctor's report has no sign-in items.
+- Produces: `probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]` returns each of `claude`, `codex` and `agy` on `PATH`, which Task 12 narrows to `claude`; doctor's report has no sign-in items.
 
-- [ ] Write failing tests: doctor's full report has no item in the sign-in area for any settings; `--skills` probes exactly the supported Harnesses on `PATH`, whatever the settings say; the agy warning text still applies when `agy` is on `PATH`.
+- [ ] Write failing tests: doctor's full report has no item in the sign-in area for any settings; `--skills` probes exactly the supported Harnesses on `PATH`, whatever the settings say; the agy warning text still applies when `agy` is on `PATH`, until Task 12 removes it with the agy probe.
 - [ ] Implement: delete the sign-in items, `doctor_signin.py` and the agy sign-in probe in `harness.py`, keeping what `--skills` still calls, and drop the branch of `probed_harnesses` that read `[roster]`. A removed test's subject must be gone; declare each removed test in the PR body's `Removed tests:` with the test that covers what remains.
 - [ ] Update every document on this branch that describes doctor's sign-in items (`ARCHITECTURE.md`, `tools/AGENTS.md`).
 - [ ] Sync, run the four checks; commit. Built on #32 in 89a7f11.
@@ -158,17 +158,17 @@ Task 7 (PR #33) also covers these removals in #33's documents.
 
 ### Task 10 (PR #33): merge Task 9, and test the Harness sign-ins through `--skills`
 
-#33's `ab473c6` passes each tool its own sign-in variables, and its tests show that through doctor's sign-in items, which Task 9 deletes. Spec 1 section 6 still requires doctor to pass each Harness the owner's sign-in and proxy variables. #33's tests therefore show it through `--skills`.
+#33's `ab473c6` passes each tool its own sign-in variables, and its tests show that through doctor's sign-in items, which Task 9 deletes. Spec 1 section 6 still requires doctor to pass Claude Code, the one Harness that `--skills` probes after Task 12, the owner's sign-in and proxy variables. #33's tests therefore show it through `--skills`.
 
 **Files:**
 - Modify: `rapid_ship/templates/common/tools/devctl/devctl/doctor_items.py`, in the merge
 - Test: `tests/devctl/test_devctl_doctor_environment.py`, `tests/devctl/test_devctl_doctor_skills.py`, `tests/devctl/github_fixtures.py`
 
 - [ ] Merge `plan4-doctor` with `git merge --no-ff`. In `doctor_items.py`, keep `SIGN_IN_VARIABLES` and `owner_environment`: `run_installed` passes them to gh, gitleaks and each `--skills` Session. Take Task 9's removal of `harness_roles`. In the tests, drop `ctx(worker=...)` and every `roster=`.
-- [ ] Rewrite the claude, codex and agy cases of `test_a_sign_in_held_only_in_the_environment_is_ok` as `--skills` tests. Each Harness runs through `skills_items` with `doctor_ctx`, and its Session receives its own sign-in variable and no other tool's. Keep the gh cases on `local_items`.
-- [ ] `test_each_tool_gets_its_own_sign_in_and_the_network_settings_only` runs gh and gitleaks through `local_items`, and claude, codex and agy through `skills_items`.
-- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its Roster: with only agy on `PATH`, `--skills` probes agy alone.
-- [ ] The `diff` step knows a test by its function name, not by its parametrize cases, so it cannot see a dropped case. Keep a `--skills` case for each Harness. Declare each test function that the rewrite removes under #33's `Removed tests:`, with the test that covers what remains.
+- [ ] Rewrite the claude case of `test_a_sign_in_held_only_in_the_environment_is_ok` as a `--skills` test. claude runs through `skills_items` with `doctor_ctx`, and its Session receives its own sign-in variable and no other tool's. The codex and agy cases go, because `--skills` no longer starts them (Task 12). Keep the gh cases on `local_items`.
+- [ ] `test_each_tool_gets_its_own_sign_in_and_the_network_settings_only` runs gh and gitleaks through `local_items`, and claude through `skills_items`.
+- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its Roster and runs claude: with `claude` on `PATH`, `--skills` probes Claude Code alone.
+- [ ] The `diff` step knows a test by its function name, not by its parametrize cases, so it cannot see the dropped codex and agy cases; #33's body names them. Declare each test function that the rewrite removes under #33's `Removed tests:`, with the test that covers what remains.
 - [ ] Sync, run the four checks; commit the merge as `Merge plan4-doctor: doctor checks no Harness sign-in`, and the rewrite as `test: show that each --skills Session gets its own Harness sign-in`.
 
 ## Plan 5 wires Claude Code alone (the owner's decision of 2026-10-20)
@@ -189,9 +189,9 @@ The owner's decision of 2026-10-20 has plan 5 wire the Harness guardrails for Cl
 The owner's review of PR #27 on 2026-10-20 has `doctor --skills` probe Claude Code alone until another Harness's integration lands, after the PRO-139 spike (Spec 1 section 6). This is the plan index's follow-up 9.
 
 - [ ] On #31, `settings.py` drops the `Harness` alias: no setting names a Harness, and #32 needs no type for three Harnesses once it probes Claude Code alone. Built in a24ee32.
-- [ ] On #32, `--skills` adds its temporary worktree and starts one headless Claude Code Session there, only when `claude` is on `PATH`. `harness.py` drops the codex and agy models, arguments and parsers, and its import of `Harness`, which fails after the merge of `plan4-settings-tokens`. `doctor_skills.py` drops their entries and the note on Google's consumer terms. Their tests go; declare each removed test under #32's `Removed tests:`, with the test that covers what remains.
+- [ ] On #32, `--skills` adds its temporary worktree and starts one headless Claude Code Session there, only when `claude` is on `PATH`. `harness.py` drops the codex and agy models, arguments and parsers, and its import of `Harness`, which fails after the merge of `plan4-settings-tokens`. `doctor_skills.py` drops their entries and the note on Google's consumer terms. Their tests go; declare each removed test under #32's `Removed tests:`, with the test that covers what remains. Built in c05e443.
 - [ ] On #33, the `--skills` tests of each Session's sign-in variables keep the claude case alone.
-- [ ] On each of #31 to #33, the guides and plan text stop describing a probe of codex and agy, as the plan index's follow-up 9 lists. On #31, plan 4's plan document says that #32 narrows the probe, and its Task 10 expects one `skills (claude)` item without the warning about Google's consumer terms. Built in d7529c5.
+- [ ] On each of #31 to #33, the guides and plan text stop describing a probe of codex and agy, as the plan index's follow-up 9 lists. On #31, plan 4's plan document says that #32 narrows the probe, and its Task 10 expects one `skills (claude)` item without the warning about Google's consumer terms. Built in d7529c5. On #32, `doctor.py`'s `--skills` help, the root AGENTS.md doctor line, ARCHITECTURE.md's plan 4 bullet and plan 4's plan document describe the Claude Code probe. Built in c05e443 and 0700157.
 - [ ] Sync, run the four checks; commit the code as `refactor:` and the documents as `docs:`.
 
 ## Owner steps after the merge-up
