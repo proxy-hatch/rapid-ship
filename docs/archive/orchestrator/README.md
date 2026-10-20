@@ -14,6 +14,7 @@ rapid-orchestrator was to be a separate project that starts, resumes and cancels
 ## Where the full records live
 
 - The controller-era documents and the 2026-10-11 runtime trials are at the tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10/docs).
+- The controller-era plans of 2026-10-10 and 2026-10-12 are at the same tag, in [`docs/superpowers/plans`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10/docs/superpowers/plans).
 - These records were deleted after commit `401b57d` and stay readable there:
   - [ADR 0003](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md), which deferred rapid-orchestrator and was withdrawn before merge;
   - the [landscape survey](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-orchestrator-landscape.md);
