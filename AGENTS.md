@@ -50,7 +50,6 @@ These are this repository's choices, not product behaviour. Product text names t
 - Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
 - agy is never a Reviewer.
-- Use each model exactly as named. If it is unavailable, stop instead of falling back.
 
 ## Safety
 
