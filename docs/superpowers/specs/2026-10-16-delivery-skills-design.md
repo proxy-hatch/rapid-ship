@@ -1,6 +1,6 @@
 # Spec 2: Delivery skills
 
-**Status: written on 2026-10-16, revised on 2026-10-19 with the owner's review decisions, which settled every proposal, and revised on 2026-10-20 to make several Providers the optional `rs-providers` skill.** It applies the owner's re-scope decisions of 2026-10-16, of the second review on 2026-10-19 and of 2026-10-20, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
+**Status: written on 2026-10-16, revised on 2026-10-19 with the owner's review decisions, which settled every proposal, and revised on 2026-10-20 to descope running agents across several Providers.** It applies the owner's re-scope decisions of 2026-10-16, of the second review on 2026-10-19 and of 2026-10-20, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
 
 ## 1. Outcome and scope
 
@@ -8,17 +8,16 @@ When this spec is built, an owner can take a feature from an idea to merged pull
 
 1. `rs-design` interviews the owner, then writes the feature design, ADRs and ARCHITECTURE.md changes.
 2. `rs-breakdown` turns an approved design into milestones, epics, optional stories and tasks in the owner's tracker.
-3. `rs-lead` builds the Lead brief at the start of a Session: what to work on now, which review findings trigger another round, which pull requests come back to the owner, and the Roster when the owner opted in to `rs-providers`.
+3. `rs-lead` builds the Lead brief at the start of a Session: what to work on now, which review findings trigger another round, and which pull requests come back to the owner.
 4. `rs-work` tells a Worker how to meet the bar on one task.
 5. `rs-review` tells a Reviewer how to judge one change.
 
-The Lead's Harness does the running. It starts subagents or other vendors' CLIs, waits for them, resumes them and stops them. rapid-ship ships only the instructions and the guardrails around them. No rapid-ship code in this spec starts, watches, resumes or hands over a Session. Agents push, review and merge while they follow these skills; rapid-ship never performs one of those actions as a step of its own.
+The Lead's Harness does the running. It starts subagents or headless Sessions, waits for them, resumes them and stops them. rapid-ship ships only the instructions and the guardrails around them. No rapid-ship code in this spec starts, watches, resumes or hands over a Session. Agents push, review and merge while they follow these skills; rapid-ship never performs one of those actions as a step of its own.
 
 This spec also defines:
 
 - the tracker mapping notes, Linear's first (section 5);
 - how the skills read the `[escalation]` table that Spec 1 seeds in `.rapid-ship/project.toml`, and two new tables, `[tracker]` and `[design]` (section 3.4);
-- the optional `rs-providers` skill, which writes the Roster for an owner who spreads work across several Provider subscriptions (section 6.7);
 - the review verdict format (section 3.6);
 - what a Lead brief may and may not claim about each Harness (section 9).
 
@@ -46,11 +45,10 @@ owner ─► rs-lead (Focus + project.toml) ─► Lead brief ─► Lead Sessio
 | `rs-design` | The owner | The owner's Session | A feature spec, ADRs, GLOSSARY.md and ARCHITECTURE.md changes |
 | `rs-breakdown` | The owner | The owner's Session | Tracker records |
 | `rs-lead` | The owner, at the start of a Lead Session | The Session that becomes the Lead | The Lead brief, in the conversation only |
-| `rs-providers` | The owner, only after opting in | The owner's Session | `.rapid-ship/providers.md`, in one pull request |
 | `rs-work` | The Lead, once per Worker, or the Lead itself | A subagent or a headless Session in the task's worktree | One branch and one pull request |
 | `rs-review` | The Lead, once per head commit | A subagent or a headless Session with its own context, in a checkout of the base branch | One review on that head commit |
 
-`rs-design`, `rs-breakdown`, `rs-lead` and the optional `rs-providers` are user-invoked (`disable-model-invocation: true`). `rs-work` and `rs-review` stay model-invocable, so a subagent can load them by name.
+`rs-design`, `rs-breakdown` and `rs-lead` are user-invoked (`disable-model-invocation: true`). `rs-work` and `rs-review` stay model-invocable, so a subagent can load them by name.
 
 Two Spec 1 and Spec 3 skills reuse formats from this spec. `rs-health` writes its standards milestone with `rs-breakdown`'s levels and task template. `rs-garden` proposes rule changes as tasks in the same template, and reads the review verdicts of section 3.6 for Corrections.
 
@@ -67,7 +65,6 @@ Each skill is one real directory in `.agents/skills/<name>/`, which Codex and ag
   rs-breakdown/  SKILL.md, references/levels.md, references/task-template.md,
                  references/trackers/linear.md
   rs-lead/       SKILL.md, references/brief-template.md, references/flight.md
-  rs-providers/  SKILL.md, references/routes.md   (optional)
   rs-work/       SKILL.md
   rs-review/     SKILL.md, references/verdict-format.md
 ```
@@ -142,7 +139,7 @@ specs = "docs/specs"             # a repository directory, or "tracker" for trac
 
 devctl rejects an unknown key (Spec 1), so Spec 2's plan teaches its settings loader `[tracker]` and `[design]`. An unknown key or a wrong type in either makes the settings unreadable, and `devctl check` reports a blocked step (exit 2). Any key under `[tracker.<name>]` is accepted, because the mapping note defines those keys. devctl only validates `[tracker]`; it never contacts the tracker.
 
-No setting names a Provider, a Harness or a model: devctl knows nothing about Providers. The Roster is prompt text in `.rapid-ship/providers.md`, which the optional `rs-providers` writes (section 6.7). That file is in the Protected set too, and devctl refuses a `[roster]` table with a message that names `rs-providers` (Spec 1).
+No setting names a Provider, a Harness or a model: rapid-ship does not run agents across several Providers, and the Lead's Harness chooses its subagents' models. devctl refuses a leftover `[roster]` table (Spec 1).
 
 The Focus is never stored. `rs-lead` asks for it in each Session. No setting limits how many Sessions or Workers run.
 
@@ -329,7 +326,7 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 
 ## 6. `rs-lead`
 
-**Purpose.** Build the Lead brief at the start of a Session. The Session that runs `rs-lead` becomes the Lead. How closely it follows the brief, including each model named in it, is up to its Harness ([ADR 0004](../../adr/0004-team-management-boundary.md)).
+**Purpose.** Build the Lead brief at the start of a Session. The Session that runs `rs-lead` becomes the Lead. How closely it follows the brief is up to its Harness, which also chooses its subagents' models ([ADR 0004](../../adr/0004-team-management-boundary.md)).
 
 ### 6.1 Inputs, steps, outputs
 
@@ -338,7 +335,6 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 - The Focus, from the owner: a milestone or chosen tasks.
 - What `./devctl doctor` reports.
 - `[escalation]` and `[tracker]` from `project.toml`, and whether Agent identity is on (section 3.3).
-- `.rapid-ship/providers.md`, the Roster, when it exists (section 6.7).
 - `.github/CODEOWNERS` and the default branch's ruleset, read with `gh`.
 - The Focus's records in the tracker, through the Harness's connection.
 - The Lead's own Harness. `rs-lead` asks the owner when it cannot tell.
@@ -348,12 +344,12 @@ The Kit ships Linear's note first. A note for another tracker is a Kit change, c
 1. Run `./devctl doctor` before anything else. When it cannot read the settings, it exits 2 and names the problem. Then stop and help the owner fix the settings: while `devctl hook` cannot read them, it still applies G1 to G4 and the merge guard, but G5, G7 and G8 give no decision, so the asks before Protected edits and Agent identity's denies are lost (Spec 1). Every other Session, such as a Worker's or a Reviewer's, runs `./devctl doctor --settings` first, as the seeded root AGENTS.md asks; it reads only the settings (Spec 1, section 6).
 2. Read the settings, CODEOWNERS and the ruleset. Check the Session's checkout: it has no local changes, and after `git fetch`, `HEAD` is the commit that `origin/<default branch>` names. Any branch is fine, so a Session in its own worktree qualifies. Section 9.2 says why.
 3. Ask for the Focus: a milestone or chosen tasks. Read its tasks from the tracker, and show the frontier (section 5.5).
-4. Read `.rapid-ship/providers.md` when it exists: it is the Roster (section 6.7), and the brief carries its text as written. Resolve no route from it. Without it, state that the Lead's Harness chooses its subagents' models. Give each warning of section 6.4 that applies.
+4. State that the Lead's Harness chooses its subagents' models. Give each warning of section 6.4 that applies.
 5. State the Mode from the escalation list (section 6.2). Check that CODEOWNERS agrees with it, and explain any mismatch (section 6.5).
 6. Fill `references/brief-template.md` (section 6.6).
 7. Show the brief, and tell the owner its limit: rapid-ship cannot see which model a subagent receives or whether the Lead follows the brief, while CI and any ruleset hold either way. The owner confirms the brief or changes the Focus.
 8. Follow the brief as the Lead. The owner may instead copy the brief into another Session.
-9. When the owner asks to change the Mode, prepare the pull request that changes `project.toml`, and CODEOWNERS where needed (section 6.5). The owner approves and merges it. To change the Roster, the owner runs `rs-providers`.
+9. When the owner asks to change the Mode, prepare the pull request that changes `project.toml`, and CODEOWNERS where needed (section 6.5). The owner approves and merges it.
 
 **Outputs:** the Lead brief, in the conversation only; optionally one pull request that changes `[escalation]`, and CODEOWNERS where needed.
 
@@ -407,7 +403,7 @@ The same rules appear in `rs-review`'s text, so the Reviewer and the Lead agree:
 
 ### 6.4 Harness warnings
 
-`rs-lead` gives each warning that applies to the Lead's own Harness and to the Workers and Reviewers it will start. For each Harness the Roster names, `rs-providers` gives the same warnings when it writes the Roster (section 6.7).
+`rs-lead` gives each warning that applies to the Lead's own Harness and to the Workers and Reviewers it will start.
 
 - **Guardrails in Codex and agy are unconfirmed.** Whether Codex's and agy's hooks fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139, the first task of Spec 1's plan 5. Until it confirms them, `rs-lead` warns that a Codex or agy Worker or Reviewer may run without the Harness guardrails. The pre-commit hook, CI and any ruleset hold either way.
 - **A Harness without Kit wiring.** The Kit ships guardrail settings only for Claude Code, Codex and agy (Spec 1). A Session on any other Harness, whether the Lead, a Worker or a Reviewer, runs without the Harness guardrails, the merge guard included; the pre-commit hook, CI and any ruleset still hold. `rs-lead` gives this warning for the Lead's own Harness when the Kit has no wiring for it.
@@ -438,8 +434,7 @@ and the repository's AGENTS.md.
 - The frontier now: <task IDs>.
 
 ## Agents
-- <No Roster:> Choose the models for Workers and Reviewers yourself.
-- <Roster:> Start each Worker and Reviewer as the Roster at the end of this brief says.
+- Choose the models for Workers and Reviewers yourself.
 
 ## Mode: <Walk | Flight>
 - Bring these pull requests to the owner: <every pull request | the Protected set, and the
@@ -497,7 +492,6 @@ and the repository's AGENTS.md.
 ## Stop and ask the owner when
 - A task needs a decision its spec does not make. Label it needs-human, then continue with
   other tasks.
-- A named model or Agent is unavailable.
 - A check is blocked. A missing tool or credential is not a pass.
 - A guardrail refuses an action. Never work around a guardrail.
 
@@ -506,36 +500,9 @@ and the repository's AGENTS.md.
 - Edit `.rapid-ship/kit.lock` by hand, or change a Protected path without the owner.
 - Merge a pull request on the escalation list unless the owner tells you to.
 - Add a permission-bypass flag to a Worker or a Reviewer.
-
-<Roster:> ## Roster
-<The text of .rapid-ship/providers.md, as written.>
 ```
 
 The spawn details in steps 4 and 7 restate the constraints that matter, because only Claude Code documents that subagents inherit the project's instructions (section 9.2). The Corrections ledger's place and format are Spec 3's. A pull request may add a new entry without the owner. A change to an existing entry, such as its status, or its removal counts as Protected, so the owner signs off on it (Spec 3).
-
-### 6.7 `rs-providers`
-
-**Purpose.** Spreading Workers and Reviewers across several Provider subscriptions saves cost, but not every owner needs it, and it draws away from rapid-ship's focus: accelerating software development. So it is opt-in: a setup check, and advice that reaches the Lead as prompt text. `rs-providers` is user-invoked and installed only when the owner adds it to `[kit] optional`, as `rs-contribute` is. `rs-setup` offers it once (Spec 1, section 8). devctl knows nothing about Providers.
-
-**Steps:**
-
-1. Ask which Harness and exact model the Workers use, and which the Reviewers use. Any Harness may be named. Claude Code, Codex and agy have built-in routes (below). For any other, such as pi, the owner gives its headless command, with the places for the prompt and the model. Recommend a Reviewer from a different Provider than the Worker. For agy, offer only a slug that `agy models` lists.
-2. When a role names agy, warn first that running agy from another Harness's Session is a use Google's consumer terms do not support ([ADR 0001](../../adr/0001-subscription-logins-only.md)). The check in step 3 does that unless this Session is agy's, and so does a Lead on another Harness that starts the role with `agy -p`. The owner decides whether to accept it.
-3. Check that each named Harness's CLI is on `PATH` and signed in: `claude auth status --json` for Claude Code, `codex login status` for Codex, and for agy or another Harness a one-word headless prompt on the named model, where a non-empty reply counts as signed in and the exit code alone proves nothing. Any sign-in method is ok: a subscription, an API key or a gateway. Give each warning of section 6.4 that applies.
-4. Write the advice to `.rapid-ship/providers.md`, as below, in one pull request pushed as section 3.3 says. `.rapid-ship/` is in the Protected set, so the owner approves and merges it.
-
-**What it writes.** Prompt text that names, for each role, the Harness, the exact model and how the Lead starts it, and says that each model is used exactly as named, with no fallback:
-
-| Harness | How the Lead starts it |
-| --- | --- |
-| Claude Code | From a Claude Code Lead, a native subagent with the model on its spawn. Otherwise `claude -p "<prompt>" --model <model>`, never with `--bare`: bare mode skips settings hooks and CLAUDE.md, and reads no subscription sign-in |
-| Codex | From a Codex Lead, a native subagent, when the Lead's Provider serves the model. From Claude Code, OpenAI's Codex plugin, whose `/codex:rescue` hands Codex a prompt; its optional Stop-hook review gate stays off, because it can loop and drain usage limits. From any Harness, `codex exec -C <worktree> -m <model> --sandbox workspace-write "<prompt>"`; without that sandbox setting, `codex exec` is read-only |
-| agy | `agy -p "<prompt>" --model <slug>`, which also reaches the Claude and GPT-OSS models in agy's catalog. An agy Lead's native subagent takes only `inherit`, `flash` or `pro`. Headless agy soft-denies a tool that needs an approval and still exits 0, so the Lead treats a skip notice on stderr as a failure |
-| Any other, such as pi | The owner's headless command, with the prompt and the model filled in, as written |
-
-A Worker's command runs from the task's worktree, and a Reviewer's from a checkout of the base branch (section 8). Its prompt tells the Agent to follow `rs-work` or `rs-review`, with the spawn details of section 6.6. The advice also says that a CLI started from a sandboxed Lead runs inside that sandbox: inside agy's sandbox it cannot reach its vendor, and a sandbox inside another generally fails.
-
-`rs-lead` appends the file to the Lead brief as written and resolves no route itself (section 6.1). rapid-ship cannot see which model a subagent received, so the file is advice.
 
 ## 7. `rs-work`
 
@@ -661,7 +628,7 @@ A Lead brief is advice to a Harness that rapid-ship does not control, so it reli
 3. **Parallel subagents of the same vendor.** The Lead can start several, wait for all of them, and return one summary. The brief states how the work is divided, that the Lead waits, and what the summary holds.
 4. **A Reviewer as a separate subagent** with its own context.
 5. **Hooks that deny a tool call,** which carry the Harness guardrails and the merge guard (Spec 1). Whether Codex's and agy's hooks also fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139 (section 9.2).
-6. **Headless entry points** for starting another vendor's CLI: `claude -p`, `codex exec` and `codex review`, and `agy -p`.
+6. **Headless entry points** for starting a Session of the same Harness: `claude -p`, `codex exec` and `codex review`, and `agy -p`.
 
 ### 9.2 What the brief must not assume
 
@@ -684,19 +651,18 @@ The brief therefore:
 - Never requires an experimental, interactive-only or paid-only feature: Claude Code's agent teams, dynamic workflows, agent view, routines and `/code-review ultra`; agy's `/boost` and `/teamwork-preview`; Codex's `codex app-server`. Codex removed `codex mcp-server` in 0.154.0.
 - Asks for a Lead started from a clean checkout at `origin/<default branch>`, on any branch, because a Claude Code subagent in its own worktree takes its instruction files from the main conversation, not from its worktree.
 - Starts every Reviewer in a checkout of the base branch, so the Reviewer runs under the base branch's instructions and hooks, never under those of the change it reviews.
-- Never claims that the Harness will follow it, or that a subagent received the named model. rapid-ship cannot see either. CI and any ruleset hold regardless.
+- Never claims that the Harness will follow it, or which model a subagent received. rapid-ship cannot see either. CI and any ruleset hold regardless.
 
 ### 9.3 Other Harnesses and desktop apps
 
-rapid-ship supports any Harness, including API-backed ones such as pi. Any Harness other than the three gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit, but no guardrail settings (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer through a shell route. A Roster names such a Harness with the owner's headless command (section 6.7). Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
+rapid-ship supports any Harness, including API-backed ones such as pi. Any Harness other than the three gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit, but no guardrail settings (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer with a headless command from its shell. Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
 
 ### 9.4 Sources
 
-Harness behaviour (section 9, the warnings in section 6.4 and the routes in section 6.7), read on 2026-10-16:
+Harness behaviour (section 9 and the warnings in section 6.4), read on 2026-10-16:
 
-- Claude Code: [subagents](https://code.claude.com/docs/en/sub-agents), [agents](https://code.claude.com/docs/en/agents), [headless mode](https://code.claude.com/docs/en/headless), [memory and AGENTS.md](https://code.claude.com/docs/en/memory), [hooks](https://code.claude.com/docs/en/hooks), [worktrees](https://code.claude.com/docs/en/worktrees), [skills](https://code.claude.com/docs/en/skills), [desktop](https://code.claude.com/docs/en/desktop), [local code review](https://code.claude.com/docs/en/code-review-local.md). `claude --help` (2.1.287) for `--bare`.
-- Codex: [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents.md), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode.md), [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md), [hooks](https://learn.chatgpt.com/docs/hooks.md), [code review](https://learn.chatgpt.com/docs/code-review.md), [skills](https://learn.chatgpt.com/docs/build-skills), [MCP server removal](https://learn.chatgpt.com/docs/mcp-server.md). `codex exec --help` (0.162.0) for `-C`, `-m` and `--sandbox`.
-- OpenAI's Codex plugin for Claude Code: [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc).
+- Claude Code: [subagents](https://code.claude.com/docs/en/sub-agents), [agents](https://code.claude.com/docs/en/agents), [headless mode](https://code.claude.com/docs/en/headless), [memory and AGENTS.md](https://code.claude.com/docs/en/memory), [hooks](https://code.claude.com/docs/en/hooks), [worktrees](https://code.claude.com/docs/en/worktrees), [skills](https://code.claude.com/docs/en/skills), [desktop](https://code.claude.com/docs/en/desktop), [local code review](https://code.claude.com/docs/en/code-review-local.md).
+- Codex: [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents.md), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode.md), [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md.md), [hooks](https://learn.chatgpt.com/docs/hooks.md), [code review](https://learn.chatgpt.com/docs/code-review.md), [skills](https://learn.chatgpt.com/docs/build-skills), [MCP server removal](https://learn.chatgpt.com/docs/mcp-server.md).
 - agy: [subagents](https://antigravity.google/docs/subagents?tab=cli), [headless](https://antigravity.google/docs/cli/headless), [models](https://antigravity.google/docs/models), [rules](https://antigravity.google/docs/rules), [skills](https://antigravity.google/docs/skills), [permissions](https://antigravity.google/docs/permissions), [sandbox](https://antigravity.google/docs/sandbox), [hooks](https://antigravity.google/docs/hooks).
 - pi: [README](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md).
 
@@ -707,13 +673,13 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 *This section describes this repository's own configuration, not product behaviour.* rapid-ship validates these skills on itself and on its sample project, hello-rapid-ship.
 
 - **Tracker:** Linear, team PRO, with one project per product: "rapid-ship" and "hello-rapid-ship". Parent issues with sub-issues are already in use (PRO-99). Neither project has milestones yet, so the first `rs-breakdown` run creates them. Maintainers connect Linear through its official MCP server or API, never a third-party CLI.
-- **Reviewers:** agy is never a Reviewer in this repository. That is the owner's judgement for this repository, not a product rule; `rs-providers` offers agy as a Reviewer to other projects.
-- **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk of running agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, the warning that `rs-providers` gives on that use is acknowledged rather than a blocker.
+- **Reviewers:** agy is never a Reviewer in this repository. That is the owner's judgement for this repository, not a product rule.
+- **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk of running agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, the warning that `rs-setup` gives on that use is acknowledged rather than a blocker.
 - **Models:** this repository uses each chosen model exactly as named and stops instead of falling back, as its root AGENTS.md requires.
 
 ## 11. What changed on 2026-10-16, 2026-10-19 and 2026-10-20
 
-The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19 settled what this spec states. On 2026-10-20 the owner made several Providers opt-in: the Roster left `project.toml` and devctl, and the optional `rs-providers` writes it (section 6.7). The open questions are in section 13.
+The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19 settled what this spec states. On 2026-10-20 the owner descoped running agents across several Providers (Spec 1, section 1): `[roster]` left `project.toml` and devctl, and the Lead brief names no model. The open questions are in section 13.
 
 ## 12. Testing
 
@@ -722,8 +688,8 @@ The skills are instructions, so most of their validation is dog-fooding: real ru
 ### Offline tests
 
 - devctl's settings loader: valid `[tracker]` and `[design]` tables load, with any keys under `[tracker.<name>]`. An unknown key or a wrong type in either makes the settings unreadable, and `devctl check` reports a blocked step.
-- Spec 1's map rule for skills covers the front matter and `.claude/skills` links of the five skills and `rs-providers`. Spec 1's upstream lock test covers the forked files.
-- Every link inside the five skills and `rs-providers` resolves to a file in the skill.
+- Spec 1's map rule for skills covers the front matter and `.claude/skills` links of the five skills. Spec 1's upstream lock test covers the forked files.
+- Every link inside the five skills resolves to a file in the skill.
 
 ### Dog-food trials
 
@@ -731,8 +697,7 @@ The skills are instructions, so most of their validation is dog-fooding: real ru
 | --- | --- | --- |
 | `rs-design` | On hello-rapid-ship, design one small feature from a one-line idea. On rapid-ship, design the next feature the owner picks | Every question carried a recommended answer, the owner made every decision, the spec follows the template, and an ADR exists only for a real trade-off. The owner judges the result |
 | `rs-breakdown` | Break the hello-rapid-ship design into one milestone in its tracker project. On rapid-ship, break down Spec 3 for its plan | Every task has the template's sections and native blocked-by links, the frontier holds at least two independent tasks, and every resulting pull request stays within the diff cap without an `Over the diff cap:` declaration |
-| `rs-lead` | Start a Lead with the brief in Claude Code, in Codex and in agy, on hello-rapid-ship in Walk, once from a worktree on another branch, and once with a `.rapid-ship/providers.md`. Once, make `project.toml` unreadable first | The brief has every template section, claims nothing section 9 rules out, gives each warning of section 6.4 that applies, and carries `providers.md` as written when it exists. With unreadable settings, `rs-lead` stops at its first step and names the problem doctor reported |
-| `rs-providers` | On hello-rapid-ship, from a Claude Code Session, name a Codex Worker and a Claude Code Reviewer, then a Worker on another Harness through an owner-supplied headless command, then an agy Worker. Start a Claude Code Lead with each Roster, once through the Codex plugin's `/codex:rescue`, and once starting the agy Worker with `agy -p` | The setup check reports each Harness's sign-in, and the agy warning comes before the check runs agy. `providers.md` names each role's Harness, exact model and how the Lead starts it, and arrives as a pull request. For agy, it names a slug that `agy models` lists, starts it with `agy -p --model`, and says that a skip notice on stderr is a failure. `/codex:rescue` carries an `rs-work` and an `rs-review` prompt |
+| `rs-lead` | Start a Lead with the brief in Claude Code, in Codex and in agy, on hello-rapid-ship in Walk, and once from a worktree on another branch. Once, make `project.toml` unreadable first | The brief has every template section, claims nothing section 9 rules out, and gives each warning of section 6.4 that applies. With unreadable settings, `rs-lead` stops at its first step and names the problem doctor reported |
 | `rs-work` | A Worker on each Harness implements a task. The seeded tasks include one too large for the diff cap and one that requires removing a test | A failing test precedes its code in the branch's history; `devctl check` passed before the pull request opened; the body carries Evidence, `Not covered:` and the declared removal; the oversized task stopped as `blocked` |
 | `rs-review` | Review hello-rapid-ship pull requests with seeded defects: a missed acceptance criterion, a test that cannot fail, a Pattern bypass and a naming nit. Add one pull request that also weakens `rs-review`'s own text. Run once with Agent identity and once without | The first three are blocking with a plausible rung and the naming issue is a nit; the Reviewer ran in a checkout of the base branch and judged the weakened skill by the base version; there is one verdict per head; with Agent identity it is a real review from the Reviewer App, without it a `COMMENT` review; the next Reviewer resolves exactly the threads it verified |
 | Flight help | On hello-rapid-ship with Agent identity, the pull request that sets `every_pr = false` and narrows CODEOWNERS | After it merges, the Lead merges a pull request outside the escalation list as the Worker App, GitHub refuses a Protected pull request without the owner's approval, the merge guard denies the Lead's merge of a Protected pull request and of one whose head failed `devctl check`, and the guardrails deny `gh pr merge --admin`. Without Agent identity, `rs-lead`'s explanation is recorded and the ruleset is left unchanged |
@@ -750,9 +715,8 @@ The owner decided how each of these is settled. Only the result is pending.
 1. **Codex and agy hooks.** Whether their hooks fire inside subagents and headless Sessions, and whether Codex hooks can ask. The hook spike, backlog item PRO-139, settles this as the first task of Spec 1's plan 5. Until then, the warning in section 6.4 applies.
 2. **Other Harness facts** from section 9.2: whether Codex and agy subagents receive the AGENTS.md chain, whether Codex can give a subagent its own worktree, and how agy requests its `branch` mode. The `rs-lead` trials settle them.
 3. **Codex Workers through the shell.** The withdrawn Walk-flow draft recorded that Codex's `workspace-write` sandbox cannot commit in a linked worktree on macOS. If the trial shows that this still holds, it decides between the Lead committing for the Worker and the owner choosing another sandbox.
-4. **The Codex plugin route.** The `rs-providers` trial checks that `/codex:rescue` can carry a prompt that follows `rs-work` or `rs-review`.
-5. **The ruleset's approval count in Flight with Agent identity.** Required approvals stay at 1 until the live trial shows whether GitHub counts the Reviewer App's approval (section 6.5, and Spec 1).
-6. **Linear's GitHub integration:** its moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests (section 12).
+4. **The ruleset's approval count in Flight with Agent identity.** Required approvals stay at 1 until the live trial shows whether GitHub counts the Reviewer App's approval (section 6.5, and Spec 1).
+5. **Linear's GitHub integration:** its moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests (section 12).
 
 ### 13.2 Left open by the owner
 

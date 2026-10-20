@@ -26,6 +26,6 @@ An earlier ADR, 0003, deferred rapid-orchestrator and had the Lead launch bare S
 - devctl never starts an agent to do work, never tracks or resumes one, and never pushes, reviews or merges as a step in a flow. It keeps no record of running agents. Only `devctl doctor --skills` starts a short headless Session, to check which skills a Harness loads.
 - Under the optional Agent identity ([ADR 0002](0002-github-gates-merges-reviews-run-locally.md)), agents call one thin devctl command for `gh` and `git push`. It runs only when an agent calls it, never as a step that rapid-ship drives.
 - Without the credential safeguards, a misbehaving Lead can bypass the guardrails, the merge guard included, and act as the owner or as either App. CODEOWNERS binds the Lead in Flight only while the Lead acts through `devctl as`.
-- The Lead brief's choice of models is advice. rapid-ship cannot see which model a Harness gave a subagent, so it cannot enforce "no silent model fallback".
+- The Lead brief names no model. The Lead's Harness chooses each subagent's model, and rapid-ship cannot see which model a subagent received.
 - rapid-ship takes no notice of how many Sessions or agents run at once, and has no cap setting. Its documentation advises at most 3 Workers at once in Walk, for the owner's cognitive load.
 - rapid-ship runs no gate for entering or leaving Flight. `rs-preflight` reviews readiness with the owner and changes nothing.

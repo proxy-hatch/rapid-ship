@@ -1,6 +1,6 @@
 # rapid-ship design
 
-*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 after the owner's second review, and on 2026-10-20, when the owner made several Providers an opt-in skill. The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, and the decision of 2026-10-20, settled what this design states, and [Open](#open) lists what is still open. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
+*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 after the owner's second review, and on 2026-10-20, when the owner descoped running agents across several Providers. The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, and the decision of 2026-10-20, settled what this design states, and [Open](#open) lists what is still open. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
 
 ## The problem
 
@@ -15,12 +15,14 @@ rapid-ship does for a team of coding agents what a senior engineer does for a te
 | rapid-ship | The owner's Harness |
 | --- | --- |
 | Helps write ARCHITECTURE.md, ADRs and feature designs, and breaks a design down in the owner's issue tracker | Starts, watches, resumes and hands over Sessions |
-| Installs the Kit: devctl, instructions, starter Patterns, guardrails and skills | Runs Workers and Reviewers as subagents or as other vendors' CLIs |
-| Helps the owner write the Lead brief | Follows the Lead brief as closely as it can, including each subagent's model |
+| Installs the Kit: devctl, instructions, starter Patterns, guardrails and skills | Runs Workers and Reviewers as subagents or headless Sessions |
+| Helps the owner write the Lead brief | Follows the Lead brief as closely as it can, and chooses each subagent's model |
 | Reports metrics and Suggested threshold breaches, and reviews readiness for Flight with the owner | Pushes, opens PRs, posts reviews and merges, within the guardrails and the ruleset |
 | Records Corrections and finds drift through [gardening](#gardening) | Reaches the tracker and other tools through its MCP servers or CLIs |
 
 rapid-ship never pushes, reviews or merges as a step in a flow, and never moves a project between Modes. devctl never talks to the issue tracker. rapid-ship runs no service, daemon, container or local database: it is files in the repository, plus a small command that writes them. It works with any Harness, including API-backed ones such as pi, and with any Provider, whether a subscription, an API key or a gateway. Nothing it ships needs an API key. It works with GitHub today, through `gh`. Other Git hosts, such as Bitbucket, may follow if owners ask for them or contribute them.
+
+Running agents across several Provider subscriptions is out of scope, because it is outside rapid-ship's goal of accelerating software delivery while holding the code-quality bar; agent control surfaces such as [T3 Code](https://github.com/pingdotgg/t3code) do it.
 
 ## Who does what
 
@@ -30,13 +32,10 @@ The **Lead** is the Session the owner works with. At the start of a Session the 
 
 - The **Focus** says what to work on now: a milestone or chosen tasks. It changes often and is never stored.
 - The **escalation list** names the kinds of PR the Lead must bring to the owner instead of merging them on its own. It sets the [Mode](#modes).
-- The optional **Roster** names the Harness and exact model for Workers and Reviewers. Only an owner who opted in to `rs-providers` has one (below), and `rs-lead` appends it from `.rapid-ship/providers.md`. Without it, the Lead's Harness chooses its subagents' models.
 
-The escalation list lives in `project.toml`, which is in the Protected set, so changing the Mode is a PR the owner approves. How closely the Lead follows the brief, including each model the Roster names, is up to its Harness. rapid-ship cannot see which model a subagent received, so "no silent model fallback" is advice.
+The escalation list lives in `project.toml`, which is in the Protected set, so changing the Mode is a PR the owner approves. The brief names no model: the Lead's Harness chooses its subagents' models, and rapid-ship cannot see which model a subagent received. How closely the Lead follows the brief is up to its Harness.
 
 The **Worker** and the **Reviewer** are roles the Lead's Harness runs. A Worker implements one task by following `rs-work`. A Reviewer judges one change by following `rs-review` and tags each finding blocking or nit, with the rung that would stop it recurring. A Reviewer starts in a checkout of the base branch and reads the change only through git, so the PR under review cannot change the instructions or hooks it runs under. The Lead tells a generic subagent to follow the skill, or follows it itself.
-
-**Several Providers are opt-in.** Spreading Workers and Reviewers across several Provider subscriptions saves cost, but not every owner needs it, and it draws away from rapid-ship's focus: accelerating software development. The Kit therefore ships it as the optional skill `rs-providers`, installed only when the owner lists it under `[kit] optional`. It asks which Harness and exact model the Workers and the Reviewers use, checks that each Harness's CLI is installed and signed in, and writes its advice as prompt text to `.rapid-ship/providers.md`: each role's Harness and exact model, and how the Lead starts it, such as through `codex exec`, `agy -p` or OpenAI's Codex plugin for Claude Code. It recommends a Reviewer from a different Provider than the Worker, and warns that running agy from another Harness's Session is a use Google's consumer terms do not support. The file is in the Protected set, so it changes through a PR the owner approves. devctl knows nothing about Providers.
 
 The skills describe how a Lead runs a task, and rapid-ship runs none of it. The Lead starts a Worker for each task in the Focus whose blockers are done. The Worker works test-first, runs `./devctl check` before it reports done, and opens a PR, and CI runs the check in full. A Reviewer posts its findings on the PR, and the Lead sends each blocking finding back to a Worker until none is left. The Lead then brings the PR to the owner if its kind is on the escalation list, and merges it otherwise. It merges a PR it brought to the owner only when the owner says so, and never one that touches the Protected set, which the owner merges.
 
@@ -173,7 +172,7 @@ The gardener shares one audit with `rs-health`, which runs it once at adoption. 
 - **The Kit** is what `init` vendors: devctl's source, the instruction and document skeletons, the Pattern and feature-map formats, a starter Pattern set for each stack, the Harness guardrail settings, a pre-commit hook, a CI workflow, CODEOWNERS, the `.rapid-ship/` settings and the skills. `init` records each file as managed, which `sync` keeps current, or seeded, which the project owns from the start. A managed file the project edits becomes its own until `rapid-ship sync --revert`.
 - **devctl** is the repository's own CLI for people, agents and CI. Its commands are `check`, `doctor` and `metrics`, plus `as`, the thin command for `gh` and `git push` under Agent identity, and `hook`, which holds the Harness guardrails and the merge guard. `doctor` reports what the machine and repository lack, including settings it cannot read, and `doctor --settings` checks only the settings, for the start of each Worker and Reviewer Session. `doctor --skills` asks each of Claude Code, Codex and agy that is installed which Kit skills it loads, and doctor checks the Apps only under Agent identity. A project adds its own verbs.
 
-Nine skills, from `rs-setup` to `rs-preflight`, carry the work. The Kit also ships seven engineering skills: `rs-tdd` and `rs-diagnosing-bugs`, forked for TDD and debugging, and `rs-codebase-design`, `rs-pr`, `rs-writing-for-agents`, `rs-writing` and `rs-ponytail`. Optional skills, such as `rs-providers`, install only when the owner lists them under `[kit] optional`. Every Kit skill's name starts with `rs-`.
+Nine skills, from `rs-setup` to `rs-preflight`, carry the work. The Kit also ships seven engineering skills: `rs-tdd` and `rs-diagnosing-bugs`, forked for TDD and debugging, and `rs-codebase-design`, `rs-pr`, `rs-writing-for-agents`, `rs-writing` and `rs-ponytail`. Optional skills, such as `rs-contribute`, install only when the owner lists them under `[kit] optional`. Every Kit skill's name starts with `rs-`.
 
 | Skill | What it does |
 | --- | --- |
@@ -201,11 +200,11 @@ Three specs:
 
 1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md):** the `rapid-ship` command; `devctl check`, `doctor`, `as` and `hook`; the Harness guardrails and the merge guard; the README and ARCHITECTURE seeds; the starter Patterns; the Python and TypeScript stacks; optional Agent identity; `rs-setup` and `rs-health`. The [plan index](../plans/2026-10-14-kit-and-setup.md) lists its seven plans:
    - Plans 1 to 3 built `init`, `status`, `sync` and `devctl check`.
-   - Plan 4, doctor and Agent identity, is built in PRs #31 to #33, not yet merged. Follow-ups land on them before they merge: they support organisation-owned repositories (backlog item PRO-105) and take the Roster out of devctl.
+   - Plan 4, doctor and Agent identity, is built in PRs #31 to #33, not yet merged. Follow-ups land on them before they merge: they support organisation-owned repositories (backlog item PRO-105) and take `[roster]` and doctor's Harness sign-in items out of devctl.
    - Plan 5, Kit standards and Harness guardrails, starts with a spike that checks whether the Codex and agy hooks fire, including inside subagents (backlog item PRO-139).
    - Plan 6 adds the TypeScript stack and several stacks in one repository, which brings part of backlog item PRO-108 into scope.
    - Plan 7 builds `rs-setup` and `rs-health`, which need to know the stacks.
-2. **[Delivery skills](2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review`, the optional `rs-providers` and the tracker mapping notes.
+2. **[Delivery skills](2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
 3. **[Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden` and `rs-preflight`.
 
 Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, Windows, and rewriting the documentation site.
