@@ -12,7 +12,7 @@
 
 **Owner steps:** a step labelled "Owner step" uses the owner's accounts or changes state outside this worktree. The controller never dispatches an Owner step to an implementer subagent, and no agent runs one. Task 10 Steps 1 to 14 (with Step 11a) and the pushes in Task 11 Steps 3 and 5 run only in the owner's own terminal. The implementer works from the owner's recorded output.
 
-**Follow-ups:** the owner descoped running agents across several Providers on 2026-10-20. The [plan 4 follow-ups](2026-10-20-plan4-follow-ups.md) then removed the `[roster]` table, doctor's Harness sign-in items and the branch of `--skills` that probed the Harnesses `[roster]` named. Where this plan built them, one line now says so.
+**Follow-ups:** the owner descoped running agents across several Providers on 2026-10-20. The [plan 4 follow-ups](2026-10-20-plan4-follow-ups.md) then removed the `[roster]` table, doctor's Harness sign-in items and the branch of `--skills` that probed the Harnesses `[roster]` named. Where this plan built them, one line now says so. After the owner's review of PR #27 on 2026-10-20, `--skills` probes Claude Code alone until another Harness's integration lands, after the PRO-139 spike (the plan index's follow-up 9). #31 dropped the `Harness` alias from `settings.py`. On #32 the codex and agy probes go with their tests; Tasks 4 and 6 below still show the probe of all three Harnesses that #32 built first.
 
 ## Global Constraints
 
@@ -57,7 +57,7 @@ The five failure modes most likely to bite a person using this software that Spe
 1. **A token or key leaks.** Paths: gh's argv or output, a git argv, a file, exception text, the caller's `GIT_TRACE*`, a repository hook, an HTTP redirect, or a gh command that prints or reuses its token (`gh auth`, `gh alias`, `gh extension`). Expected: none sees the token, and a refused gh command mints none. Pinned by Task 3's copied `test_redirects_are_not_followed`, `test_repository_hooks_do_not_run_with_the_token`, `test_git_tracing_from_the_callers_environment_is_dropped` and `test_token_is_never_an_argument`, and by Task 8's `test_gh_runs_as_the_worker_app_with_the_token_only_in_its_environment`, `test_the_push_token_is_never_an_argument_or_in_a_file`, `test_a_token_the_tool_prints_is_hidden` and `test_gh_refusals_mint_no_token_and_start_no_gh`.
 2. **`devctl as worker push` lands somewhere it should not, or overwrites.** Inputs: a diverged remote branch, the default branch, a detached `HEAD`, extra arguments such as `--force` or `+branch`, the Reviewer role, and an `insteadOf` or `pushInsteadOf` rule that rewrites the remote. Expected: a non-fast-forward push fails with git's own exit code and changes nothing; every other case is refused before git runs. Pinned by Task 8's `test_push_never_forces`, `test_push_refuses_the_default_branch`, `test_push_refusals_mint_no_token` and `test_a_detached_head_is_refused_before_a_token_is_minted`, and Task 3's copied `test_rewritten_remote_url_is_refused`.
 3. **Settings that look valid but are not.** Inputs: one App recorded without the other, an ID without its slug, Apps without `repository`, an old `[agents]`, `[linear]`, `[dispatch]` or `[release]` table, and a recorded slug that is not the installed App's. Expected: `load_project` refuses each with a message that names the fix, and doctor reports a slug mismatch as missing, because Spec 3 finds agent pull requests by that slug. Pinned by Task 2's `test_invalid_settings_raise_settings_error` and `test_a_removed_table_names_what_replaced_it`, and Task 5's `test_an_installed_app_whose_slug_differs_from_the_record_is_missing`.
-4. **doctor reports more than it proved, or leaves something behind.** Inputs: a 502 or 503 from Google's eligibility check, a Session that fails, hangs, writes files or locks its worktree, a ruleset that fits one Mode but not the current one, and Agent identity turned off. Expected: a service error is unknown; the `--skills` worktree is removed in every case; the relaxed ruleset is ok only for Flight without Agent identity; no App is read while Agent identity is off. Pinned by Task 5's `test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identity` and `test_agent_identity_off_has_no_app_items_and_asks_github_nothing`, and Task 6's `test_the_worktree_is_removed_when_a_session_fails`, `test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed` and `test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed`.
+4. **doctor reports more than it proved, or leaves something behind.** Inputs: a Session that fails, hangs, writes files or locks its worktree, a ruleset that fits one Mode but not the current one, and Agent identity turned off. Expected: a Session that fails or never finishes is unknown; the `--skills` worktree is removed in every case; the relaxed ruleset is ok only for Flight without Agent identity; no App is read while Agent identity is off. Pinned by Task 5's `test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identity` and `test_agent_identity_off_has_no_app_items_and_asks_github_nothing`, and Task 6's `test_the_worktree_is_removed_when_a_session_fails`, `test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed` and `test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed`.
 5. **`devctl as` reports success it cannot vouch for.** Inputs: gh output over the 1 MiB capture cap, a gh that never finishes, a gh that is not installed, a missing Keychain item, and a GitHub answer with no default branch. Expected: exit 2 with a message that says what happened, never a silent 0; a cut output still names gh's own exit code. Pinned by Task 8's `test_gh_output_that_was_cut_exits_2_and_says_so`, `test_a_gh_that_never_finishes_exits_2`, `test_a_gh_that_cannot_start_exits_2`, `test_a_missing_key_exits_2_before_any_tool_runs` and `test_a_default_branch_github_cannot_name_exits_2_without_a_push`.
 
 ---
@@ -69,7 +69,7 @@ Paths under `devctl/` mean the template `rapid_ship/templates/common/tools/devct
 | File | Change | Responsibility |
 | --- | --- | --- |
 | `devctl/process.py` | Modify (Task 1) | `first_line`, and `_kill_group` probing after a refused SIGTERM |
-| `devctl/settings.py` | Rewrite (Task 2) | `Harness`, `Role`, `ROLES`, `App`, `Escalation`, `ProjectSettings` with `agent_identity`, `REMOVED_TABLES`, `load_project`, `load_exceptions` |
+| `devctl/settings.py` | Rewrite (Task 2) | `Role`, `ROLES`, `App`, `Escalation`, `ProjectSettings` with `agent_identity`, `REMOVED_TABLES`, `load_project`, `load_exceptions` |
 | `devctl/check/steps.py`, `devctl/check/diff.py`, `devctl/cli.py` | Modify (Task 2) | `CheckContext` loses `gate`; the `diff` step loses its Flight note |
 | `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml`, `.rapid-ship/project.toml` | Rewrite (Task 2) | `[github]` App IDs and slugs, `[escalation]` |
 | `rapid_ship/templates/common/.rapid-ship/gate.toml`, `.rapid-ship/gate.toml` | Delete (Task 2) | Nothing reads `gate.toml` any more |
@@ -78,7 +78,7 @@ Paths under `devctl/` mean the template `rapid_ship/templates/common/tools/devct
 | `devctl/github/app.py` | Copy and trim (Task 3) | Keychain keys, App JWTs, installation tokens, `GitHubAccess`, `run_guarded`, token-bearing `run_git` |
 | `devctl/check/kit.py` | Copy (Tasks 3, 4) | `rapid_ship_command`, then `kit_summary` for doctor |
 | `devctl/check/stacks/python.py` | Copy (Task 4) | `guardrail_gaps`, the Python floor that doctor checks |
-| `devctl/harness.py` | Copy and edit (Task 4) | Probe models, each Harness's skills prompt and parser |
+| `devctl/harness.py` | Copy and edit (Task 4) | Probe models, each Harness's skills prompt and parser; follow-up 9 keeps Claude Code's alone |
 | `devctl/doctor_items.py` | Write (Task 4) | Item types, `DoctorContext`, `gh_get`. The follow-ups removed `doctor_signin.py`, the Harness sign-in items, after the owner descoped several Providers |
 | `devctl/doctor_local.py` | Copy and edit (Task 4) | Toolchain, guardrails and Kit items, without the Linear item |
 | `devctl/doctor.py` | Write (Task 4), modify (Tasks 5, 6) | Runs the items, prints them, exits with the worst answer; `register` |
@@ -121,7 +121,7 @@ Rows marked "old plan" were checked on 2026-10-14 and are recorded in the [GitHu
 | gh uses `GH_TOKEN` for github.com ahead of its stored sign-in, and `GH_REPO` names the repository for commands run outside a clone; `GH_PROMPT_DISABLED` stops prompts. | `gh help environment`; Task 10 Step 10 records the author of a PR opened through `devctl as` |
 | GitHub rejects an App-token push that creates or updates a file under `.github/workflows/` without the Workflows permission, with `refusing to allow a GitHub App to create or update workflow`. | Old plan; Task 10 Step 12 records the live message |
 | On a GitHub Free private repository, `GET …/rulesets` returns 403 "Upgrade to GitHub Pro or make this repository public to enable this feature." | Old plan, observed on 18 private repositories |
-| `PROBE_MODELS`, the cheapest model for each Harness's probe: `haiku` for Claude Code, which ran as `claude-haiku-4-5-20251001` (Claude Code 2.1.287); `gpt-6-luna` for Codex, which `codex debug models --bundled` describes as its fast and affordable model, with `low` its lowest reasoning level (codex-cli 0.162.0); and `gemini-3.8-flash-low` for agy, the Flash model at the lowest effort that `agy models` lists (agy 1.3.4). No Harness lists prices. | Old plan; Task 10 Step 13 confirms or corrects each |
+| `PROBE_MODELS`, the cheapest model for each Harness's probe: `haiku` for Claude Code, which ran as `claude-haiku-4-5-20251001` (Claude Code 2.1.287); `gpt-6-luna` for Codex, which `codex debug models --bundled` describes as its fast and affordable model, with `low` its lowest reasoning level (codex-cli 0.162.0); and `gemini-3.8-flash-low` for agy, the Flash model at the lowest effort that `agy models` lists (agy 1.3.4). No Harness lists prices. Follow-up 9 keeps Claude Code's alone. | Old plan; Task 10 Step 13 confirms or corrects each |
 | Ruff formats and checks a file under `rapid_ship/templates/` when the path is named, although `extend-exclude` skips the directory otherwise. | Observed with this repository's Ruff on 2026-10-16 |
 | Ruff 0.17.0, on #30's lock, formats code blocks fenced as `python` inside Markdown files, so `ruff format --check .` fails on a document whose fragments or one-line stubs are not in Ruff's layout. `<!-- fmt:off -->` on the line before such a block and `<!-- fmt:on -->` on the line after it leave the block as written, and the docs site, which reads Markdown as CommonMark, still builds. | Observed on a scratch copy of #30's head on 2026-10-16 |
 | Tasks 1 to 8, applied from this plan's text to a scratch copy of `98f0be1`, pass every `./devctl check --tier full` step once the PR body declares the three tests the re-scope removed (Task 11). | Dry run on 2026-10-16, offline except for the package index and gitleaks; no GitHub, Keychain or Harness was used. This document was not in that copy; Task 1 Step 6 checks its format |
@@ -252,7 +252,6 @@ Expected: Ruff reports the plan `already formatted`, and the pre-commit hook's f
 - Produces (the index's Settings section, exactly):
 
 ```python
-Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 REMOVED_TABLES: dict[str, str]  # "agents", "dispatch", "linear", "release" -> what replaced each
@@ -911,8 +910,6 @@ from typing import Literal, cast, get_args
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-# the Harnesses doctor --skills probes (Spec 1 section 6)
-Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
@@ -2093,7 +2090,7 @@ git commit -m "feat: mint App installation tokens and pass them to git through a
 
 ### Task 4: doctor's core and local items
 
-doctor's toolchain, guardrails and Kit items come over from `0c2b27f` and `51c9300` without the Linear item. The follow-ups removed doctor's Harness sign-in items after the owner descoped several Providers. `harness.py` comes over whole, with the skills parsers Task 6 uses, and its tests.
+doctor's toolchain, guardrails and Kit items come over from `0c2b27f` and `51c9300` without the Linear item. The follow-ups removed doctor's Harness sign-in items after the owner descoped several Providers. `harness.py` comes over whole, with the skills parsers Task 6 uses, and its tests. On #32, follow-up 9 keeps Claude Code's probe alone and drops `harness.py`'s import of `Harness`, which #31 deleted.
 
 **Files:**
 - Create: `rapid_ship/templates/common/tools/devctl/devctl/doctor.py`, `doctor_items.py`
@@ -2368,7 +2365,7 @@ done
 git show 901bd43:tests/devctl/test_devctl_harness_skills.py > tests/devctl/test_devctl_harness.py
 ```
 
-Reshape the two doctor test files to no Linear item. The follow-ups removed the claude, codex and agy sign-in tests, with the edits this step made to them, after the owner descoped several Providers; they moved `test_agy_is_probed_inside_another_coding_session` to the `--skills` tests.
+Reshape the two doctor test files to no Linear item. The follow-ups removed the claude, codex and agy sign-in tests, with the edits this step made to them, after the owner descoped several Providers; they moved `test_agy_is_probed_inside_another_coding_session` to the `--skills` tests, and follow-up 9 removes it with the agy probe on #32.
 
 In `tests/devctl/test_devctl_doctor_local.py`, replace:
 
@@ -3963,7 +3960,7 @@ git commit -m "feat: check the ruleset, CODEOWNERS and, with Agent identity on, 
 
 ### Task 6: `doctor --skills`
 
-For each of `claude`, `codex` and `agy` on `PATH`, `--skills` adds a detached worktree at `HEAD` in a temporary directory with the owner's own git, starts one headless Session there on the cheapest model, and compares the skills it lists with the ones committed at `HEAD`. It mints no App token and fetches nothing. `013cdac`'s comparison and `f9c3872`'s `probe_worktree` come over, reshaped to that. The follow-ups removed the branch that probed the Harnesses `[roster]` named, after the owner descoped several Providers.
+For each of `claude`, `codex` and `agy` on `PATH`, `--skills` adds a detached worktree at `HEAD` in a temporary directory with the owner's own git, starts one headless Session there on the cheapest model, and compares the skills it lists with the ones committed at `HEAD`. It mints no App token and fetches nothing. `013cdac`'s comparison and `f9c3872`'s `probe_worktree` come over, reshaped to that. The follow-ups removed the branch that probed the Harnesses `[roster]` named, after the owner descoped several Providers. Follow-up 9 narrows `--skills` to `claude` on #32, until another Harness's integration lands; the code and tests below still probe all three Harnesses.
 
 **Files:**
 - Create: `rapid_ship/templates/common/tools/devctl/devctl/doctor_skills.py`
@@ -5854,7 +5851,7 @@ Expected: `1` for each file. If any is 0, the re-scope text changed after this p
 
 - [ ] **Step 2: Edit the guides, the architecture page and the status lines**
 
-The follow-ups removed the text below that described the `[roster]` table, the Harness sign-in items and the `--skills` branch for `[roster]`, after the owner descoped several Providers.
+The follow-ups removed the text below that described the `[roster]` table, the Harness sign-in items and the `--skills` branch for `[roster]`, after the owner descoped several Providers. Follow-up 9 narrowed its `--skills` text to Claude Code.
 
 In `AGENTS.md`, replace:
 
@@ -5890,7 +5887,7 @@ with:
 
 ```markdown
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
-- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Session per Harness.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session.
 ```
 
 In `ARCHITECTURE.md`, replace:
@@ -5981,7 +5978,7 @@ with:
 - **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
 - **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr`, branch deletion after merge and fork-PR workflow approval. A GitHub Free private repository has no rulesets, and the item says so.
 - **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each Keychain key, proved by minting a token that is dropped unprinted.
-- **`--skills`:** for each of `claude`, `codex` and `agy` on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Session on the cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did.
+- **`--skills`:** when `claude` is on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Claude Code Session on its cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did.
 
 Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md)). `rapid-ship app` creates the owner's Worker App and Reviewer App through GitHub's manifest flow, stores each private key in the macOS Keychain from `security`'s stdin, and prints each App's `[github]` lines and install URL. `./devctl as worker push` pushes the current branch, never forcing, and `./devctl as {worker,reviewer} gh` runs `gh pr`, `gh issue` or `gh api` as that App. Each run mints one installation token in `devctl/github/app.py`, holds it in memory and gives it only to that `gh`, as `GH_TOKEN`, or to that `git push`, through `devctl/github/askpass.py` with every credential helper and repository hook switched off. No key or token is written to disk, put on a command line or printed.
 
@@ -6150,7 +6147,7 @@ git commit -m "docs: describe devctl doctor, Agent identity and devctl as in the
 
 ### Task 10: Live trials (Owner steps)
 
-Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). That terminal is not inside a Claude Code, Codex or agy Session: Step 13's agy probes would otherwise run agy inside another Harness's Session, which Google's consumer terms do not support (Spec 1 section 6). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in this plan's worktree.
+Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in this plan's worktree.
 
 Steps 15 to 17 are implementer steps, done from the owner's record. When a result calls for a code fix (Steps 3, 9 and 13), the implementer makes it with its test after the owner's session, and the report says whether the owner reran the step with the fix.
 
@@ -6167,7 +6164,7 @@ Record the results in `docs/trials/<trial date>-agent-identity.md`, the date in 
 
 - [ ] **Step 1: Owner step: accept the outside changes**
 
-The owner reads this list and starts Step 2 only if they accept every change on it: creating two private GitHub Apps on their personal account, which become their real Worker and Reviewer Apps; creating the public repository `<login>/rs-trial` and the private repository `<login>/rs-trial-private`; installing both Apps on both; applying a ruleset, branch deletion after merge and the fork approval policy to `rs-trial`, and, if Step 11 calls for it, setting that ruleset's approval count to 0; opening, reviewing and merging pull requests there as the Apps and as the owner; merging the owner's own setup pull requests there with the admin bypass; and spending a little Harness quota on `doctor --skills`.
+The owner reads this list and starts Step 2 only if they accept every change on it: creating two private GitHub Apps on their personal account, which become their real Worker and Reviewer Apps; creating the public repository `<login>/rs-trial` and the private repository `<login>/rs-trial-private`; installing both Apps on both; applying a ruleset, branch deletion after merge and the fork approval policy to `rs-trial`, and, if Step 11 calls for it, setting that ruleset's approval count to 0; opening, reviewing and merging pull requests there as the Apps and as the owner; merging the owner's own setup pull requests there with the admin bypass; and spending a little Claude Code quota on `doctor --skills`.
 
 - [ ] **Step 2: Owner step: record the versions and prepare `rs-trial`**
 
@@ -6180,7 +6177,7 @@ OWNER=$(gh api user --jq .login)
 sw_vers -productVersion; git --version; gh --version | head -1; uv --version
 git -C "$PLAN4" rev-parse HEAD
 gh api user --jq .plan.name
-claude --version; codex --version; agy --version
+claude --version
 cd "$TRIALS"
 gh repo create "$OWNER/rs-trial" --public --add-readme --clone
 cd rs-trial
@@ -6441,14 +6438,14 @@ Record GitHub's message, devctl's `devctl: neither App may push a change under .
 
 - [ ] **Step 13: Owner step: `doctor --skills` live**
 
-The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers. Run the probes:
+The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers, and follow-up 9 narrowed it to Claude Code. Run the probe:
 
 ```sh
 ./devctl doctor --skills; echo "exit $?"
 git worktree list
 ```
 
-Record every skills line and the exit code. Expected: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`, each ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results. Record whether each Harness listed `trial-release` anyway, and confirm or correct each entry of `PROBE_MODELS`; a wrong model is fixed in `harness.py`, with its test, in this plan's PR.
+Record every skills line and the exit code. Expected: one `skills (claude)` item when `claude` is on `PATH`, ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. Record whether Claude Code listed `trial-release` anyway, and confirm or correct its entry of `PROBE_MODELS`; a wrong model is fixed in `harness.py`, with its test, in this plan's PR.
 
 - [ ] **Step 14: Owner step: clean up**
 
