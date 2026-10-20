@@ -17,7 +17,7 @@ devctl, the Kit templates, the GitHub Apps and the `rs-` skills do not exist yet
 
 ## What was removed
 
-The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Spec 1's section 2 lists the parts that later plans reuse, retrieved with `git show archive/controller-2026-10:<path>`. The tag also keeps its runtime trials, designs, plans and guides, as the [orchestrator note](docs/archive/orchestrator/README.md) says. Only its getting-started guide stays under `docs/`, and it starts with a "Historical" line.
+The earlier controller, a local orchestrator also named devctl, was removed on 2026-10-14. Its last version is the git tag `archive/controller-2026-10`. Spec 1's section 2 lists the parts that later plans reuse, retrieved with `git show archive/controller-2026-10:<path>`. The [tag](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10) also keeps its runtime trials, designs and guides, and its plans of 2026-10-10 and 2026-10-12 in [`docs/superpowers/plans`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10/docs/superpowers/plans). Only its getting-started guide stays under `docs/`, and it starts with a "Historical" line.
 
 ## Develop rapid-ship
 
