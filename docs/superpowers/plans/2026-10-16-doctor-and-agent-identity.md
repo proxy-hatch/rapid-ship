@@ -6854,7 +6854,7 @@ Below, each step has the exact command and what it must observe, copied from Tas
 
 Where this stood at `c2f0a70`, the base of this record: `docs/trials/` holds no `*-agent-identity.md` report and `docs/trials/AGENTS.md` links none; `tests/devctl/fixtures/github/ruleset.json` is still the offline fixture from Task 5, the ruleset the index specifies with `id` 9, `source` `o/r` and `required_approving_review_count` 1; `doctor_rules.py` still requires an approval; the index's approval-count paragraph, Spec 1 section 8, step 7.3 and Spec 1 section 11's open item read as drafted; and `PROBE_MODELS` in `harness.py` holds `haiku`, `gpt-6-luna` and `gemini-3.8-flash-low`, the values of the Checked facts.
 
-The owner runs Steps 2 to 14 in one terminal session, from this plan's worktree and outside any Claude Code, Codex or agy Session, because later steps use the shell variables earlier ones set and Step 13's agy probes must not run inside another Harness's Session (Spec 1 section 6). The owner keeps each command with its exit code and output. A trial report never records a token, a private key, a client secret or an email address; a token's length may be recorded.
+The owner runs Steps 2 to 14 in one terminal session, from this plan's worktree, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output. A trial report never records a token, a private key, a client secret or an email address; a token's length may be recorded.
 
 #### Step 1: accept the outside changes
 
@@ -6873,7 +6873,7 @@ OWNER=$(gh api user --jq .login)
 sw_vers -productVersion; git --version; gh --version | head -1; uv --version
 git -C "$PLAN4" rev-parse HEAD
 gh api user --jq .plan.name
-claude --version; codex --version; agy --version
+claude --version
 cd "$TRIALS"
 gh repo create "$OWNER/rs-trial" --public --add-readme --clone
 cd rs-trial
@@ -7184,16 +7184,16 @@ Record: GitHub's message, devctl's hint line and the exit code.
 
 #### Step 13: `doctor --skills` live
 
-Pending owner step. The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers. The owner runs the probes. The terminal is not inside a Claude Code, Codex or agy Session.
+Pending owner step. The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers, and follow-up 9 narrowed it to Claude Code. The owner runs the probe.
 
 ```sh
 ./devctl doctor --skills; echo "exit $?"
 git worktree list
 ```
 
-Must observe: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`, each ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results.
+Must observe: one `skills (claude)` item when `claude` is on `PATH`, ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone.
 
-Record: every skills line and the exit code, whether each Harness listed `trial-release` anyway, and each entry of `PROBE_MODELS` confirmed or corrected. A wrong model is fixed in `harness.py`, with its test, in this plan's PR.
+Record: every skills line and the exit code, whether Claude Code listed `trial-release` anyway, and `PROBE_MODEL` confirmed or corrected. A wrong model is fixed in `harness.py`, with its test, in this plan's PR.
 
 #### Step 14: clean up
 
