@@ -540,7 +540,7 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 
 **Steps:**
 
-1. **Preconditions.** Work in any clean checkout at `origin/<default branch>`, on any branch. Run `./devctl doctor` first, as `rs-lead` does, with the same warning when the Roster names agy (Spec 2, section 6.1). When doctor reports unreadable settings, stop and show its message and fix.
+1. **Preconditions.** Work in any clean checkout at `origin/<default branch>`, on any branch. Run `./devctl doctor` first, as `rs-lead` does (Spec 2, section 6.1). When doctor reports unreadable settings, stop and show its message and fix.
 2. **Context.** Read README.md and ARCHITECTURE.md. Ask the owner only what they leave open: solo or team; what the project ships and where it runs; which monitoring, alerting and error tracking exist; and how incidents are reported today.
 3. **Metrics to watch, and why.** Run `./devctl metrics --json`. If it exits 2, show its message and fix, and record the gap. For each metric, show its value and say what it tells the owner in Flight:
 
