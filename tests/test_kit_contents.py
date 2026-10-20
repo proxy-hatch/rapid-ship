@@ -8,6 +8,7 @@ import pytest
 
 from devctl.check.diff import codeowners_match
 from devctl.process import run_process
+from devctl.settings import load_project
 from rapid_ship.kit.templates import (
     STACKS,
     Stack,
@@ -123,11 +124,15 @@ def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: 
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_seeded_roster_is_a_commented_example(stack: Stack) -> None:
-    lines = text(stack, ".rapid-ship/project.toml").splitlines()
-    assert "# [roster.worker]" in lines
-    assert "# [roster.reviewer]" in lines
-    assert not any(line.startswith("[roster") for line in lines)
+def test_the_settings_seed_names_no_roster_and_still_loads(stack: Stack, tmp_path: Path) -> None:
+    seed = text(stack, ".rapid-ship/project.toml")
+
+    # The optional rs-providers skill keeps the Roster in .rapid-ship/providers.md, not here.
+    assert "roster" not in seed.lower()
+    assert "Provider" not in seed
+    (tmp_path / ".rapid-ship").mkdir()
+    (tmp_path / ".rapid-ship/project.toml").write_text(seed)
+    assert load_project(tmp_path).stack == stack
 
 
 def test_the_kit_no_longer_seeds_gate_toml() -> None:

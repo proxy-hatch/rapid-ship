@@ -8,29 +8,33 @@ from __future__ import annotations
 
 import re
 import tomllib
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from types import MappingProxyType
 from typing import Literal, cast, get_args
 
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-Harness = Literal["claude", "codex", "agy"]  # the Harnesses with built-in routes (Spec 1 section 4)
+# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)
+Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
-# Tables the re-scope of 2026-10-16 removed, and what replaced each (Spec 1 section 4).
+_PROVIDERS = (
+    "multi-provider is the optional rs-providers skill, which writes .rapid-ship/providers.md; "
+    "delete the table"
+)
+# Tables devctl refuses, and what replaced each (Spec 1 section 4): [roster] since the owner's
+# decision of 2026-10-20, the others since the re-scope of 2026-10-16.
 REMOVED_TABLES = {
-    "agents": "name each role's Harness and exact model under [roster.worker] and "
-    "[roster.reviewer] instead",
+    "agents": _PROVIDERS,
     "dispatch": "rapid-ship no longer starts Workers; delete the table",
     "linear": "devctl never talks to the issue tracker; delete the table",
     "release": "a project defines its own deploy metrics (Spec 3); delete the table",
+    "roster": _PROVIDERS,
 }
 
-_TABLES = {"stack", "github", "escalation", "roster", "kit", "map", "tests"}
+_TABLES = {"stack", "github", "escalation", "kit", "map", "tests"}
 _GITHUB_KEYS = {
     "repository",
     "code_owner",
@@ -49,12 +53,6 @@ _EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
 class SettingsError(Exception):
     """A settings file is missing or invalid. devctl exits 2."""
-
-
-@dataclass(frozen=True)
-class Agent:
-    harness: Harness
-    model: str  # kept exactly
 
 
 @dataclass(frozen=True)
@@ -78,7 +76,6 @@ class ProjectSettings:
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
-    roster: Mapping[Role, Agent]  # empty without a Roster
     optional_skills: tuple[str, ...]  # [kit] optional
     # [kit] exclude: Kit paths the project owns; a skill directory also covers its link.
     excluded: tuple[str, ...]
@@ -172,23 +169,6 @@ def _inside_repository(entry: str) -> str | None:
     return "/".join(path.parts)
 
 
-def _agent(roster: _Table, role: Role) -> Agent | None:
-    if role not in roster.values:
-        return None
-    table = roster.table(role, {"harness", "model"})
-    harness = cast(Harness, table.choice("harness", get_args(Harness)))
-    model = table.text("model")
-    if not model or model.strip() != model:
-        raise SettingsError(f"{table.where} model: required; record the exact model ID")
-    return Agent(harness, model)
-
-
-def _roster(top: _Table) -> Mapping[Role, Agent]:
-    roster = top.table("roster", set(ROLES))
-    found = {role: agent for role in ROLES if (agent := _agent(roster, role)) is not None}
-    return MappingProxyType(found)
-
-
 def _app(github: _Table, role: Role) -> App | None:
     """The role's App, or None when its ID is 0 and its slug empty."""
     app_id = github.integer(f"{role}_app_id", 0, minimum=0)
@@ -273,7 +253,6 @@ def load_project(root: Path) -> ProjectSettings:
         worker_app=worker_app,
         reviewer_app=reviewer_app,
         escalation=_escalation(top),
-        roster=_roster(top),
         optional_skills=kit.texts("optional"),
         excluded=_exclude_paths(kit),
         source_roots=source_map.texts("source_roots"),

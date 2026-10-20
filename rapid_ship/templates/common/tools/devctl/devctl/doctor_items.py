@@ -19,7 +19,7 @@ from devctl import process
 from devctl.github.app import GitHubAccess
 from devctl.harness import HarnessName
 from devctl.process import ProcessResult
-from devctl.settings import ROLES, ProjectSettings
+from devctl.settings import ProjectSettings
 
 Status = Literal["ok", "missing", "unknown"]
 TOOL_TIMEOUT_SECONDS = 30.0
@@ -56,14 +56,9 @@ class DoctorContext:
 
 
 def harness_roles(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each Harness the Roster names, with the roles that use it: "worker", "reviewer" or
-    "worker and reviewer". Empty without a Roster."""
-    roles: dict[HarnessName, list[str]] = {}
-    for role in ROLES:
-        agent = project.roster.get(role)
-        if agent is not None:
-            roles.setdefault(agent.harness, []).append(role)
-    return {harness: " and ".join(names) for harness, names in roles.items()}
+    """Each Harness the Roster names, with the roles that use it. Always empty: devctl's settings
+    refuse [roster], because multi-provider is the optional rs-providers skill."""
+    return {}
 
 
 def _json_message(stdout: str) -> str:

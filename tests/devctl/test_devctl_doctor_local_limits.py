@@ -33,7 +33,6 @@ from devctl.doctor import (
 from devctl.doctor_local import gitleaks_item
 from devctl.harness import PROBE_MODELS, PROBE_TIMEOUT_SECONDS, error_line
 from devctl.process import MAX_OUTPUT_BYTES, ProcessResult
-from devctl.settings import Agent, Harness
 from github_fakes import FakeHarness, FakeRun, MakeContext, RepoFiles
 from rapid_ship.kit.templates import render_files
 
@@ -54,10 +53,6 @@ def result(
     stderr_truncated: bool = False,
 ) -> ProcessResult:
     return ProcessResult(["x"], code, out, err, 0.0, timed_out, stdout_truncated, stderr_truncated)
-
-
-def agent(harness: Harness) -> Agent:
-    return Agent(harness, "model")
 
 
 def by_name(items: list[Item]) -> dict[str, Item]:
@@ -238,8 +233,6 @@ class TestToolchain:
         assert items["gitleaks"].detail == (
             f"install gitleaks {GITLEAKS_VERSION}; devctl check blocks its secrets step without it"
         )
-        assert items["worker sign-in (agy)"].detail == "agy is not installed"
-        assert items["reviewer sign-in (claude)"].detail == "claude is not installed"
         assert items["core.hooksPath"].status == "missing"
         assert fake_run.argv == []
 
@@ -317,38 +310,12 @@ class TestToolchain:
 
 
 class TestSignIns:
-    def test_one_item_per_harness_named_for_its_roles(
-        self, ctx: MakeContext, fake_run: FakeRun
-    ) -> None:
-        fake_run.answer(
-            ["claude", "auth", "status", "--json"],
-            result(0, '{"loggedIn": true, "authMethod": "claude.ai"}'),
-        )
-        fake_run.answer(["codex", "login", "status"], result(0, err="Logged in using ChatGPT\n"))
-        shared = ctx(worker=("claude", "m1"))
-        names = [i.name for i in local_items(shared) if "sign-in" in i.name and "gh" not in i.name]
-        assert names == ["worker and reviewer sign-in (claude)"]
-        split = adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")})
-        items = by_name(local_items(split))
-        assert items["worker sign-in (codex)"].status == "ok"
-        assert items["reviewer sign-in (claude)"].status == "ok"
-        assert ["/usr/bin/codex", "login", "status"] in fake_run.argv
-        assert ["/usr/bin/claude", "auth", "status", "--json"] in fake_run.argv
-
     def test_no_roster_means_no_sign_in_items_and_no_session(
         self, ctx: MakeContext, fake_run: FakeRun
     ) -> None:
-        items = local_items(adjusted(ctx(), roster={}))
+        items = local_items(ctx())
         assert [i.name for i in items if i.name.endswith(("(claude)", "(codex)", "(agy)"))] == []
         assert not any(arg in {"-p", "exec", "--print"} for argv in fake_run.argv for arg in argv)
-
-    def test_claude_and_codex_run_only_their_status_commands(
-        self, ctx: MakeContext, fake_run: FakeRun
-    ) -> None:
-        local_items(adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")}))
-        started = [[Path(argv[0]).name, *argv[1:]] for argv in fake_run.argv]
-        assert [a for a in started if a[0] == "claude"] == [["claude", "auth", "status", "--json"]]
-        assert [a for a in started if a[0] == "codex"] == [["codex", "login", "status"]]
 
 
 class TestItems:
@@ -362,8 +329,6 @@ class TestItems:
             ("toolchain", "gh"),
             ("toolchain", "gh sign-in"),
             ("toolchain", "gitleaks"),
-            ("toolchain", "worker sign-in (agy)"),
-            ("toolchain", "reviewer sign-in (claude)"),
             ("guardrails", "core.hooksPath"),
             ("guardrails", "CI workflow"),
             ("guardrails", "Python guardrail settings"),
@@ -529,7 +494,7 @@ class TestOutput:
         # part is one missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
-            ctx(), stack="agnostic", roster={}, repository=None, worker_app=None, reviewer_app=None
+            ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
         )
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()

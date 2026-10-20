@@ -23,7 +23,7 @@ from devctl import process
 from devctl.doctor_items import DoctorContext, OwnerReadError
 from devctl.github.app import GitHubAccess
 from devctl.process import ProcessResult
-from devctl.settings import Agent, App, Harness, ProjectSettings
+from devctl.settings import App, ProjectSettings
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
@@ -144,17 +144,12 @@ def recorded_argv(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 @pytest.fixture
 def project() -> ProjectSettings:
-    """o/r with @o as its code owner, a Roster of two Harnesses and both Apps recorded, so Agent
-    identity is on."""
+    """o/r with @o as its code owner and both Apps recorded, so Agent identity is on."""
     return project_settings(
         repository="o/r",
         code_owner="@o",
         worker_app=App(WORKER_ID, "rs-worker"),
         reviewer_app=App(REVIEWER_ID, "rs-reviewer"),
-        roster={
-            "worker": Agent("agy", "gemini-3.8-flash-high"),
-            "reviewer": Agent("claude", "claude-opus-5-5"),
-        },
     )
 
 
@@ -185,20 +180,14 @@ def no_owner_reads(path: str) -> object:
 def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeContext:
     """Make DoctorContexts for a temporary repository on main, with no access and no owner reads.
 
-    worker=(harness, model) replaces the Roster's Worker. excluded replaces project.excluded, as
-    load_project would from [kit] exclude.
+    excluded replaces project.excluded, as load_project would from [kit] exclude.
     """
     root = tmp_path / "doctor-repo"
     root.mkdir()
     git(root, "init", "-q", "-b", "main")
 
-    def make(
-        *, worker: tuple[Harness, str] | None = None, excluded: Sequence[str] = ()
-    ) -> DoctorContext:
+    def make(*, excluded: Sequence[str] = ()) -> DoctorContext:
         settings = dataclasses.replace(project, excluded=tuple(excluded))
-        if worker is not None:
-            roster = {**settings.roster, "worker": Agent(*worker)}
-            settings = dataclasses.replace(settings, roster=roster)
         return DoctorContext(root, settings, no_owner_reads, None)
 
     return make

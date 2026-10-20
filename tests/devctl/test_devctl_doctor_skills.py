@@ -2,7 +2,6 @@
 Harness runs, and no App token is minted."""
 
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,7 @@ import pytest
 from devctl.doctor import DoctorContext, Item, skills_items
 from devctl.github.app import GitHubAccess
 from devctl.harness import PROBE_MODELS
-from devctl.settings import Agent, ProjectSettings, Role
+from devctl.settings import ProjectSettings
 from github_fakes import FakeGitHub, FakeHarness, Remote, files_containing, git
 from github_fixtures import no_owner_reads
 
@@ -68,10 +67,10 @@ def test_each_roster_harness_sees_the_skills_at_head(
         "claude", stdout=claude_stream(["rs-tdd", "billing-rules", "my-notes", "tools:lint"])
     )
     items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"].status == "ok"
-    reviewer = items["reviewer skills (claude)"]
-    assert reviewer.status == "ok"
-    assert "outside the repository: my-notes, tools:lint" in reviewer.detail
+    assert items["skills (agy)"].status == "ok"
+    claude = items["skills (claude)"]
+    assert claude.status == "ok"
+    assert "outside the repository: my-notes, tools:lint" in claude.detail
     [args] = fake_harness.calls("claude")
     assert args[args.index("--model") + 1] == PROBE_MODELS["claude"]
     [cwd] = fake_harness.cwds("claude")
@@ -99,8 +98,8 @@ def test_a_skill_the_session_cannot_see_is_missing(
     commit_skills(remote.clone, "rs-tdd", "billing-rules")
     fake_harness.install("agy", stdout=agy_skills(["rs-tdd", "billing-rules"]))
     fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    reviewer = by_name(skills_items(doctor_ctx))["reviewer skills (claude)"]
-    assert (reviewer.status, reviewer.detail) == ("missing", "missing: billing-rules")
+    claude = by_name(skills_items(doctor_ctx))["skills (claude)"]
+    assert (claude.status, claude.detail) == ("missing", "missing: billing-rules")
 
 
 def test_codex_lists_skills_one_name_per_line(
@@ -116,13 +115,8 @@ def test_codex_lists_skills_one_name_per_line(
         {"type": "turn.completed", "usage": {}},
     ]
     fake_harness.install("codex", stdout="".join(f"{json.dumps(event)}\n" for event in events))
-    roster: dict[Role, Agent] = {
-        "worker": Agent("codex", "gpt-6.1-sol"),
-        "reviewer": Agent("codex", "gpt-6-astra"),
-    }
-    codex = replace(doctor_ctx, project=replace(doctor_ctx.project, roster=roster))
-    [item] = skills_items(codex)
-    assert (item.name, item.status) == ("worker and reviewer skills (codex)", "ok")
+    [item] = skills_items(doctor_ctx)
+    assert (item.name, item.status) == ("skills (codex)", "ok")
     assert "outside the repository: review-notes" in item.detail
     [args] = fake_harness.calls("codex")
     assert args[:2] == ["exec", "--json"]
@@ -150,8 +144,7 @@ def test_without_a_roster_each_supported_harness_on_path_is_probed(
     commit_skills(remote.clone, "rs-tdd")
     fake_harness.install("agy", stdout=agy_skills(["rs-tdd"]))
     fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    no_roster = replace(doctor_ctx, project=replace(doctor_ctx.project, roster={}))
-    items = skills_items(no_roster)
+    items = skills_items(doctor_ctx)
     assert [(i.name, i.status) for i in items] == [
         ("skills (claude)", "ok"),
         ("skills (agy)", "ok"),
@@ -162,8 +155,7 @@ def test_without_a_roster_each_supported_harness_on_path_is_probed(
 def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
     doctor_ctx: DoctorContext, fake_harness: FakeHarness
 ) -> None:
-    no_roster = replace(doctor_ctx, project=replace(doctor_ctx.project, roster={}))
-    assert skills_items(no_roster) == [
+    assert skills_items(doctor_ctx) == [
         Item(
             "skills",
             "skills",
@@ -171,19 +163,6 @@ def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
             ".rapid-ship/project.toml has no Roster, and none of claude, codex or agy is on PATH",
         )
     ]
-
-
-def test_a_roster_harness_not_on_path_is_missing_and_gets_no_worktree(
-    doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
-) -> None:
-    commit_skills(remote.clone, "rs-tdd")
-    fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"] == Item(
-        "skills", "worker skills (agy)", "missing", "agy is not on PATH"
-    )
-    assert items["reviewer skills (claude)"].status == "ok"
-    assert len(worktrees(remote)) == 1
 
 
 def test_the_worktree_is_removed_when_a_session_fails(
@@ -197,9 +176,9 @@ def test_the_worktree_is_removed_when_a_session_fails(
     )
     fake_harness.install("claude", code=1)
     items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"].status == "unknown"
-    assert "code 503" in items["worker skills (agy)"].detail
-    assert items["reviewer skills (claude)"].status == "unknown"
+    assert items["skills (agy)"].status == "unknown"
+    assert "code 503" in items["skills (agy)"].detail
+    assert items["skills (claude)"].status == "unknown"
     assert len(worktrees(remote)) == 1
 
 
@@ -213,8 +192,7 @@ def test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed
         "agy",
         f"echo scratch > scratch.txt\ngit worktree lock \"$(pwd)\"\necho '{reply}'",
     )
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "ok"
     assert len(worktrees(remote)) == 1
 
@@ -227,8 +205,7 @@ def test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed(
 ) -> None:
     monkeypatch.setattr("devctl.doctor_skills.PROBE_TIMEOUT_SECONDS", 0.3)
     install_script(fake_harness, "agy", "sleep 30")
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "unknown"
     assert "did not finish" in item.detail
     assert len(worktrees(remote)) == 1
@@ -244,8 +221,7 @@ def test_no_token_is_minted_and_the_session_sees_none(
     commit_skills(remote.clone, "rs-tdd")
     record = fake_harness.directory / "agy.env"
     install_script(fake_harness, "agy", f"env > \"{record}\"\necho '{agy_skills(['rs-tdd'])}'")
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "ok"
     assert github.calls == []
     environment = record.read_text()

@@ -4,7 +4,6 @@ real Harness runs."""
 
 import argparse
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -18,7 +17,7 @@ from devctl.doctor import (
     run_doctor,
     skills_items,
 )
-from devctl.settings import Agent, ProjectSettings
+from devctl.settings import ProjectSettings
 from github_fakes import FakeHarness, Remote, git
 from github_fixtures import no_owner_reads
 
@@ -80,24 +79,12 @@ class TestRepositorySkills:
 
 
 class TestNames:
-    def test_roster_harnesses_are_named_for_their_roles_in_role_order(
-        self, project: ProjectSettings, fake_harness: FakeHarness
-    ) -> None:
-        shared = replace(
-            project, roster={"reviewer": Agent("codex", "m2"), "worker": Agent("codex", "m1")}
-        )
-        assert probed_harnesses(shared) == {"codex": "worker and reviewer skills (codex)"}
-        assert probed_harnesses(project) == {
-            "agy": "worker skills (agy)",
-            "claude": "reviewer skills (claude)",
-        }
-
     def test_without_a_roster_only_supported_harnesses_on_path_are_named(
         self, project: ProjectSettings, fake_harness: FakeHarness
     ) -> None:
         fake_harness.install("codex")
         fake_harness.install("pi")
-        assert probed_harnesses(replace(project, roster={})) == {"codex": "skills (codex)"}
+        assert probed_harnesses(project) == {"codex": "skills (codex)"}
 
     def test_the_item_lists_missing_outside_and_user_invoked_skills(
         self, doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
@@ -113,11 +100,10 @@ class TestNames:
         git(remote.clone, "commit", "-q", "-m", "skills")
         listed = [{"name": n} for n in ("c-skill", "z-out", "m-out", "u-skill")]
         fake_harness.install("agy", stdout=json.dumps(listed))
-        solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-        assert skills_items(replace(doctor_ctx, project=solo)) == [
+        assert skills_items(doctor_ctx) == [
             Item(
                 "skills",
-                "worker skills (agy)",
+                "skills (agy)",
                 "missing",
                 "missing: a-skill, b-skill; outside the repository: m-out, z-out; "
                 "not checked, user-invoked: u-skill",

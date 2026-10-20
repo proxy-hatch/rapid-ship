@@ -36,7 +36,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "b5e0c1f1cde1f3818117bce493464bf076b4b9d06a69ff588caf48fa8892a539"
+template_sha256 = "524929290528d091c83bb43406a2097926337a4ad13a8c1706ca1952dd55b1f6"
 
 [[file]]
 path = "AGENTS.md"
@@ -166,7 +166,7 @@ sha256 = "fb7579b1c41d2827fb87e81f119a064cc03ed0b85f1baa1029a15ed07bbfa299"
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
 kind = "managed"
-sha256 = "e563505f34bfbfb4d079b50200d75113edded75e3c69b3a74e26b933358b6945"
+sha256 = "c767d1b88c30a3086ddee3dc614380dfebf3c360da7a3db7d9eb96680b0aec82"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
@@ -186,7 +186,7 @@ sha256 = "fb45bd653d364dcef458551999a7ef7de9da5aafe01fe5e8b445abc8dd9409c8"
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
-sha256 = "a493ee3a1c4d4bdb99099d6a44cf1f0db8ebe03aa4dca97b6695fa5d9e8c17ca"
+sha256 = "bfa6b00bf35ba59c6c14990ea05ab4c99e3db00cce25c6572497efe345633bf5"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
@@ -226,7 +226,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "042185e55825c0329f9e21f5f1be46128773d992c36eed39e194bb51af9d9696"
+sha256 = "b974a7652112a0e7b1e01f75d02f7aed7d459f12a19a077e7af162cebdb96f9c"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

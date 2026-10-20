@@ -166,8 +166,8 @@ def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
 def probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]:
     """Each Harness to probe, with its item's name: the Roster's, named for their roles, or
     without a Roster each supported Harness on PATH (Spec 1 section 6)."""
-    if project.roster:
-        return {h: f"{roles} skills ({h})" for h, roles in harness_roles(project).items()}
+    if roster := harness_roles(project):
+        return {h: f"{roles} skills ({h})" for h, roles in roster.items()}
     return {h: f"skills ({h})" for h in SUPPORTED if shutil.which(h) is not None}
 
 

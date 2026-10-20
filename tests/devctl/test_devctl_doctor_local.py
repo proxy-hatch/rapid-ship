@@ -114,12 +114,6 @@ def test_missing_agy_is_missing() -> None:
     assert agy_sign_in("reviewer").status == "missing"
 
 
-def test_local_items_run_the_agy_probe(ctx: MakeContext, fake_run: FakeRun) -> None:
-    fake_run.answer(["agy", *AGY_PROBE_ARGS], result(0, "Hello!\n"))
-    items = {i.name: i for i in local_items(ctx(worker=("agy", "gemini-3.8-flash-high")))}
-    assert items["worker sign-in (agy)"].status == "ok"
-
-
 def test_hooks_ci_workflow_and_kit(
     ctx: MakeContext, fake_run: FakeRun, repo_files: RepoFiles
 ) -> None:
