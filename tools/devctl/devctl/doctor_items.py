@@ -75,8 +75,6 @@ SIGN_IN_VARIABLES: Mapping[str, tuple[str, ...]] = {
         *_AWS,
         *_GOOGLE_CLOUD,
     ),
-    "codex": ("CODEX_HOME", "OPENAI_API_KEY", "OPENAI_BASE_URL"),
-    "agy": ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI", *_GOOGLE_CLOUD),
 }
 
 
