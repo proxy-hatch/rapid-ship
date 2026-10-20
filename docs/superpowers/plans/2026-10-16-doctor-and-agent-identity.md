@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the App token code and `devctl as`. Move the settings to the re-scope: the Roster, the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
+**Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the App token code and `devctl as`. Move the settings to the re-scope: the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
 
 **Architecture:** A fresh branch from the head of PR #30 (`codex/devctl-check`) brings over only the surviving code of `codex/github-commands` at `901bd43`, copied file by file with `git show 901bd43:<path>`, then reshaped to Spec 1 and the plan index. devctl's source changes only in its template under `rapid_ship/templates/common/tools/devctl/`, and `uv run rapid-ship sync --in-place` vendors it into `tools/devctl/` with `.rapid-ship/kit.lock`. doctor reads this machine, the repository and GitHub (always `GET` with the owner's `gh` sign-in) and changes nothing in the repository; only while Agent identity is on does it read the two Apps, as the Apps. `devctl as` mints one installation token per run from a Keychain key, holds it in memory and hands it to one `gh` or `git push` child only.
 
@@ -11,6 +11,8 @@
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`rapid-ship app`), 4 (settings files), 6 (`devctl doctor`, Agent identity and `devctl as`), 10 (testing) and 11 (questions). Plan 4 of 6 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Built interfaces, Shared interfaces and "Plan 4: Doctor and Agent identity" section bind this plan.
 
 **Owner steps:** a step labelled "Owner step" uses the owner's accounts or changes state outside this worktree. The controller never dispatches an Owner step to an implementer subagent, and no agent runs one. Task 10 Steps 1 to 14 (with Step 11a) and the pushes in Task 11 Steps 3 and 5 run only in the owner's own terminal. The implementer works from the owner's recorded output.
+
+**Follow-ups:** the owner descoped running agents across several Providers on 2026-10-20. The [plan 4 follow-ups](2026-10-20-plan4-follow-ups.md) then removed the `[roster]` table, doctor's Harness sign-in items and the branch of `--skills` that probed the Harnesses `[roster]` named. Where this plan built them, one line now says so.
 
 ## Global Constraints
 
@@ -37,8 +39,8 @@ Copied from the plan index and Spec 1; every task's requirements include them.
 - Never write a GitHub App private key or token to disk, a command line or output (AGENTS.md, Safety). "No key or token is written to disk, put on a command line or printed" (Spec 1 section 6).
 - A token lives in memory only, one per command. `gh` receives it only as `GH_TOKEN` in its own environment, with `GH_REPO`; git receives it only through `devctl/github/askpass.py`, which reads `RAPID_SHIP_GIT_TOKEN` (index, Agent identity).
 - `rapid_ship/github_app.py` keeps its own `KEYCHAIN_SERVICE` and `APP_PERMISSIONS`, because `rapid_ship` cannot import devctl. A parity test keeps them equal to devctl's (index).
-- "doctor changes nothing in the repository." "It reads GitHub with the owner's `gh` sign-in, always as `GET`." "Any sign-in method is ok: a subscription, an API key or a gateway is the owner's choice of Provider. doctor never reads a token file." (Spec 1 section 6.)
-- "devctl never starts an agent to do work, never tracks or resumes one, and never talks to the issue tracker. Only doctor's probes start a short headless Session, to check a Harness's sign-in and the skills it loads." (Spec 1 section 6.)
+- "doctor changes nothing in the repository." "It reads GitHub with the owner's `gh` sign-in, always as `GET`." (Spec 1 section 6.) The follow-ups removed the Harness sign-in items after the owner descoped several Providers.
+- "devctl never starts an agent to do work, never tracks or resumes one, and never talks to the issue tracker. Only `doctor --skills` starts a short headless Session, to check which skills a Harness loads." (Spec 1 section 6.)
 - Settings files: "None of these holds a secret. All are in the Protected set. devctl rejects an unknown key, so a typo cannot silently keep a default." (Spec 1 section 4.)
 - Plan 4 removes `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. `[agents]`, `[linear]`, `[dispatch]` and `[release]` become unknown keys, which are errors; the message names what replaced each (index).
 - "GitHub is the only supported remote." "The owner's machine must run macOS for now: Agent identity keeps its App keys in the macOS Keychain." (Spec 1 section 1.)
@@ -54,8 +56,8 @@ The five failure modes most likely to bite a person using this software that Spe
 
 1. **A token or key leaks.** Paths: gh's argv or output, a git argv, a file, exception text, the caller's `GIT_TRACE*`, a repository hook, an HTTP redirect, or a gh command that prints or reuses its token (`gh auth`, `gh alias`, `gh extension`). Expected: none sees the token, and a refused gh command mints none. Pinned by Task 3's copied `test_redirects_are_not_followed`, `test_repository_hooks_do_not_run_with_the_token`, `test_git_tracing_from_the_callers_environment_is_dropped` and `test_token_is_never_an_argument`, and by Task 8's `test_gh_runs_as_the_worker_app_with_the_token_only_in_its_environment`, `test_the_push_token_is_never_an_argument_or_in_a_file`, `test_a_token_the_tool_prints_is_hidden` and `test_gh_refusals_mint_no_token_and_start_no_gh`.
 2. **`devctl as worker push` lands somewhere it should not, or overwrites.** Inputs: a diverged remote branch, the default branch, a detached `HEAD`, extra arguments such as `--force` or `+branch`, the Reviewer role, and an `insteadOf` or `pushInsteadOf` rule that rewrites the remote. Expected: a non-fast-forward push fails with git's own exit code and changes nothing; every other case is refused before git runs. Pinned by Task 8's `test_push_never_forces`, `test_push_refuses_the_default_branch`, `test_push_refusals_mint_no_token` and `test_a_detached_head_is_refused_before_a_token_is_minted`, and Task 3's copied `test_rewritten_remote_url_is_refused`.
-3. **Settings that look valid but are not.** Inputs: one App recorded without the other, an ID without its slug, Apps without `repository`, an old `[agents]`, `[linear]`, `[dispatch]` or `[release]` table, a Roster role or Harness the Kit does not know, and a recorded slug that is not the installed App's. Expected: `load_project` refuses each with a message that names the fix, and doctor reports a slug mismatch as missing, because Spec 3 finds agent pull requests by that slug. Pinned by Task 2's `test_invalid_settings_raise_settings_error` and `test_a_removed_table_names_what_replaced_it`, and Task 5's `test_an_installed_app_whose_slug_differs_from_the_record_is_missing`.
-4. **doctor reports more than it proved, or leaves something behind.** Inputs: agy exiting 0 with no reply, a 502 or 503 from Google's eligibility check, a Session that fails, hangs, writes files or locks its worktree, a ruleset that fits one Mode but not the current one, and Agent identity turned off. Expected: only a reply proves agy's sign-in; a service error is unknown; the `--skills` worktree is removed in every case; the relaxed ruleset is ok only for Flight without Agent identity; no App is read while Agent identity is off. Pinned by Task 4's copied agy tests, Task 5's `test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identity` and `test_agent_identity_off_has_no_app_items_and_asks_github_nothing`, and Task 6's `test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed` and `test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed`.
+3. **Settings that look valid but are not.** Inputs: one App recorded without the other, an ID without its slug, Apps without `repository`, an old `[agents]`, `[linear]`, `[dispatch]` or `[release]` table, and a recorded slug that is not the installed App's. Expected: `load_project` refuses each with a message that names the fix, and doctor reports a slug mismatch as missing, because Spec 3 finds agent pull requests by that slug. Pinned by Task 2's `test_invalid_settings_raise_settings_error` and `test_a_removed_table_names_what_replaced_it`, and Task 5's `test_an_installed_app_whose_slug_differs_from_the_record_is_missing`.
+4. **doctor reports more than it proved, or leaves something behind.** Inputs: a 502 or 503 from Google's eligibility check, a Session that fails, hangs, writes files or locks its worktree, a ruleset that fits one Mode but not the current one, and Agent identity turned off. Expected: a service error is unknown; the `--skills` worktree is removed in every case; the relaxed ruleset is ok only for Flight without Agent identity; no App is read while Agent identity is off. Pinned by Task 5's `test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identity` and `test_agent_identity_off_has_no_app_items_and_asks_github_nothing`, and Task 6's `test_the_worktree_is_removed_when_a_session_fails`, `test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed` and `test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed`.
 5. **`devctl as` reports success it cannot vouch for.** Inputs: gh output over the 1 MiB capture cap, a gh that never finishes, a gh that is not installed, a missing Keychain item, and a GitHub answer with no default branch. Expected: exit 2 with a message that says what happened, never a silent 0; a cut output still names gh's own exit code. Pinned by Task 8's `test_gh_output_that_was_cut_exits_2_and_says_so`, `test_a_gh_that_never_finishes_exits_2`, `test_a_gh_that_cannot_start_exits_2`, `test_a_missing_key_exits_2_before_any_tool_runs` and `test_a_default_branch_github_cannot_name_exits_2_without_a_push`.
 
 ---
@@ -67,17 +69,17 @@ Paths under `devctl/` mean the template `rapid_ship/templates/common/tools/devct
 | File | Change | Responsibility |
 | --- | --- | --- |
 | `devctl/process.py` | Modify (Task 1) | `first_line`, and `_kill_group` probing after a refused SIGTERM |
-| `devctl/settings.py` | Rewrite (Task 2) | `Harness`, `Role`, `ROLES`, `Agent`, `App`, `Escalation`, `ProjectSettings` with `agent_identity`, `REMOVED_TABLES`, `load_project`, `load_exceptions` |
+| `devctl/settings.py` | Rewrite (Task 2) | `Harness`, `Role`, `ROLES`, `App`, `Escalation`, `ProjectSettings` with `agent_identity`, `REMOVED_TABLES`, `load_project`, `load_exceptions` |
 | `devctl/check/steps.py`, `devctl/check/diff.py`, `devctl/cli.py` | Modify (Task 2) | `CheckContext` loses `gate`; the `diff` step loses its Flight note |
-| `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml`, `.rapid-ship/project.toml` | Rewrite (Task 2) | `[github]` App IDs and slugs, `[escalation]`, a commented `[roster]` |
+| `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml`, `.rapid-ship/project.toml` | Rewrite (Task 2) | `[github]` App IDs and slugs, `[escalation]` |
 | `rapid_ship/templates/common/.rapid-ship/gate.toml`, `.rapid-ship/gate.toml` | Delete (Task 2) | Nothing reads `gate.toml` any more |
 | `rapid_ship/templates/kit.toml` | Modify (Tasks 2, 3) | Drop the `gate.toml` seed; make `askpass.py` executable |
 | `devctl/github/__init__.py`, `api.py`, `askpass.py` | Copy, trimming `api.py` (Task 3) | The redirect-free REST client, without pagination, and the `GIT_ASKPASS` helper |
 | `devctl/github/app.py` | Copy and trim (Task 3) | Keychain keys, App JWTs, installation tokens, `GitHubAccess`, `run_guarded`, token-bearing `run_git` |
 | `devctl/check/kit.py` | Copy (Tasks 3, 4) | `rapid_ship_command`, then `kit_summary` for doctor |
 | `devctl/check/stacks/python.py` | Copy (Task 4) | `guardrail_gaps`, the Python floor that doctor checks |
-| `devctl/harness.py` | Copy and edit (Task 4) | Probe models, the agy probe, each Harness's skills prompt and parser |
-| `devctl/doctor_items.py`, `doctor_signin.py` | Write (Task 4) | Item types, `DoctorContext`, `gh_get`; sign-ins from the Roster, any method ok |
+| `devctl/harness.py` | Copy and edit (Task 4) | Probe models, each Harness's skills prompt and parser |
+| `devctl/doctor_items.py` | Write (Task 4) | Item types, `DoctorContext`, `gh_get`. The follow-ups removed `doctor_signin.py`, the Harness sign-in items, after the owner descoped several Providers |
 | `devctl/doctor_local.py` | Copy and edit (Task 4) | Toolchain, guardrails and Kit items, without the Linear item |
 | `devctl/doctor.py` | Write (Task 4), modify (Tasks 5, 6) | Runs the items, prints them, exits with the worst answer; `register` |
 | `devctl/doctor_rules.py`, `doctor_github.py` | Write (Task 5) | The ruleset and CODEOWNERS for the Mode and Agent identity; App items only while it is on |
@@ -96,8 +98,8 @@ Not brought over from `901bd43`: `dispatch.py`, `claims.py`, `claim_status.py`, 
 
 Where the old code, Spec 1 and the index differ, this plan follows the index and Spec 1:
 
-1. **Roles.** The old `AppRole` becomes the index's `Role` from `devctl.settings`; the old `Agent` pair `worker`/`reviewer` becomes `roster: Mapping[Role, Agent]`.
-2. **Sign-ins.** The old parsers refused an API key and every Claude sign-in but `claude.ai` (ADR 0001). Spec 1 section 6 accepts any method, so both parsers report ok and name the method by a short label only.
+1. **Roles.** The old `AppRole` becomes the index's `Role` from `devctl.settings`; the old `Agent` pair `worker`/`reviewer` goes. The follow-ups removed the `[roster]` table that first replaced it, after the owner descoped several Providers.
+2. **Sign-ins.** The follow-ups removed doctor's Harness sign-in items after the owner descoped several Providers.
 3. **`doctor --skills`.** The old code fetched the default branch as the Worker App into a worktree under `worktree_root`. Spec 1 section 6 and the index want a detached worktree at `HEAD` in a temporary directory with the owner's git and no App fetch, so `probe_worktree(repo)` takes no setting and no start. Removal is forced twice, so a Session's lock cannot keep the worktree.
 4. **App items.** They move to the index's area `agent identity` and appear only while Agent identity is on. Each installation item also compares GitHub's `app_slug` with the recorded slug, because Spec 3 relies on it; Task 10 confirms the field live.
 5. **Ruleset.** `ruleset_problems` takes `every_pr` and `agent_identity`. Walk and Flight with Agent identity need the whole ruleset with an approval count of at least 1 until Task 10 settles it. Flight without Agent identity also accepts the ruleset without its review requirement: no approval, no code-owner review and no last-push approval (index, Ruleset).
@@ -119,7 +121,6 @@ Rows marked "old plan" were checked on 2026-10-14 and are recorded in the [GitHu
 | gh uses `GH_TOKEN` for github.com ahead of its stored sign-in, and `GH_REPO` names the repository for commands run outside a clone; `GH_PROMPT_DISABLED` stops prompts. | `gh help environment`; Task 10 Step 10 records the author of a PR opened through `devctl as` |
 | GitHub rejects an App-token push that creates or updates a file under `.github/workflows/` without the Workflows permission, with `refusing to allow a GitHub App to create or update workflow`. | Old plan; Task 10 Step 12 records the live message |
 | On a GitHub Free private repository, `GET …/rulesets` returns 403 "Upgrade to GitHub Pro or make this repository public to enable this feature." | Old plan, observed on 18 private repositories |
-| `claude auth status --json` returns `loggedIn` and `authMethod`; `codex login status` writes `Logged in using ChatGPT`, `Not logged in` or `Logged in using an API key - <masked key>` to stderr; agy has no status command, and its exit code alone proves nothing. | Old plan |
 | `PROBE_MODELS`, the cheapest model for each Harness's probe: `haiku` for Claude Code, which ran as `claude-haiku-4-5-20251001` (Claude Code 2.1.287); `gpt-6-luna` for Codex, which `codex debug models --bundled` describes as its fast and affordable model, with `low` its lowest reasoning level (codex-cli 0.162.0); and `gemini-3.8-flash-low` for agy, the Flash model at the lowest effort that `agy models` lists (agy 1.3.4). No Harness lists prices. | Old plan; Task 10 Step 13 confirms or corrects each |
 | Ruff formats and checks a file under `rapid_ship/templates/` when the path is named, although `extend-exclude` skips the directory otherwise. | Observed with this repository's Ruff on 2026-10-16 |
 | Ruff 0.17.0, on #30's lock, formats code blocks fenced as `python` inside Markdown files, so `ruff format --check .` fails on a document whose fragments or one-line stubs are not in Ruff's layout. `<!-- fmt:off -->` on the line before such a block and `<!-- fmt:on -->` on the line after it leave the block as written, and the docs site, which reads Markdown as CommonMark, still builds. | Observed on a scratch copy of #30's head on 2026-10-16 |
@@ -234,9 +235,9 @@ git commit -m "fix: let run_process finish when macOS refuses SIGTERM, and share
 
 Expected: Ruff reports the plan `already formatted`, and the pre-commit hook's fast tier passes, `format` included. If Ruff would reformat the plan, a `python` block lost its `<!-- fmt:off -->` lines: restore them, never run `ruff format` on the plan, which rewrites the fragments so they no longer match the text they replace.
 
-### Task 2: Settings for the Roster, the escalation list and the Apps
+### Task 2: Settings for the escalation list and the Apps
 
-`project.toml` gains each App's slug, `[escalation]` and an optional `[roster]`, and loses `[agents]`, `[linear]`, `[dispatch]` and `[release]`. `gate.toml` is no longer seeded or read, so `CheckContext` loses `gate` and the `diff` step loses its Flight note: whether a declared removal goes to the owner is the escalation list's business (Spec 1 section 5).
+`project.toml` gains each App's slug and `[escalation]`, and loses `[agents]`, `[linear]`, `[dispatch]` and `[release]`. The follow-ups removed the optional `[roster]` table that this task also added, after the owner descoped several Providers. `gate.toml` is no longer seeded or read, so `CheckContext` loses `gate` and the `diff` step loses its Flight note: whether a declared removal goes to the owner is the escalation list's business (Spec 1 section 5).
 
 **Files:**
 - Rewrite: `rapid_ship/templates/common/tools/devctl/devctl/settings.py`
@@ -255,12 +256,6 @@ Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 REMOVED_TABLES: dict[str, str]  # "agents", "dispatch", "linear", "release" -> what replaced each
-
-
-@dataclass(frozen=True)
-class Agent:
-    harness: Harness
-    model: str
 
 
 @dataclass(frozen=True)
@@ -283,7 +278,6 @@ class ProjectSettings:
     worker_app: App | None
     reviewer_app: App | None
     escalation: Escalation
-    roster: Mapping[Role, Agent]
     optional_skills: tuple[str, ...]
     excluded: tuple[str, ...]
     source_roots: tuple[str, ...]
@@ -299,7 +293,7 @@ def load_project(root: Path) -> ProjectSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
 ```
 
-`CheckContext(repo, project, base, pr_body)`, without `gate`. `check_workspace.project_settings(**changes)` builds the test defaults above with `roster={}` and Walk; `gate_settings` is gone.
+`CheckContext(repo, project, base, pr_body)`, without `gate`. `check_workspace.project_settings(**changes)` builds the test defaults above with Walk; `gate_settings` is gone.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -318,7 +312,6 @@ from devctl.settings import (
     EXCEPTIONS,
     PROJECT,
     REMOVED_TABLES,
-    Agent,
     App,
     Escalation,
     ProjectSettings,
@@ -360,7 +353,6 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(SEEDED_KIND,), revision_rounds=3),
-        roster={},
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),
@@ -379,22 +371,12 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     project = load_project(tmp_path)
 
     assert project.escalation == Escalation(every_pr=True, kinds=(), revision_rounds=3)
-    assert (project.roster, project.unit_tests) == ({}, ("tests/unit/**",))
+    assert project.unit_tests == ("tests/unit/**",)
     assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
         None,
         None,
         False,
     )
-
-
-def test_the_roster_keeps_the_exact_model(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        PROJECT,
-        'stack = "python"\n[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
-    )
-
-    assert load_project(tmp_path).roster == {"reviewer": Agent("claude", "claude-opus-5-5")}
 
 
 def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
@@ -425,7 +407,7 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
 # What replaced each removed table (Spec 1 section 4), written out so the test does not compare
 # the code with itself.
 REPLACED_BY = {
-    "agents": "[roster.worker]",
+    "agents": "does not run agents across several Providers",
     "dispatch": "no longer starts Workers",
     "linear": "never talks to the issue tracker",
     "release": "Spec 3",
@@ -541,22 +523,6 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
             "kinds: expected a list of non-empty strings",
         ),
         (PROJECT, 'stack = "python"\n[escalation]\nmode = "flight"\n', "unknown key 'mode'"),
-        (PROJECT, 'stack = "python"\n[roster.worker]\nharness = "agy"\n', "model: required"),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.worker]\nharness = "agy"\nmodel = " m "\n',
-            "model: required",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.worker]\nharness = "pi"\nmodel = "m"\n',
-            "harness: expected claude or codex or agy",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.lead]\nharness = "claude"\nmodel = "m"\n',
-            "unknown key 'lead'",
-        ),
         (
             PROJECT,
             'stack = "python"\n[github]\nrepository = "not a repo"\n',
@@ -704,7 +670,6 @@ with:
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(), revision_rounds=3),
-        roster={},
         optional_skills=(),
         excluded=(),
         source_roots=("src/app",),
@@ -912,14 +877,6 @@ def test_gate_seed_has_the_spec_defaults() -> None:
 with:
 
 ```python
-@pytest.mark.parametrize("stack", STACKS)
-def test_the_seeded_roster_is_a_commented_example(stack: Stack) -> None:
-    lines = text(stack, ".rapid-ship/project.toml").splitlines()
-    assert "# [roster.worker]" in lines
-    assert "# [roster.reviewer]" in lines
-    assert not any(line.startswith("[roster") for line in lines)
-
-
 def test_the_kit_no_longer_seeds_gate_toml() -> None:
     assert ".rapid-ship/gate.toml" not in rendered("python")
     assert ".rapid-ship/gate.toml" not in load_manifest().seeded
@@ -947,30 +904,28 @@ from __future__ import annotations
 
 import re
 import tomllib
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from types import MappingProxyType
 from typing import Literal, cast, get_args
 
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-Harness = Literal["claude", "codex", "agy"]  # Proposal: Spec 1 section 11, Roster Harnesses
+# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)
+Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 # Tables the re-scope of 2026-10-16 removed, and what replaced each (Spec 1 section 4).
 REMOVED_TABLES = {
-    "agents": "name each role's Harness and exact model under [roster.worker] and "
-    "[roster.reviewer] instead",
+    "agents": "rapid-ship does not run agents across several Providers; delete the table",
     "dispatch": "rapid-ship no longer starts Workers, and the Lead brief's Focus caps parallel "
     "Workers; delete the table",
     "linear": "devctl never talks to the issue tracker; delete the table",
     "release": "a project defines its own deploy metrics (Spec 3); delete the table",
 }
 
-_TABLES = {"stack", "github", "escalation", "roster", "kit", "map", "tests"}
+_TABLES = {"stack", "github", "escalation", "kit", "map", "tests"}
 _GITHUB_KEYS = {
     "repository",
     "worker_app_id",
@@ -986,12 +941,6 @@ _EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
 class SettingsError(Exception):
     """A settings file is missing or invalid. devctl exits 2."""
-
-
-@dataclass(frozen=True)
-class Agent:
-    harness: Harness
-    model: str  # kept exactly
 
 
 @dataclass(frozen=True)
@@ -1014,7 +963,6 @@ class ProjectSettings:
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
-    roster: Mapping[Role, Agent]  # empty without a Roster
     optional_skills: tuple[str, ...]  # [kit] optional
     # [kit] exclude: Kit paths the project owns; a skill directory also covers its link.
     excluded: tuple[str, ...]
@@ -1108,23 +1056,6 @@ def _inside_repository(entry: str) -> str | None:
     return "/".join(path.parts)
 
 
-def _agent(roster: _Table, role: Role) -> Agent | None:
-    if role not in roster.values:
-        return None
-    table = roster.table(role, {"harness", "model"})
-    harness = cast(Harness, table.choice("harness", get_args(Harness)))
-    model = table.text("model")
-    if not model or model.strip() != model:
-        raise SettingsError(f"{table.where} model: required; record the exact model ID")
-    return Agent(harness, model)
-
-
-def _roster(top: _Table) -> Mapping[Role, Agent]:
-    roster = top.table("roster", set(ROLES))
-    found = {role: agent for role in ROLES if (agent := _agent(roster, role)) is not None}
-    return MappingProxyType(found)
-
-
 def _app(github: _Table, role: Role) -> App | None:
     """The role's App, or None when its ID is 0 and its slug empty."""
     app_id = github.integer(f"{role}_app_id", 0, minimum=0)
@@ -1200,7 +1131,6 @@ def load_project(root: Path) -> ProjectSettings:
         worker_app=worker_app,
         reviewer_app=reviewer_app,
         escalation=_escalation(top),
-        roster=_roster(top),
         optional_skills=kit.texts("optional"),
         excluded=_exclude_paths(kit),
         source_roots=source_map.texts("source_roots"),
@@ -1368,15 +1298,6 @@ kinds = [
 ]
 revision_rounds = 3    # a PR that reached this many Revisions also goes to the owner
 
-# Optional. Only an owner who uses more than one Provider needs a Roster.
-# [roster.worker]
-# harness = "codex"        # claude, codex or agy
-# model = "<exact model ID>"
-#
-# [roster.reviewer]
-# harness = "claude"
-# model = "<exact model ID>"
-
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
 # Kit files or directories the project owns instead. rapid-ship sync never
@@ -1419,15 +1340,6 @@ kinds = [
   "a pull request that removes a behavioural test",
 ]
 revision_rounds = 3    # a PR that reached this many Revisions also goes to the owner
-
-# Optional. Only an owner who uses more than one Provider needs a Roster.
-# [roster.worker]
-# harness = "codex"        # claude, codex or agy
-# model = "<exact model ID>"
-#
-# [roster.reviewer]
-# harness = "claude"
-# model = "<exact model ID>"
 
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
@@ -1475,7 +1387,7 @@ Expected: every test passes; status exits 0; the fast tier passes every step, an
 
 ```sh
 git add -A rapid_ship/templates tools/devctl .rapid-ship AGENTS.md tests
-git commit -m "feat: read the Roster, the escalation list and both Apps from project.toml" -m "The re-scope removes [agents], [linear], [dispatch], [release] and gate.toml; each removed table is refused with what replaced it, and the diff step no longer reads a Mode." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat: read the escalation list and both Apps from project.toml" -m "The re-scope removes [agents], [linear], [dispatch], [release] and gate.toml; each removed table is refused with what replaced it, and the diff step no longer reads a Mode." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 3: The REST client, App tokens and the askpass helper
@@ -2181,10 +2093,10 @@ git commit -m "feat: mint App installation tokens and pass them to git through a
 
 ### Task 4: doctor's core and local items
 
-doctor's toolchain, guardrails and Kit items come over from `0c2b27f` and `51c9300` without the Linear item. Harness sign-ins follow the Roster, and any sign-in method is ok. `harness.py` comes over whole, with the skills parsers Task 6 uses, and its tests.
+doctor's toolchain, guardrails and Kit items come over from `0c2b27f` and `51c9300` without the Linear item. The follow-ups removed doctor's Harness sign-in items after the owner descoped several Providers. `harness.py` comes over whole, with the skills parsers Task 6 uses, and its tests.
 
 **Files:**
-- Create: `rapid_ship/templates/common/tools/devctl/devctl/doctor.py`, `doctor_items.py`, `doctor_signin.py`
+- Create: `rapid_ship/templates/common/tools/devctl/devctl/doctor.py`, `doctor_items.py`
 - Create (copied, then edited): `rapid_ship/templates/common/tools/devctl/devctl/doctor_local.py`, `harness.py`
 - Modify (copied): `rapid_ship/templates/common/tools/devctl/devctl/check/kit.py`, `check/stacks/python.py`
 - Modify: `rapid_ship/templates/common/tools/devctl/devctl/cli.py`
@@ -2192,7 +2104,7 @@ doctor's toolchain, guardrails and Kit items come over from `0c2b27f` and `51c93
 - Test (copied, then edited): `tests/devctl/test_devctl_doctor_local.py`, `test_devctl_doctor_local_limits.py`; (copied) `test_devctl_kit_summary.py`, `test_devctl_python_guardrails.py`, `test_devctl_python_guardrails_limits.py`, and `test_devctl_harness.py`, the index's name for `901bd43`'s `test_devctl_harness_skills.py`
 
 **Interfaces:**
-- Consumes: `ProjectSettings`, `ROLES`, `Harness` (Task 2); `GitHubAccess`, `project_access`, `rapid_ship_command`, `KitLockError` (Task 3); `process.first_line` (Task 1).
+- Consumes: `ProjectSettings`, `Harness` (Task 2); `GitHubAccess`, `project_access`, `rapid_ship_command`, `KitLockError` (Task 3); `process.first_line` (Task 1).
 - Produces (the index's doctor section):
 
 <!-- fmt:off -->
@@ -2214,7 +2126,6 @@ class DoctorContext:
     project: ProjectSettings
     owner_get: OwnerGet
     access: GitHubAccess | None  # None while Agent identity is off
-def harness_roles(project: ProjectSettings) -> dict[HarnessName, str]: ...  # {"agy": "worker", ...}
 def gh_get(path: str) -> object: ...
 def run_installed(tool: str, *args: str, cwd: Path | None = None, timeout: float = 30.0) -> ProcessResult | None: ...
 def finished(result: ProcessResult) -> bool: ...
@@ -2225,18 +2136,10 @@ def git_item() -> Item: ...
 def local_items(ctx: DoctorContext) -> list[Item]: ...
 def devctl_exclusion_gaps(pyproject: Mapping[str, object], *, python: bool) -> list[str]: ...
 
-# devctl/doctor_signin.py
-def claude_item(role: str, result: ProcessResult) -> Item: ...
-def codex_item(role: str, result: ProcessResult) -> Item: ...
-def agy_item(role: str, result: ProcessResult) -> Item: ...
-def agy_sign_in(role: str) -> Item: ...
-def sign_in_items(project: ProjectSettings) -> list[Item]: ...
-
 # devctl/harness.py
 HarnessName = Harness
 PROBE_MODELS: dict[HarnessName, str]
 PROBE_TIMEOUT_SECONDS = 120.0
-AGY_PROBE_ARGS: tuple[str, ...]
 def skills_args(harness: HarnessName) -> list[str]: ...
 def parse_skills(harness: HarnessName, result: ProcessResult) -> SkillReport: ...  # .names, .error
 
@@ -2251,7 +2154,7 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 ```
 <!-- fmt:on -->
 
-Test helpers added: `github_fakes.py` gains `MakeContext`, `RecordedOwner`, `FakeRun`, `FakeHarness` and `RepoFiles`; `github_fixtures.py` gains `project` (o/r, a Roster of agy as Worker and Claude Code as Reviewer, and both Apps, so Agent identity is on), `fake_run`, `fake_harness`, `no_owner_reads`, `ctx` (its `worker=(harness, model)` replaces the Roster's Worker) and `repo_files`.
+Test helpers added: `github_fakes.py` gains `MakeContext`, `RecordedOwner`, `FakeRun`, `FakeHarness` and `RepoFiles`; `github_fixtures.py` gains `project` (o/r and both Apps, so Agent identity is on), `fake_run`, `fake_harness`, `no_owner_reads`, `ctx` and `repo_files`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2367,7 +2270,7 @@ from devctl import process
 from devctl.doctor_items import DoctorContext, OwnerReadError
 from devctl.github.app import GitHubAccess
 from devctl.process import ProcessResult
-from devctl.settings import Agent, App, Harness, ProjectSettings
+from devctl.settings import App, ProjectSettings
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
@@ -2401,15 +2304,11 @@ Append to `tests/devctl/github_fixtures.py`:
 ```python
 @pytest.fixture
 def project() -> ProjectSettings:
-    """o/r with a Roster of two Harnesses and both Apps recorded, so Agent identity is on."""
+    """o/r with both Apps recorded, so Agent identity is on."""
     return project_settings(
         repository="o/r",
         worker_app=App(WORKER_ID, "rs-worker"),
         reviewer_app=App(REVIEWER_ID, "rs-reviewer"),
-        roster={
-            "worker": Agent("agy", "gemini-3.8-flash-high"),
-            "reviewer": Agent("claude", "claude-opus-5-5"),
-        },
     )
 
 
@@ -2440,20 +2339,14 @@ def no_owner_reads(path: str) -> object:
 def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeContext:
     """Make DoctorContexts for a temporary repository on main, with no access and no owner reads.
 
-    worker=(harness, model) replaces the Roster's Worker. excluded replaces project.excluded, as
-    load_project would from [kit] exclude.
+    excluded replaces project.excluded, as load_project would from [kit] exclude.
     """
     root = tmp_path / "doctor-repo"
     root.mkdir()
     git(root, "init", "-q", "-b", "main")
 
-    def make(
-        *, worker: tuple[Harness, str] | None = None, excluded: Sequence[str] = ()
-    ) -> DoctorContext:
+    def make(*, excluded: Sequence[str] = ()) -> DoctorContext:
         settings = dataclasses.replace(project, excluded=tuple(excluded))
-        if worker is not None:
-            roster = {**settings.roster, "worker": Agent(*worker)}
-            settings = dataclasses.replace(settings, roster=roster)
         return DoctorContext(root, settings, no_owner_reads, None)
 
     return make
@@ -2475,7 +2368,7 @@ done
 git show 901bd43:tests/devctl/test_devctl_harness_skills.py > tests/devctl/test_devctl_harness.py
 ```
 
-Reshape the two doctor test files to the Roster, any sign-in method and no Linear item:
+Reshape the two doctor test files to no Linear item. The follow-ups removed the claude, codex and agy sign-in tests, with the edits this step made to them, after the owner descoped several Providers; they moved `test_agy_is_probed_inside_another_coding_session` to the `--skills` tests.
 
 In `tests/devctl/test_devctl_doctor_local.py`, replace:
 
@@ -2503,57 +2396,8 @@ import pytest
 from devctl import doctor
 from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
-    AGY_PROBE_ARGS,
     DoctorContext,
     Item,
-```
-
-In `tests/devctl/test_devctl_doctor_local.py`, replace:
-
-<!-- fmt:off -->
-```python
-        (result(0, '{"loggedIn": true, "authMethod": "console"}'), "unknown"),
-```
-<!-- fmt:on -->
-
-with:
-
-<!-- fmt:off -->
-```python
-        (result(0, '{"loggedIn": true, "authMethod": "console"}'), "ok"),
-```
-<!-- fmt:on -->
-
-In `tests/devctl/test_devctl_doctor_local.py`, replace:
-
-<!-- fmt:off -->
-```python
-        (result(0, err="Logged in using an API key - sk-proj-***ABCD\n"), "missing"),
-        (result(0, err="Logged in using access token\n"), "unknown"),
-```
-<!-- fmt:on -->
-
-with:
-
-<!-- fmt:off -->
-```python
-        (result(0, err="Logged in using an API key - sk-proj-***ABCD\n"), "ok"),
-        (result(0, err="Logged in using access token\n"), "ok"),
-        (result(0, err="Something else\n"), "unknown"),
-```
-<!-- fmt:on -->
-
-In `tests/devctl/test_devctl_doctor_local.py`, replace:
-
-```python
-    # ADR 0001: the owner accepted running agy from inside another coding session.
-```
-
-with:
-
-```python
-    # doctor probes agy wherever it runs; rs-setup warns before it runs doctor inside
-    # another Harness's Session (Spec 1 section 8, step 13).
 ```
 
 In `tests/devctl/test_devctl_doctor_local.py`, replace:
@@ -2580,97 +2424,6 @@ with:
 
 ```python
     assert "Linear team and project IDs" not in items  # devctl never talks to the tracker
-```
-
-In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
-
-```python
-    def test_an_unexpected_sign_in_names_the_auth_method_only(
-        self, output: ProcessResult, detail: str
-    ) -> None:
-        item = claude_item("worker", output)
-        assert item.status == "unknown"
-        assert f"authMethod is {detail}" in item.detail
-        assert "rm" not in item.detail
-        assert "loggedIn" not in item.detail
-```
-
-with:
-
-```python
-    def test_any_sign_in_method_is_ok_and_named_only_by_its_label(
-        self, output: ProcessResult, detail: str
-    ) -> None:
-        item = claude_item("worker", output)
-        assert (item.status, item.detail) == ("ok", f"signed in; authMethod is {detail}")
-        assert "rm" not in item.detail
-```
-
-In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
-
-```python
-    def test_an_api_key_is_refused_without_echoing_it(self) -> None:
-        item = codex_item(
-            "worker",
-            result(0, out="sk-live-OUT", err="Logged in using an API key - sk-proj-***ZZ\n"),
-        )
-        assert item.status == "missing"
-        assert "ADR 0001" in item.detail
-        assert "sk-" not in item.detail
-```
-
-with:
-
-```python
-    def test_an_api_key_is_ok_and_never_echoed(self) -> None:
-        item = codex_item(
-            "worker",
-            result(0, out="sk-live-OUT", err="Logged in using an API key - sk-proj-***ZZ\n"),
-        )
-        assert (item.status, item.detail) == ("ok", "signed in with an API key")
-        assert "sk-" not in item.detail
-```
-
-In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
-
-```python
-        split = adjusted(ctx(), worker=agent("codex"), reviewer=agent("claude"))
-```
-
-with:
-
-```python
-        split = adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")})
-```
-
-In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
-
-```python
-    def test_no_agents_means_no_sign_in_items_and_no_session(
-        self, ctx: MakeContext, fake_run: FakeRun
-    ) -> None:
-        items = local_items(adjusted(ctx(), worker=None, reviewer=None))
-```
-
-with:
-
-```python
-    def test_no_roster_means_no_sign_in_items_and_no_session(
-        self, ctx: MakeContext, fake_run: FakeRun
-    ) -> None:
-        items = local_items(adjusted(ctx(), roster={}))
-```
-
-In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
-
-```python
-        local_items(adjusted(ctx(), worker=agent("codex"), reviewer=agent("claude")))
-```
-
-with:
-
-```python
-        local_items(adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")}))
 ```
 
 In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
@@ -2730,7 +2483,7 @@ with:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
         # missing, and gitleaks (no version printed) is unknown.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
-        context = adjusted(ctx(), stack="agnostic", roster={})
+        context = adjusted(ctx(), stack="agnostic")
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()
         assert lines[0] == "ok  toolchain  git: 2.39.5"
@@ -2835,7 +2588,7 @@ In `rapid_ship/templates/common/tools/devctl/devctl/doctor_local.py`, replace:
 with:
 
 ```python
-"""doctor's local items: the toolchain, Harness sign-ins, guardrails and Kit files.
+"""doctor's local items: the toolchain, guardrails and Kit files.
 ```
 
 In `rapid_ship/templates/common/tools/devctl/devctl/doctor_local.py`, delete:
@@ -2870,7 +2623,7 @@ In `rapid_ship/templates/common/tools/devctl/devctl/doctor_local.py`, replace:
 with:
 
 ```python
-    """Every item that needs no GitHub: the toolchain, sign-ins, guardrails and Kit files."""
+    """Every item that needs no GitHub: the toolchain, guardrails and Kit files."""
 ```
 
 In `rapid_ship/templates/common/tools/devctl/devctl/doctor_local.py`, replace:
@@ -2900,8 +2653,8 @@ ask which skills a Harness loads. Each Harness runs its cheapest model.
 with:
 
 ```python
-doctor spends a little of the owner's quota, whatever the Provider, to prove a sign-in, and with
---skills to ask which skills a Harness loads. Each Harness runs its cheapest model.
+doctor spends a little of the owner's quota, whatever the Provider, with --skills to ask which
+skills a Harness loads. Each Harness runs its cheapest model.
 ```
 
 In `rapid_ship/templates/common/tools/devctl/devctl/harness.py`, replace:
@@ -2967,9 +2720,8 @@ from typing import Literal
 
 from devctl import process
 from devctl.github.app import GitHubAccess
-from devctl.harness import HarnessName
 from devctl.process import ProcessResult
-from devctl.settings import ROLES, ProjectSettings
+from devctl.settings import ProjectSettings
 
 Status = Literal["ok", "missing", "unknown"]
 TOOL_TIMEOUT_SECONDS = 30.0
@@ -3003,17 +2755,6 @@ class DoctorContext:
     project: ProjectSettings
     owner_get: OwnerGet
     access: GitHubAccess | None  # None while Agent identity is off
-
-
-def harness_roles(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each Harness the Roster names, with the roles that use it: "worker", "reviewer" or
-    "worker and reviewer". Empty without a Roster."""
-    roles: dict[HarnessName, list[str]] = {}
-    for role in ROLES:
-        agent = project.roster.get(role)
-        if agent is not None:
-            roles.setdefault(agent.harness, []).append(role)
-    return {harness: " and ".join(names) for harness, names in roles.items()}
 
 
 def _json_message(stdout: str) -> str:
@@ -3072,151 +2813,16 @@ def finished(result: ProcessResult) -> bool:
     return not (result.timed_out or result.stdout_truncated or result.stderr_truncated)
 ```
 
-Create `$T/doctor_signin.py`:
-
-```python
-"""doctor's Harness sign-ins: one item per Harness the Roster names.
-
-claude and codex report their sign-in through their own status commands. agy has none, so doctor
-asks it for a reply. Any sign-in method is ok: a subscription, an API key or a gateway is the
-owner's choice of Provider (Spec 1 section 6). A detail never quotes the Harness's output, except
-agy's error line, and doctor never reads a token file.
-"""
-
-from __future__ import annotations
-
-import json
-import re
-
-from devctl import process
-from devctl.doctor_items import Item, Status, finished, harness_roles, run_installed
-from devctl.harness import (
-    AGY_PROBE_ARGS,
-    PROBE_MODELS,
-    PROBE_TIMEOUT_SECONDS,
-    SERVICE_ERROR,
-    HarnessName,
-    error_line,
-)
-from devctl.process import ProcessResult
-from devctl.settings import ProjectSettings
-
-_STATUS_COMMANDS = {"claude": ("auth", "status", "--json"), "codex": ("login", "status")}
-# The first line of `codex login status` names the method, and an API key's line goes on to show
-# part of the key, so a detail names only the method.
-_CODEX_METHODS = (
-    ("Logged in using ChatGPT", "ChatGPT"),
-    ("Logged in using an API key", "an API key"),
-)
-
-
-def _sign_in(role: str, harness: str, status: Status, detail: str) -> Item:
-    return Item("toolchain", f"{role} sign-in ({harness})", status, detail)
-
-
-def _method_label(method: object) -> str:
-    """An authMethod the detail may name: a short identifier, never free text."""
-    if isinstance(method, str) and re.fullmatch(r"[A-Za-z0-9._-]{1,32}", method):
-        return method
-    return "unreadable" if method is not None else "absent"
-
-
-def claude_item(role: str, result: ProcessResult) -> Item:
-    """Read `claude auth status --json`. Any authMethod is a sign-in; the detail names it."""
-    try:
-        data = json.loads(result.stdout) if finished(result) else None
-    except ValueError:
-        data = None
-    if not isinstance(data, dict):
-        return _sign_in(role, "claude", "unknown", "claude auth status gave no readable JSON")
-    logged_in, method = data.get("loggedIn"), data.get("authMethod")
-    if logged_in is True and result.returncode == 0:
-        detail = f"signed in; authMethod is {_method_label(method)}"
-        return _sign_in(role, "claude", "ok", detail)
-    if logged_in is False and result.returncode == 1:
-        return _sign_in(role, "claude", "missing", "not signed in; run claude auth login")
-    detail = f"claude auth status exited {result.returncode}, which its answer contradicts"
-    return _sign_in(role, "claude", "unknown", detail)
-
-
-def _codex_method(first: str) -> str:
-    for prefix, label in _CODEX_METHODS:
-        if first.startswith(prefix):
-            return label
-    return "a method doctor does not name"
-
-
-def codex_item(role: str, result: ProcessResult) -> Item:
-    """Read the first line of `codex login status`, which codex writes to stderr."""
-    first = process.first_line(result.stderr)
-    if not finished(result):
-        return _sign_in(role, "codex", "unknown", "codex login status did not finish")
-    if first == "Not logged in":
-        return _sign_in(role, "codex", "missing", "not signed in; run codex login")
-    if first.startswith("Logged in using ") and result.returncode == 0:
-        return _sign_in(role, "codex", "ok", f"signed in with {_codex_method(first)}")
-    return _sign_in(
-        role, "codex", "unknown", "codex login status gave an answer doctor cannot read"
-    )
-
-
-def agy_item(role: str, result: ProcessResult) -> Item:
-    """Classify the agy probe. Exit 0 alone is not a sign-in: only a reply is (Checked facts)."""
-    if result.timed_out:
-        detail = f"agy did not finish within {PROBE_TIMEOUT_SECONDS:.0f} s"
-        return _sign_in(role, "agy", "unknown", detail)
-    if result.stdout_truncated or result.stderr_truncated:
-        detail = f"agy printed more than {process.MAX_OUTPUT_BYTES} bytes"
-        return _sign_in(role, "agy", "unknown", detail)
-    service = next((ln for ln in result.stderr.splitlines() if SERVICE_ERROR.search(ln)), None)
-    if service is not None:
-        detail = (
-            f"agy's service failed, not necessarily the sign-in: {service.strip()[:300]}; "
-            "rerun ./devctl doctor"
-        )
-        return _sign_in(role, "agy", "unknown", detail)
-    if result.returncode == 0 and result.stdout.strip():
-        return _sign_in(role, "agy", "ok", f"signed in: agy answered on {PROBE_MODELS['agy']}")
-    detail = f"agy gave no reply (exit {result.returncode})"
-    error = error_line(result.stderr)
-    return _sign_in(role, "agy", "missing", f"{detail}: {error}" if error else detail)
-
-
-def agy_sign_in(role: str) -> Item:
-    """Send `hi` to a new headless agy Session on the cheapest model, wherever doctor runs.
-
-    Run inside another Harness's Session, that is a use Google's consumer terms do not support;
-    rs-setup warns the owner before it runs doctor there (Spec 1 section 8, step 13).
-    """
-    result = run_installed("agy", *AGY_PROBE_ARGS, timeout=PROBE_TIMEOUT_SECONDS)
-    if result is None:
-        return _sign_in(role, "agy", "missing", "agy is not installed")
-    return agy_item(role, result)
-
-
-def _harness_sign_in(harness: HarnessName, role: str) -> Item:
-    if harness == "agy":
-        return agy_sign_in(role)
-    result = run_installed(harness, *_STATUS_COMMANDS[harness])
-    if result is None:
-        return _sign_in(role, harness, "missing", f"{harness} is not installed")
-    return (claude_item if harness == "claude" else codex_item)(role, result)
-
-
-def sign_in_items(project: ProjectSettings) -> list[Item]:
-    """One item per Harness the Roster names, named for the roles that use it; none without one."""
-    return [_harness_sign_in(harness, roles) for harness, roles in harness_roles(project).items()]
-```
+The follow-ups removed `doctor_signin.py`, which this step created for the Harness sign-in items, with the agy sign-in probe's `AGY_PROBE_ARGS` and `SERVICE_ERROR` in `harness.py`, after the owner descoped several Providers.
 
 Create `$T/doctor.py`:
 
 ```python
 """devctl doctor: report each item as ok, missing or unknown.
 
-doctor_local.py builds the items for this machine and repository, and doctor_signin.py the
-Harness sign-ins; doctor_items.py holds the types they share and the owner's one way to read
-GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
-names that tests import from devctl.doctor.
+doctor_local.py builds the items for this machine and repository; doctor_items.py holds the
+types they share and the owner's one way to read GitHub. This module runs them, prints them and
+exits with the worst answer. It re-exports the names that tests import from devctl.doctor.
 """
 
 from __future__ import annotations
@@ -3237,12 +2843,7 @@ from devctl.doctor_local import KIT_SOURCE as KIT_SOURCE
 from devctl.doctor_local import devctl_exclusion_gaps as devctl_exclusion_gaps
 from devctl.doctor_local import git_item as git_item
 from devctl.doctor_local import local_items as local_items
-from devctl.doctor_signin import agy_item as agy_item
-from devctl.doctor_signin import agy_sign_in as agy_sign_in
-from devctl.doctor_signin import claude_item as claude_item
-from devctl.doctor_signin import codex_item as codex_item
 from devctl.github.app import project_access
-from devctl.harness import AGY_PROBE_ARGS as AGY_PROBE_ARGS
 from devctl.repo import Repo
 from devctl.settings import load_project
 
@@ -3295,8 +2896,8 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 Format, check and vendor:
 
 ```sh
-uv run ruff format $T/doctor.py $T/doctor_items.py $T/doctor_signin.py $T/doctor_local.py $T/harness.py $T/cli.py $T/check
-uv run ruff check $T/doctor.py $T/doctor_items.py $T/doctor_signin.py $T/doctor_local.py $T/harness.py $T/cli.py $T/check
+uv run ruff format $T/doctor.py $T/doctor_items.py $T/doctor_local.py $T/harness.py $T/cli.py $T/check
+uv run ruff check $T/doctor.py $T/doctor_items.py $T/doctor_local.py $T/harness.py $T/cli.py $T/check
 ! grep -nE "Linear|linear|ADR 0001|subscription quota" $T/doctor*.py $T/harness.py
 uv run rapid-ship sync --in-place
 ```
@@ -3316,7 +2917,7 @@ Expected: every test passes; Ruff and mypy report nothing; status exits 0; docto
 
 ```sh
 git add -A rapid_ship/templates tools/devctl .rapid-ship/kit.lock tests
-git commit -m "feat: report toolchain, Roster sign-ins, guardrails and Kit files in devctl doctor" -m "Copied from codex/github-commands (0c2b27f, 51c9300) without the Linear item; any sign-in method is ok, and sign-ins follow the Roster." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat: report the toolchain, guardrails and Kit files in devctl doctor" -m "Copied from codex/github-commands (0c2b27f, 51c9300) without the Linear item." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task 5: doctor's GitHub items
@@ -3531,7 +3132,7 @@ In `tests/devctl/test_devctl_doctor_local_limits.py`, replace:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
         # missing, and gitleaks (no version printed) is unknown.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
-        context = adjusted(ctx(), stack="agnostic", roster={})
+        context = adjusted(ctx(), stack="agnostic")
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()
         assert lines[0] == "ok  toolchain  git: 2.39.5"
@@ -3550,7 +3151,7 @@ with:
         # part is one missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
-            ctx(), stack="agnostic", roster={}, repository=None, worker_app=None, reviewer_app=None
+            ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
         )
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()
@@ -4287,11 +3888,11 @@ In `rapid_ship/templates/common/tools/devctl/devctl/doctor.py`, replace the modu
 ```python
 """devctl doctor: report each item as ok, missing or unknown.
 
-doctor_local.py builds the items for this machine and repository, doctor_signin.py the Harness
-sign-ins, and doctor_github.py the GitHub items, which compare what they read with the settings
-in doctor_rules.py. doctor_items.py holds the types they share and the owner's one way to read
-GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
-names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
+doctor_local.py builds the items for this machine and repository, and doctor_github.py the GitHub
+items, which compare what they read with the settings in doctor_rules.py. doctor_items.py holds
+the types they share and the owner's one way to read GitHub. This module runs them, prints them
+and exits with the worst answer. It re-exports the names that tests, and plan 6's test of
+rs-setup's ruleset, import from devctl.doctor.
 """
 
 from __future__ import annotations
@@ -4320,12 +3921,7 @@ from devctl.doctor_rules import PYTHON_PROTECTED_PATHS as PYTHON_PROTECTED_PATHS
 from devctl.doctor_rules import codeowners_problems as codeowners_problems
 from devctl.doctor_rules import installation_problems as installation_problems
 from devctl.doctor_rules import ruleset_problems as ruleset_problems
-from devctl.doctor_signin import agy_item as agy_item
-from devctl.doctor_signin import agy_sign_in as agy_sign_in
-from devctl.doctor_signin import claude_item as claude_item
-from devctl.doctor_signin import codex_item as codex_item
 from devctl.github.app import project_access
-from devctl.harness import AGY_PROBE_ARGS as AGY_PROBE_ARGS
 from devctl.repo import Repo
 from devctl.settings import load_project
 ```
@@ -4366,7 +3962,7 @@ git commit -m "feat: check the ruleset, CODEOWNERS and, with Agent identity on, 
 
 ### Task 6: `doctor --skills`
 
-For each Harness the Roster names, or without a Roster each of `claude`, `codex` and `agy` on `PATH` (a Proposal in Spec 1), `--skills` adds a detached worktree at `HEAD` in a temporary directory with the owner's own git, starts one headless Session there on the cheapest model, and compares the skills it lists with the ones committed at `HEAD`. It mints no App token and fetches nothing. `013cdac`'s comparison and `f9c3872`'s `probe_worktree` come over, reshaped to that.
+For each of `claude`, `codex` and `agy` on `PATH`, `--skills` adds a detached worktree at `HEAD` in a temporary directory with the owner's own git, starts one headless Session there on the cheapest model, and compares the skills it lists with the ones committed at `HEAD`. It mints no App token and fetches nothing. `013cdac`'s comparison and `f9c3872`'s `probe_worktree` come over, reshaped to that. The follow-ups removed the branch that probed the Harnesses `[roster]` named, after the owner descoped several Providers.
 
 **Files:**
 - Create: `rapid_ship/templates/common/tools/devctl/devctl/doctor_skills.py`
@@ -4374,7 +3970,7 @@ For each Harness the Roster names, or without a Roster each of `claude`, `codex`
 - Test: `tests/devctl/test_devctl_probe_worktree.py`, `tests/devctl/test_devctl_doctor_skills.py`, `tests/devctl/test_devctl_doctor_skills_limits.py`
 
 **Interfaces:**
-- Consumes: `DoctorContext`, `Item`, `harness_roles`, `run_installed` (Task 4); `PROBE_TIMEOUT_SECONDS`, `skills_args`, `parse_skills`, `HarnessName` (Task 4's `harness.py`); `front_matter` (plan 3's `check/markdown.py`); `Repo` (plan 2).
+- Consumes: `DoctorContext`, `Item`, `run_installed` (Task 4); `PROBE_TIMEOUT_SECONDS`, `skills_args`, `parse_skills`, `HarnessName` (Task 4's `harness.py`); `front_matter` (plan 3's `check/markdown.py`); `Repo` (plan 2).
 - Produces:
 
 <!-- fmt:off -->
@@ -4555,7 +4151,6 @@ Create `tests/devctl/test_devctl_doctor_skills.py`:
 Harness runs, and no App token is minted."""
 
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -4563,7 +4158,7 @@ import pytest
 from devctl.doctor import DoctorContext, Item, OwnerReadError, skills_items
 from devctl.github.app import GitHubAccess
 from devctl.harness import PROBE_MODELS
-from devctl.settings import Agent, ProjectSettings, Role
+from devctl.settings import ProjectSettings
 from github_fakes import FakeGitHub, FakeHarness, Remote, files_containing, git
 
 
@@ -4615,7 +4210,7 @@ def by_name(items: list[Item]) -> dict[str, Item]:
     return {item.name: item for item in items}
 
 
-def test_each_roster_harness_sees_the_skills_at_head(
+def test_each_harness_on_path_sees_the_skills_at_head(
     doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
 ) -> None:
     commit_skills(remote.clone, "rs-tdd", "billing-rules")
@@ -4624,10 +4219,10 @@ def test_each_roster_harness_sees_the_skills_at_head(
         "claude", stdout=claude_stream(["rs-tdd", "billing-rules", "my-notes", "tools:lint"])
     )
     items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"].status == "ok"
-    reviewer = items["reviewer skills (claude)"]
-    assert reviewer.status == "ok"
-    assert "outside the repository: my-notes, tools:lint" in reviewer.detail
+    assert items["skills (agy)"].status == "ok"
+    claude = items["skills (claude)"]
+    assert claude.status == "ok"
+    assert "outside the repository: my-notes, tools:lint" in claude.detail
     [args] = fake_harness.calls("claude")
     assert args[args.index("--model") + 1] == PROBE_MODELS["claude"]
     [cwd] = fake_harness.cwds("claude")
@@ -4655,8 +4250,8 @@ def test_a_skill_the_session_cannot_see_is_missing(
     commit_skills(remote.clone, "rs-tdd", "billing-rules")
     fake_harness.install("agy", stdout=agy_skills(["rs-tdd", "billing-rules"]))
     fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    reviewer = by_name(skills_items(doctor_ctx))["reviewer skills (claude)"]
-    assert (reviewer.status, reviewer.detail) == ("missing", "missing: billing-rules")
+    claude = by_name(skills_items(doctor_ctx))["skills (claude)"]
+    assert (claude.status, claude.detail) == ("missing", "missing: billing-rules")
 
 
 def test_codex_lists_skills_one_name_per_line(
@@ -4672,13 +4267,8 @@ def test_codex_lists_skills_one_name_per_line(
         {"type": "turn.completed", "usage": {}},
     ]
     fake_harness.install("codex", stdout="".join(f"{json.dumps(event)}\n" for event in events))
-    roster: dict[Role, Agent] = {
-        "worker": Agent("codex", "gpt-6.1-sol"),
-        "reviewer": Agent("codex", "gpt-6-astra"),
-    }
-    codex = replace(doctor_ctx, project=replace(doctor_ctx.project, roster=roster))
-    [item] = skills_items(codex)
-    assert (item.name, item.status) == ("worker and reviewer skills (codex)", "ok")
+    [item] = skills_items(doctor_ctx)
+    assert (item.name, item.status) == ("skills (codex)", "ok")
     assert "outside the repository: review-notes" in item.detail
     [args] = fake_harness.calls("codex")
     assert args[:2] == ["exec", "--json"]
@@ -4700,14 +4290,13 @@ def test_user_invoked_skills_are_not_checked(
         assert "outside the repository" not in item.detail
 
 
-def test_without_a_roster_each_supported_harness_on_path_is_probed(
+def test_each_supported_harness_on_path_is_probed_in_order(
     doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
 ) -> None:
     commit_skills(remote.clone, "rs-tdd")
     fake_harness.install("agy", stdout=agy_skills(["rs-tdd"]))
     fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    no_roster = replace(doctor_ctx, project=replace(doctor_ctx.project, roster={}))
-    items = skills_items(no_roster)
+    items = skills_items(doctor_ctx)
     assert [(i.name, i.status) for i in items] == [
         ("skills (claude)", "ok"),
         ("skills (agy)", "ok"),
@@ -4715,31 +4304,12 @@ def test_without_a_roster_each_supported_harness_on_path_is_probed(
     assert fake_harness.calls("codex") == []
 
 
-def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
+def test_with_no_harness_on_path_one_item_is_missing(
     doctor_ctx: DoctorContext, fake_harness: FakeHarness
 ) -> None:
-    no_roster = replace(doctor_ctx, project=replace(doctor_ctx.project, roster={}))
-    assert skills_items(no_roster) == [
-        Item(
-            "skills",
-            "skills",
-            "missing",
-            ".rapid-ship/project.toml has no Roster, and none of claude, codex or agy is on PATH",
-        )
+    assert skills_items(doctor_ctx) == [
+        Item("skills", "skills", "missing", "none of claude, codex or agy is on PATH")
     ]
-
-
-def test_a_roster_harness_not_on_path_is_missing_and_gets_no_worktree(
-    doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
-) -> None:
-    commit_skills(remote.clone, "rs-tdd")
-    fake_harness.install("claude", stdout=claude_stream(["rs-tdd"]))
-    items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"] == Item(
-        "skills", "worker skills (agy)", "missing", "agy is not on PATH"
-    )
-    assert items["reviewer skills (claude)"].status == "ok"
-    assert len(worktrees(remote)) == 1
 
 
 def test_the_worktree_is_removed_when_a_session_fails(
@@ -4753,9 +4323,9 @@ def test_the_worktree_is_removed_when_a_session_fails(
     )
     fake_harness.install("claude", code=1)
     items = by_name(skills_items(doctor_ctx))
-    assert items["worker skills (agy)"].status == "unknown"
-    assert "code 503" in items["worker skills (agy)"].detail
-    assert items["reviewer skills (claude)"].status == "unknown"
+    assert items["skills (agy)"].status == "unknown"
+    assert "code 503" in items["skills (agy)"].detail
+    assert items["skills (claude)"].status == "unknown"
     assert len(worktrees(remote)) == 1
 
 
@@ -4769,8 +4339,7 @@ def test_a_session_that_writes_files_and_locks_its_worktree_still_has_it_removed
         "agy",
         f"echo scratch > scratch.txt\ngit worktree lock \"$(pwd)\"\necho '{reply}'",
     )
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "ok"
     assert len(worktrees(remote)) == 1
 
@@ -4783,8 +4352,7 @@ def test_a_session_that_never_finishes_is_unknown_and_its_worktree_is_removed(
 ) -> None:
     monkeypatch.setattr("devctl.doctor_skills.PROBE_TIMEOUT_SECONDS", 0.3)
     install_script(fake_harness, "agy", "sleep 30")
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "unknown"
     assert "did not finish" in item.detail
     assert len(worktrees(remote)) == 1
@@ -4800,8 +4368,7 @@ def test_no_token_is_minted_and_the_session_sees_none(
     commit_skills(remote.clone, "rs-tdd")
     record = fake_harness.directory / "agy.env"
     install_script(fake_harness, "agy", f"env > \"{record}\"\necho '{agy_skills(['rs-tdd'])}'")
-    solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-    [item] = skills_items(replace(doctor_ctx, project=solo))
+    [item] = skills_items(doctor_ctx)
     assert item.status == "ok"
     assert github.calls == []
     environment = record.read_text()
@@ -4819,7 +4386,6 @@ real Harness runs."""
 
 import argparse
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -4834,7 +4400,7 @@ from devctl.doctor import (
     run_doctor,
     skills_items,
 )
-from devctl.settings import Agent, ProjectSettings
+from devctl.settings import ProjectSettings
 from github_fakes import FakeHarness, Remote, git
 
 
@@ -4899,24 +4465,12 @@ class TestRepositorySkills:
 
 
 class TestNames:
-    def test_roster_harnesses_are_named_for_their_roles_in_role_order(
-        self, project: ProjectSettings, fake_harness: FakeHarness
-    ) -> None:
-        shared = replace(
-            project, roster={"reviewer": Agent("codex", "m2"), "worker": Agent("codex", "m1")}
-        )
-        assert probed_harnesses(shared) == {"codex": "worker and reviewer skills (codex)"}
-        assert probed_harnesses(project) == {
-            "agy": "worker skills (agy)",
-            "claude": "reviewer skills (claude)",
-        }
-
-    def test_without_a_roster_only_supported_harnesses_on_path_are_named(
+    def test_only_supported_harnesses_on_path_are_named(
         self, project: ProjectSettings, fake_harness: FakeHarness
     ) -> None:
         fake_harness.install("codex")
         fake_harness.install("pi")
-        assert probed_harnesses(replace(project, roster={})) == {"codex": "skills (codex)"}
+        assert probed_harnesses(project) == {"codex": "skills (codex)"}
 
     def test_the_item_lists_missing_outside_and_user_invoked_skills(
         self, doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
@@ -4932,11 +4486,10 @@ class TestNames:
         git(remote.clone, "commit", "-q", "-m", "skills")
         listed = [{"name": n} for n in ("c-skill", "z-out", "m-out", "u-skill")]
         fake_harness.install("agy", stdout=json.dumps(listed))
-        solo = replace(doctor_ctx.project, roster={"worker": Agent("agy", "m")})
-        assert skills_items(replace(doctor_ctx, project=solo)) == [
+        assert skills_items(doctor_ctx) == [
             Item(
                 "skills",
-                "worker skills (agy)",
+                "skills (agy)",
                 "missing",
                 "missing: a-skill, b-skill; outside the repository: m-out, z-out; "
                 "not checked, user-invoked: u-skill",
@@ -4952,7 +4505,7 @@ class TestRunDoctor:
 
         def skills(ctx: DoctorContext) -> list[Item]:
             calls.append("skills")
-            return [Item("skills", "worker skills (agy)", "missing", "missing: rs-tdd")]
+            return [Item("skills", "skills (agy)", "missing", "missing: rs-tdd")]
 
         monkeypatch.setattr(
             doctor, "local_items", lambda ctx: [Item("toolchain", "git", "ok", "2")]
@@ -4984,7 +4537,7 @@ class TestRunDoctor:
         assert capsys.readouterr().out.splitlines() == [
             "ok  toolchain  git: 2",
             "ok  github  ruleset: ",
-            "missing  skills  worker skills (agy): missing: rs-tdd",
+            "missing  skills  skills (agy): missing: rs-tdd",
             "doctor: 2 ok, 1 missing, 0 unknown",
         ]
 
@@ -5035,11 +4588,11 @@ Create `rapid_ship/templates/common/tools/devctl/devctl/doctor_skills.py`:
 ```python
 """doctor --skills: the skills each Harness's Session loads from a worktree at HEAD.
 
-For each Harness the Roster names, or without a Roster each of claude, codex and agy found on
-PATH, doctor adds a detached worktree at HEAD in a new temporary directory, starts one new
-headless Session there and compares the skills it lists with the ones committed at HEAD. git runs
-with the owner's own setup; no App token is minted. The worktree is doctor's only local write, and
-it is removed again whatever the Session did. Each Session spends a little of the owner's quota.
+For each of claude, codex and agy found on PATH, doctor adds a detached worktree at HEAD in a new
+temporary directory, starts one new headless Session there and compares the skills it lists with
+the ones committed at HEAD. git runs with the owner's own setup; no App token is minted. The
+worktree is doctor's only local write, and it is removed again whatever the Session did. Each
+Session spends a little of the owner's quota.
 """
 
 from __future__ import annotations
@@ -5054,7 +4607,7 @@ import yaml
 
 from devctl import process
 from devctl.check.markdown import front_matter
-from devctl.doctor_items import DoctorContext, Item, Status, harness_roles, run_installed
+from devctl.doctor_items import DoctorContext, Item, Status, run_installed
 from devctl.harness import PROBE_TIMEOUT_SECONDS, HarnessName, parse_skills, skills_args
 from devctl.process import ProcessResult
 from devctl.repo import Repo
@@ -5062,9 +4615,7 @@ from devctl.settings import ProjectSettings
 
 SUPPORTED: tuple[HarnessName, ...] = ("claude", "codex", "agy")
 _GIT_TIMEOUT_SECONDS = 120.0
-_NONE_ON_PATH = (
-    ".rapid-ship/project.toml has no Roster, and none of claude, codex or agy is on PATH"
-)
+_NONE_ON_PATH = "none of claude, codex or agy is on PATH"
 
 
 class ProbeError(Exception):
@@ -5199,10 +4750,7 @@ def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
 
 
 def probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each Harness to probe, with its item's name: the Roster's, named for their roles, or
-    without a Roster each supported Harness on PATH (Spec 1 section 6, a Proposal)."""
-    if project.roster:
-        return {h: f"{roles} skills ({h})" for h, roles in harness_roles(project).items()}
+    """Each of claude, codex and agy on PATH, with its item's name (Spec 1 section 6)."""
     return {h: f"skills ({h})" for h in SUPPORTED if shutil.which(h) is not None}
 
 
@@ -5220,12 +4768,11 @@ Replace `rapid_ship/templates/common/tools/devctl/devctl/doctor.py` with its fin
 ```python
 """devctl doctor: report each item as ok, missing or unknown.
 
-doctor_local.py builds the items for this machine and repository, doctor_signin.py the Harness
-sign-ins, and doctor_github.py the GitHub items, which compare what they read with the settings
-in doctor_rules.py; doctor_skills.py adds the --skills items. doctor_items.py holds the types they
-share and the owner's one way to read GitHub. This module runs them, prints them and exits with
-the worst answer. It re-exports the names that tests, and plan 6's test of rs-setup's ruleset,
-import from devctl.doctor.
+doctor_local.py builds the items for this machine and repository, and doctor_github.py the GitHub
+items, which compare what they read with the settings in doctor_rules.py; doctor_skills.py adds
+the --skills items. doctor_items.py holds the types they share and the owner's one way to read
+GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
+names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
 """
 
 from __future__ import annotations
@@ -5254,16 +4801,11 @@ from devctl.doctor_rules import PYTHON_PROTECTED_PATHS as PYTHON_PROTECTED_PATHS
 from devctl.doctor_rules import codeowners_problems as codeowners_problems
 from devctl.doctor_rules import installation_problems as installation_problems
 from devctl.doctor_rules import ruleset_problems as ruleset_problems
-from devctl.doctor_signin import agy_item as agy_item
-from devctl.doctor_signin import agy_sign_in as agy_sign_in
-from devctl.doctor_signin import claude_item as claude_item
-from devctl.doctor_signin import codex_item as codex_item
 from devctl.doctor_skills import probe_worktree as probe_worktree
 from devctl.doctor_skills import probed_harnesses as probed_harnesses
 from devctl.doctor_skills import repository_skills as repository_skills
 from devctl.doctor_skills import skills_items as skills_items
 from devctl.github.app import project_access
-from devctl.harness import AGY_PROBE_ARGS as AGY_PROBE_ARGS
 from devctl.repo import Repo
 from devctl.settings import load_project
 
@@ -6311,6 +5853,8 @@ Expected: `1` for each file. If any is 0, the re-scope text changed after this p
 
 - [ ] **Step 2: Edit the guides, the architecture page and the status lines**
 
+The follow-ups removed the text below that described the `[roster]` table, the Harness sign-in items and the `--skills` branch for `[roster]`, after the owner descoped several Providers.
+
 In `AGENTS.md`, replace:
 
 ```markdown
@@ -6431,12 +5975,12 @@ with:
 ```markdown
 ## `devctl doctor` and Agent identity
 
-`./devctl doctor [--skills]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` and `doctor_signin.py` for this machine, the repository and each Harness the Roster names, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_skills.py` for `--skills`, and `harness.py` for the headless probes.
+`./devctl doctor [--skills]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_skills.py` for `--skills`, and `harness.py` for the headless probes.
 
-- **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, a sign-in for each Harness the Roster names (any method is ok), `core.hooksPath`, the CI job named `devctl check`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
+- **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
 - **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr`, branch deletion after merge and fork-PR workflow approval. A GitHub Free private repository has no rulesets, and the item says so.
 - **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each Keychain key, proved by minting a token that is dropped unprinted.
-- **`--skills`:** for each Harness the Roster names, or without a Roster each of `claude`, `codex` and `agy` on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Session on the cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did.
+- **`--skills`:** for each of `claude`, `codex` and `agy` on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Session on the cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did.
 
 Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md)). `rapid-ship app` creates the owner's Worker App and Reviewer App through GitHub's manifest flow, stores each private key in the macOS Keychain from `security`'s stdin, and prints each App's `[github]` lines and install URL. `./devctl as worker push` pushes the current branch, never forcing, and `./devctl as {worker,reviewer} gh` runs `gh pr`, `gh issue` or `gh api` as that App. Each run mints one installation token in `devctl/github/app.py`, holds it in memory and gives it only to that `gh`, as `GH_TOKEN`, or to that `git push`, through `devctl/github/askpass.py` with every credential helper and repository hook switched off. No key or token is written to disk, put on a command line or printed.
 
@@ -6448,7 +5992,7 @@ In `ARCHITECTURE.md`, replace:
 ```markdown
 Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans:
 
-- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the Roster and the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged and is kept as history.
+- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged and is kept as history.
 ```
 
 with:
@@ -6507,7 +6051,7 @@ with:
 
 ```markdown
 | Bounded process runner | [devctl/test_devctl_process.py](devctl/test_devctl_process.py) |
-| `devctl doctor`: local items, sign-ins, GitHub items and `--skills` | `devctl/test_devctl_doctor_*.py`, `devctl/test_devctl_probe_worktree.py`, `devctl/test_devctl_harness.py`, with the owner's recorded GitHub answers in `devctl/fixtures/github/` |
+| `devctl doctor`: local items, GitHub items and `--skills` | `devctl/test_devctl_doctor_*.py`, `devctl/test_devctl_probe_worktree.py`, `devctl/test_devctl_harness.py`, with the owner's recorded GitHub answers in `devctl/fixtures/github/` |
 | Agent identity: the REST client, App tokens, askpass, `devctl as` and `rapid-ship app` | `devctl/test_devctl_github_*.py`, `devctl/test_devctl_askpass*.py`, `devctl/test_devctl_identity*.py`, [test_kit_app.py](test_kit_app.py) and [test_kit_app_limits.py](test_kit_app_limits.py). [devctl/github_fakes.py](devctl/github_fakes.py) simulates GitHub, the Keychain, a bare remote and the Harnesses; [devctl/github_fixtures.py](devctl/github_fixtures.py) holds their fixtures, which `conftest.py` loads. No test contacts GitHub or reads the Keychain |
 ```
 
@@ -6896,18 +6440,14 @@ Record GitHub's message, devctl's `devctl: neither App may push a change under .
 
 - [ ] **Step 13: Owner step: `doctor --skills` live**
 
-Add a Roster without committing it, run the probes, then run them again without a Roster:
+The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers. Run the probes:
 
 ```sh
-printf '\n[roster.worker]\nharness = "agy"\nmodel = "gemini-3.8-flash-high"\n\n[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n' >> .rapid-ship/project.toml
-./devctl doctor --skills; echo "exit $?"
-git worktree list
-git checkout .rapid-ship/project.toml
 ./devctl doctor --skills; echo "exit $?"
 git worktree list
 ```
 
-Record every sign-in and skills line and the exit codes. Expected with the Roster: `worker sign-in (agy)` and `reviewer sign-in (claude)` are ok, and each skills item is ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. Without a Roster: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`. `git worktree list` shows only the clone both times. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results. Record whether each Harness listed `trial-release` anyway, and confirm or correct each entry of `PROBE_MODELS`; a wrong model is fixed in `harness.py`, with its test, in this plan's PR.
+Record every skills line and the exit code. Expected: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`, each ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results. Record whether each Harness listed `trial-release` anyway, and confirm or correct each entry of `PROBE_MODELS`; a wrong model is fixed in `harness.py`, with its test, in this plan's PR.
 
 - [ ] **Step 14: Owner step: clean up**
 
@@ -7044,7 +6584,7 @@ npm --prefix website run build
 Expected:
 - `./devctl check` exits 1, and only `diff` fails: it names the three tests the re-scope removed, each ending `(pass --pr-body <file> to check a body locally)`, and lists the Protected paths the change touches. `evidence` is not applicable. Every other step passes: `exceptions` with EX-11 as the only new entry, and `file-size` with `rapid_ship/github_app.py` at 499 lines.
 - `status --strict` exits 0, and pytest passes with none skipped.
-- `./devctl doctor` on this repository: record every line and the exit code. This repository records no Apps, so no `agent identity` item appears, and no Roster, so no sign-in item. Expect missing items for the ruleset, `delete branch on merge` and `fork PR workflow approval` until plan 6 applies `rs-setup`'s GitHub settings here (an Owner step); those are this repository's settings, not failures of this plan. `tools/devctl exclusions` is expected ok, with the note that this repository holds the Kit templates.
+- `./devctl doctor` on this repository: record every line and the exit code. This repository records no Apps, so no `agent identity` item appears. Expect missing items for the ruleset, `delete branch on merge` and `fork PR workflow approval` until plan 6 applies `rs-setup`'s GitHub settings here (an Owner step); those are this repository's settings, not failures of this plan. `tools/devctl exclusions` is expected ok, with the note that this repository holds the Kit templates.
 - Each `--help` exits 0; doctor's lists `--skills`, and `as` lists `{worker,reviewer}` and `{push,gh}`.
 - The site build exits 0 with no broken link.
 
@@ -7054,7 +6594,7 @@ Write the PR description to a file outside the repository, `BODY=$(mktemp)`. It 
 
 ```markdown
 Removed tests:
-- `tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model`: [agents] is removed; test_the_roster_keeps_the_exact_model covers the Roster
+- `tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model`: [agents] is removed; test_a_removed_table_names_what_replaced_it covers its refusal
 - `tests/devctl/test_devctl_diff_removed_tests.py::test_declared_removal_passes_and_flight_waits_for_the_owner`: gate.toml and the step's Flight note are removed; test_declared_removal_passes_with_its_reason_and_no_mode covers the step
 - `tests/test_kit_contents.py::test_gate_seed_has_the_spec_defaults`: the Kit no longer seeds gate.toml; test_the_kit_no_longer_seeds_gate_toml covers it
 ```
