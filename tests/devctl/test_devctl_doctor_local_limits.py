@@ -153,7 +153,7 @@ class TestToolchain:
 
 
 class TestSignIns:
-    def test_no_roster_means_no_sign_in_items_and_no_session(
+    def test_local_items_name_no_harness_and_start_no_session(
         self, ctx: MakeContext, fake_run: FakeRun
     ) -> None:
         items = local_items(ctx())

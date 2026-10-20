@@ -58,7 +58,7 @@ def by_name(items: list[Item]) -> dict[str, Item]:
     return {item.name: item for item in items}
 
 
-def test_each_roster_harness_sees_the_skills_at_head(
+def test_each_harness_on_path_sees_the_skills_at_head(
     doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
 ) -> None:
     commit_skills(remote.clone, "rs-tdd", "billing-rules")
@@ -138,7 +138,7 @@ def test_user_invoked_skills_are_not_checked(
         assert "outside the repository" not in item.detail
 
 
-def test_without_a_roster_each_supported_harness_on_path_is_probed(
+def test_each_supported_harness_on_path_is_probed_in_order(
     doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
 ) -> None:
     commit_skills(remote.clone, "rs-tdd")
@@ -152,7 +152,7 @@ def test_without_a_roster_each_supported_harness_on_path_is_probed(
     assert fake_harness.calls("codex") == []
 
 
-def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
+def test_with_no_harness_on_path_one_item_is_missing(
     doctor_ctx: DoctorContext, fake_harness: FakeHarness
 ) -> None:
     assert skills_items(doctor_ctx) == [

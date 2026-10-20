@@ -81,7 +81,7 @@ class TestRepositorySkills:
 
 
 class TestNames:
-    def test_without_a_roster_only_supported_harnesses_on_path_are_named(
+    def test_only_supported_harnesses_on_path_are_named(
         self, project: ProjectSettings, fake_harness: FakeHarness
     ) -> None:
         fake_harness.install("codex")
