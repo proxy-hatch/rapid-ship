@@ -1,6 +1,6 @@
 # Spec 2: Delivery skills
 
-**Status: written on 2026-10-16, revised on 2026-10-19 with the owner's review decisions, which settled every proposal, and revised on 2026-10-20 to descope running agents across several Providers.** It applies the owner's re-scope decisions of 2026-10-16, of the second review on 2026-10-19 and of 2026-10-20, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
+**Status: written on 2026-10-16, revised on 2026-10-19 with the owner's review decisions, which settled every proposal, and revised on 2026-10-20 to descope running agents across several Providers and to follow Spec 1's guardrail wiring for Claude Code alone.** It applies the owner's re-scope decisions of 2026-10-16, of the second review on 2026-10-19 and of 2026-10-20, and replaces the withdrawn Walk-flow draft. Section 13 lists what the trials still confirm and what is still open. This is the second of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), after [Spec 1](2026-10-14-kit-and-setup-design.md) and beside [Spec 3](2026-10-16-metrics-and-gardening-design.md). Terms follow `GLOSSARY.md` at the repository root, and [ADR 0004](../../adr/0004-team-management-boundary.md) sets the boundary.
 
 ## 1. Outcome and scope
 
@@ -404,8 +404,7 @@ The same rules appear in `rs-review`'s text, so the Reviewer and the Lead agree:
 
 `rs-lead` gives each warning that applies to the Lead's own Harness, which also runs its Workers and Reviewers.
 
-- **Guardrails in Codex and agy are unconfirmed.** Whether Codex's and agy's hooks fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139, the first task of Spec 1's plan 5. Until it confirms them, `rs-lead` warns a Lead in Codex or agy that its Workers and Reviewers may run without the Harness guardrails. The pre-commit hook, CI and any ruleset hold either way.
-- **A Harness without Kit wiring.** The Kit ships guardrail settings only for Claude Code, Codex and agy (Spec 1). A Lead on any other Harness, and the Workers and Reviewers it starts, run without the Harness guardrails, the merge guard included; the pre-commit hook, CI and any ruleset still hold. `rs-lead` gives this warning when the Kit has no wiring for the Lead's Harness.
+- **A Harness without Kit wiring.** The Kit ships guardrail settings only for Claude Code (Spec 1). Codex and agy get theirs only if the hook spike, backlog item PRO-139, the first task of Spec 1's plan 5, confirms their hooks and a follow-up wires them. A Lead on any other Harness, Codex and agy included until then, and the Workers and Reviewers it starts, run without the Harness guardrails, the merge guard included; the pre-commit hook, CI and any ruleset still hold. `rs-lead` gives this warning when the Kit has no wiring for the Lead's Harness.
 - **Headless approvals.** A headless Worker can do only what the project's Harness settings allow without a prompt. `rs-lead` names what is missing and the owner decides. It never adds a bypass flag such as `--dangerously-skip-permissions`.
 
 ### 6.5 Helping the owner fly
@@ -622,7 +621,7 @@ A Lead brief is advice to a Harness that rapid-ship does not control, so it reli
 2. **Skills in `.agents/skills`.** Codex and agy read that directory; Claude Code reads the `.claude/skills` links.
 3. **Parallel subagents.** The Lead can start several, wait for all of them, and return one summary. The brief states how the work is divided, that the Lead waits, and what the summary holds.
 4. **A Reviewer as a separate subagent** with its own context.
-5. **Hooks that deny a tool call,** which carry the Harness guardrails and the merge guard (Spec 1). Whether Codex's and agy's hooks also fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139 (section 9.2).
+5. **Hooks that deny a tool call,** which carry the Harness guardrails and the merge guard where the Kit wires them: in Claude Code, and in Codex or agy only once their wiring lands (Spec 1). Whether Codex's and agy's hooks also fire inside subagents and headless Sessions is unconfirmed until the hook spike, backlog item PRO-139 (section 9.2).
 6. **Headless entry points** for starting a Session of the same Harness: `claude -p`, `codex exec` and `codex review`, and `agy -p`.
 
 ### 9.2 What the brief must not assume
@@ -650,7 +649,7 @@ The brief therefore:
 
 ### 9.3 Other Harnesses and desktop apps
 
-rapid-ship supports any Harness, including API-backed ones such as pi. Any Harness other than the three gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit, but no guardrail settings (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer as a new headless pi Session from its shell. Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
+rapid-ship supports any Harness, including API-backed ones such as pi. Any Harness other than the three gets AGENTS.md, `.agents/skills`, the pre-commit hook and CI from the Kit, but no guardrail settings, as Codex and agy do until their wiring lands (Spec 1). A brief for it relies only on the points of section 9.1 that its vendor documents. pi, for example, has no built-in subagents, so a pi Lead follows `rs-work` itself and starts its Reviewer as a new headless pi Session from its shell. Claude's desktop app reads the same settings files as the CLI, so a Claude Code brief applies there. The Codex desktop app shares the CLI's skill loader; whether it reads every location the CLI reads is unconfirmed.
 
 ### 9.4 Sources
 
@@ -707,7 +706,7 @@ Each `rs-lead` trial also records what the Lead did: a worktree per Worker, ever
 
 The owner decided how each of these is settled. Only the result is pending.
 
-1. **Codex and agy hooks.** Whether their hooks fire inside subagents and headless Sessions, and whether Codex hooks can ask. The hook spike, backlog item PRO-139, settles this as the first task of Spec 1's plan 5. Until then, the warning in section 6.4 applies.
+1. **Codex and agy hooks.** Whether their hooks fire inside subagents and headless Sessions, and whether Codex hooks can ask. The hook spike, backlog item PRO-139, settles this as the first task of Spec 1's plan 5, and its report decides whether a follow-up wires each. Until a Harness's wiring lands, section 6.4's warning for a Harness without Kit wiring applies to it.
 2. **Other Harness facts** from section 9.2: whether Codex and agy subagents receive the AGENTS.md chain, whether Codex can give a subagent its own worktree, and how agy requests its `branch` mode. The `rs-lead` trials settle them.
 3. **Codex Workers in a linked worktree.** The withdrawn Walk-flow draft recorded that Codex's `workspace-write` sandbox cannot commit in a linked worktree on macOS. If the trial shows that this still holds, it decides between the Lead committing for the Worker and the owner choosing another sandbox.
 4. **The ruleset's approval count in Flight with Agent identity.** Required approvals stay at 1 until the live trial shows whether GitHub counts the Reviewer App's approval (section 6.5, and Spec 1).
