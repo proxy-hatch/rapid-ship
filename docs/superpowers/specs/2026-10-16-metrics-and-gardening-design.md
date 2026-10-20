@@ -625,7 +625,7 @@ From Spec 2:
 
 ## 14. Dog-fooding
 
-*This section describes this repository's own configuration, not product behaviour.* This repository validates the spec on itself and on hello-rapid-ship. Its `rs-garden` and `rs-preflight` proposals go to Linear, its tracker. Its agents sign in with vendor subscriptions only ([ADR 0001](../../adr/0001-subscription-logins-only.md)), so it schedules `rs-garden` through a Harness scheduler or cron on the owner's subscription, not through a GitHub Action with a model credential. It is a public repository on GitHub Free with a solo owner, the case where Agent identity matters most (Spec 1). Its two Apps were created on 2026-10-19 and are being turned on in PR #33, through plan 4's pending Owner steps. Its agent-PR window starts with the first PR the Worker App opens; earlier PRs were opened under the owner's account.
+*This section describes this repository's own configuration, not product behaviour.* This repository validates the spec on itself and on hello-rapid-ship. Its `rs-garden` and `rs-preflight` proposals go to Linear, its tracker. Its agents sign in with vendor subscriptions only, as its root AGENTS.md states, so it schedules `rs-garden` through a Harness scheduler or cron on the owner's subscription, not through a GitHub Action with a model credential. It is a public repository on GitHub Free with a solo owner, the case where Agent identity matters most (Spec 1). Its two Apps were created on 2026-10-19 and are being turned on in PR #33, through plan 4's pending Owner steps. Its agent-PR window starts with the first PR the Worker App opens; earlier PRs were opened under the owner's account.
 
 ## 15. What changed
 
