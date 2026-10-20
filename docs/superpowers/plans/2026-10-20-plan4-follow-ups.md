@@ -10,7 +10,7 @@
 
 **Spec:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`rapid-ship app`), 4 (settings files), 6 (doctor, Agent identity) and 11 (answered on 2026-10-19). The [plan index](2026-10-14-kit-and-setup.md) lists these follow-ups under "Plan 4 follow-ups, before #31 to #33 merge".
 
-**Status:** built in PRs #31 to #33, which are not merged yet: Tasks 1, 2 and 8 on #31, Tasks 3 and 9 on #32, and Tasks 4 to 7 and 10 on #33. The [owner steps](#owner-steps-after-the-merge-up) are pending.
+**Status:** built in PRs #31 to #33, which are not merged yet: Tasks 1, 2 and 8 on #31, Tasks 3 and 9 on #32, Tasks 4 to 7 and 10 on #33, and Task 11 on all three. The [owner steps](#owner-steps-after-the-merge-up) are pending.
 
 ## Global Constraints
 
@@ -181,8 +181,8 @@ The owner's decision of 2026-10-20 has plan 5 wire the Harness guardrails for Cl
 
 - [ ] On #31, the comment on `Harness` in `settings.py` becomes `# the Harnesses doctor --skills probes (Spec 1 section 6)`. Built in b0bedf9.
 - [ ] On #32, the last sentence of the comment on `PROTECTED_PATHS` in `doctor_rules.py` becomes `Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/.` Built in 58d52a5.
-- [ ] On each of #31 to #33, ARCHITECTURE.md's CODEOWNERS bullet replaces "The Harness settings join it with plan 5." with "`.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land.", and its plan 5 bullet says that plan 5 wires Claude Code alone. The merge of `codex/devctl-check` in 4b965df brought both to #31, and the merge of `plan4-settings-tokens` in 95cbd8a brought them to #32.
-- [ ] Change the copies of these texts in plan 4's plan documents, and their `devctl hook` command to the plan index's. Built on #31 in f385584, which the merge in 95cbd8a brought to #32. Sync, run the four checks; commit the code comment as `refactor:` and the documents as `docs: say plan 5 wires Claude Code first`.
+- [ ] On each of #31 to #33, ARCHITECTURE.md's CODEOWNERS bullet replaces "The Harness settings join it with plan 5." with "`.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land.", and its plan 5 bullet says that plan 5 wires Claude Code alone. The merge of `codex/devctl-check` in 4b965df brought both to #31, the merge of `plan4-settings-tokens` in 95cbd8a brought them to #32, and the merge of `plan4-doctor` in 11a5048 brought them to #33.
+- [ ] Change the copies of these texts in plan 4's plan documents, and their `devctl hook` command to the plan index's. Built on #31 in f385584, which the merges in 95cbd8a and 11a5048 brought to #32 and #33. Sync, run the four checks; commit the code comment as `refactor:` and the documents as `docs: say plan 5 wires Claude Code first`.
 
 ## Owner steps after the merge-up
 
