@@ -160,6 +160,22 @@ def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
     ]
 
 
+def test_a_harness_that_leaves_path_after_probing_is_missing_and_its_worktree_is_removed(
+    doctor_ctx: DoctorContext,
+    remote: Remote,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # probed_harnesses found claude on PATH, and it was gone when its Session was to start.
+    monkeypatch.setattr(
+        "devctl.doctor_skills.probed_harnesses", lambda project: {"claude": "skills (claude)"}
+    )
+    assert skills_items(doctor_ctx) == [
+        Item("skills", "skills (claude)", "missing", "claude is not on PATH")
+    ]
+    assert len(worktrees(remote)) == 1
+
+
 def test_agy_is_probed_inside_another_coding_session(
     doctor_ctx: DoctorContext,
     remote: Remote,

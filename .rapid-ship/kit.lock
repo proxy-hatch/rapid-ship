@@ -181,7 +181,7 @@ sha256 = "bd6440290442726a16c30c4e879cee2932e8094fd80ba15dddc7aadfe7205417"
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
-sha256 = "c03dae691b01734405aa43048d0d7ba0c522036f8d0ee70a802c58d319c47b64"
+sha256 = "af890e16d87893d142c85eb47f3468367c92a8d12566b910cf82b2778427a5d7"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"

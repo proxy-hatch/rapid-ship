@@ -156,8 +156,6 @@ def _session(name: str, harness: HarnessName, tree: Path) -> Item:
 
 def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
     """One Harness in a worktree of its own, so one Session cannot change what the next sees."""
-    if shutil.which(harness) is None:
-        return _item(name, "missing", f"{harness} is not on PATH")
     try:
         with probe_worktree(repo) as tree:
             return _session(name, harness, tree)
