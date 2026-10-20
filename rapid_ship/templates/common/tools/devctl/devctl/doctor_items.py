@@ -17,7 +17,6 @@ from typing import Literal
 
 from devctl import process
 from devctl.github.app import GitHubAccess
-from devctl.harness import HarnessName
 from devctl.process import ProcessResult
 from devctl.settings import ProjectSettings
 
@@ -53,12 +52,6 @@ class DoctorContext:
     project: ProjectSettings
     owner_get: OwnerGet
     access: GitHubAccess | None  # None while Agent identity is off
-
-
-def harness_roles(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each Harness the Roster names, with the roles that use it. Always empty: devctl's settings
-    refuse [roster], because multi-provider is the optional rs-providers skill."""
-    return {}
 
 
 def _json_message(stdout: str) -> str:

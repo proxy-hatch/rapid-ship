@@ -1,8 +1,8 @@
-"""doctor's local items: the toolchain, Harness sign-ins, guardrails and Kit files.
+"""doctor's local items: the toolchain, guardrails and Kit files.
 
 Nothing here reads GitHub or changes the repository. A tool runs by the absolute path
 shutil.which found, from the temporary directory (git config, which reads the repository's
-settings, runs in it). An item's detail never quotes a tool's output, except agy's error line.
+settings, runs in it). An item's detail never quotes a tool's output.
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ from devctl.check.stacks.python import (
     toml_table,
 )
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
-from devctl.doctor_signin import sign_in_items
 from devctl.repo import Repo
 
 DEVCTL_DIRECTORY = "tools/devctl"
@@ -280,7 +279,7 @@ def _kit_item(ctx: DoctorContext) -> Item:
 
 
 def local_items(ctx: DoctorContext) -> list[Item]:
-    """Every item that needs no GitHub: the toolchain, sign-ins, guardrails and Kit files."""
+    """Every item that needs no GitHub: the toolchain, guardrails and Kit files."""
     tracked = Repo.discover(ctx.root).tracked_files()
     python = ctx.project.stack == "python"
     return [
@@ -289,7 +288,6 @@ def local_items(ctx: DoctorContext) -> list[Item]:
         _on_path("gh", "install gh; doctor reads GitHub with its login"),
         _gh_sign_in(),
         gitleaks_item(),
-        *sign_in_items(ctx.project),
         _hooks_item(ctx.root),
         _ci_item(ctx.root, tracked),
         *([_guardrail_item(ctx.root)] if python else []),

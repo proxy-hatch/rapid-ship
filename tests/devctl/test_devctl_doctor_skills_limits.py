@@ -3,8 +3,10 @@ worded, and how the flag reaches run_doctor. Fake Harness executables and stubbe
 real Harness runs."""
 
 import argparse
+import dataclasses
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -86,6 +88,28 @@ class TestNames:
         fake_harness.install("pi")
         assert probed_harnesses(project) == {"codex": "skills (codex)"}
 
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            {},
+            {"worker_app": None, "reviewer_app": None},
+            {"stack": "agnostic", "repository": None, "code_owner": None},
+            {"excluded": (".agents/skills",)},
+        ],
+        ids=["agent identity on", "agent identity off", "agnostic, no repository", "excluded"],
+    )
+    def test_the_settings_never_change_which_harnesses_are_probed(
+        self, project: ProjectSettings, fake_harness: FakeHarness, changes: dict[str, object]
+    ) -> None:
+        for name in ("agy", "pi", "codex", "claude"):
+            fake_harness.install(name)
+        settings = dataclasses.replace(project, **cast("dict[str, Any]", changes))
+        assert list(probed_harnesses(settings).items()) == [
+            ("claude", "skills (claude)"),
+            ("codex", "skills (codex)"),
+            ("agy", "skills (agy)"),
+        ]
+
     def test_the_item_lists_missing_outside_and_user_invoked_skills(
         self, doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
     ) -> None:
@@ -119,7 +143,7 @@ class TestRunDoctor:
 
         def skills(ctx: DoctorContext) -> list[Item]:
             calls.append("skills")
-            return [Item("skills", "worker skills (agy)", "missing", "missing: rs-tdd")]
+            return [Item("skills", "skills (agy)", "missing", "missing: rs-tdd")]
 
         monkeypatch.setattr(
             doctor, "local_items", lambda ctx: [Item("toolchain", "git", "ok", "2")]
@@ -151,7 +175,7 @@ class TestRunDoctor:
         assert capsys.readouterr().out.splitlines() == [
             "ok  toolchain  git: 2",
             "ok  github  ruleset: ",
-            "missing  skills  worker skills (agy): missing: rs-tdd",
+            "missing  skills  skills (agy): missing: rs-tdd",
             "doctor: 2 ok, 1 missing, 0 unknown",
         ]
 

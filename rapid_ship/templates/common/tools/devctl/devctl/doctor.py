@@ -1,11 +1,12 @@
 """devctl doctor: report each item as ok, missing or unknown.
 
-doctor_local.py builds the items for this machine and repository, doctor_signin.py the Harness
-sign-ins, and doctor_github.py the GitHub items, which compare what they read with the settings
-in doctor_rules.py; doctor_skills.py adds the --skills items. doctor_items.py holds the types they
-share and the owner's one way to read GitHub. This module runs them, prints them and exits with
-the worst answer. It re-exports the names that tests, and plan 6's test of rs-setup's ruleset,
-import from devctl.doctor.
+doctor_local.py builds the items for this machine and repository, and doctor_github.py the GitHub
+items, which compare what they read with the settings in doctor_rules.py; doctor_skills.py adds
+the --skills items. doctor_items.py holds the types they share and the owner's one way to read
+GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
+names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
+
+No item checks a Harness's sign-in: the optional rs-providers skill does (Spec 1 section 6).
 """
 
 from __future__ import annotations
@@ -34,16 +35,11 @@ from devctl.doctor_rules import PYTHON_PROTECTED_PATHS as PYTHON_PROTECTED_PATHS
 from devctl.doctor_rules import codeowners_problems as codeowners_problems
 from devctl.doctor_rules import installation_problems as installation_problems
 from devctl.doctor_rules import ruleset_problems as ruleset_problems
-from devctl.doctor_signin import agy_item as agy_item
-from devctl.doctor_signin import agy_sign_in as agy_sign_in
-from devctl.doctor_signin import claude_item as claude_item
-from devctl.doctor_signin import codex_item as codex_item
 from devctl.doctor_skills import probe_worktree as probe_worktree
 from devctl.doctor_skills import probed_harnesses as probed_harnesses
 from devctl.doctor_skills import repository_skills as repository_skills
 from devctl.doctor_skills import skills_items as skills_items
 from devctl.github.app import project_access
-from devctl.harness import AGY_PROBE_ARGS as AGY_PROBE_ARGS
 from devctl.repo import Repo
 from devctl.settings import load_project
 

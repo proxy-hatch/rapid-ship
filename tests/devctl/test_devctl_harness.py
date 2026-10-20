@@ -10,6 +10,7 @@ from devctl.harness import (
     SKILLS_PROMPT,
     HarnessName,
     SkillReport,
+    error_line,
     parse_skills,
     skills_args,
 )
@@ -225,3 +226,19 @@ class TestAgy:
         assert parse_skills("agy", result("", stderr, code=1)) == SkillReport(
             None, "error: Eligibility check failed: UNAVAILABLE (code 503)"
         )
+
+
+class TestErrorLine:
+    @pytest.mark.parametrize(
+        ("stderr", "expected"),
+        [
+            ("", None),
+            ("warning: not an error\n", None),
+            ("  error: indented\n", None),
+            ("note\nerror: first\nerror: second\n", "error: first"),
+            ("AGY_ERROR: {}\nerror: later\n", "AGY_ERROR: {}"),
+            ("error: " + "y" * 400, ("error: " + "y" * 400)[:300]),
+        ],
+    )
+    def test_the_first_error_line_cut_to_300(self, stderr: str, expected: str | None) -> None:
+        assert error_line(stderr) == expected

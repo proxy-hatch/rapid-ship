@@ -8,7 +8,7 @@ import pytest
 
 from devctl.doctor import DoctorContext, Item, skills_items
 from devctl.github.app import GitHubAccess
-from devctl.harness import PROBE_MODELS
+from devctl.harness import PROBE_MODELS, skills_args
 from devctl.settings import ProjectSettings
 from github_fakes import FakeGitHub, FakeHarness, Remote, files_containing, git
 from github_fixtures import no_owner_reads
@@ -156,13 +156,24 @@ def test_without_a_roster_or_a_harness_on_path_one_item_is_missing(
     doctor_ctx: DoctorContext, fake_harness: FakeHarness
 ) -> None:
     assert skills_items(doctor_ctx) == [
-        Item(
-            "skills",
-            "skills",
-            "missing",
-            ".rapid-ship/project.toml has no Roster, and none of claude, codex or agy is on PATH",
-        )
+        Item("skills", "skills", "missing", "none of claude, codex or agy is on PATH")
     ]
+
+
+def test_agy_is_probed_inside_another_coding_session(
+    doctor_ctx: DoctorContext,
+    remote: Remote,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # doctor --skills probes agy wherever it runs, as a child of whatever runs doctor; rs-setup
+    # warns before it runs doctor inside another Harness's Session (Spec 1 section 8, step 13).
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv("CODEX_THREAD_ID", "t-1")
+    commit_skills(remote.clone, "rs-tdd")
+    fake_harness.install("agy", stdout=agy_skills(["rs-tdd"]))
+    assert [(i.name, i.status) for i in skills_items(doctor_ctx)] == [("skills (agy)", "ok")]
+    assert fake_harness.calls("agy") == [skills_args("agy")]
 
 
 def test_the_worktree_is_removed_when_a_session_fails(
