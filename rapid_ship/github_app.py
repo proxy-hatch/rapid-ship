@@ -225,11 +225,11 @@ class _Choice:
 
 
 def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool | None:
-    """Whether GitHub's App with app's slug is app, and the repository's owner owns it.
+    """Whether the repository's owner owns app, as GitHub shows it at app's slug.
 
-    None when GitHub does not show the App to the owner's gh login. GitHub answers 404 for any
-    private App, even its owner's, and rapid-ship creates private Apps. So None cannot tell the
-    owner's App from a deleted or renamed one.
+    None when GitHub does not show app to the owner's gh login: it answers 404, or the slug now
+    names another App. GitHub answers 404 for any private App, even its owner's, and rapid-ship
+    creates private Apps. So None cannot tell the owner's App from a deleted or renamed one.
     """
     try:
         found = as_record(owner_get(f"apps/{app.slug}"))
@@ -238,8 +238,10 @@ def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool | None:
     app_id, owner_id = found.get("id"), as_record(found.get("owner")).get("id")
     if not is_id(app_id) or not is_id(owner_id):
         raise AppSetupError(f"GitHub's record of the App {app.slug} has no App ID or no owner ID")
-    # The ID too, so an item whose slug now names another App is skipped.
-    return app_id == app.app_id and owner_id == target.owner_id
+    # Another App at the slug, once app was renamed or deleted, tells nothing about whose app is.
+    if app_id != app.app_id:
+        return None
+    return owner_id == target.owner_id
 
 
 def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _Choice:

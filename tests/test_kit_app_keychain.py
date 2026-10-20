@@ -521,7 +521,8 @@ def test_an_item_named_by_app_id_is_used_before_the_old_item_of_the_same_app(
 
 
 def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> None:
-    """Apps that GitHub shows as another account's are skipped, and the owner's are created."""
+    """Apps that GitHub, or an item's own key, shows as another account's are skipped, and the
+    owner's are created."""
     others = {
         "rapid-ship/worker-app/21": StoredApp(21, "u-rs-worker"),  # another account's App
         "rapid-ship/worker-app/23": StoredApp(23, "o-rs-worker"),  # its slug is App 11's now
@@ -530,6 +531,8 @@ def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> 
     store = FakeStore()
     for name, app in others.items():
         store.apps[name], store.keys[name] = app, KEYS["worker"]
+    # GitHub's App at App 23's slug is App 11, so App 23 is confirmed with its own key: u's App.
+    store.keys["rapid-ship/worker-app/23"] = rsa_key("u/renamed")
     answers = {
         **SHOWN,
         "apps/u-rs-worker": {"id": 21, "owner": {"login": "u", "id": 6}},
@@ -538,6 +541,8 @@ def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> 
     log: list[str] = []
     captured: Captured = []
     with serve_conversions() as conversions:
+        u = {"login": "u", "id": 6, "type": "User"}
+        conversions.register(rsa_key("u/renamed"), StoredApp(23, "u-rs-worker-2"), u)
         code = run_app(
             "o/r",
             store=store,
@@ -548,12 +553,45 @@ def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> 
         )
     assert code == 0
     assert app_reads(log) == ["apps/u-rs-worker", "apps/o-rs-worker", "apps/u-rs-reviewer"]
+    assert [path for path, _ in conversions.requests if path == "/app"] == ["/app"]
     assert [manifest["name"] for _, manifest in captured] == ["o-rs-worker", "o-rs-reviewer"]
     assert sorted(set(store.apps) - set(others)) == [
         "rapid-ship/reviewer-app/12",
         "rapid-ship/worker-app/11",
     ]
     assert all(store.apps[name] == app for name, app in others.items())
+
+
+def test_an_item_whose_slug_now_names_another_app_is_confirmed_with_its_own_key(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The owner renamed private App 23, and another account's public App took its old slug.
+    The App that GitHub shows at the item's slug is not the item's App, so it tells nothing about
+    App 23: GET /app under the item's key shows App 23 as the owner's, and no App is created."""
+    item = keychain_service("worker", 23)
+    store = FakeStore()
+    store.apps[item] = StoredApp(23, "o-rs-worker")  # the slug when the item was written
+    store.keys[item] = rsa_key("o/renamed")
+    reviewer = keychain_service("reviewer", 12)
+    store.apps[reviewer], store.keys[reviewer] = APPS["reviewer"], KEYS["reviewer"]
+    before = dict(store.apps)
+    answers = {
+        **OWNER_READS,
+        "apps/o-rs-worker": {"id": 99, "slug": "o-rs-worker", "owner": {"login": "u", "id": 6}},
+        "apps/o-rs-reviewer": PUBLIC_APPS["apps/o-rs-reviewer"],
+    }
+    log: list[str] = []
+    opened: list[str] = []
+    with serve_conversions() as api:
+        api.register(store.keys[item], StoredApp(23, "o-rs-worker-2"), ACCOUNTS["o"])
+        assert run(store, {}, log, opened, answers, api.url) == 0
+    assert (store.apps, opened) == (before, [])
+    assert app_reads(log) == ["apps/o-rs-worker", "apps/o-rs-reviewer"]
+    assert [path for path, _ in api.requests] == ["/app"]
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert "Worker App: ID 23 (o-rs-worker-2)" in out
+    assert 'worker_app_slug = "o-rs-worker-2"' in out
 
 
 def test_every_read_comes_before_any_change(capsys: pytest.CaptureFixture[str]) -> None:
