@@ -65,7 +65,6 @@ These are this repository's choices, not product behaviour. Product text names t
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
 - agy is never a Reviewer.
-- Use each model exactly as named. If it is unavailable, stop instead of falling back.
 
 ## Safety
 

@@ -8,16 +8,15 @@ rapid-orchestrator was to be a separate project that starts, resumes and cancels
 
 ## What the evidence showed
 
-- **Sign-in trial, 2026-10-13.** One subscription sign-in per Provider served several Docker containers at once for Claude Code, Codex CLI and agy on one Mac, and the host's own sign-ins kept working. Claude Code took a `claude setup-token` token passed by variable name, the Codex containers shared one live `auth.json`, and agy needed only its token file. The trial lasted about an hour, so no token refresh was observed, and 5 of 18 agy turns failed at Google's eligibility check with HTTP 502 or 503.
 - **Landscape survey, 2026-10-13.** Desk research over more than forty projects, fourteen of them read at source level, found none to adopt or fork as rapid-orchestrator. The closest ran interactive terminal sessions, let the agent commit and push, or preferred API keys. Several held pieces worth copying, such as Scion's agy container setup and the admission and reconciliation rules of OpenAI's Symphony.
 - **Flight without an orchestrator, 2026-10-13.** Four desk-research reads concluded that Flight driven by a prompt alone is unsound: a hosted Worker can act as the owner, and a pull request can edit the CI that judges it. Eight small deterministic pieces would make it sound, as GitHub settings, Actions workflows and stateless devctl commands, with no daemon or state store. Nothing was run. Pieces 3 and 4, the Protected set and the diff policy, remain in the design. ADR 0004 rejected Flight's credential safeguards, pieces 1, 2 and 5, and the Flight lease, piece 6. Pieces 7 and 8, admission and a reaper, fell with the claims and the cap on Workers that ADR 0004 also rejected.
 
 ## Where the full records live
 
 - The controller-era documents and the 2026-10-11 runtime trials are at the tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10/docs).
+- The controller-era plans of 2026-10-10 and 2026-10-12 are at the same tag, in [`docs/superpowers/plans`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10/docs/superpowers/plans).
 - These records were deleted after commit `401b57d` and stay readable there:
   - [ADR 0003](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md), which deferred rapid-orchestrator and was withdrawn before merge;
-  - the [sign-in trial](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-login-carry.md), and its [Dockerfiles and check scripts](https://github.com/proxy-hatch/rapid-ship/tree/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/archive/orchestrator/login-carry-spike);
   - the [landscape survey](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-orchestrator-landscape.md);
   - the [Flight research note](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-flight-without-orchestrator.md);
   - the [earlier version of this note](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/archive/orchestrator/README.md), with the three Harnesses' headless contracts and the sources a builder would have copied from.
