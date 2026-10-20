@@ -5,9 +5,8 @@ Use this directory for user-facing guides and development records.
 - Put repeatable user workflows alongside [getting-started.md](getting-started.md) and [usage.md](usage.md).
 - Put approved specifications and implementation plans in [superpowers](superpowers/AGENTS.md).
 - Put observed experiments, failures, limitations, and reproduction evidence in [trials](trials/AGENTS.md).
-- Put one decision per file in `adr/`, numbered in order, when it is hard to reverse, surprising without context, and the result of a real trade-off. So far: [0001 this repository's subscription sign-ins](adr/0001-subscription-logins-only.md), [0002 GitHub gates merges; Agent identity is optional](adr/0002-github-gates-merges-reviews-run-locally.md) and [0004 the team-management boundary](adr/0004-team-management-boundary.md). 0003, which deferred rapid-orchestrator, was withdrawn before merge; the [orchestrator note](archive/orchestrator/README.md) links its text.
+- Put one decision per file in `adr/`, numbered in order, when it is hard to reverse, surprising without context, and the result of a real trade-off. So far: [0002 GitHub gates merges; Agent identity is optional](adr/0002-github-gates-merges-reviews-run-locally.md) and [0004 the team-management boundary](adr/0004-team-management-boundary.md). 0001, this repository's subscription sign-ins, and 0003, which deferred rapid-orchestrator, were withdrawn before merge; ADR numbers do not change. [0003's text](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) stays at commit `401b57d`.
 - Consult [runtime-choice.md](runtime-choice.md) for the selected backend and its current integration limits.
-- Records of dropped work live in [archive](archive/AGENTS.md). They do not describe current behaviour.
 - Consult [ARCHITECTURE.md](../ARCHITECTURE.md) for current implementation boundaries and [GLOSSARY.md](../GLOSSARY.md) for shared terms.
 
 Keep implemented behavior, selected future work, and experimental observations distinct.
