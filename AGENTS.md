@@ -27,7 +27,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [gate.toml](.rapid-ship/gate.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
 | Tests | [Tests](tests/AGENTS.md) |
 | Validation and distribution checks | [Scripts](scripts/AGENTS.md) |
-| Designs, plans, ADRs, trials and the archive | [Documentation](docs/AGENTS.md) |
+| Designs, plans, ADRs and trials | [Documentation](docs/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI and documentation deployment | [Workflows](.github/AGENTS.md) |
 | Agent skill discovery | [Codex discovery](.agents/AGENTS.md), [Claude discovery](.claude/AGENTS.md) |
@@ -53,7 +53,7 @@ Lead with the outcome or problem. Prefer one precise finding over several vague 
 These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
 
 - Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
-- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 
 ## Safety

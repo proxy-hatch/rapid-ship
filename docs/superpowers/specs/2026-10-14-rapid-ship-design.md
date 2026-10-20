@@ -1,6 +1,6 @@
 # rapid-ship design
 
-*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 after the owner's second review, and on 2026-10-20, when the owner descoped running agents across several Providers and had plan 5 wire the Harness guardrails for Claude Code alone. The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, and the decisions of 2026-10-20, settled what this design states, and [Open](#open) lists what is still open. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
+*Revised on 2026-10-16 to stop at the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 after the owner's second review, and on 2026-10-20, when the owner descoped running agents across several Providers, had plan 5 wire the Harness guardrails for Claude Code alone, and had `doctor --skills` probe Claude Code alone. The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, and the decisions of 2026-10-20, settled what this design states, and [Open](#open) lists what is still open. Replaces the 2026-10-10 framework design. Terms follow `GLOSSARY.md` at the repository root.*
 
 ## The problem
 
@@ -20,7 +20,7 @@ rapid-ship does for a team of coding agents what a senior engineer does for a te
 | Reports metrics and Suggested threshold breaches, and reviews readiness for Flight with the owner | Pushes, opens PRs, posts reviews and merges, within the guardrails and the ruleset |
 | Records Corrections and finds drift through [gardening](#gardening) | Reaches the tracker and other tools through its MCP servers or CLIs |
 
-rapid-ship never pushes, reviews or merges as a step in a flow, and never moves a project between Modes. devctl never talks to the issue tracker. rapid-ship runs no service, daemon, container or local database: it is files in the repository, plus a small command that writes them. It works with any Harness, including API-backed ones such as pi, and with any Provider, whether a subscription, an API key or a gateway. Nothing it ships needs an API key. It works with GitHub today, through `gh`. Other Git hosts, such as Bitbucket, may follow if owners ask for them or contribute them.
+rapid-ship never pushes, reviews or merges as a step in a flow, and never moves a project between Modes. devctl never talks to the issue tracker. rapid-ship runs no service, daemon, container or local database: it is files in the repository, plus a small command that writes them. It takes no position on which Harness, Provider or billing, whether a subscription, an API key or a gateway, powers an owner's agents, and the Kit integrates with Claude Code first. Nothing it ships needs an API key. It works with GitHub today, through `gh`. Other Git hosts, such as Bitbucket, may follow if owners ask for them or contribute them.
 
 Running agents across several Provider subscriptions is out of scope, because it is outside rapid-ship's goal of accelerating software delivery while holding the code-quality bar; agent control surfaces such as [T3 Code](https://github.com/pingdotgg/t3code) do it.
 
@@ -170,7 +170,7 @@ The gardener shares one audit with `rs-health`, which runs it once at adoption. 
 
 - **The `rapid-ship` command** writes and updates the Kit. `init` vendors it, `status` compares the repository with the Kit lock, `sync` proposes Kit updates as a PR, and `app` creates the Apps for Agent identity. When a Kit update changes what a seeded file must contain, `sync` proposes the migration edits in a PR of their own and never edits that file silently; where it is cheap, a new rule only warns for one Kit version first. `uvx` fetches the command from a git tag of this repository; it is not on PyPI yet. `rs-setup`, not a command, marks an existing project's suppressions.
 - **The Kit** is what `init` vendors: devctl's source, the instruction and document skeletons, the Pattern and feature-map formats, a starter Pattern set for each stack, the Harness guardrail settings, a pre-commit hook, a CI workflow, CODEOWNERS, the `.rapid-ship/` settings and the skills. `init` records each file as managed, which `sync` keeps current, or seeded, which the project owns from the start. A managed file the project edits becomes its own until `rapid-ship sync --revert`.
-- **devctl** is the repository's own CLI for people, agents and CI. Its commands are `check`, `doctor` and `metrics`, plus `as`, the thin command for `gh` and `git push` under Agent identity, and `hook`, which holds the Harness guardrails and the merge guard. `doctor` reports what the machine and repository lack, including settings it cannot read, and `doctor --settings` checks only the settings, for the start of each Worker and Reviewer Session. `doctor --skills` asks each of Claude Code, Codex and agy that is installed which Kit skills it loads, and doctor checks the Apps only under Agent identity. A project adds its own verbs.
+- **devctl** is the repository's own CLI for people, agents and CI. Its commands are `check`, `doctor` and `metrics`, plus `as`, the thin command for `gh` and `git push` under Agent identity, and `hook`, which holds the Harness guardrails and the merge guard. `doctor` reports what the machine and repository lack, including settings it cannot read, and `doctor --settings` checks only the settings, for the start of each Worker and Reviewer Session. `doctor --skills` asks Claude Code, when it is installed, which Kit skills it loads, and doctor checks the Apps only under Agent identity. A project adds its own verbs.
 
 Nine skills, from `rs-setup` to `rs-preflight`, carry the work. The Kit also ships seven engineering skills: `rs-tdd` and `rs-diagnosing-bugs`, forked for TDD and debugging, and `rs-codebase-design`, `rs-pr`, `rs-writing-for-agents`, `rs-writing` and `rs-ponytail`. Optional skills, such as `rs-contribute`, install only when the owner lists them under `[kit] optional`. Every Kit skill's name starts with `rs-`.
 
@@ -192,7 +192,7 @@ Each skill is one real directory under `.agents/skills/<name>/`, which Codex and
 
 ## Dog-fooding
 
-*This section describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit and is validated on itself and on its sample project, hello-rapid-ship. It is a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so PR #33 turns Agent identity on. The owner created both Apps on 2026-10-19 and installed them on this repository, and #33 records them under `[github]`. It records its own choices as rules in its root AGENTS.md: Linear is its tracker; its agents sign in with vendor subscriptions only, and the owner accepts the risk that the agy probe of `devctl doctor --skills` runs agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)); and agy is never a Reviewer here.
+*This section describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit and is validated on itself and on its sample project, hello-rapid-ship. It is a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so PR #33 turns Agent identity on. The owner created both Apps on 2026-10-19 and installed them on this repository, and #33 records them under `[github]`. It records its own choices as rules in its root AGENTS.md: Linear is its tracker; its agents sign in with vendor subscriptions only; and agy is never a Reviewer here.
 
 ## Delivery
 
@@ -209,7 +209,7 @@ Three specs:
 
 Specs 2 and 3 get their own plans later. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, mapping notes for other trackers, and Windows. Plan 7 rewrites the documentation site once `rs-setup` exists.
 
-[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. [ADR 0001](../../adr/0001-subscription-logins-only.md) is this repository's own rule. ADR 0003 was withdrawn before merge.
+[ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. ADR 0003 was withdrawn before merge.
 
 ## Open
 
