@@ -18,7 +18,7 @@ from devctl.settings import Role, Stack
 ADMIN_ROLE_ID = 5  # the repository admin role; plan 4's live trial reads it back
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
 # The Protected set of the seeded CODEOWNERS (Spec 1 section 4), in its order, with the devctl
-# shim. Plan 5 widens .agents/skills/ to .agents/ and adds .codex/ for the Harness guardrail wiring.
+# shim. Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
