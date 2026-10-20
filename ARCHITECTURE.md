@@ -110,7 +110,7 @@ Two more specs get their own plans later:
 - **[Spec 2, Delivery skills](docs/superpowers/specs/2026-10-16-delivery-skills-design.md):** `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work`, `rs-review` and the tracker mapping notes.
 - **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden`, and `rs-preflight`, the advisory readiness review before the owner widens the Mode toward Flight.
 
-Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges, the merge guard also checks each agent merge, and Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). [ADR 0001](docs/adr/0001-subscription-logins-only.md) is this repository's own rule, not product behaviour: its agents use subscription sign-ins only. ADR 0003, which deferred rapid-orchestrator, was withdrawn before merge; the [orchestrator note](docs/archive/orchestrator/README.md) links its text.
+Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges, the merge guard also checks each agent merge, and Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). ADR 0003, which deferred rapid-orchestrator, was withdrawn before merge; [its text](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) stays at commit `401b57d`.
 
 ## What was removed
 
