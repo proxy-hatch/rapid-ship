@@ -669,7 +669,7 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 
 - **Tracker:** Linear, team PRO, with one project per product: "rapid-ship" and "hello-rapid-ship". Parent issues with sub-issues are already in use (PRO-99). Neither project has milestones yet, so the first `rs-breakdown` run creates them. Maintainers connect Linear through its official MCP server or API, never a third-party CLI.
 - **Reviewers:** agy is never a Reviewer in this repository. That is the owner's judgement for this repository, not a product rule.
-- **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk of running agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, the warning that `rs-setup` gives on that use is acknowledged rather than a blocker.
+- **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk that the agy probe of `devctl doctor --skills` runs agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, the warning that `rs-setup` gives before that probe is acknowledged rather than a blocker.
 - **Models:** this repository uses each chosen model exactly as named and stops instead of falling back, as its root AGENTS.md requires.
 
 ## 11. What changed on 2026-10-16, 2026-10-19 and 2026-10-20

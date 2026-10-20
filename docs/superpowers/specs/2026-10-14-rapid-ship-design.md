@@ -192,7 +192,7 @@ Each skill is one real directory under `.agents/skills/<name>/`, which Codex and
 
 ## Dog-fooding
 
-*This section describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit and is validated on itself and on its sample project, hello-rapid-ship. It is a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so PR #33 turns Agent identity on. The owner created both Apps on 2026-10-19 and installed them on this repository, and #33 records them under `[github]`. It records its own choices as rules in its root AGENTS.md: Linear is its tracker; its agents sign in with vendor subscriptions only, and the owner accepts the risk of running agy inside another Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)); and agy is never a Reviewer here.
+*This section describes this repository's own configuration, not product behaviour.* rapid-ship vendors its own Kit and is validated on itself and on its sample project, hello-rapid-ship. It is a public repository on GitHub Free with one owner, the setup where Agent identity matters most, so PR #33 turns Agent identity on. The owner created both Apps on 2026-10-19 and installed them on this repository, and #33 records them under `[github]`. It records its own choices as rules in its root AGENTS.md: Linear is its tracker; its agents sign in with vendor subscriptions only, and the owner accepts the risk that the agy probe of `devctl doctor --skills` runs agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)); and agy is never a Reviewer here.
 
 ## Delivery
 
