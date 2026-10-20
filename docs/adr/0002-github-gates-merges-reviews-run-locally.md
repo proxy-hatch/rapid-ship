@@ -6,7 +6,7 @@ status: accepted
 
 Checks run in the project's CI on GitHub. Where GitHub offers rulesets, on public repositories and on private ones with a paid plan, the ruleset decides what merges, and with Agent identity CODEOWNERS also decides whose approval a merge needs. The merge guard, a rule of `devctl hook` that is on in every setup in each Harness wired to it, also denies an agent's merge when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. A GitHub Free private repository has no rulesets, so there the merge guard is the enforcement.
 
-rapid-ship therefore keeps no local evidence store, policy store or merge broker. Reviews run wherever the Lead's Harness runs them: a subagent following `rs-review`, another vendor's CLI, or the Lead itself. rapid-ship ships the review skill, not a review runner.
+rapid-ship therefore keeps no local evidence store, policy store or merge broker. Reviews run wherever the Lead's Harness runs them: a subagent or a headless Session following `rs-review`, or the Lead itself. rapid-ship ships the review skill, not a review runner.
 
 Agent identity is an optional feature. `rapid-ship app` creates two GitHub Apps: the Worker App opens and merges pull requests, and the Reviewer App posts reviews. With Agent identity on, agents make their GitHub writes through `devctl as`, one thin command that runs `gh` and `git push` with an App's short-lived token. The Kit's Harness guardrails then deny `git push` and `gh` writes made as the owner. `rs-setup` explains what Agent identity buys and costs and gives the advice below, and the owner opts in or not.
 
