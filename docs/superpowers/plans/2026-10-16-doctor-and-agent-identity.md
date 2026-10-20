@@ -6653,9 +6653,9 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
 - Baseline on #30's head (Task 1 Step 1): commit, `./devctl check` and `status --strict` exit codes: #30's head is `928fbe4` (PR #30 was open when Step 1 ran). This branch started at `a7177bc`, which adds this plan to it. Task 1's report records, before any change, `./devctl check --base origin/codex/devctl-check` with every step passed and `evidence` not applicable (the report prints no exit code), and `uv run rapid-ship status --strict` exit 0 with "24 managed files unchanged." These are Task 1's reported results; Task 11 did not re-run the baseline.
 - Each task's commit and its test command's result (Tasks 1 to 9): These are the implementers' reported results. The plan-4 tests behind them are offline and simulated: a fake GitHub on 127.0.0.1, a fake Keychain, local bare repositories and fake Harness executables. Each task also ran the whole suite once before its commit, and the whole suite is not all offline: two of its files need network access and gitleaks 8.30.1 (see `uv run pytest -q` below). Task 11 re-ran the whole suite on `82d03f0`.
   - Task 1, `24e7a2b` (fix: let run_process finish when macOS refuses SIGTERM, and share first_line): `uv run pytest tests/devctl/test_devctl_process.py -q`, 23 passed; whole suite 764 passed.
-  - Task 2, `7e87fe4` (feat: read the Roster, the escalation list and both Apps from project.toml): `uv run pytest tests/devctl/test_devctl_settings.py -q`, 53 passed; `uv run pytest tests/devctl tests/test_kit_contents.py tests/test_kit_dogfood.py -q`, 477 passed; whole suite 777 passed.
+  - Task 2, `7e87fe4` (the settings; the follow-ups removed its `[roster]` table after the owner descoped several Providers): `uv run pytest tests/devctl/test_devctl_settings.py -q`, 53 passed; `uv run pytest tests/devctl tests/test_kit_contents.py tests/test_kit_dogfood.py -q`, 477 passed; whole suite 777 passed.
   - Task 3, `9cd2c95` (feat: mint App installation tokens and pass them to git through askpass): the GitHub client, App, askpass, kit-step and kit-contents test files, 109 passed; whole suite 832 passed.
-  - Task 4, `ad6243e` (feat: report toolchain, Roster sign-ins, guardrails and Kit files in devctl doctor): the doctor-local, kit-summary, python-guardrails, harness and kit-step test files, 282 passed; whole suite 1086 passed.
+  - Task 4, `ad6243e` (doctor's local items; the follow-ups removed its Harness sign-in items after the owner descoped several Providers): the doctor-local, kit-summary, python-guardrails, harness and kit-step test files, 282 passed; whole suite 1086 passed.
   - Task 5, `b1b925c` (feat: check the ruleset, CODEOWNERS and, with Agent identity on, both Apps in devctl doctor): `uv run pytest tests/devctl -q`, 818 passed; whole suite 1148 passed.
   - Task 6, `0b85534` (feat: compare the skills each Harness loads at HEAD with devctl doctor --skills): the probe-worktree, doctor-skills and doctor-local test files, 176 passed; whole suite 1188 passed.
   - Task 7, `8d68745` (feat: create and install the Worker and Reviewer Apps with rapid-ship app): `uv run pytest tests/test_kit_app.py tests/test_kit_app_limits.py tests/devctl/test_devctl_github_app.py -q`, 51 passed; whole suite 1231 passed.
@@ -6720,7 +6720,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   passed         python-3.12
   check exit 1
   ```
-- The same run with `--pr-body`: exit code, the `diff` notes and the `evidence` status: exit 0, run on `82d03f0` with the PR body written for Step 2 (kept outside Git at `/Users/shawn/workspace/rapid-ship/.worktrees/doctor-agent-identity/.superpowers/sdd/2026-10-16-doctor-and-agent-identity/task-11-pr-body.md`). `diff` passed with a `declared (...)` note for each of the three removed tests, and `evidence` passed. Every other step passed. The output follows, without its 33 `protected:` lines, which are the same as above.
+- The same run with `--pr-body`: exit code, the `diff` notes and the `evidence` status: exit 0, run on `82d03f0` with the PR body written for Step 2 (kept outside Git at `/Users/shawn/workspace/rapid-ship/.worktrees/doctor-agent-identity/.superpowers/sdd/2026-10-16-doctor-and-agent-identity/task-11-pr-body.md`). `diff` passed with a `declared (...)` note for each of the three removed tests, and `evidence` passed. Every other step passed. The output follows, without its 33 `protected:` lines, which are the same as above, and without the reason declared for `test_agents_keep_the_exact_model`, which named a `[roster]` test that the follow-ups removed after the owner descoped several Providers.
   ```text
   passed         format
   passed         lint
@@ -6735,7 +6735,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   passed         secrets
   passed         workflows
   passed         diff
-      removed behavioural test tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model: declared ([agents] is removed; test_the_roster_keeps_the_exact_model covers the Roster)
+      removed behavioural test tests/devctl/test_devctl_settings.py::test_agents_keep_the_exact_model: declared (...)
       removed behavioural test tests/devctl/test_devctl_diff_removed_tests.py::test_declared_removal_passes_and_flight_waits_for_the_owner: declared (gate.toml and the step's Flight note are removed; test_declared_removal_passes_with_its_reason_and_no_mode covers the step)
       removed behavioural test tests/test_kit_contents.py::test_gate_seed_has_the_spec_defaults: declared (the Kit no longer seeds gate.toml; test_the_kit_no_longer_seeds_gate_toml covers it)
   passed         evidence
@@ -6755,7 +6755,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   1267 passed in 178.07s (0:02:58)
   pytest exit 0
   ```
-- `./devctl doctor` on this repository: every line and the exit code: exit 1, live (it read this machine, this repository and GitHub with the owner's `gh` sign-in, as `GET`). No `agent identity` item and no sign-in item appear, because this repository records no Apps (`worker_app_id = 0`, empty slugs) and no Roster. `tools/devctl exclusions` is ok, with the note that this repository holds the Kit templates. Five items are missing; none is a failure of this plan:
+- `./devctl doctor` on this repository: every line and the exit code: exit 1, live (it read this machine, this repository and GitHub with the owner's `gh` sign-in, as `GET`). No `agent identity` item appears, because this repository records no Apps (`worker_app_id = 0`, empty slugs). `tools/devctl exclusions` is ok, with the note that this repository holds the Kit templates. Five items are missing; none is a failure of this plan:
   - `core.hooksPath`: unset in this linked worktree (the pre-commit hook does not run here, so each commit ran `./devctl check --tier fast` by hand).
   - `CODEOWNERS`: `.github/CODEOWNERS` is in this branch but not on `main`, because `main` (`f7b877b`) does not hold #28 to #30 yet.
   - `ruleset`, `delete branch on merge` and `fork PR workflow approval`: this repository's own GitHub settings, which plan 6's `rs-setup` applies (an Owner step).
@@ -7186,20 +7186,16 @@ Record: GitHub's message, devctl's hint line and the exit code.
 
 #### Step 13: `doctor --skills` live
 
-Pending owner step. The owner adds a Roster without committing it, runs the probes, then runs them again without a Roster. The terminal is not inside a Claude Code, Codex or agy Session.
+Pending owner step. The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers. The owner runs the probes. The terminal is not inside a Claude Code, Codex or agy Session.
 
 ```sh
-printf '\n[roster.worker]\nharness = "agy"\nmodel = "gemini-3.8-flash-high"\n\n[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n' >> .rapid-ship/project.toml
-./devctl doctor --skills; echo "exit $?"
-git worktree list
-git checkout .rapid-ship/project.toml
 ./devctl doctor --skills; echo "exit $?"
 git worktree list
 ```
 
-Must observe, with the Roster: `worker sign-in (agy)` and `reviewer sign-in (claude)` are ok, and each skills item is ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. Without a Roster: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`. `git worktree list` shows only the clone both times. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results.
+Must observe: one `skills (<harness>)` item for each of `claude`, `codex` and `agy` on `PATH`, each ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. A 502 or 503 from Google's eligibility check makes an agy item unknown; rerun and record both results.
 
-Record: every sign-in and skills line and the exit codes, whether each Harness listed `trial-release` anyway, and each entry of `PROBE_MODELS` confirmed or corrected. A wrong model is fixed in `harness.py`, with its test, in this plan's PR.
+Record: every skills line and the exit code, whether each Harness listed `trial-release` anyway, and each entry of `PROBE_MODELS` confirmed or corrected. A wrong model is fixed in `harness.py`, with its test, in this plan's PR.
 
 #### Step 14: clean up
 

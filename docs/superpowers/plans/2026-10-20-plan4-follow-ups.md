@@ -169,7 +169,7 @@ Task 7 (PR #33) also covers these removals in #33's documents.
 - [ ] Merge `plan4-doctor` with `git merge --no-ff`. In `doctor_items.py`, keep `SIGN_IN_VARIABLES` and `owner_environment`: `run_installed` passes them to gh, gitleaks and each `--skills` Session. Take Task 9's removal of `harness_roles`. In the tests, drop `ctx(worker=...)` and every `roster=`.
 - [ ] Rewrite the claude, codex and agy cases of `test_a_sign_in_held_only_in_the_environment_is_ok` as `--skills` tests. Each Harness runs through `skills_items` with `doctor_ctx`, and its Session receives its own sign-in variable and no other tool's. Keep the gh cases on `local_items`.
 - [ ] `test_each_tool_gets_its_own_sign_in_and_the_network_settings_only` runs gh and gitleaks through `local_items`, and claude, codex and agy through `skills_items`.
-- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its Roster: with only agy on `PATH`, `--skills` probes agy alone.
+- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its `[roster]` table: with only agy on `PATH`, `--skills` probes agy alone.
 - [ ] The `diff` step knows a test by its function name, not by its parametrize cases, so it cannot see a dropped case. Keep a `--skills` case for each Harness. Declare each test function that the rewrite removes under #33's `Removed tests:`, with the test that covers what remains.
 - [ ] Sync, run the four checks; commit the merge as `Merge plan4-doctor: doctor checks no Harness sign-in`, and the rewrite as `test: show that each --skills Session gets its own Harness sign-in`.
 
