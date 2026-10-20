@@ -84,9 +84,12 @@ class TestNames:
     def test_only_supported_harnesses_on_path_are_named(
         self, project: ProjectSettings, fake_harness: FakeHarness
     ) -> None:
-        fake_harness.install("codex")
-        fake_harness.install("pi")
-        assert probed_harnesses(project) == {"codex": "skills (codex)"}
+        # Claude Code is the only supported Harness until the Kit integrates another one.
+        for name in ("codex", "agy", "pi"):
+            fake_harness.install(name)
+        assert probed_harnesses(project) == {}
+        fake_harness.install("claude")
+        assert probed_harnesses(project) == {"claude": "skills (claude)"}
 
     @pytest.mark.parametrize(
         "changes",
@@ -104,11 +107,7 @@ class TestNames:
         for name in ("agy", "pi", "codex", "claude"):
             fake_harness.install(name)
         settings = dataclasses.replace(project, **cast("dict[str, Any]", changes))
-        assert list(probed_harnesses(settings).items()) == [
-            ("claude", "skills (claude)"),
-            ("codex", "skills (codex)"),
-            ("agy", "skills (agy)"),
-        ]
+        assert list(probed_harnesses(settings).items()) == [("claude", "skills (claude)")]
 
     def test_the_item_lists_missing_outside_and_user_invoked_skills(
         self, doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
@@ -122,12 +121,13 @@ class TestNames:
         )
         git(remote.clone, "add", ".agents")
         git(remote.clone, "commit", "-q", "-m", "skills")
-        listed = [{"name": n} for n in ("c-skill", "z-out", "m-out", "u-skill")]
-        fake_harness.install("agy", stdout=json.dumps(listed))
+        listed = ["c-skill", "z-out", "m-out", "u-skill"]
+        init = {"type": "system", "subtype": "init", "skills": listed}
+        fake_harness.install("claude", stdout=f"{json.dumps(init)}\n")
         assert skills_items(doctor_ctx) == [
             Item(
                 "skills",
-                "skills (agy)",
+                "skills (claude)",
                 "missing",
                 "missing: a-skill, b-skill; outside the repository: m-out, z-out; "
                 "not checked, user-invoked: u-skill",
@@ -143,7 +143,7 @@ class TestRunDoctor:
 
         def skills(ctx: DoctorContext) -> list[Item]:
             calls.append("skills")
-            return [Item("skills", "skills (agy)", "missing", "missing: rs-tdd")]
+            return [Item("skills", "skills (claude)", "missing", "missing: rs-tdd")]
 
         monkeypatch.setattr(
             doctor, "local_items", lambda ctx: [Item("toolchain", "git", "ok", "2")]
@@ -175,7 +175,7 @@ class TestRunDoctor:
         assert capsys.readouterr().out.splitlines() == [
             "ok  toolchain  git: 2",
             "ok  github  ruleset: ",
-            "missing  skills  skills (agy): missing: rs-tdd",
+            "missing  skills  skills (claude): missing: rs-tdd",
             "doctor: 2 ok, 1 missing, 0 unknown",
         ]
 
@@ -206,6 +206,7 @@ class TestCommand:
         assert raised.value.code == 0
         out = " ".join(capsys.readouterr().out.split())
         assert "--skills" in out
+        assert "one headless Claude Code Session when claude is on PATH" in out
         assert "spends a little quota" in out
 
     def test_a_namespace_from_the_parser_has_the_flag(self) -> None:

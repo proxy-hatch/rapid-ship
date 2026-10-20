@@ -16,7 +16,7 @@ The settings hold the code owner, the escalation list and each App's ID and slug
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
-- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Session per Harness.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.
@@ -35,7 +35,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | The secrets step's settings: gitleaks's default rules, plus an allowlist for the placeholder key that a plan document quotes. Protected | [.gitleaks.toml](.gitleaks.toml) |
 | Tests | [Tests](tests/AGENTS.md) |
 | The distribution smoke that the `distribution` check step runs | [Scripts](scripts/AGENTS.md) |
-| Designs, plans, ADRs, trials and the archive | [Documentation](docs/AGENTS.md) |
+| Designs, plans, ADRs and trials | [Documentation](docs/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI, documentation deployment and CODEOWNERS, which lists the Protected set | [Workflows](.github/AGENTS.md) |
 | Agent skill discovery | [`.agents/skills`](.agents/AGENTS.md), [`.claude/skills`](.claude/AGENTS.md) |
@@ -62,7 +62,7 @@ These are this repository's choices, not product behaviour. Product text names t
 
 - Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Connect Linear through its official MCP or API, never a third-party CLI.
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
-- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
 

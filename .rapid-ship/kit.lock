@@ -156,7 +156,7 @@ sha256 = "81f61e1aa026799d29da7a9a286657b2041c2dabeb98d9053d496fd1c92216e5"
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
 kind = "managed"
-sha256 = "f97809c03e54ac2fe6b8a161e57181f941863b4a3424597c04f912225a1a71b6"
+sha256 = "3d7f453b764ceb16dda325cae34c73e5130ef28b26727cd64cc40094d5187bed"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
@@ -181,7 +181,7 @@ sha256 = "b504ec084d5e748800baec22bf30137c2852e88f4e175833d98502599942fd02"
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
-sha256 = "952bf8e5bdc0480adba8ea36bc877797644a084d39c4b457c91549dbda84dceb"
+sha256 = "a03fd196122bc34ca81abd8fc00ef372f2c2d6351afb1e13679ddda7971b739f"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
@@ -206,7 +206,7 @@ sha256 = "506891f77aac35312676963e58654da70f7806c62b74ad6686e2faf055df9c7a"
 [[file]]
 path = "tools/devctl/devctl/harness.py"
 kind = "managed"
-sha256 = "d13bdb4b5e974598e17e7ed810ba8ebd236576da73d7cff29a5dd51eff366d9b"
+sha256 = "d6e8d92c04dd0d11235ab926ada7432626abd382eedc2daf64a37f1319403440"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"
@@ -226,7 +226,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "b7147902cea39b86757fc4b376f08906be52b09dd6b92f723a3499eacc21f237"
+sha256 = "d268ad3980c17c5548bbea91e2fe501317ed1249bd4d64a250bb93548daa5ff5"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"
