@@ -6,7 +6,7 @@ the --skills items. doctor_items.py holds the types they share and the owner's o
 GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
 names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
 
-No item checks a Harness's sign-in: the optional rs-providers skill does (Spec 1 section 6).
+No item checks a Harness's sign-in (Spec 1 section 6).
 """
 
 from __future__ import annotations

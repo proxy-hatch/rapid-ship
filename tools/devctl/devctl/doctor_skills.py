@@ -166,8 +166,7 @@ def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
 def probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]:
     """Each of claude, codex and agy on PATH, with its item's name (Spec 1 section 6).
 
-    project never changes the answer: the settings name no Harness, because the optional
-    rs-providers skill, not devctl, records which Harness each role uses.
+    project never changes the answer, because the settings name no Harness.
     """
     return {h: f"skills ({h})" for h in SUPPORTED if shutil.which(h) is not None}
 
