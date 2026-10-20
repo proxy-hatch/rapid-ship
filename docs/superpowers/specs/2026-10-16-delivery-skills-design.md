@@ -668,11 +668,11 @@ Forked skills: [mattpocock/skills at `49dd158`](https://github.com/mattpocock/sk
 
 - **Tracker:** Linear, team PRO, with one project per product: "rapid-ship" and "hello-rapid-ship". Parent issues with sub-issues are already in use (PRO-99). Neither project has milestones yet, so the first `rs-breakdown` run creates them. Maintainers connect Linear through its official MCP server or API, never a third-party CLI.
 - **Reviewers:** agy is never a Reviewer in this repository. That is the owner's judgement for this repository, not a product rule.
-- **Sign-ins:** this repository's agents sign in with vendor subscriptions only, and the owner accepted the risk that the agy probe of `devctl doctor --skills` runs agy inside another Harness's Session ([ADR 0001](../../adr/0001-subscription-logins-only.md)). Here, the warning that `rs-setup` gives before that probe is acknowledged rather than a blocker.
+- **Sign-ins:** this repository's agents sign in with vendor subscriptions only. Its root AGENTS.md states the rule.
 
 ## 11. What changed on 2026-10-16, 2026-10-19 and 2026-10-20
 
-The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, and the decision of 2026-10-20 to descope running agents across several Providers (Spec 1, section 1), settled what this spec states. The open questions are in section 13.
+The owner's reviews of PR #27 on 2026-10-16, 2026-10-19 and 2026-10-20, and the decision of 2026-10-20 to descope running agents across several Providers (Spec 1, section 1), settled what this spec states. The open questions are in section 13.
 
 ## 12. Testing
 
@@ -695,7 +695,7 @@ The skills are instructions, so most of their validation is dog-fooding: real ru
 | `rs-review` | Review hello-rapid-ship pull requests with seeded defects: a missed acceptance criterion, a test that cannot fail, a Pattern bypass and a naming nit. Add one pull request that also weakens `rs-review`'s own text. Run once with Agent identity and once without | The first three are blocking with a plausible rung and the naming issue is a nit; the Reviewer ran in a checkout of the base branch and judged the weakened skill by the base version; there is one verdict per head; with Agent identity it is a real review from the Reviewer App, without it a `COMMENT` review; the next Reviewer resolves exactly the threads it verified |
 | Flight help | On hello-rapid-ship with Agent identity, the pull request that sets `every_pr = false` and narrows CODEOWNERS | After it merges, the Lead merges a pull request outside the escalation list as the Worker App, GitHub refuses a Protected pull request without the owner's approval, the merge guard denies the Lead's merge of a Protected pull request and of one whose head failed `devctl check`, and the guardrails deny `gh pr merge --admin`. Without Agent identity, `rs-lead`'s explanation is recorded and the ruleset is left unchanged |
 
-The trials on Linear also confirm the facts the mapping note relies on: the integration's moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests. `./devctl doctor --skills` lists the five skills in each Harness.
+The trials on Linear also confirm the facts the mapping note relies on: the integration's moves on open and on merge, no move on a close without merging, and a cancelled issue closing its linked pull requests. `./devctl doctor --skills` lists the five skills in Claude Code.
 
 Each `rs-lead` trial also records what the Lead did: a worktree per Worker, every Worker awaited, a fresh Reviewer per head in a checkout of the base branch, nits skipped, blocking findings fixed, escalation at the round limit, and in-session Corrections appended. These observations improve the brief's wording and are never a pass or a fail of rapid-ship, because adherence is the Harness's.
 
