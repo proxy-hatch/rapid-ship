@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Change plan 4's built code to the owner's decisions of 2026-10-19 before PRs #31 to #33 merge: organisation-owned repositories, Keychain items named by App ID, `rapid-ship app --import-key`, and `[github] code_owner`; and, after the owner's decision of 2026-10-20, take the Roster out of devctl.
+**Goal:** Change plan 4's built code to the owner's decisions of 2026-10-19 before PRs #31 to #33 merge: organisation-owned repositories, Keychain items named by App ID, `rapid-ship app --import-key`, and `[github] code_owner`; and, after the owner's decision of 2026-10-20 to descope running agents across several Providers, take `[roster]` and the Harness sign-in items out of devctl.
 
 **Architecture:** Each change lands on the PR that holds its file and is merged up the stack with `git merge --no-ff`: #31 (`plan4-settings-tokens`) owns the settings and devctl's token code, #32 (`plan4-doctor`) owns doctor, #33 (`doctor-agent-identity`) owns `rapid-ship app`. devctl is edited only under `rapid_ship/templates/common/tools/devctl/devctl/`, then `uv run rapid-ship sync --in-place` regenerates the vendored copy and the lock.
 
@@ -46,7 +46,7 @@
 
 - [ ] Write failing tests: `"@octocat"`, `"@my-org/platform-team"` load; `"octocat"`, `"@"`, `"@org/"`, `"@-bad"`, `"@a/b/c"` and a number raise `SettingsError` naming `.rapid-ship/project.toml`, `code_owner` and `"@login" or "@organisation/team"`; `""` and an absent key give `None`. Init with `--owner octocat` seeds `code_owner = "@octocat"`; init without it seeds `code_owner = ""`, and the seeded file loads.
 - [ ] Implement: add `code_owner` to `_GITHUB_KEYS`, validate it with `@[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9][A-Za-z0-9_.-]*)?`, and seed it in both templates under `repository` with Spec 1 section 4's comment: `# The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".` Init fills it the way it fills CODEOWNERS's owner.
-- [ ] Fix the text the owner's review made wrong: the `[dispatch]` entry of `REMOVED_TABLES` drops "the Lead brief's Focus caps parallel Workers" (rapid-ship takes no notice of how many Sessions run), and the `Harness` comment drops `# Proposal: Spec 1 section 11, Roster Harnesses` (any Harness is decided).
+- [ ] Fix the text the owner's review made wrong: the `[dispatch]` entry of `REMOVED_TABLES` drops "the Lead brief's Focus caps parallel Workers" (rapid-ship takes no notice of how many Sessions run), and the `Harness` comment drops its Proposal note, which the owner's review settled.
 - [ ] Update every document on this branch that lists the `[github]` keys, such as `ARCHITECTURE.md` and `tools/AGENTS.md`.
 - [ ] `uv run rapid-ship sync --in-place`, `uv run pytest -q`, `./devctl check --tier fast`, `uv run rapid-ship status --strict`; commit `feat: record the code owner under [github]`.
 
@@ -123,25 +123,25 @@ Re-storing reads the key with `security find-generic-password -s <old> -w`, adds
 
 - [ ] Spec 1 sections 3 and 6 state the built behaviour, without "plan 4 as built ... its follow-ups"; the plan index marks follow-ups 1 to 4 built in #31 to #33; `README.md`, `ARCHITECTURE.md` and `rapid_ship/AGENTS.md` describe organisation repositories, the item names and `--import-key`; this plan's status line says built. Commit `docs: record plan 4's follow-ups as built`.
 
-## Multi-provider leaves devctl (the owner's decision of 2026-10-20)
+## Several Providers leave devctl (the owner's decision of 2026-10-20)
 
-Multi-provider is now the opt-in `rs-providers` skill, which Spec 2's plan builds: it checks each Harness's sign-in itself and writes its advice to `.rapid-ship/providers.md`, which `rs-lead` appends to the Lead brief (Spec 1 sections 4, 6 and 7; Spec 2). devctl stops knowing about providers before #31 to #33 merge.
+The owner's decision of 2026-10-20 descopes running agents across several Providers (Spec 1 section 1). rapid-ship does not run, route or advise agents across several Providers, so devctl knows nothing about them. Tasks 8 and 9 take out of devctl what plan 4 built for them, before #31 to #33 merge.
 
 ### Task 8 (PR #31): remove `[roster]` from devctl's settings and the seeds
 
 **Files:**
-- Modify: `rapid_ship/templates/common/tools/devctl/devctl/settings.py`, `rapid_ship/templates/python/.rapid-ship/project.toml`, `rapid_ship/templates/agnostic/.rapid-ship/project.toml`; this repository's `.rapid-ship/project.toml` if it mentions the Roster
+- Modify: `rapid_ship/templates/common/tools/devctl/devctl/settings.py`, `rapid_ship/templates/python/.rapid-ship/project.toml`, `rapid_ship/templates/agnostic/.rapid-ship/project.toml`; this repository's `.rapid-ship/project.toml` if it has the commented `[roster]` example
 - Test: `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_contents.py`, `tests/devctl/check_workspace.py`, and every other test that builds `ProjectSettings(roster=...)` or a `[roster]` table
 
 **Interfaces:**
-- Produces: `ProjectSettings` without `roster`; no `Agent` dataclass. `Harness = Literal["claude", "codex", "agy"]` stays, because `harness.py` imports it on #32; its comment becomes `# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)`. `REMOVED_TABLES["roster"]` and a changed `REMOVED_TABLES["agents"]`, both naming `rs-providers`.
+- Produces: `ProjectSettings` without `roster`; no `Agent` dataclass. `Harness = Literal["claude", "codex", "agy"]` stays, because `harness.py` imports it on #32; its comment becomes `# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)`. `REMOVED_TABLES["roster"]` and a changed `REMOVED_TABLES["agents"]`, both with the message `rapid-ship does not run agents across several Providers; delete the table`.
 
-- [ ] Write failing tests: a `[roster]` table, with or without roles, raises `SettingsError` whose message says `.rapid-ship/project.toml: [roster] was removed: multi-provider is the optional rs-providers skill, which writes .rapid-ship/providers.md; delete the table`; `[agents]`'s message names `rs-providers` instead of `[roster.worker]`; neither seed contains `roster` or a Provider comment; a seed still loads.
-- [ ] Implement: drop `roster` from `_TABLES` and `ProjectSettings`, delete `_agent`, `_roster` and `Agent`, add the `roster` entry to `REMOVED_TABLES`, and delete the commented Roster block from both seeds.
+- [ ] Write failing tests: a `[roster]` table, with or without roles, raises `SettingsError` whose message says `.rapid-ship/project.toml: [roster] was removed: rapid-ship does not run agents across several Providers; delete the table`; `[agents]`'s message gives the same reason and names no table and no skill; neither seed contains `roster` or a Provider comment; a seed still loads.
+- [ ] Implement: drop `roster` from `_TABLES` and `ProjectSettings`, delete `_agent`, `_roster` and `Agent`, add the `roster` entry to `REMOVED_TABLES`, and delete the commented `[roster]` example from both seeds.
 - [ ] Update every document on this branch that describes `[roster]` (`ARCHITECTURE.md`, `AGENTS.md`, `rapid_ship/templates/AGENTS.md`).
-- [ ] Sync, run the four checks; commit `refactor: drop [roster] from devctl's settings; multi-provider is rs-providers`.
+- [ ] Sync, run the four checks; commit. Built on #31: 2b36f68 removed the table, and 2fa9963 gave the refusal the message above.
 
-### Task 9 (PR #32): remove doctor's sign-in items and the Roster branch of `--skills`
+### Task 9 (PR #32): remove doctor's sign-in items, and make `--skills` ignore the settings
 
 **Files:**
 - Modify: `rapid_ship/templates/common/tools/devctl/devctl/doctor.py`, `doctor_items.py`, `doctor_signin.py`, `doctor_skills.py`, `harness.py`
@@ -152,9 +152,9 @@ Multi-provider is now the opt-in `rs-providers` skill, which Spec 2's plan build
 - Produces: `probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]` returns each of `claude`, `codex` and `agy` on `PATH`; doctor's report has no sign-in items.
 
 - [ ] Write failing tests: doctor's full report has no item in the sign-in area for any settings; `--skills` probes exactly the supported Harnesses on `PATH`, whatever the settings say; the agy warning text still applies when `agy` is on `PATH`.
-- [ ] Implement: delete the sign-in items, `doctor_signin.py` and the agy sign-in probe in `harness.py`, keeping what `--skills` still calls, and drop the Roster branch of `probed_harnesses`. A removed test's subject must be gone; declare each removed test in the PR body's `Removed tests:` with the test that covers what remains.
+- [ ] Implement: delete the sign-in items, `doctor_signin.py` and the agy sign-in probe in `harness.py`, keeping what `--skills` still calls, and drop the branch of `probed_harnesses` that read `[roster]`. A removed test's subject must be gone; declare each removed test in the PR body's `Removed tests:` with the test that covers what remains.
 - [ ] Update every document on this branch that describes doctor's sign-in items (`ARCHITECTURE.md`, `tools/AGENTS.md`).
-- [ ] Sync, run the four checks; commit `refactor: drop doctor's sign-in items; rs-providers checks sign-ins`.
+- [ ] Sync, run the four checks; commit. Built on #32 in 89a7f11.
 
 Task 7 (PR #33) also covers these removals in #33's documents.
 

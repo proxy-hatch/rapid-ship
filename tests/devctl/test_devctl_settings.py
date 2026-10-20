@@ -88,15 +88,15 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
         '[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
     ],
 )
-def test_a_leftover_roster_is_refused_and_names_rs_providers(tmp_path: Path, roster: str) -> None:
+def test_a_leftover_roster_is_refused(tmp_path: Path, roster: str) -> None:
     write(tmp_path, PROJECT, 'stack = "python"\n' + roster)
 
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
 
     assert str(raised.value) == (
-        f"{PROJECT}: [roster] was removed: multi-provider is the optional rs-providers skill, "
-        "which writes .rapid-ship/providers.md; delete the table"
+        f"{PROJECT}: [roster] was removed: rapid-ship does not run agents across several "
+        "Providers; delete the table"
     )
 
 
@@ -156,14 +156,15 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     )
 
 
-# What replaced each removed table (Spec 1 section 4), written out so the test does not compare
-# the code with itself.
+# What each removed table's message says replaced it, or why nothing did (Spec 1 section 4),
+# written out so the test does not compare the code with itself.
+SEVERAL_PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
 REPLACED_BY = {
-    "agents": "rs-providers",
+    "agents": SEVERAL_PROVIDERS,
     "dispatch": "no longer starts Workers",
     "linear": "never talks to the issue tracker",
     "release": "Spec 3",
-    "roster": "rs-providers",
+    "roster": SEVERAL_PROVIDERS,
 }
 
 

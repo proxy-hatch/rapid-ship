@@ -177,10 +177,10 @@ class TestSignIns:
         capsys: pytest.CaptureFixture[str],
         changes: dict[str, object],
     ) -> None:
-        # The optional rs-providers skill checks each Harness's sign-in (Spec 2). fake_run finds
-        # claude, codex and agy on PATH, and doctor without --skills runs none of them. A detail
-        # may still name a Harness's directory, as the Kit files item does here, so only an item
-        # named for a Harness counts.
+        # No item checks a Harness's sign-in (Spec 1 section 6). fake_run finds claude, codex and
+        # agy on PATH, and doctor without --skills runs none of them. A detail may still name a
+        # Harness's directory, as the Kit files item does here, so only an item named for a
+        # Harness counts.
         repo_files.lock(unchanged=[], missing=[], stale=[".claude/settings.json"])
         repo_files.write(".claude/settings.json", "{}\n")
         run_doctor(adjusted(ctx(), **changes))

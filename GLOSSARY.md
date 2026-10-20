@@ -84,9 +84,6 @@ _Avoid_: runner, provider
 **Provider**:
 The account a Harness uses for its models: a vendor subscription, an API key, or a gateway such as OpenRouter. rapid-ship works with any of them.
 
-**Agent**:
-A Harness, an exact model and role instructions, saved under a name.
-
 **Worker**:
 The role that implements one task. The Lead starts each Worker.
 
@@ -98,14 +95,11 @@ The Session the owner works with, following a Lead brief: it picks up tasks, sta
 _Avoid_: coordinator, manager, orchestrator
 
 **Lead brief**:
-The instructions that tell a Lead what to work on and how: a Focus and the project's escalation list, plus the Roster when the owner opted in to `rs-providers`. rapid-ship helps write it; how closely the Lead follows it is up to the Harness.
+The instructions that tell a Lead what to work on and how: a Focus and the project's escalation list. It names no model: the Lead's Harness chooses its subagents' models. rapid-ship helps write it; how closely the Lead follows it is up to the Harness.
 _Avoid_: rule, which means a constraint on changes
 
 **Focus**:
 The part of a Lead brief that says what to work on now: a milestone or chosen tasks. It changes often and is never stored.
-
-**Roster**:
-The optional advice that `rs-providers` writes to `.rapid-ship/providers.md`, naming the Harness and exact model for Workers and Reviewers. Only an owner who opts in to `rs-providers`, to spread work across several Provider subscriptions, has one; otherwise the Lead's Harness chooses the models for its subagents.
 
 **Session**:
 One conversation in a Harness, resumable by its ID.
