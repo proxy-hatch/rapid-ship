@@ -10,7 +10,6 @@ from devctl.settings import (
     EXCEPTIONS,
     PROJECT,
     REMOVED_TABLES,
-    Agent,
     App,
     Escalation,
     ProjectSettings,
@@ -53,7 +52,6 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(SEEDED_KIND,), revision_rounds=3),
-        roster={},
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),
@@ -72,7 +70,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     project = load_project(tmp_path)
 
     assert project.escalation == Escalation(every_pr=True, kinds=(), revision_rounds=3)
-    assert (project.roster, project.unit_tests) == ({}, ("tests/unit/**",))
+    assert project.unit_tests == ("tests/unit/**",)
     assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
         None,
         None,
@@ -80,14 +78,26 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     )
 
 
-def test_the_roster_keeps_the_exact_model(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        PROJECT,
-        'stack = "python"\n[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
-    )
+# devctl knows nothing about Providers (Spec 1 section 4): a [roster] table left from plan 4 is
+# refused whatever it holds.
+@pytest.mark.parametrize(
+    "roster",
+    [
+        "[roster]\n",
+        '[roster.worker]\nharness = "codex"\nmodel = "m"\n',
+        '[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
+    ],
+)
+def test_a_leftover_roster_is_refused_and_names_rs_providers(tmp_path: Path, roster: str) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n' + roster)
 
-    assert load_project(tmp_path).roster == {"reviewer": Agent("claude", "claude-opus-5-5")}
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    assert str(raised.value) == (
+        f"{PROJECT}: [roster] was removed: multi-provider is the optional rs-providers skill, "
+        "which writes .rapid-ship/providers.md; delete the table"
+    )
 
 
 def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
@@ -149,10 +159,11 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
 # What replaced each removed table (Spec 1 section 4), written out so the test does not compare
 # the code with itself.
 REPLACED_BY = {
-    "agents": "[roster.worker]",
+    "agents": "rs-providers",
     "dispatch": "no longer starts Workers",
     "linear": "never talks to the issue tracker",
     "release": "Spec 3",
+    "roster": "rs-providers",
 }
 
 
@@ -163,6 +174,11 @@ def test_every_removed_table_is_tested() -> None:
 def test_the_dispatch_message_claims_no_worker_cap() -> None:
     # rapid-ship takes no notice of how many Sessions run (ADR 0004), so nothing caps Workers.
     assert "cap" not in REMOVED_TABLES["dispatch"]
+
+
+def test_the_agents_message_points_at_no_roster_table() -> None:
+    # devctl reads no [roster] table, so the message must not send the owner to one.
+    assert "[roster" not in REMOVED_TABLES["agents"]
 
 
 @pytest.mark.parametrize(("table", "replacement"), sorted(REPLACED_BY.items()))
@@ -272,22 +288,6 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
             "kinds: expected a list of non-empty strings",
         ),
         (PROJECT, 'stack = "python"\n[escalation]\nmode = "flight"\n', "unknown key 'mode'"),
-        (PROJECT, 'stack = "python"\n[roster.worker]\nharness = "agy"\n', "model: required"),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.worker]\nharness = "agy"\nmodel = " m "\n',
-            "model: required",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.worker]\nharness = "pi"\nmodel = "m"\n',
-            "harness: expected claude or codex or agy",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[roster.lead]\nharness = "claude"\nmodel = "m"\n',
-            "unknown key 'lead'",
-        ),
         (
             PROJECT,
             'stack = "python"\n[github]\nrepository = "not a repo"\n',

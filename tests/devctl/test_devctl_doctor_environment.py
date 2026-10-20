@@ -9,26 +9,13 @@ from pathlib import Path
 import pytest
 
 from devctl.doctor import Item, OwnerReadError, gh_get, local_items
-from devctl.settings import Harness
 from github_fakes import FakeHarness, MakeContext
 
 Answer = tuple[str, str, int]  # stdout, stderr, exit code
 # Per tool: the item that reports its sign-in, and what the fake answers signed in and signed out.
 SIGN_IN_ANSWERS: dict[str, tuple[str, Answer, Answer]] = {
     "gh": ("gh sign-in", ("", "", 0), ("", "You are not logged into any GitHub hosts.\n", 1)),
-    "claude": (
-        "worker and reviewer sign-in (claude)",
-        ('{"loggedIn": true, "authMethod": "apiKey"}\n', "", 0),
-        ('{"loggedIn": false}\n', "", 1),
-    ),
-    "codex": (
-        "worker sign-in (codex)",
-        ("", "Logged in using ChatGPT\n", 0),
-        ("", "Not logged in\n", 1),
-    ),
-    "agy": ("worker sign-in (agy)", ("Hello!\n", "", 0), ("", "error: not signed in\n", 1)),
 }
-HARNESSES: dict[str, Harness] = {"claude": "claude", "codex": "codex", "agy": "agy"}
 # One sign-in per tool, set together, to show that no tool receives another's.
 OWNER_SIGN_INS = {
     "GH_TOKEN": "gh",
@@ -92,15 +79,6 @@ def by_name(items: list[Item]) -> dict[str, Item]:
         ("gh", "GH_TOKEN"),
         ("gh", "GITHUB_TOKEN"),
         ("gh", "GH_CONFIG_DIR"),
-        ("claude", "ANTHROPIC_API_KEY"),
-        ("claude", "ANTHROPIC_AUTH_TOKEN"),
-        ("claude", "CLAUDE_CODE_OAUTH_TOKEN"),
-        ("claude", "CLAUDE_CONFIG_DIR"),
-        ("claude", "CLAUDE_CODE_USE_BEDROCK"),
-        ("claude", "CLAUDE_CODE_USE_VERTEX"),
-        ("codex", "CODEX_HOME"),
-        ("codex", "OPENAI_API_KEY"),
-        ("agy", "GEMINI_API_KEY"),
     ],
 )
 def test_a_sign_in_held_only_in_the_environment_is_ok(
@@ -113,7 +91,7 @@ def test_a_sign_in_held_only_in_the_environment_is_ok(
     # Spec 1 section 6: any sign-in method is ok, including one that the owner's shell exports.
     name, signed_in, signed_out = SIGN_IN_ANSWERS[tool]
     install_signed_in_when(fake_harness, tool, variable, signed_in, signed_out)
-    context = ctx(worker=(HARNESSES[tool], "m")) if tool in HARNESSES else ctx()
+    context = ctx()
     monkeypatch.delenv(variable, raising=False)
     assert by_name(local_items(context))[name].status == "missing"
     monkeypatch.setenv(variable, "example-value")
@@ -127,9 +105,9 @@ def test_each_tool_gets_its_own_sign_in_and_the_network_settings_only(
         monkeypatch.setenv(variable, "0")  # "0" keeps the test's own git from tracing
     for variable, value in NETWORK.items():
         monkeypatch.setenv(variable, value)
-    tools = ("gh", "claude", "codex", "gitleaks")
+    tools = ("gh", "gitleaks")
     records = {tool: install_recorder(fake_harness, tool) for tool in tools}
-    local_items(ctx(worker=("codex", "m")))  # the Roster: codex and claude, no agy
+    local_items(ctx())
     for tool, record in records.items():
         seen = json.loads(record.read_text())
         own = {variable for variable, owner in OWNER_SIGN_INS.items() if owner == tool}

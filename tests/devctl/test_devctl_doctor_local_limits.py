@@ -1,11 +1,10 @@
 """Offline: the edges of doctor's local items, its output and its command line. Command output is
-recorded (FakeRun) and each Harness is a fake executable on PATH (FakeHarness); no real Harness, gh,
-gitleaks or GitHub is run, and no Session starts."""
+recorded (FakeRun); no real Harness, gh, gitleaks or GitHub is run, and no Session starts."""
 
 import argparse
 import dataclasses
+import re
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,15 +13,10 @@ import pytest
 from devctl import cli, doctor
 from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
-    AGY_PROBE_ARGS,
     KIT_SOURCE,
     DoctorContext,
     Item,
     OwnerReadError,
-    agy_item,
-    agy_sign_in,
-    claude_item,
-    codex_item,
     doctor_command,
     doctor_exit_code,
     gh_get,
@@ -31,16 +25,10 @@ from devctl.doctor import (
     run_doctor,
 )
 from devctl.doctor_local import gitleaks_item
-from devctl.harness import PROBE_MODELS, PROBE_TIMEOUT_SECONDS, error_line
 from devctl.process import MAX_OUTPUT_BYTES, ProcessResult
-from devctl.settings import Agent, Harness
-from github_fakes import FakeHarness, FakeRun, MakeContext, RepoFiles
+from github_fakes import FakeRun, MakeContext, RepoFiles
 from rapid_ship.kit.templates import render_files
 
-SERVICE_503 = (
-    "error: failed to send message: Eligibility check failed: UNAVAILABLE (code 503): "
-    "The service is currently unavailable.\n"
-)
 GH_GET = ["gh", "api", "--method", "GET", "repos/o/r"]
 
 
@@ -54,10 +42,6 @@ def result(
     stderr_truncated: bool = False,
 ) -> ProcessResult:
     return ProcessResult(["x"], code, out, err, 0.0, timed_out, stdout_truncated, stderr_truncated)
-
-
-def agent(harness: Harness) -> Agent:
-    return Agent(harness, "model")
 
 
 def by_name(items: list[Item]) -> dict[str, Item]:
@@ -76,152 +60,6 @@ def seeded_pyproject_text() -> str:
     return template.content.decode()
 
 
-class TestClaude:
-    @pytest.mark.parametrize(
-        ("output", "detail"),
-        [
-            (result(0, '{"loggedIn": true, "authMethod": "x; rm -rf /"}'), "unreadable"),
-            (result(0, '{"loggedIn": true, "authMethod": 7}'), "unreadable"),
-            (result(0, '{"loggedIn": true}'), "absent"),
-            (result(0, '{"loggedIn": true, "authMethod": "console"}'), "console"),
-        ],
-    )
-    def test_any_sign_in_method_is_ok_and_named_only_by_its_label(
-        self, output: ProcessResult, detail: str
-    ) -> None:
-        item = claude_item("worker", output)
-        assert (item.status, item.detail) == ("ok", f"signed in; authMethod is {detail}")
-        assert "rm" not in item.detail
-
-    @pytest.mark.parametrize(
-        "output",
-        [
-            result(0, '{"loggedIn": true, "authMethod": "claude.ai"}', timed_out=True),
-            result(0, '{"loggedIn": true, "authMethod": "claude.ai"}', stdout_truncated=True),
-            result(0, "[]"),
-            result(0, ""),
-            result(2, '{"loggedIn": false}'),
-        ],
-    )
-    def test_a_command_that_proves_nothing_is_unknown(self, output: ProcessResult) -> None:
-        assert claude_item("reviewer", output).status == "unknown"
-
-    def test_the_item_is_named_for_the_role_and_the_harness(self) -> None:
-        item = claude_item("worker and reviewer", result(1, '{"loggedIn": false}'))
-        assert (item.area, item.name) == ("toolchain", "worker and reviewer sign-in (claude)")
-
-
-class TestCodex:
-    @pytest.mark.parametrize(
-        ("output", "status"),
-        [
-            (result(0, err="Not logged in\nLogged in using ChatGPT\n"), "missing"),
-            (result(1, err="Logged in using ChatGPT\n"), "unknown"),  # exit code disagrees
-            (result(0, out="Logged in using ChatGPT\n"), "unknown"),  # only stderr is read
-            (result(0, err="Logged in using ChatGPT\n", timed_out=True), "unknown"),
-            (result(0, err="Logged in using ChatGPT\n", stderr_truncated=True), "unknown"),
-            (result(0, err=""), "unknown"),
-        ],
-    )
-    def test_only_the_first_stderr_line_and_a_clean_run_count(
-        self, output: ProcessResult, status: str
-    ) -> None:
-        assert codex_item("worker", output).status == status
-
-    def test_an_api_key_is_ok_and_never_echoed(self) -> None:
-        item = codex_item(
-            "worker",
-            result(0, out="sk-live-OUT", err="Logged in using an API key - sk-proj-***ZZ\n"),
-        )
-        assert (item.status, item.detail) == ("ok", "signed in with an API key")
-        assert "sk-" not in item.detail
-
-
-class TestAgy:
-    def test_a_timeout_is_unknown(self) -> None:
-        item = agy_item("worker", result(0, "Hello", timed_out=True))
-        assert item.status == "unknown"
-        assert item.detail == f"agy did not finish within {PROBE_TIMEOUT_SECONDS:.0f} s"
-
-    @pytest.mark.parametrize(
-        "output",
-        [
-            result(0, "Hello", stdout_truncated=True),
-            result(0, "Hello", stderr_truncated=True),
-        ],
-    )
-    def test_cut_output_is_unknown(self, output: ProcessResult) -> None:
-        item = agy_item("worker", output)
-        assert item.status == "unknown"
-        assert str(MAX_OUTPUT_BYTES) in item.detail
-
-    def test_the_service_error_line_is_quoted_and_cut(self) -> None:
-        long_line = "error: Eligibility check failed: " + "x" * 400 + "\n"
-        item = agy_item("worker", result(1, err="note: first\n" + long_line))
-        assert item.status == "unknown"
-        quoted = item.detail.split("sign-in: ")[1].split("; rerun")[0]
-        assert quoted == long_line.strip()[:300]
-        assert item.detail.endswith("; rerun ./devctl doctor")
-
-    def test_the_service_check_comes_before_the_reply_check(self) -> None:
-        item = agy_item("worker", result(0, "Hello!", err=SERVICE_503))
-        assert item.status == "unknown"
-
-    @pytest.mark.parametrize("stdout", ["", "  \n\t\n"])
-    def test_exit_0_without_a_reply_is_missing(self, stdout: str) -> None:
-        item = agy_item("worker", result(0, stdout))
-        assert (item.status, item.detail) == ("missing", "agy gave no reply (exit 0)")
-
-    def test_agys_error_line_is_the_only_output_quoted(self) -> None:
-        err = 'AGY_ERROR: {"code": 3, "message": "model error"}\nsecret: hunter2\n'
-        item = agy_item("worker", result(3, "some partial text", err))
-        assert item.status == "missing"
-        assert item.detail == f"agy gave no reply (exit 3): {err.splitlines()[0]}"
-        assert "hunter2" not in item.detail
-        assert "partial" not in item.detail
-
-    def test_the_probe_runs_from_the_temporary_directory_with_agys_arguments(
-        self, fake_harness: FakeHarness
-    ) -> None:
-        fake_harness.install("agy", stdout="Hello!\n")
-        agy_sign_in("worker")
-        assert fake_harness.cwds("agy") == [Path(tempfile.gettempdir()).resolve()]
-        assert fake_harness.calls("agy") == [["-p", "hi", *AGY_PROBE_ARGS[2:]]]
-
-    def test_an_agy_that_is_not_installed_is_never_run(self, fake_harness: FakeHarness) -> None:
-        item = agy_sign_in("worker and reviewer")
-        assert (item.name, item.status) == ("worker and reviewer sign-in (agy)", "missing")
-        assert fake_harness.calls("agy") == []
-
-    def test_the_probe_arguments_name_the_cheapest_model_and_end_before_the_timeout(self) -> None:
-        assert (
-            "-p",
-            "hi",
-            "--model",
-            PROBE_MODELS["agy"],
-            "--print-timeout",
-            "90s",
-        ) == AGY_PROBE_ARGS
-        assert PROBE_TIMEOUT_SECONDS > 90
-        assert set(PROBE_MODELS) == {"claude", "codex", "agy"}
-
-
-class TestErrorLine:
-    @pytest.mark.parametrize(
-        ("stderr", "expected"),
-        [
-            ("", None),
-            ("warning: not an error\n", None),
-            ("  error: indented\n", None),
-            ("note\nerror: first\nerror: second\n", "error: first"),
-            ("AGY_ERROR: {}\nerror: later\n", "AGY_ERROR: {}"),
-            ("error: " + "y" * 400, ("error: " + "y" * 400)[:300]),
-        ],
-    )
-    def test_the_first_error_line_cut_to_300(self, stderr: str, expected: str | None) -> None:
-        assert error_line(stderr) == expected
-
-
 class TestToolchain:
     def test_a_missing_tool_is_missing_and_nothing_runs(
         self, ctx: MakeContext, fake_run: FakeRun, monkeypatch: pytest.MonkeyPatch
@@ -238,8 +76,6 @@ class TestToolchain:
         assert items["gitleaks"].detail == (
             f"install gitleaks {GITLEAKS_VERSION}; devctl check blocks its secrets step without it"
         )
-        assert items["worker sign-in (agy)"].detail == "agy is not installed"
-        assert items["reviewer sign-in (claude)"].detail == "claude is not installed"
         assert items["core.hooksPath"].status == "missing"
         assert fake_run.argv == []
 
@@ -317,38 +153,43 @@ class TestToolchain:
 
 
 class TestSignIns:
-    def test_one_item_per_harness_named_for_its_roles(
+    def test_local_items_name_no_harness_and_start_no_session(
         self, ctx: MakeContext, fake_run: FakeRun
     ) -> None:
-        fake_run.answer(
-            ["claude", "auth", "status", "--json"],
-            result(0, '{"loggedIn": true, "authMethod": "claude.ai"}'),
-        )
-        fake_run.answer(["codex", "login", "status"], result(0, err="Logged in using ChatGPT\n"))
-        shared = ctx(worker=("claude", "m1"))
-        names = [i.name for i in local_items(shared) if "sign-in" in i.name and "gh" not in i.name]
-        assert names == ["worker and reviewer sign-in (claude)"]
-        split = adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")})
-        items = by_name(local_items(split))
-        assert items["worker sign-in (codex)"].status == "ok"
-        assert items["reviewer sign-in (claude)"].status == "ok"
-        assert ["/usr/bin/codex", "login", "status"] in fake_run.argv
-        assert ["/usr/bin/claude", "auth", "status", "--json"] in fake_run.argv
-
-    def test_no_roster_means_no_sign_in_items_and_no_session(
-        self, ctx: MakeContext, fake_run: FakeRun
-    ) -> None:
-        items = local_items(adjusted(ctx(), roster={}))
+        items = local_items(ctx())
         assert [i.name for i in items if i.name.endswith(("(claude)", "(codex)", "(agy)"))] == []
         assert not any(arg in {"-p", "exec", "--print"} for argv in fake_run.argv for arg in argv)
 
-    def test_claude_and_codex_run_only_their_status_commands(
-        self, ctx: MakeContext, fake_run: FakeRun
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            {},
+            {"worker_app": None, "reviewer_app": None},
+            {"stack": "agnostic", "repository": None, "code_owner": None},
+        ],
+        ids=["agent identity on", "agent identity off", "agnostic, no repository"],
+    )
+    def test_the_full_report_has_no_harness_sign_in_for_any_settings(
+        self,
+        ctx: MakeContext,
+        fake_run: FakeRun,
+        repo_files: RepoFiles,
+        capsys: pytest.CaptureFixture[str],
+        changes: dict[str, object],
     ) -> None:
-        local_items(adjusted(ctx(), roster={"worker": agent("codex"), "reviewer": agent("claude")}))
-        started = [[Path(argv[0]).name, *argv[1:]] for argv in fake_run.argv]
-        assert [a for a in started if a[0] == "claude"] == [["claude", "auth", "status", "--json"]]
-        assert [a for a in started if a[0] == "codex"] == [["codex", "login", "status"]]
+        # The optional rs-providers skill checks each Harness's sign-in (Spec 2). fake_run finds
+        # claude, codex and agy on PATH, and doctor without --skills runs none of them. A detail
+        # may still name a Harness's directory, as the Kit files item does here, so only an item
+        # named for a Harness counts.
+        repo_files.lock(unchanged=[], missing=[], stale=[".claude/settings.json"])
+        repo_files.write(".claude/settings.json", "{}\n")
+        run_doctor(adjusted(ctx(), **changes))
+        report = capsys.readouterr().out.splitlines()
+        assert any("modified: .claude/settings.json" in line for line in report)
+        assert [line for line in report if re.search(r"\((?:claude|codex|agy)\):", line)] == []
+        assert [line for line in report if "sign-in" in line and "gh sign-in" not in line] == []
+        harnesses = {"claude", "codex", "agy"}
+        assert [argv for argv in fake_run.argv if Path(argv[0]).name in harnesses] == []
 
 
 class TestItems:
@@ -362,8 +203,6 @@ class TestItems:
             ("toolchain", "gh"),
             ("toolchain", "gh sign-in"),
             ("toolchain", "gitleaks"),
-            ("toolchain", "worker sign-in (agy)"),
-            ("toolchain", "reviewer sign-in (claude)"),
             ("guardrails", "core.hooksPath"),
             ("guardrails", "CI workflow"),
             ("guardrails", "Python guardrail settings"),
@@ -529,7 +368,7 @@ class TestOutput:
         # part is one missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
-            ctx(), stack="agnostic", roster={}, repository=None, worker_app=None, reviewer_app=None
+            ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
         )
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()

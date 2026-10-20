@@ -1,5 +1,5 @@
-"""Offline: doctor's local items with recorded command output and a fake agy on PATH. No real
-Harness, gh, gitleaks or GitHub is run."""
+"""Offline: doctor's local items with recorded command output. No real Harness, gh, gitleaks or
+GitHub is run."""
 
 import argparse
 import dataclasses
@@ -10,114 +10,19 @@ import pytest
 from devctl import doctor
 from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
-    AGY_PROBE_ARGS,
     DoctorContext,
     Item,
-    agy_sign_in,
-    claude_item,
-    codex_item,
     doctor_command,
     doctor_exit_code,
     git_item,
     local_items,
 )
-from devctl.harness import PROBE_MODELS
 from devctl.process import ProcessResult
-from github_fakes import FakeHarness, FakeRun, MakeContext, RepoFiles
-
-# Observed on 2026-10-13 (Checked facts): Google's eligibility check failed, not the sign-in.
-SERVICE_503 = (
-    "error: failed to send message: send failed; already reported to the user: Eligibility check "
-    "failed: failed to get load code assist response: UNAVAILABLE (code 503): The service is "
-    "currently unavailable.\n"
-)
-SERVICE_502 = (
-    "error: Eligibility check failed: failed to get load code assist response: request failed "
-    '(code 502): HTML response "Error 502 (Server Error)!!1"\n'
-)
+from github_fakes import FakeRun, MakeContext, RepoFiles
 
 
 def result(code: int, out: str = "", err: str = "") -> ProcessResult:
     return ProcessResult(["x"], code, out, err, 0.0)
-
-
-@pytest.mark.parametrize(
-    ("output", "status"),
-    [
-        (result(0, '{"loggedIn": true, "authMethod": "claude.ai"}'), "ok"),
-        (result(1, '{"loggedIn": false}'), "missing"),
-        (result(0, '{"loggedIn": true, "authMethod": "console"}'), "ok"),
-        (result(0, '{"loggedIn": false}'), "unknown"),  # exit code and flag disagree
-        (result(0, "not json"), "unknown"),
-    ],
-)
-def test_claude_sign_in(output: ProcessResult, status: str) -> None:
-    assert claude_item("worker", output).status == status
-
-
-@pytest.mark.parametrize(
-    ("output", "status"),
-    [
-        (result(0, err="Logged in using ChatGPT\n"), "ok"),
-        (result(1, err="Not logged in\n"), "missing"),
-        (result(0, err="Logged in using an API key - sk-proj-***ABCD\n"), "ok"),
-        (result(0, err="Logged in using access token\n"), "ok"),
-        (result(0, err="Something else\n"), "unknown"),
-    ],
-)
-def test_codex_sign_in_never_echoes_the_cli(output: ProcessResult, status: str) -> None:
-    item = codex_item("reviewer", output)
-    assert item.status == status
-    assert "ABCD" not in item.detail
-
-
-def test_agy_reply_means_signed_in(fake_harness: FakeHarness) -> None:
-    fake_harness.install("agy", stdout="Hello! How can I help?\n")
-    item = agy_sign_in("worker")
-    assert (item.name, item.status) == ("worker sign-in (agy)", "ok")
-    assert fake_harness.calls("agy") == [list(AGY_PROBE_ARGS)]
-    assert PROBE_MODELS["agy"] in AGY_PROBE_ARGS
-    assert "Hello" not in item.detail
-
-
-@pytest.mark.parametrize(("code", "stderr"), [(0, ""), (1, "error: example failure\n")])
-def test_agy_without_a_reply_is_missing(fake_harness: FakeHarness, code: int, stderr: str) -> None:
-    # Exit code 0 alone proves nothing (Checked facts).
-    fake_harness.install("agy", stderr=stderr, code=code)
-    assert agy_sign_in("worker").status == "missing"
-
-
-@pytest.mark.parametrize("stderr", [SERVICE_503, SERVICE_502])
-def test_agy_eligibility_errors_are_unknown_with_the_error(
-    fake_harness: FakeHarness, stderr: str
-) -> None:
-    fake_harness.install("agy", stderr=stderr, code=1)
-    item = agy_sign_in("worker")
-    assert item.status == "unknown"
-    assert "Eligibility check failed" in item.detail
-
-
-def test_agy_is_probed_inside_another_coding_session(
-    fake_harness: FakeHarness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # doctor probes agy wherever it runs; rs-setup warns before it runs doctor inside
-    # another Harness's Session (Spec 1 section 8, step 13).
-    monkeypatch.setenv("CLAUDECODE", "1")
-    monkeypatch.setenv("CODEX_THREAD_ID", "t-1")
-    fake_harness.install("agy", stdout="Hello!\n")
-    assert agy_sign_in("worker").status == "ok"
-    assert fake_harness.calls("agy") == [list(AGY_PROBE_ARGS)]
-
-
-@pytest.mark.usefixtures("fake_harness")
-def test_missing_agy_is_missing() -> None:
-    assert agy_sign_in("reviewer").status == "missing"
-
-
-def test_local_items_run_the_agy_probe(ctx: MakeContext, fake_run: FakeRun) -> None:
-    fake_run.answer(["agy", *AGY_PROBE_ARGS], result(0, "Hello!\n"))
-    items = {i.name: i for i in local_items(ctx(worker=("agy", "gemini-3.8-flash-high")))}
-    assert items["worker sign-in (agy)"].status == "ok"
 
 
 def test_hooks_ci_workflow_and_kit(

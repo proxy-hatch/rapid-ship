@@ -1,13 +1,12 @@
-"""The headless Sessions that doctor starts, and how it reads their output.
+"""The headless Sessions that doctor --skills starts, and how it reads their output.
 
-doctor spends a little of the owner's quota, whatever the Provider, to prove a sign-in, and with
---skills to ask which skills a Harness loads. Each Harness runs its cheapest model.
+Each Session spends a little of the owner's quota, whatever the Provider, to ask which skills a
+Harness loads. Each Harness runs its cheapest model.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -24,18 +23,6 @@ PROBE_MODELS: dict[HarnessName, str] = {
     "agy": "gemini-3.8-flash-low",
 }
 PROBE_TIMEOUT_SECONDS = 120.0
-# agy has no sign-in status command, so doctor asks it for a reply. These are the arguments
-# after the executable; --print-timeout ends the turn before PROBE_TIMEOUT_SECONDS does.
-AGY_PROBE_ARGS: tuple[str, ...] = (
-    "-p",
-    "hi",
-    "--model",
-    PROBE_MODELS["agy"],
-    "--print-timeout",
-    "90s",
-)
-# Google's eligibility check failing, or the gateway behind it: the service, not the sign-in.
-SERVICE_ERROR = re.compile(r"Eligibility check failed|\(code 50[234]\)")
 _ERROR_PREFIXES = ("error:", "AGY_ERROR:")
 SKILLS_PROMPT = "List the name of every skill you can load, one name per line, and nothing else."
 _CODEX_EFFORT = 'model_reasoning_effort="low"'

@@ -1,10 +1,14 @@
 """doctor --skills: the skills each Harness's Session loads from a worktree at HEAD.
 
-For each Harness the Roster names, or without a Roster each of claude, codex and agy found on
-PATH, doctor adds a detached worktree at HEAD in a new temporary directory, starts one new
-headless Session there and compares the skills it lists with the ones committed at HEAD. git runs
-with the owner's own setup; no App token is minted. The worktree is doctor's only local write, and
-it is removed again whatever the Session did. Each Session spends a little of the owner's quota.
+For each of claude, codex and agy found on PATH, doctor adds a detached worktree at HEAD in a new
+temporary directory, starts one new headless Session there and compares the skills it lists with
+the ones committed at HEAD. git runs with the owner's own setup; no App token is minted. The
+worktree is doctor's only local write, and it is removed again whatever the Session did. Each
+Session spends a little of the owner's quota.
+
+agy runs as a child of whatever runs doctor --skills. Run inside another Harness's Session, that
+is a use Google's consumer terms do not support; rs-setup warns the owner before it runs doctor
+there (Spec 1 section 6; section 8, step 13).
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ import yaml
 
 from devctl import process
 from devctl.check.markdown import front_matter
-from devctl.doctor_items import DoctorContext, Item, Status, harness_roles, run_installed
+from devctl.doctor_items import DoctorContext, Item, Status, run_installed
 from devctl.harness import PROBE_TIMEOUT_SECONDS, HarnessName, parse_skills, skills_args
 from devctl.process import ProcessResult
 from devctl.repo import Repo
@@ -27,9 +31,7 @@ from devctl.settings import ProjectSettings
 
 SUPPORTED: tuple[HarnessName, ...] = ("claude", "codex", "agy")
 _GIT_TIMEOUT_SECONDS = 120.0
-_NONE_ON_PATH = (
-    ".rapid-ship/project.toml has no Roster, and none of claude, codex or agy is on PATH"
-)
+_NONE_ON_PATH = "none of claude, codex or agy is on PATH"
 
 
 class ProbeError(Exception):
@@ -154,8 +156,6 @@ def _session(name: str, harness: HarnessName, tree: Path) -> Item:
 
 def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
     """One Harness in a worktree of its own, so one Session cannot change what the next sees."""
-    if shutil.which(harness) is None:
-        return _item(name, "missing", f"{harness} is not on PATH")
     try:
         with probe_worktree(repo) as tree:
             return _session(name, harness, tree)
@@ -164,10 +164,11 @@ def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
 
 
 def probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each Harness to probe, with its item's name: the Roster's, named for their roles, or
-    without a Roster each supported Harness on PATH (Spec 1 section 6)."""
-    if project.roster:
-        return {h: f"{roles} skills ({h})" for h, roles in harness_roles(project).items()}
+    """Each of claude, codex and agy on PATH, with its item's name (Spec 1 section 6).
+
+    project never changes the answer: the settings name no Harness, because the optional
+    rs-providers skill, not devctl, records which Harness each role uses.
+    """
     return {h: f"skills ({h})" for h in SUPPORTED if shutil.which(h) is not None}
 
 
