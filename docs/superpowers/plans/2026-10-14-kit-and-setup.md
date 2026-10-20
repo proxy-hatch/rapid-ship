@@ -523,7 +523,7 @@ If review finds a PR too large, it splits at a task boundary.
 
 ## Plan 7: `rs-setup` and `rs-health`
 
-**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, and ends an existing repository's Setup with the tool-settings PR.
+**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository, and rewrite the documentation site. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, and ends an existing repository's Setup with the tool-settings PR.
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
@@ -532,14 +532,16 @@ If review finds a PR too large, it splits at a task boundary.
 | 7.1 | 1 to 4 | The engineering skills, and `rapid-ship-engineering` retired |
 | 7.2 | 5 and 6 | `rs-setup` and its `ruleset.json` |
 | 7.3 | 7 and 8 | `rs-health` with the shared audit, and `rs-contribute` |
+| 7.4 | 11 | The documentation site |
 
-Tasks 9 and 10 are Owner steps after 7.3.
+Tasks 9 and 10 are Owner steps after 7.3, and 7.4 follows them.
 
 **Files:**
 
 - 7.1: Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-codebase-design/`, `rs-pr/`, `rs-writing-for-agents/`, `rs-writing/`, `rs-ponytail/`. `rapid_ship/upstream.lock`, `rapid_ship/templates/kit.toml`. Removed: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated: the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`. Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`.
 - 7.2: `rs-setup/` with `ruleset.json` and its references: the advice table on Agent identity, the stylistic options of each tool, and each step's known failures with the fix it offers. Tests: `tests/devctl/test_devctl_ruleset_json.py`.
 - 7.3: `rs-health/` with `references/audit.md`, `rs-contribute/`, and `kit.toml`.
+- 7.4: `website/` (config, sidebar, home page), the site's pages under `docs/`, and `README.md`; `docs/getting-started.md` is deleted.
 - Docs, in each PR: `ARCHITECTURE.md` and the trial record under `docs/trials/`.
 
 **Tasks:**
@@ -554,6 +556,7 @@ Tasks 9 and 10 are Owner steps after 7.3.
 8. `rs-contribute`, listed under `optional_skills`.
 9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on hello-rapid-ship, including `doctor --skills` for each Harness and the tool-settings PR; `rs-health` on hello-rapid-ship, ending with a standards milestone in its tracker.
 10. Owner step: apply `rs-setup`'s GitHub settings to `proxy-hatch/rapid-ship`.
+11. The documentation site. It teaches why a reader needs rapid-ship before how to use it. Only the home page sells, with the owner's tagline of 2026-10-20: "Becoming a 100x developer starts with agents that earn your trust." and the line "Agents that prove their work earn autonomy, so you can stop watching every one of them." Everywhere else it is plain and professional. The sidebar is Start (Home, Why rapid-ship, Get started around `rs-setup`, The journey), Concepts, Guides titled by outcome, and Reference, with the design records collapsed under Project. Every page carries a Built or Designed status, shows a concrete case before it names a concept, and ends each step with output from a real run. `README.md` becomes a lean GitHub front page, and "Ship more. Supervise less." is retired. Maintainers keep the full proposal, with the page list, page templates and style rules, in Linear, in the rapid-ship project's documents.
 
 ## Plan style
 
