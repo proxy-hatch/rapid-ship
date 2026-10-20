@@ -84,9 +84,6 @@ _Avoid_: runner, provider
 **Provider**:
 The account a Harness uses for its models: a vendor subscription, an API key, or a gateway such as OpenRouter. rapid-ship works with any of them.
 
-**Agent**:
-A Harness, an exact model and role instructions, saved under a name.
-
 **Worker**:
 The role that implements one task. The Lead starts each Worker.
 

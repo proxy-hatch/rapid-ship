@@ -379,7 +379,7 @@ MIGRATIONS: tuple[Migration, ...]
 
 ## Plan 4: Doctor and Agent identity
 
-**State:** built in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`), which are not merged yet. Its plan document, `2026-10-16-doctor-and-agent-identity.md` on those branches, holds the tasks and the verification record. The follow-ups below land on those PRs first. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is kept as the plan was written.
+**State:** built in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`), which are not merged yet. Its plan document, `2026-10-16-doctor-and-agent-identity.md` on those branches, holds the tasks and the verification record. The follow-ups below land on those PRs first. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is the plan as written, without what follow-up 7 removed.
 
 ### Plan 4 follow-ups, before #31 to #33 merge
 
@@ -393,11 +393,11 @@ The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: o
    - the note `(Spec 1 section 6, a Proposal)` on `probed_harnesses` in `doctor_skills.py`: the owner accepted it.
 5. **Owner step: the organisation trial.** On a test organisation, an admin runs `rapid-ship app`; a developer, made an App manager of both Apps, generates a key and imports it with `--import-key`; and `./devctl doctor` passes with a team as the code owner. The trial settles whether an App manager may generate a private key (Spec 1 section 11).
 6. **Done: this repository's Agent identity.** The owner created the Worker App (ID 5376519, `proxy-hatch-rs-worker`) and the Reviewer App (ID 5376520, `proxy-hatch-rs-reviewer`) with `rapid-ship app` on 2026-10-19, and installed both on `proxy-hatch/rapid-ship`. #33 records their IDs and slugs under `[github]` in `.rapid-ship/project.toml`, which turns this repository's Agent identity on. The message of the commit that records them says that `./devctl doctor` reported all four Agent identity items ok. The doctor output and its exit code were not kept; plan 4's verification record on #33 says what is known.
-7. **No `[roster]` in devctl (#31, #32).** The owner's decision of 2026-10-20 descopes running agents across several Providers (Spec 1 section 1), so devctl knows nothing about Providers. Built on #31: `settings.py` dropped `[roster]` with its `Agent` type, and the project templates and this repository's `project.toml` dropped the commented table. `settings.py` keeps the `Harness` alias, which `harness.py` imports on #32, with a comment that matches `BuiltInHarness` in the settings sketch above: the Harnesses the Kit wires and `doctor --skills` probes. Built on #32: doctor dropped its Harness sign-in items, with `doctor_signin.py` and the agy sign-in probe in `harness.py`, and `--skills` probes each of `claude`, `codex` and `agy` on `PATH` (Spec 1 sections 4 and 6). Still to change on #31: devctl refuses a leftover `[roster]` table and the `[agents]` table with "rapid-ship does not run agents across several Providers; delete the table", which names no skill, and the tests that pin the message follow. The comments, guides and plan text on #31 to #33 that name `rs-providers` change to match.
+7. **No `[roster]` in devctl (#31, #32).** The owner's decision of 2026-10-20 descopes running agents across several Providers (Spec 1 section 1), so devctl knows nothing about Providers. Built on #31: `settings.py` dropped `[roster]` with its `Agent` type, and the project templates and this repository's `project.toml` dropped the commented table. `settings.py` keeps the `Harness` alias, which `harness.py` imports on #32, with a comment that matches `BuiltInHarness` in the settings sketch above: the Harnesses the Kit wires and `doctor --skills` probes. Built on #32: doctor dropped its Harness sign-in items, with `doctor_signin.py` and the agy sign-in probe in `harness.py`, and `--skills` probes each of `claude`, `codex` and `agy` on `PATH` (Spec 1 sections 4 and 6). Still to change on #31: devctl refuses a leftover `[roster]` table and the `[agents]` table with "rapid-ship does not run agents across several Providers; delete the table", which names no skill, and the tests that pin the message follow. The comments, guides and plan text on #31 to #33 that name `rs-providers` change to match. So do the tasks of plan 4's plan document that describe the Roster or the Harness sign-in items.
 
-### Plan 4 outline, as written
+### Plan 4 outline
 
-**Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the token code and `devctl as`. Move the settings to the re-scope: the Roster, the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
+**Goal:** Give devctl `doctor`, with `--skills`, and give the owner optional Agent identity: `rapid-ship app`, the token code and `devctl as`. Move the settings to the re-scope: the escalation list and each App's ID and slug, with `[agents]`, `[linear]`, `[dispatch]` and `[release]` removed and `gate.toml` no longer read.
 
 **Method:** a fresh branch from the head of #30 brings over only the surviving code of `codex/github-commands` (head `901bd43`): cherry-pick where a commit applies cleanly, copy otherwise, then reshape. It landed as three reviewed PRs, #31 to #33; most of its code was reviewed on the old branch.
 
@@ -406,7 +406,7 @@ The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: o
 | `98082fb`, `de800ae`: the two `process.py` fixes, `process.first_line` and `run_process` finishing when macOS refuses SIGTERM | Applied by hand to the template, with their tests; `sync` regenerates the vendored copy and the lock |
 | `1eb138d`: the REST client | Copied: what doctor and `devctl as` use |
 | `620e5ff`, `f5177ba`: token minting and the askpass helper | Copied, without the Claim-only git helpers |
-| `0c2b27f`, `51c9300`: doctor's local items and sign-ins | Copied, without the Linear item; sign-ins follow the Roster and accept any method |
+| `0c2b27f`, `51c9300`: doctor's local items and sign-ins | Copied, without the Linear item; follow-up 7 removed the sign-in items |
 | `ebe3bd2`: doctor's GitHub and App items | Copied; App items only with Agent identity on; ruleset and CODEOWNERS read `[escalation]` |
 | `013cdac`: `doctor --skills` | Reshaped: a temporary worktree at `HEAD` with the owner's git, no App fetch |
 | `f9c3872`: worktrees | Only `probe_worktree`, reshaped |
@@ -425,11 +425,11 @@ The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: o
 **Tasks:**
 
 1. Branch from #30's head. Apply `98082fb`'s `process.first_line` and `de800ae`'s `_kill_group` fix to the template's `process.py`, with their tests, then run `uv run rapid-ship sync --in-place`. Neither commit cherry-picks cleanly onto #30: both carry `kit.lock` hunks for other hashes, and `98082fb` also edits `github/app.py` and `worktrees.py`, which #30 lacks. Never cherry-pick a `kit.lock` hunk.
-2. Settings: `[roster]`, `[escalation]`, and each App's ID and slug; remove `[agents]`, `[linear]`, `[dispatch]`, `[release]`, `GateSettings` and `CheckContext.gate`. The `diff` step drops its Flight note. The project templates and this repository's `project.toml` follow. The Kit stops seeding `gate.toml`, and this repository deletes its own copy and the root AGENTS.md link to it.
+2. Settings: `[escalation]` and each App's ID and slug; remove `[agents]`, `[linear]`, `[dispatch]`, `[release]`, `GateSettings` and `CheckContext.gate`. The `diff` step drops its Flight note. The project templates and this repository's `project.toml` follow. The Kit stops seeding `gate.toml`, and this repository deletes its own copy and the root AGENTS.md link to it.
 3. The REST client, App tokens and the askpass helper, with PyJWT. Tests against a fake HTTP server and a fake `security`, labelled simulated.
-4. doctor's core and local items, without the Linear item; Harness sign-ins from the Roster, any method ok; the agy probe.
+4. doctor's core and local items, without the Linear item.
 5. doctor's GitHub items: the ruleset for Walk and for Flight with and without Agent identity, CODEOWNERS against `every_pr`, delete branch on merge, fork workflow approval, the plan-limit message; App items only with Agent identity on.
-6. `doctor --skills`: a detached worktree at `HEAD` in a temporary directory; the Roster's Harnesses, or the three supported ones on `PATH`.
+6. `doctor --skills`: a detached worktree at `HEAD` in a temporary directory; each of `claude`, `codex` and `agy` on `PATH`.
 7. `rapid-ship app`, printing each App's ID and slug, with the parity test for the Keychain services and permissions.
 8. `devctl as`: `push` and `gh`, every refusal, the token only in the child's environment; tests with fake `gh` and `git` executables and a local bare repository.
 9. Guides and ARCHITECTURE.md; `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
@@ -515,7 +515,7 @@ If review finds a PR too large, it splits at a task boundary.
 
 ## Plan 7: `rs-setup` and `rs-health`
 
-**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, asks no Provider question, and ends an existing repository's Setup with the tool-settings PR.
+**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, and ends an existing repository's Setup with the tool-settings PR.
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 

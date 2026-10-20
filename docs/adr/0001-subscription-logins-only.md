@@ -22,6 +22,5 @@ The rule has two reasons:
 ## Consequences
 
 - Tools that accept only API keys are unavailable to this repository, including OpenAI's Codex GitHub Action.
-- When this repository's Lead runs `claude -p` from another Harness's shell, it never passes `--bare`: bare mode skips the subscription sign-in and needs an API key.
-- Google's consumer terms say that wrapping `agy` inside third-party applications is not supported. For this repository, the owner accepted that risk on 2026-10-13, and again on 2026-10-15 when agy ran from inside a Codex CLI session. The acceptance covers the agy probe of `devctl doctor --skills`, and a Lead that runs `agy -p` from another Harness's shell. Other owners make their own choice. `rs-setup` warns them about these terms, in the form recorded here, before its `doctor --skills` probe runs agy from another Harness's Session.
+- Google's consumer terms say that wrapping `agy` inside third-party applications is not supported. For this repository, the owner accepted that risk on 2026-10-13, and again on 2026-10-15 when agy ran from inside a Codex CLI session. The acceptance covers the agy probe of `devctl doctor --skills`. Other owners make their own choice. `rs-setup` warns them about these terms, in the form recorded here, before its `doctor --skills` probe runs agy from another Harness's Session.
 - Backlog item PRO-107, API billing support, is closed as unneeded, because the product already works with any Provider.
