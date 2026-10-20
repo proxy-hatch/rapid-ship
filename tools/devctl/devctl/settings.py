@@ -15,8 +15,6 @@ from typing import Literal, cast, get_args
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-# the Harnesses doctor --skills probes (Spec 1 section 6)
-Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
