@@ -15,7 +15,7 @@ from typing import Literal, cast, get_args
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
-# the Harnesses the Kit wires and doctor --skills probes (Spec 1 section 4)
+# the Harnesses doctor --skills probes (Spec 1 section 6)
 Harness = Literal["claude", "codex", "agy"]
 Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
