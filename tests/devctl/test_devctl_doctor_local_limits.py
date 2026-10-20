@@ -173,14 +173,20 @@ class TestSignIns:
         self,
         ctx: MakeContext,
         fake_run: FakeRun,
+        repo_files: RepoFiles,
         capsys: pytest.CaptureFixture[str],
         changes: dict[str, object],
     ) -> None:
         # The optional rs-providers skill checks each Harness's sign-in (Spec 2). fake_run finds
-        # claude, codex and agy on PATH, and doctor without --skills runs none of them.
+        # claude, codex and agy on PATH, and doctor without --skills runs none of them. A detail
+        # may still name a Harness's directory, as the Kit files item does here, so only an item
+        # named for a Harness counts.
+        repo_files.lock(unchanged=[], missing=[], stale=[".claude/settings.json"])
+        repo_files.write(".claude/settings.json", "{}\n")
         run_doctor(adjusted(ctx(), **changes))
         report = capsys.readouterr().out.splitlines()
-        assert [line for line in report if re.search(r"\b(?:claude|codex|agy)\b", line)] == []
+        assert any("modified: .claude/settings.json" in line for line in report)
+        assert [line for line in report if re.search(r"\((?:claude|codex|agy)\):", line)] == []
         assert [line for line in report if "sign-in" in line and "gh sign-in" not in line] == []
         harnesses = {"claude", "codex", "agy"}
         assert [argv for argv in fake_run.argv if Path(argv[0]).name in harnesses] == []
