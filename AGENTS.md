@@ -36,7 +36,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | The secrets step's settings: gitleaks's default rules, plus an allowlist for the placeholder key that a plan document quotes. Protected | [.gitleaks.toml](.gitleaks.toml) |
 | Tests | [Tests](tests/AGENTS.md) |
 | The distribution smoke that the `distribution` check step runs | [Scripts](scripts/AGENTS.md) |
-| Designs, plans, ADRs, trials and the archive | [Documentation](docs/AGENTS.md) |
+| Designs, plans, ADRs and trials | [Documentation](docs/AGENTS.md) |
 | Documentation site and public images | [Website](website/AGENTS.md), [assets](asset/AGENTS.md) |
 | CI, documentation deployment and CODEOWNERS, which lists the Protected set | [Workflows](.github/AGENTS.md) |
 | Agent skill discovery | [`.agents/skills`](.agents/AGENTS.md), [`.claude/skills`](.claude/AGENTS.md) |
@@ -63,7 +63,7 @@ These are this repository's choices, not product behaviour. Product text names t
 
 - Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Connect Linear through its official MCP or API, never a third-party CLI.
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
-- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
+- Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 
 ## Safety

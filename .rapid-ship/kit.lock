@@ -206,7 +206,7 @@ sha256 = "506891f77aac35312676963e58654da70f7806c62b74ad6686e2faf055df9c7a"
 [[file]]
 path = "tools/devctl/devctl/harness.py"
 kind = "managed"
-sha256 = "d13bdb4b5e974598e17e7ed810ba8ebd236576da73d7cff29a5dd51eff366d9b"
+sha256 = "7606e12494d94b37c080cd99e438636d48bd4aaf099c595f2ee17b879486fc9f"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"
@@ -221,7 +221,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "b7147902cea39b86757fc4b376f08906be52b09dd6b92f723a3499eacc21f237"
+sha256 = "d268ad3980c17c5548bbea91e2fe501317ed1249bd4d64a250bb93548daa5ff5"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

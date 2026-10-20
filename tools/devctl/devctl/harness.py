@@ -9,12 +9,12 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from devctl import process
 from devctl.process import ProcessResult
-from devctl.settings import Harness
 
-HarnessName = Harness
+HarnessName = Literal["claude", "codex", "agy"]
 # The cheapest model per Harness, as the Checked facts of plan 4 (Doctor and Agent identity)
 # record it. That plan's live trial confirms each one.
 PROBE_MODELS: dict[HarnessName, str] = {
