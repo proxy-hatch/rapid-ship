@@ -65,7 +65,7 @@ def _report(items: Sequence[Item]) -> int:
 def run_doctor(ctx: DoctorContext, *, skills: bool = False) -> int:
     """Print every item for ctx, the local ones first, then a summary line; return the exit code.
 
-    Only skills=True starts a Harness Session, each in a temporary worktree of its own.
+    Only skills=True starts a Claude Code Session, in a temporary worktree of its own.
     """
     items = [*local_items(ctx), *github_items(ctx)]
     if skills:
@@ -95,7 +95,7 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
     parser.add_argument(
         "--skills",
         action="store_true",
-        help="also start one headless Session per Harness in a temporary worktree at HEAD and "
-        "compare the skills it loads; spends a little quota",
+        help="also start one headless Claude Code Session when claude is on PATH, in a temporary "
+        "worktree at HEAD, and compare the skills it loads; spends a little quota",
     )
     parser.set_defaults(handler=doctor_command)

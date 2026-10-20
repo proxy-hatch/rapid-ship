@@ -1,14 +1,11 @@
-"""doctor --skills: the skills each Harness's Session loads from a worktree at HEAD.
+"""doctor --skills: the skills a Claude Code Session loads from a worktree at HEAD.
 
-For each of claude, codex and agy found on PATH, doctor adds a detached worktree at HEAD in a new
-temporary directory, starts one new headless Session there and compares the skills it lists with
-the ones committed at HEAD. git runs with the owner's own setup; no App token is minted. The
-worktree is doctor's only local write, and it is removed again whatever the Session did. Each
-Session spends a little of the owner's quota.
-
-agy runs as a child of whatever runs doctor --skills. Run inside another Harness's Session, that
-is a use Google's consumer terms do not support; rs-setup warns the owner before it runs doctor
-there (Spec 1 section 6; section 8, step 13).
+When claude is on PATH, doctor adds a detached worktree at HEAD in a new temporary directory,
+starts one new headless Claude Code Session there and compares the skills it lists with the ones
+committed at HEAD. git runs with the owner's own setup; no App token is minted. The worktree is
+doctor's only local write, and it is removed again whatever the Session did. The Session spends a
+little of the owner's quota. doctor probes Claude Code alone until the Kit integrates another
+Harness (Spec 1 section 6).
 """
 
 from __future__ import annotations
@@ -24,14 +21,13 @@ import yaml
 from devctl import process
 from devctl.check.markdown import front_matter
 from devctl.doctor_items import DoctorContext, Item, Status, run_installed
-from devctl.harness import PROBE_TIMEOUT_SECONDS, HarnessName, parse_skills, skills_args
+from devctl.harness import PROBE_TIMEOUT_SECONDS, parse_skills, skills_args
 from devctl.process import ProcessResult
 from devctl.repo import Repo
 from devctl.settings import ProjectSettings
 
-SUPPORTED: tuple[HarnessName, ...] = ("claude", "codex", "agy")
 _GIT_TIMEOUT_SECONDS = 120.0
-_NONE_ON_PATH = "none of claude, codex or agy is on PATH"
+_NOT_ON_PATH = "claude is not on PATH"
 
 
 class ProbeError(Exception):
@@ -143,38 +139,39 @@ def _compare(name: str, listed: frozenset[str], tree: Path) -> Item:
     return _item(name, "missing" if missing else "ok", "; ".join(parts))
 
 
-def _session(name: str, harness: HarnessName, tree: Path) -> Item:
-    """Start one headless Session of harness in tree; compare what it lists with tree's skills."""
-    result = run_installed(harness, *skills_args(harness), cwd=tree, timeout=PROBE_TIMEOUT_SECONDS)
+def _session(name: str, tree: Path) -> Item:
+    """Start one headless Claude Code Session in tree; compare what it lists with tree's skills."""
+    result = run_installed("claude", *skills_args(), cwd=tree, timeout=PROBE_TIMEOUT_SECONDS)
     if result is None:
-        return _item(name, "missing", f"{harness} is not on PATH")
-    report = parse_skills(harness, result)
+        return _item(name, "missing", _NOT_ON_PATH)
+    report = parse_skills(result)
     if report.names is None:
-        return _item(name, "unknown", report.error or f"{harness} gave no skill list")
+        return _item(name, "unknown", report.error or "claude gave no skill list")
     return _compare(name, report.names, tree)
 
 
-def _harness_item(repo: Repo, harness: HarnessName, name: str) -> Item:
-    """One Harness in a worktree of its own, so one Session cannot change what the next sees."""
+def _harness_item(repo: Repo, name: str) -> Item:
+    """The Session in a worktree of its own, which is removed whatever the Session did."""
     try:
         with probe_worktree(repo) as tree:
-            return _session(name, harness, tree)
+            return _session(name, tree)
     except (ProbeError, OSError) as error:  # adding or removing the worktree
         return _item(name, "unknown", str(error))
 
 
-def probed_harnesses(project: ProjectSettings) -> dict[HarnessName, str]:
-    """Each of claude, codex and agy on PATH, with its item's name (Spec 1 section 6).
+def probed_harnesses(project: ProjectSettings) -> dict[str, str]:
+    """claude with its item's name when it is on PATH, else nothing (Spec 1 section 6).
 
-    project never changes the answer, because the settings name no Harness.
+    doctor probes Claude Code alone until the Kit integrates another Harness. project never
+    changes the answer, because the settings name no Harness.
     """
-    return {h: f"skills ({h})" for h in SUPPORTED if shutil.which(h) is not None}
+    return {"claude": "skills (claude)"} if shutil.which("claude") is not None else {}
 
 
 def skills_items(ctx: DoctorContext) -> list[Item]:
-    """One item per probed Harness, or one missing item when there is none to probe."""
+    """The Claude Code item, or one missing item when claude is not on PATH."""
     names = probed_harnesses(ctx.project)
     if not names:
-        return [_item("skills", "missing", _NONE_ON_PATH)]
+        return [_item("skills", "missing", _NOT_ON_PATH)]
     repo = Repo.discover(ctx.root)
-    return [_harness_item(repo, harness, name) for harness, name in names.items()]
+    return [_harness_item(repo, name) for name in names.values()]
