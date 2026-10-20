@@ -2,15 +2,14 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 is built in PRs #31 to #33, which are not merged yet. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
+Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 and its follow-ups are built in PRs #31 to #33, which are not merged yet: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
-- Plan 4's follow-ups, which support repositories that an organisation owns from the start (backlog item PRO-105). They land on #31 to #33 before those merge.
 - Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
 - [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.
 
-The settings hold the code owner, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built: multi-provider is the optional `rs-providers` skill, which Spec 2's plan builds. The Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
+The settings hold the code owner, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 first built: multi-provider is the optional `rs-providers` skill, which Spec 2's plan builds. The Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
 
 ## Commands
 
@@ -66,7 +65,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy ([ADR 0001](docs/adr/0001-subscription-logins-only.md)). The owner accepts the risk of running agy inside another Session, as ADR 0001 records.
 - agy is never a Reviewer.
 - Use each model exactly as named. If it is unavailable, stop instead of falling back.
-- This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
+- This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here. The owner stored their keys under the old Keychain item names, and devctl reads only `rapid-ship/<role>-app/<App ID>`. Until the owner runs `uv run rapid-ship app` once, which re-stores both keys, `./devctl as` reports the item missing.
 
 ## Safety
 

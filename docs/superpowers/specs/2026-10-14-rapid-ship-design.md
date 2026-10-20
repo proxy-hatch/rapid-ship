@@ -201,7 +201,7 @@ Three specs:
 
 1. **[Kit and Setup](2026-10-14-kit-and-setup-design.md):** the `rapid-ship` command; `devctl check`, `doctor`, `as` and `hook`; the Harness guardrails and the merge guard; the README and ARCHITECTURE seeds; the starter Patterns; the Python and TypeScript stacks; optional Agent identity; `rs-setup` and `rs-health`. The [plan index](../plans/2026-10-14-kit-and-setup.md) lists its seven plans:
    - Plans 1 to 3 built `init`, `status`, `sync` and `devctl check`.
-   - Plan 4, doctor and Agent identity, built `app`, `devctl doctor` and `devctl as` in PRs #31 to #33, not yet merged. Follow-ups land on them before they merge: they support organisation-owned repositories (backlog item PRO-105) and take the Roster out of devctl.
+   - Plan 4, doctor and Agent identity, built `app`, `devctl doctor` and `devctl as` in PRs #31 to #33, not yet merged. Its follow-ups, built in the same PRs, support organisation-owned repositories (backlog item PRO-105) and take the Roster out of devctl.
    - Plan 5, Kit standards and Harness guardrails, starts with a spike that checks whether the Codex and agy hooks fire, including inside subagents (backlog item PRO-139).
    - Plan 6 adds the TypeScript stack and several stacks in one repository, which brings part of backlog item PRO-108 into scope.
    - Plan 7 builds `rs-setup` and `rs-health`, which need to know the stacks.
