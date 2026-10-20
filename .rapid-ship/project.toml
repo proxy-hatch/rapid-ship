@@ -20,15 +20,6 @@ kinds = [
 ]
 revision_rounds = 3    # a PR that reached this many Revisions also goes to the owner
 
-# Optional. Only an owner who uses more than one Provider needs a Roster.
-# [roster.worker]
-# harness = "codex"        # claude, codex or agy
-# model = "<exact model ID>"
-#
-# [roster.reviewer]
-# harness = "claude"
-# model = "<exact model ID>"
-
 [kit]
 optional = []        # opt-in Kit skills, such as "rs-contribute"
 # Kit files or directories the project owns instead. rapid-ship sync never

@@ -33,7 +33,6 @@ def project_settings(**changes: object) -> ProjectSettings:
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, kinds=(), revision_rounds=3),
-        roster={},
         optional_skills=(),
         excluded=(),
         source_roots=("src/app",),
