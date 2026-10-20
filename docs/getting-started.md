@@ -27,7 +27,7 @@ uv --version
 gh --version
 ```
 
-Choose your interview tool below. This choice stays synchronized across the page. Worker and reviewer choices come later.
+Choose your interview tool below. This choice stays synchronized across the page.
 
 <Tabs groupId="rapid-ship-harness" defaultValue="codex">
 <TabItem value="codex" label="Codex">
@@ -173,12 +173,9 @@ The agent asks one question at a time. Use these choices for this lesson:
 | --- | --- |
 | Repository | A private `hello-rapid-ship` repository under your selected GitHub account. |
 | Linear | Your workspace and team, with a new or existing `hello-rapid-ship` project. |
-| Providers and models | An available small worker and a large reviewer. Choose the exact models from the offered catalog. |
 | Concurrent work | One task at a time. |
 | Deployment | None. |
 | Execution permission | Allow this demo's supervised local commands and tests. Keep any controller environment requirements separate. |
-
-The large reviewer can use Codex, Claude or Antigravity. Your interview tool does not limit that choice.
 
 The agent configures GitHub and Linear. You sign in, choose destinations and grant requested permissions. A Linear **workspace** holds your teams. A **project** groups the work. An **issue** tracks one task.
 
@@ -222,7 +219,7 @@ We will start the worker ourselves. We do not register these tasks or run `devct
 
 ## 5. Implement with the worker
 
-Run the exact **worker command** from `docs/setup.md` in this project directory. The agent prepared it with your selected tool and model. Then paste:
+Run the exact **worker command** from `docs/setup.md` in this project directory. Then paste:
 
 ```text
 Use rapid-ship-engineering to implement the task in docs/plan.md.
@@ -378,7 +375,7 @@ Use rapid-ship setup for this project. The approved design is docs/design.md.
 Stop after setup.
 ```
 
-Change `docs/design.md` if your design has another path. Answer with your project's repository, Linear destination, models and execution needs. The hello program, Python commands and demo branch name do not carry over.
+Change `docs/design.md` if your design has another path. Answer with your project's repository, Linear destination and execution needs. The hello program, Python commands and demo branch name do not carry over.
 
 When setup is complete, ask rapid-ship to plan that design. Check the plan before starting a worker. You have now practiced setup → plan → implement → review → PR → measurements.
 

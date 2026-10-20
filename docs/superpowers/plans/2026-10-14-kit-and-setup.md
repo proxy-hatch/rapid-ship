@@ -10,7 +10,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first, and its live trials are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
-| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its wiring, the standards seeds and checks, documented settings, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Planned: four PRs |
+| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Planned: four PRs |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: three PRs |
 
@@ -28,7 +28,7 @@ This index fixes the layout and the names, signatures and formats that more than
   - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH] [--install]`; `--install` from plan 6
   - `devctl doctor [--skills]`, with `--settings` from plan 5, `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
-  - `devctl hook {claude,codex,agy} pre-tool` (plan 5)
+  - `devctl hook claude pre-tool` (plan 5); each later wiring adds its Harness
 - Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2.
 - Every refusal and error names the problem, what it blocks and the next step (guided rectifying), and still stops at the first error and shows its cause.
 - Every settings file the Kit ships documents each key in a short inline comment wherever its format allows one, and devctl's loaders reject unknown keys, wrong types, numbers out of range and values outside their allowed set (plan 5; plan 6 for the TypeScript files).
@@ -68,7 +68,7 @@ tests/
   devctl/                        # no __init__.py, no conftest.py; files named test_devctl_*.py
     check_workspace.py           # plan 3: project_settings, Workspace, new_workspace, fake_tool
     github_fakes.py github_fixtures.py fixtures/github/   # plan 4
-    fixtures/hooks/<harness>/    # plan 5: recorded hook events
+    fixtures/hooks/<harness>/    # plan 5: recorded hook events, claude/ only
 scripts/smoke_distribution.py
 devctl, tools/devctl/            # this repository's vendored Kit
 .agents/skills/rs-*, .claude/skills/rs-*   # plan 7: vendored Kit skills; rapid_ship/skills/ is gone
@@ -98,7 +98,7 @@ tools/devctl/
     harness.py                   # plan 4: probe models and the skills probe
     identity.py                  # plan 4: devctl as
     github/api.py github/app.py github/askpass.py   # plan 4: REST client, App tokens, GIT_ASKPASS helper
-    hook.py hook_protocols.py    # plan 5: devctl hook's rules, and each Harness's protocol
+    hook.py hook_protocols.py    # plan 5: devctl hook's rules, and Claude Code's protocol
     merge_guard.py               # plan 5: the merge guard, G9
   devctl_project/                # seeded: project verbs and extra check steps
     __init__.py
@@ -127,10 +127,10 @@ The code on `codex/devctl-check` is canonical; this list names what later plans 
 `rapid_ship/templates/kit.toml` after plan 7. Paths are relative to `common/` or a stack directory, before substitution. Every other template is managed.
 
 ```toml
-seeded = [".agents/hooks.json", ".claude/settings.json", ".codex/hooks.json", ".github/CODEOWNERS",
-  ".rapid-ship/exceptions.toml", ".rapid-ship/project.toml", "AGENTS.md",
-  "ARCHITECTURE.md", "CLAUDE.md", "README.md", "docs/AGENTS.md", "docs/features/README.md",
-  "docs/patterns/README.md", "tools/AGENTS.md", "tools/devctl/devctl_project/__init__.py"]
+seeded = [".claude/settings.json", ".github/CODEOWNERS", ".rapid-ship/exceptions.toml",
+  ".rapid-ship/project.toml", "AGENTS.md", "ARCHITECTURE.md", "CLAUDE.md", "README.md",
+  "docs/AGENTS.md", "docs/features/README.md", "docs/patterns/README.md", "tools/AGENTS.md",
+  "tools/devctl/devctl_project/__init__.py"]
 new_project = [".gitignore", "pyproject.toml", "src/AGENTS.md", "src/__package__/__init__.py",
   "tests/AGENTS.md", "tests/test_import.py"]   # seeded only when init starts a Python project
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
@@ -138,7 +138,7 @@ optional_skills = ["rs-contribute"]
 variables = ["owner", "package", "project_name", "repository"]
 ```
 
-Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds the five new seeds and, to `new_project`, the Python starter Patterns with their reference code and tests. Plan 6 makes `new_project` a list for each stack, with paths relative to the stack's directory, and adds the TypeScript stack's. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
+Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds three seeds, `.claude/settings.json`, `ARCHITECTURE.md` and `README.md`, and adds the Python starter Patterns, with their reference code and tests, to `new_project`. Plan 6 makes `new_project` a list for each stack, with paths relative to the stack's directory, and adds the TypeScript stack's. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
 
 Template rules, as plan 2 built them:
 
@@ -155,7 +155,7 @@ Template rules, as plan 2 built them:
 
 ```python
 # devctl/settings.py after plan 6
-BuiltInHarness = Literal["claude", "codex", "agy"]  # wired by the Kit; probed by doctor --skills
+BuiltInHarness = Literal["claude", "codex", "agy"]  # probed by doctor --skills; see WiredHarness
 Role = Literal["worker", "reviewer"]
 # plan 4 has Stack = Literal["python", "agnostic"]
 StackName = Literal["python", "typescript", "agnostic"]
@@ -229,7 +229,8 @@ class DoctorContext:
 
 
 # devctl/doctor_rules.py
-PROTECTED_PATHS: tuple[str, ...]  # plan 5 widens .agents/skills/ to .agents/ and adds .codex/
+# Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/
+PROTECTED_PATHS: tuple[str, ...]
 PYTHON_PROTECTED_PATHS: tuple[str, ...]
 TYPESCRIPT_PROTECTED_PATHS: tuple[str, ...]  # plan 6
 
@@ -326,10 +327,13 @@ def find_merge(argv: Sequence[str], branches: Callable[[], LocalBranches]) -> Me
 def guard(merge: Merge, root: Path, owner_get: OwnerGet) -> tuple[Decision, str]: ...
 
 
-# devctl/hook_protocols.py: each Harness's protocol; the exit-code workaround is documented here
-def read_event(harness: BuiltInHarness, payload: bytes) -> ToolCall: ...
+# devctl/hook_protocols.py: Claude Code's protocol; the exit-code workaround is documented here
+WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
+
+
+def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
 def answer(
-    harness: BuiltInHarness, decision: Decision, reason: str
+    harness: WiredHarness, decision: Decision, reason: str
 ) -> tuple[str, int]: ...  # stdout, exit code; never 2
 ```
 
@@ -340,7 +344,7 @@ def answer(
 - Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
 - The Protected set follows, commented out, as `# /<path> @<owner>` lines, in Spec 1 section 4's order. Flight uncomments them and removes the `*` line.
 - The `diff` step and `devctl hook` read `<pattern> @<owner>` lines, commented or not, and never treat `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
-- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope they join with plan 5, which replaces the comment in both CODEOWNERS templates and in this repository's CODEOWNERS. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
+- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope, plan 5 removes the comment from both CODEOWNERS templates and from this repository's CODEOWNERS, and adds no line: `/.claude/` already covers the Claude Code wiring. Codex's wiring adds `/.codex/`, and agy's widens `/.agents/skills/` to `/.agents/`, when they land. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
 - Plan 6 renders each stack's Protected lines under its directory, such as `# /frontend/package.json @<owner>`. The rule for existing Corrections ledger entries is devctl's, not a CODEOWNERS line. The ledger's format, `/docs/corrections/README.md`, is a CODEOWNERS line, which Spec 3's plan adds.
 
 ### Suppressions, PR body, feature and Pattern front matter
@@ -383,7 +387,7 @@ MIGRATIONS: tuple[Migration, ...]
 
 ### Plan 4 follow-ups, before #31 to #33 merge
 
-The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: organisation-owned repositories are supported from the start, which brings backlog item PRO-105 into scope, and rapid-ship does not run agents across several Providers, so devctl knows nothing about them (follow-up 7). Each change lands on the PR that holds its file and is merged up the stack. Their plan is [Plan 4 follow-ups](2026-10-20-plan4-follow-ups.md). Edit devctl only under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`.
+The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: organisation-owned repositories are supported from the start, which brings backlog item PRO-105 into scope, and rapid-ship does not run agents across several Providers, so devctl knows nothing about them (follow-up 7). The decision of 2026-10-20 to wire Claude Code alone in plan 5 makes four of its texts wrong (follow-up 8). Each change lands on the PR that holds its file and is merged up the stack. Their plan is [Plan 4 follow-ups](2026-10-20-plan4-follow-ups.md). Edit devctl only under `rapid_ship/templates/common/tools/devctl/devctl/`, then run `uv run rapid-ship sync --in-place`.
 
 1. **doctor's code owner (#31, #32).** `settings.py` accepts `[github] code_owner`, `"@<login>"` or `"@<organisation>/<team>"`, and the project templates and this repository's `project.toml` record it. `doctor_github.py`'s CODEOWNERS item checks CODEOWNERS against it instead of the repository's owner, and reports the item missing while the key is unset (Spec 1 sections 4 and 6).
 2. **The organisation flow (#33).** `rapid_ship/github_app.py` stops refusing a repository that an organisation owns, and creates its Apps through the organisation manifest flow at `https://github.com/organizations/<organisation>/settings/apps/new`. `rapid-ship app --import-key {worker,reviewer}` stores a key that a developer generated on GitHub, read on stdin (Spec 1 section 3).
@@ -393,7 +397,8 @@ The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: o
    - the note `(Spec 1 section 6, a Proposal)` on `probed_harnesses` in `doctor_skills.py`: the owner accepted it.
 5. **Owner step: the organisation trial.** On a test organisation, an admin runs `rapid-ship app`; a developer, made an App manager of both Apps, generates a key and imports it with `--import-key`; and `./devctl doctor` passes with a team as the code owner. The trial settles whether an App manager may generate a private key (Spec 1 section 11).
 6. **Done: this repository's Agent identity.** The owner created the Worker App (ID 5376519, `proxy-hatch-rs-worker`) and the Reviewer App (ID 5376520, `proxy-hatch-rs-reviewer`) with `rapid-ship app` on 2026-10-19, and installed both on `proxy-hatch/rapid-ship`. #33 records their IDs and slugs under `[github]` in `.rapid-ship/project.toml`, which turns this repository's Agent identity on. The message of the commit that records them says that `./devctl doctor` reported all four Agent identity items ok. The doctor output and its exit code were not kept; plan 4's verification record on #33 says what is known.
-7. **No `[roster]` in devctl (#31 to #33).** The owner's decision of 2026-10-20 descopes running agents across several Providers (Spec 1 section 1), so devctl knows nothing about Providers. Built on #31: `settings.py` dropped `[roster]` with its `Agent` type, and the project templates and this repository's `project.toml` dropped the commented table. `settings.py` keeps the `Harness` alias, which `harness.py` imports on #32, with a comment that matches `BuiltInHarness` in the settings sketch above: the Harnesses the Kit wires and `doctor --skills` probes. Built on #32: doctor dropped its Harness sign-in items, with `doctor_signin.py` and the agy sign-in probe in `harness.py`, and `--skills` probes each of `claude`, `codex` and `agy` on `PATH` (Spec 1 sections 4 and 6). Still to change on #31: devctl refuses a leftover `[roster]` table and the `[agents]` table with "rapid-ship does not run agents across several Providers; delete the table", which names no skill, and the tests that pin the message follow. Test names and test data that name `rs-providers` change too: in `tests/devctl/test_devctl_settings.py`, `test_a_leftover_roster_is_refused_and_names_rs_providers` becomes `test_a_leftover_roster_is_refused`, and the `REPLACED_BY` entries for `agents` and `roster` stop naming `rs-providers`. The test is new on #31, so the rename removes no test from #31's base and needs no `Removed tests:` entry. Still to change on each of #31 to #33: the comments, guides and plan text that name `rs-providers`, and the tasks of plan 4's plan document that describe the Roster or the Harness sign-in items. #33 has text of its own that a merge up from #32 does not change: the doctor paragraph of its ARCHITECTURE.md, which says that `rs-providers` checks a Harness's sign-in, the settings paragraph of its root AGENTS.md, and the parts of its plan document that #32's copy lacks.
+7. **No `[roster]` in devctl (#31 to #33).** The owner's decision of 2026-10-20 descopes running agents across several Providers (Spec 1 section 1), so devctl knows nothing about Providers. Built on #31: `settings.py` dropped `[roster]` with its `Agent` type, and the project templates and this repository's `project.toml` dropped the commented table. `settings.py` keeps the `Harness` alias, which `harness.py` imports on #32, with a comment that names the Harnesses the Kit wires and `doctor --skills` probes; follow-up 8 corrects it. Built on #32: doctor dropped its Harness sign-in items, with `doctor_signin.py` and the agy sign-in probe in `harness.py`, and `--skills` probes each of `claude`, `codex` and `agy` on `PATH` (Spec 1 sections 4 and 6). Still to change on #31: devctl refuses a leftover `[roster]` table and the `[agents]` table with "rapid-ship does not run agents across several Providers; delete the table", which names no skill, and the tests that pin the message follow. Test names and test data that name `rs-providers` change too: in `tests/devctl/test_devctl_settings.py`, `test_a_leftover_roster_is_refused_and_names_rs_providers` becomes `test_a_leftover_roster_is_refused`, and the `REPLACED_BY` entries for `agents` and `roster` stop naming `rs-providers`. The test is new on #31, so the rename removes no test from #31's base and needs no `Removed tests:` entry. Still to change on each of #31 to #33: the comments, guides and plan text that name `rs-providers`, and the tasks of plan 4's plan document that describe the Roster or the Harness sign-in items. #33 has text of its own that a merge up from #32 does not change: the doctor paragraph of its ARCHITECTURE.md, which says that `rs-providers` checks a Harness's sign-in, the settings paragraph of its root AGENTS.md, and the parts of its plan document that #32's copy lacks.
+8. **Text that plan 5's Claude Code wiring made wrong (#31 to #33).** The owner's decision of 2026-10-20 has plan 5 wire the Harness guardrails for Claude Code alone; Codex and agy wait for the hook spike (Spec 1 section 4). Still to change: on #31, the comment on `Harness` in `settings.py`, which says the Kit wires all three, becomes `# the Harnesses doctor --skills probes (Spec 1 section 6)`; on #32, the last sentence of the comment on `PROTECTED_PATHS` in `doctor_rules.py` becomes that Codex's wiring adds `.codex/` and agy's widens `.agents/skills/` to `.agents/`, as in the doctor sketch above; and on each of #31 to #33, ARCHITECTURE.md's CODEOWNERS bullet replaces "The Harness settings join it with plan 5." with "`.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land.", and its plan 5 bullet follows plan 5's goal below. The copies of these texts in plan 4's plan documents change with them.
 
 ### Plan 4 outline
 
@@ -438,14 +443,14 @@ The owner's decisions of 2026-10-19 and 2026-10-20 change plan 4's built code: o
 
 ## Plan 5: Kit standards and Harness guardrails
 
-**Goal:** Confirm the guardrails in Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings; and `sync`'s migrations.
+**Goal:** Run the hook spike in Claude Code, Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings; and `sync`'s migrations. Plan 5 wires no other Harness: the spike's report decides whether a follow-up, with its own plan, adds the wiring for Codex or agy (Spec 1 section 4).
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
 | PR | Tasks | Content |
 | --- | --- | --- |
 | 5.1 | 1 | The hook spike, backlog PRO-139: a trial record, and the Spec 1 edits its result needs. No product code |
-| 5.2 | 2 to 8 | Guardrails: `devctl hook`, the merge guard, the wiring and the CODEOWNERS additions, with their live trial |
+| 5.2 | 2 to 8 | Guardrails: `devctl hook`, the merge guard, the Claude Code wiring and the CODEOWNERS comment, with their live trial |
 | 5.3 | 9 to 14 | Standards: the seeds, `doctor --settings`, map rules 5, 7 and 8, the Python starter Patterns, the diff cap, the ledger rule and the CI concurrency |
 | 5.4 | 15 and 16 | Settings and migrations: documented seeds and `sync`'s migrations |
 
@@ -454,21 +459,21 @@ If review finds a PR too large, it splits at a task boundary.
 **Files:**
 
 - 5.1: the trial record under `docs/trials/` and `docs/trials/AGENTS.md`; Spec 1 sections 4 and 11 where the result changes them.
-- 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/devctl/`, then vendored with `sync`: `codeowners.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `cli.py`, `check/diff.py`, `doctor_local.py`, `doctor_rules.py`. Kit templates: `common/.claude/settings.json`, `common/.codex/hooks.json`, `common/.agents/hooks.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: `.github/CODEOWNERS`, edited in place, and the three wiring files, created by `sync`. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/<harness>/`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
+- 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/devctl/`, then vendored with `sync`: `codeowners.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `cli.py`, `check/diff.py`, `doctor_local.py`, `doctor_rules.py`. Kit templates: `common/.claude/settings.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: `.github/CODEOWNERS`, edited in place, and `.claude/settings.json`, created by `sync`. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/claude/`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
 - 5.3: devctl templates: `check/map.py`, `check/diff.py`, `check/evidence.py`, `check/stacks/python.py`, and `cli.py` and `doctor.py` for `--settings`. Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/AGENTS.md`, `python/AGENTS.md`, `common/docs/patterns/README.md`, the Python starter Patterns with their reference code and tests under `python/`, `{python,agnostic}/.rapid-ship/project.toml` for the new escalation kind, `common/.github/workflows/devctl-check.yml`, `kit.toml`. This repository: the root `AGENTS.md` and `.rapid-ship/project.toml`, edited in place, and the workflow through `sync`. Tests: `tests/devctl/test_devctl_map_*.py`, `test_devctl_diff_*.py`, `test_devctl_evidence_step.py`, `test_devctl_doctor*.py`, `test_devctl_ci_templates.py`, `tests/test_kit_contents.py`, `tests/test_kit_templates*.py`.
 - 5.4: devctl template `settings.py`. `rapid_ship/kit/migrations.py`, `rapid_ship/kit/sync.py`, `rapid_ship/cli.py`. Kit templates: every seeded TOML file, both CODEOWNERS templates and the CI workflow, for their comments. Tests: `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_migrations*.py`, `tests/test_kit_sync*.py`, and the seed-documentation test.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
 
 **Tasks:**
 
-1. The hook spike (PRO-139), an Owner step that an agent prepares. In Claude Code, Codex and agy, in a lead Session, inside a subagent and in a headless Session, record: whether `PreToolUse` fires for shell and file-edit tools; whether Codex hooks can ask; how each Harness treats a hook's exit 1, uv's exit 2, a hook timeout and the hook's deny answer; the fields each event carries, the working directory included; the review in Codex's `/hooks`; and the time a `devctl hook` run adds to each tool call. Write the trial record, and change Spec 1 where the result differs from it. The owner decides from the measured time whether G1 to G4 stay in the hook.
+1. The hook spike (PRO-139), an Owner step that an agent prepares. In Claude Code, Codex and agy, in a lead Session, inside a subagent and in a headless Session, record: whether `PreToolUse` fires for shell and file-edit tools; whether Codex hooks can ask; how each Harness treats a hook's exit 1, uv's exit 2, a hook timeout and the hook's deny answer; the fields each event carries, the working directory included; the review in Codex's `/hooks`; and the time a `devctl hook` run adds to each tool call. Write the trial record, and change Spec 1 where the result differs from it. The owner decides from the measured time whether G1 to G4 stay in the hook, and from the record whether a follow-up adds the wiring for Codex and for agy, Codex's without G5 if its hooks cannot ask. Each such follow-up gets its own plan.
 2. Move the Protected-set reader and matcher from `check/diff.py` into `codeowners.py`, with no change in behaviour.
 3. `devctl hook`'s rules: G1 to G5, G7 and G8 on a normalised tool call, with G3 denying `gh pr merge --admin`, each `gh api` form of Spec 1 section 4 and each form of `git push` to the default branch, tested from a table of command lines and edits, and G1 to G4 with unreadable settings.
-4. The three hook protocols: each Harness's event JSON in, its decision format and exit code out, from recorded fixtures. An internal error exits 1, and `hook_protocols.py` documents the exit codes as a workaround.
+4. Claude Code's hook protocol: its event JSON in, its decision format and exit code out, from recorded fixtures. An internal error exits 1, and `hook_protocols.py` documents the exit codes as a workaround.
 5. The merge guard: `find_merge` for each form, run directly and through `devctl as <role> gh`, with G3 denying the `admin`, `push`, `rest` and `graphql` forms, and `push` with `origin/HEAD` present and missing; `guard` on `gh pr merge` against a fake `OwnerGet` for passed, pending, failed and missing check runs, Protected paths at the base, renames, ledger changes, entries added as `open` and as `implemented`, neither Protected, a merge without `--match-head-commit` or naming another commit, denied with the exact retry, and a PR it cannot read or an error inside the guard, both denied; no GitHub read for any other command.
-6. The seeded wiring files, `kit.toml`, doctor's wiring items, and this repository's wiring through `sync`.
-7. The CODEOWNERS additions in both templates, doctor's `PROTECTED_PATHS`, and this repository's CODEOWNERS.
-8. Live trial, an Owner step: each rule in each Harness the spike confirmed, in the lead Session and inside a subagent; the merge guard on real PRs through `gh pr merge` and `devctl as worker gh pr merge`, and G3 denying a merge through `gh api` and a `git push` to the default branch.
+6. The seeded `.claude/settings.json`, `kit.toml`, doctor's wiring item, and this repository's wiring through `sync`.
+7. The placeholder comment about Harness settings, removed from both CODEOWNERS templates and from this repository's CODEOWNERS. `/.claude/` already covers the wiring, so doctor's `PROTECTED_PATHS` stays as it is.
+8. Live trial, an Owner step: each rule in Claude Code, in the lead Session and inside a subagent; the merge guard on real PRs through `gh pr merge` and `devctl as worker gh pr merge`, and G3 denying a merge through `gh api` and a `git push` to the default branch.
 9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. `./devctl doctor --settings`, which reads and validates only the settings, and makes no GitHub request. The root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-lead` and `rs-preflight` do (Spec 1 section 6).
 10. The Pattern `task` key and `## Lessons` section: the seeded README and map rule 5.
 11. The Python starter Patterns, for error handling, configuration and input validation, with reference code and tests in the new-project skeleton, passing map rule 5 and `./devctl check` on a new project; and the Python performance Pattern, which documents py-spy, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
@@ -476,7 +481,7 @@ If review finds a PR too large, it splits at a task boundary.
 13. The diff cap: 1,500 lines, its exclusions and the `Over the diff cap:` declaration; the seeded escalation kind; and the ledger rule in the `diff` step: a change to an existing entry is Protected, and an added entry is not checked.
 14. A concurrency group for each push run in the CI workflow, which zizmor still passes.
 15. Documented seeds: a short comment for each key of every seeded TOML file, and for each line or key of every other settings file the Kit ships whose format allows comments, such as CODEOWNERS and the CI workflow; the loaders' range and value checks, errors that name what each key accepts, and the test that holds each seed to its loader.
-16. `sync`'s migrations: `migrations.py`, the second branch and its PR, and `--in-place` listing them. The first migrations remove plan 4's tables and add task 7's CODEOWNERS lines.
+16. `sync`'s migrations: `migrations.py`, the second branch and its PR, and `--in-place` listing them. The first migrations remove plan 4's tables. Task 7's comment needs none, because it changes no Protected path.
 
 ## Plan 6: TypeScript stack and several stacks in one repository
 
