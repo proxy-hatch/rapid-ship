@@ -4,7 +4,7 @@
 
 ## What it was meant to be
 
-rapid-orchestrator was to be a separate project that starts, resumes and cancels agent Sessions for every project on one machine, each in a Linux container, under caps per project, per Provider and per machine. rapid-ship would have driven it through its CLI, and it would have committed each Session's work itself.
+rapid-orchestrator was to be a separate project that starts, resumes and cancels agent Sessions for every project on one machine, each in a Linux container, under caps per project and per machine. rapid-ship would have driven it through its CLI, and it would have committed each Session's work itself.
 
 ## What the evidence showed
 
@@ -19,4 +19,4 @@ rapid-orchestrator was to be a separate project that starts, resumes and cancels
   - [ADR 0003](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md), which deferred rapid-orchestrator and was withdrawn before merge;
   - the [landscape survey](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-orchestrator-landscape.md);
   - the [Flight research note](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/trials/2026-10-13-flight-without-orchestrator.md);
-  - the [earlier version of this note](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/archive/orchestrator/README.md), with the three Harnesses' headless contracts and the sources a builder would have copied from.
+  - the [earlier version of this note](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/archive/orchestrator/README.md), with the sources a builder would have copied from.
