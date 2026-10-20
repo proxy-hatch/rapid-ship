@@ -660,6 +660,37 @@ def test_re_storing_through_security_passes_the_key_on_stdin_only(
     assert "BEGIN" not in out + err
 
 
+def test_a_recorded_apps_item_that_rapid_ship_did_not_write_is_used_as_it_is(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Items added by hand under the recorded Apps' names, with no account and no comment, beside
+    plan 4's items. devctl reads an item by its name alone, so the command uses each item as it
+    is and re-stores nothing."""
+    security = FakeSecurity()
+    for role, app in APPS.items():
+        security.items[keychain_service(role, app.app_id)] = {"-X": KEYS[role].hex()}
+        old = {"-a": str(app.app_id), "-j": app.slug, "-X": KEYS[role].hex()}
+        security.items[LEGACY_SERVICE[role]] = old
+    before = {name: dict(item) for name, item in security.items.items()}
+    log: list[str] = []
+    opened: list[str] = []
+    code = run_app(
+        "o/r",
+        store=MacKeychainStore(run=security),
+        owner_get=reads(OWNER_READS, log),
+        open_browser=opened.append,
+        recorded=dict(APPS),
+        api_url=NO_API,
+        timeout_seconds=0.1,
+    )
+    assert code == 0
+    assert (security.items, security.inputs, opened, app_reads(log)) == (before, [], [], [])
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert "Re-stored" not in out
+    assert out.endswith("Both Apps are recorded; ./devctl doctor confirms each installation.\n")
+
+
 def test_listed_reads_attributes_only_and_keeps_the_roles_items_named_by_app_id() -> None:
     argvs: list[list[str]] = []
 

@@ -246,7 +246,8 @@ def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool | None:
 
 def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _Choice:
     """The recorded App, whose key is in its item or in plan 4's item. Never a new App."""
-    if store.find(keychain_service(role, recorded.app_id)) is not None:
+    # exists, not find: devctl reads the item by its name alone, even one rapid-ship did not write.
+    if store.exists(keychain_service(role, recorded.app_id)):
         return _Choice(recorded, recorded=True)
     old = store.find(LEGACY_SERVICE[role])
     if old is not None and old.app_id == recorded.app_id:
