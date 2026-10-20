@@ -1,6 +1,6 @@
-"""Offline: what doctor passes each tool from the owner's environment. Each tool is a fake
-executable on PATH (FakeHarness) that answers from its own environment; no real gh, gitleaks,
-Harness or GitHub is run, and no Session starts."""
+"""Offline: what doctor passes each tool from the owner's environment, for the local items and
+for each --skills Session. Each tool is a fake executable on PATH (FakeHarness) that answers from
+its own environment, in a scratch repository; no real gh, gitleaks, Harness or GitHub is run."""
 
 import json
 import sys
@@ -8,14 +8,25 @@ from pathlib import Path
 
 import pytest
 
-from devctl.doctor import Item, OwnerReadError, gh_get, local_items
-from github_fakes import FakeHarness, MakeContext
+from devctl.doctor import DoctorContext, Item, OwnerReadError, gh_get, local_items, skills_items
+from devctl.harness import HarnessName
+from devctl.settings import ProjectSettings
+from github_fakes import FakeHarness, MakeContext, Remote
+from github_fixtures import no_owner_reads
 
 Answer = tuple[str, str, int]  # stdout, stderr, exit code
 # Per tool: the item that reports its sign-in, and what the fake answers signed in and signed out.
 SIGN_IN_ANSWERS: dict[str, tuple[str, Answer, Answer]] = {
     "gh": ("gh sign-in", ("", "", 0), ("", "You are not logged into any GitHub hosts.\n", 1)),
 }
+# What each Harness's Session prints signed in: an empty skill list, which is ok in a repository
+# with no skills. Signed out, it prints an error and exits 1, which leaves the item unknown.
+SKILL_LISTS: dict[HarnessName, str] = {
+    "claude": '{"type": "system", "subtype": "init", "skills": []}\n',
+    "codex": '{"type": "item.completed", "item": {"type": "agent_message", "text": ""}}\n',
+    "agy": "[]\n",
+}
+NOT_SIGNED_IN: Answer = ("", "error: not signed in\n", 1)
 # One sign-in per tool, set together, to show that no tool receives another's.
 OWNER_SIGN_INS = {
     "GH_TOKEN": "gh",
@@ -36,6 +47,12 @@ NETWORK = {
     "NO_PROXY": "localhost",
     "SSL_CERT_FILE": "/etc/ssl/example.pem",
 }
+
+
+@pytest.fixture
+def doctor_ctx(remote: Remote, project: ProjectSettings) -> DoctorContext:
+    """The scratch clone, where --skills adds each Session's worktree."""
+    return DoctorContext(remote.clone, project, no_owner_reads, None)
 
 
 def install_signed_in_when(
@@ -98,16 +115,52 @@ def test_a_sign_in_held_only_in_the_environment_is_ok(
     assert by_name(local_items(context))[name].status == "ok"
 
 
+@pytest.mark.parametrize(
+    ("harness", "variable"),
+    [
+        ("claude", "ANTHROPIC_API_KEY"),
+        ("claude", "ANTHROPIC_AUTH_TOKEN"),
+        ("claude", "CLAUDE_CODE_OAUTH_TOKEN"),
+        ("claude", "CLAUDE_CONFIG_DIR"),
+        ("claude", "CLAUDE_CODE_USE_BEDROCK"),
+        ("claude", "CLAUDE_CODE_USE_VERTEX"),
+        ("codex", "CODEX_HOME"),
+        ("codex", "OPENAI_API_KEY"),
+        ("agy", "GEMINI_API_KEY"),
+    ],
+)
+def test_a_session_signed_in_only_through_the_environment_lists_its_skills(
+    doctor_ctx: DoctorContext,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    harness: HarnessName,
+    variable: str,
+) -> None:
+    # Spec 1 section 6: doctor passes each Harness the owner's sign-in, whatever its method, so a
+    # --skills Session signed in only through the owner's shell can list its skills.
+    signed_in = (SKILL_LISTS[harness], "", 0)
+    install_signed_in_when(fake_harness, harness, variable, signed_in, NOT_SIGNED_IN)
+    name = f"skills ({harness})"
+    monkeypatch.delenv(variable, raising=False)
+    assert [(item.name, item.status) for item in skills_items(doctor_ctx)] == [(name, "unknown")]
+    monkeypatch.setenv(variable, "example-value")
+    assert [(item.name, item.status) for item in skills_items(doctor_ctx)] == [(name, "ok")]
+
+
 def test_each_tool_gets_its_own_sign_in_and_the_network_settings_only(
-    ctx: MakeContext, fake_harness: FakeHarness, monkeypatch: pytest.MonkeyPatch
+    ctx: MakeContext,
+    doctor_ctx: DoctorContext,
+    fake_harness: FakeHarness,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     for variable in (*OWNER_SIGN_INS, *NEVER_PASSED):
         monkeypatch.setenv(variable, "0")  # "0" keeps the test's own git from tracing
     for variable, value in NETWORK.items():
         monkeypatch.setenv(variable, value)
-    tools = ("gh", "gitleaks")
+    tools = ("gh", "gitleaks", "claude", "codex", "agy")
     records = {tool: install_recorder(fake_harness, tool) for tool in tools}
-    local_items(ctx())
+    local_items(ctx())  # runs gh and gitleaks
+    skills_items(doctor_ctx)  # starts one Session each of claude, codex and agy
     for tool, record in records.items():
         seen = json.loads(record.read_text())
         own = {variable for variable, owner in OWNER_SIGN_INS.items() if owner == tool}
