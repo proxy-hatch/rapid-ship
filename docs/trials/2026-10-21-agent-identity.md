@@ -5,7 +5,7 @@ Trial date: 2026-10-21. Live: the owner ran every step in their own terminal, on
 ## How to read this
 
 - Each result is live unless it is marked offline. "Not recorded" means that the owner's record does not hold that output. This report does not guess it.
-- The owner reran the pending steps at 20:26 CST the same day. The [rerun](#rerun-of-the-pending-steps) has its own section, and the step sections before it keep the first pass's results as recorded. `$TRIALS` is the rerun's temporary directory; the log's local paths are not recorded.
+- The owner reran the pending steps at 20:26 CST the same day. The [rerun](#rerun-of-the-pending-steps) has its own section, and the step sections before it keep the first pass's results as recorded. `$TRIALS` is a temporary directory: the first pass's in Step 11a, and the rerun's in the rerun section. The log's local paths are not recorded.
 - `$PLAN4` is the owner's checkout of `main` at `0e1d6d0`, tag `v0.1.0`. The trial ran `rapid-ship` and the Kit from it.
 - The commands are Task 10's, as the plan wrote them at `0e1d6d0`. Where the owner ran something else, the step says so.
 - The scratch repositories are `proxy-hatch/rs-trial`, public, and `proxy-hatch/rs-trial-private`, private. The owner's login is `proxy-hatch`.
@@ -23,7 +23,7 @@ Trial date: 2026-10-21. Live: the owner ran every step in their own terminal, on
   - A process the owner ran read both App keys, exit 0 each, and macOS showed no dialog. Any process the owner runs can read both keys.
   - GitHub refused the Worker App's merge of #4 while `devctl check` was queued, and merged it once the check passed. GitHub enforces the required check.
   - Code-owner review holds at a count of 0. GitHub refused the Worker App's merge of #5, a change to `docs/AGENTS.md`, with the Reviewer App's approval and a passing check. It merged #5 after the owner approved.
-  - At a count of 0, `reviewDecision` was `""` in every read, so only `mergeStateStatus` showed GitHub's block. The Reviewer App's change request left #6 `CLEAN`: on its own, it does not block a merge.
+  - At a count of 0, `reviewDecision` was `""` in every read, so only `mergeStateStatus` showed GitHub's block. After the Reviewer App's change request and a passing check, #6 read `CLEAN`; the merge was not tried. The App has Contents: read; a change request from a reviewer with write access was not tested.
   - GitHub accepted the Worker App's push of a branch whose only new commit merged in a workflow change already on `main`. Step 12 expected a refusal.
   - `doctor --skills` reported the skills item as Step 13 expects. doctor does not print the model ID that `PROBE_MODEL`, `haiku`, resolved to.
   - Step 14 closed the open trial pull request. `rs-trial` and `rs-trial-private` stay.
@@ -218,7 +218,7 @@ doctor follows the decision. It requires neither setting in any Mode, and in Fli
 
 ## Rerun of the pending steps
 
-Rerun: 2026-10-21 at 20:26 CST, live. The owner ran a script in their own terminal, with their own sign-in, Apps and Keychain. It cloned `proxy-hatch/rs-trial` into a new temporary directory, `$TRIALS`, and ran what plan 4's Verification record listed as pending: Step 5's key read, Step 11a's second block, a code-owner step at an approval count of 0, and Steps 12 to 14. It wrote every command, its output and its exit code to a log, and this section is written from that log. The script asked the owner before each write made as the owner and before `doctor --skills`, and logged each answer. It sent each key to `/dev/null`. The log's local paths are not recorded here.
+Rerun: 2026-10-21 at 20:26 CST, live. The owner ran a script in their own terminal, with their own sign-in, Apps and Keychain. It cloned `proxy-hatch/rs-trial` into a new temporary directory, `$TRIALS`, and ran what plan 4 listed as pending at `6eb362d`, under [Task 10: pending Owner steps](https://github.com/proxy-hatch/rapid-ship/blob/6eb362daf7b54e96484b713b2365799d98b6dcb3/docs/superpowers/plans/2026-10-16-doctor-and-agent-identity.md#task-10-pending-owner-steps): Step 5's key read, Step 11a's second block, a code-owner step at an approval count of 0, and Steps 12 to 14. The script is not in this repository. It wrote every command, its output and its exit code to a log, and this section is written from that log. The script asked the owner before approving #5, before the owner's workflow pull request #7, before `doctor --skills` and before closing #6, and logged each answer. It applied the decided ruleset as the owner without asking. It sent each key to `/dev/null`. The log's local paths are not recorded here.
 
 ### Rerun setup
 
@@ -294,9 +294,9 @@ The script appended a line to `docs/AGENTS.md` on the branch `trial-code-owner-2
 | `./devctl as worker gh pr merge 5 --squash` | 0 | merged |
 | `gh pr view 5 --json state,mergedAt` | 0 | `MERGED` at 2026-10-21T12:33:50Z |
 
-The owner approved through `gh` in the script, where the plan said the browser.
+The owner approved through `gh` in the script, where plan 4 at `6eb362d` said the browser.
 
-Result: code-owner review holds at a count of 0. With the Reviewer App's approval and a passing check, GitHub refused the Worker App's merge of a change to a Protected file. After the owner's approval, it merged. `reviewDecision` was `""` before and after the owner's approval, where the plan expected `APPROVED`; only `mergeStateStatus` showed the block. Walk's `*` line relies on the same rule and was not tried separately.
+Result: code-owner review holds at a count of 0. With the Reviewer App's approval and a passing check, GitHub refused the Worker App's merge of a change to a Protected file. After the owner's approval, it merged. `reviewDecision` was `""` before and after the owner's approval, where plan 4 at `6eb362d` expected `APPROVED`; only `mergeStateStatus` showed the block. Walk's `*` line relies on the same rule and was not tried separately.
 
 ### Step 12 in the rerun: a Reviewer App change request
 
@@ -312,7 +312,7 @@ Result: code-owner review holds at a count of 0. With the Reviewer App's approva
 
 The script did not try the merge.
 
-Result: at a count of 0, the Reviewer App's change request alone does not block a merge. `reviewDecision` was `""`, not `CHANGES_REQUESTED`, so it does not show whether the Reviewer App requested changes. Spec 3 counts Revisions from each review's state in the pull request's reviews, so this does not affect it.
+Result: at a count of 0, GitHub reported no block from the Reviewer App's change request: `mergeStateStatus` was `CLEAN`. The merge was not tried. The App has Contents: read, so this may follow from its permission rather than from the count (Limits). `reviewDecision` was `""`, not `CHANGES_REQUESTED`, so it does not show whether the Reviewer App requested changes. Spec 3 counts Revisions from each review's state in the pull request's reviews, so this does not affect it.
 
 ### Step 12 in the rerun: a workflow change that the agent branch takes in
 
@@ -328,7 +328,7 @@ The owner answered `y` to merging a one-line comment in `.github/workflows/devct
 | `git merge --no-edit origin/main` | 0 | a merge commit that brings in the one-line change to `.github/workflows/devctl-check.yml` |
 | `./devctl as worker push` | 0 | accepted: `0b1790a..4b9d1fa  trial-agent-2-202640 -> trial-agent-2-202640`; devctl printed no hint |
 
-Result: GitHub accepted the Worker App's push, where Step 12 expected a refusal. The push's only new commit merged in a workflow change already on `main`. The trial did not try an App's direct edit of a workflow, which the old plan observed GitHub refusing (Checked facts).
+Result: GitHub accepted the Worker App's push, where Step 12 expected a refusal. The push's only new commit merged in a workflow change already on `main`. The trial did not try an App's direct edit of a workflow. The old plan's sources, an issue and a Community thread, report GitHub refusing one, and no trial has observed it (Checked facts).
 
 ### Step 13 in the rerun: `doctor --skills` live
 
@@ -390,10 +390,10 @@ The two missing items are expected. `core.hooksPath` is a setting of the local c
 | The author of a pull request opened through `devctl as` is `<worker slug>[bot]` | Task 10 Step 10 | gh's JSON printed `app/proxy-hatch-rs-worker` (Step 10) |
 | The ruleset reads back as rs-setup applies it | Task 10 Steps 8 and 9 | GitHub's read-back adds parameters that rs-setup's ruleset does not set: `require_extra_approval_for_unattributed_changes` true and `required_reviewers` `[]` in `pull_request`, and `do_not_enforce_on_create` false in `required_status_checks` (Step 11a). doctor does not check them, and its tests passed on Step 9's read-back. The rerun's `PUT` also left out `require_extra_approval_for_unattributed_changes`, and it read back `true` |
 | GitHub may count the Reviewer App's approval toward the ruleset | Task 10 Step 11, Spec 1 section 11 | GitHub does not take it as approval of the most recent push (experiment A). Toward the count, a merge at a count of 1 was refused, but last-push approval was on too (Step 11) |
-| GitHub refuses an App-token push that brings in a workflow change | Task 10 Step 12, from Checked facts | Accepted (rerun): the Worker App's push of a branch whose only new commit merged in a workflow change already on `main` exited 0, and devctl printed no hint. An App's direct edit of a workflow was not tried; the old plan observed GitHub refusing one |
+| GitHub refuses an App-token push that brings in a workflow change | Task 10 Step 12, from Checked facts | Accepted (rerun): the Worker App's push of a branch whose only new commit merged in a workflow change already on `main` exited 0, and devctl printed no hint. An App's direct edit of a workflow was not tried. The old plan's sources, an issue and a Community thread, report GitHub refusing one, and no trial has observed it |
 | `PROBE_MODEL` is `haiku` | Checked facts | Partly (rerun): the probe ran with devctl 0.1.0's `haiku` on Claude Code 2.1.304 and printed the expected skills item. doctor does not print the model ID that `haiku` resolved to, so `claude-haiku-4-5-20251001` is not reconfirmed |
-| After a Reviewer App change request, `reviewDecision` is `CHANGES_REQUESTED` | Task 10 Step 12 | At a count of 0, `reviewDecision` was `""` and `mergeStateStatus` `CLEAN` after the check passed (rerun, #6). The change request alone does not block a merge |
-| After the owner approves a Protected pull request, `reviewDecision` is `APPROVED` | Plan 4's code-owner step at a count of 0, pending before the rerun | At a count of 0, `reviewDecision` was `""` before and after the owner's approval, while `mergeStateStatus` went from `BLOCKED` to `CLEAN` (rerun, #5) |
+| After a Reviewer App change request, `reviewDecision` is `CHANGES_REQUESTED` | Task 10 Step 12 | At a count of 0, `reviewDecision` was `""` and `mergeStateStatus` `CLEAN` after the check passed (rerun, #6). GitHub reported no block from the Reviewer App's change request; the merge was not tried, and the App has Contents: read |
+| After the owner approves a Protected pull request, `reviewDecision` is `APPROVED` | Plan 4's [code-owner step at a count of 0](https://github.com/proxy-hatch/rapid-ship/blob/6eb362daf7b54e96484b713b2365799d98b6dcb3/docs/superpowers/plans/2026-10-16-doctor-and-agent-identity.md#code-owner-review-at-an-approval-count-of-0), at `6eb362d` | At a count of 0, `reviewDecision` was `""` before and after the owner's approval, while `mergeStateStatus` went from `BLOCKED` to `CLEAN` (rerun, #5) |
 
 ## Plan defects the trial found
 
@@ -410,9 +410,9 @@ The two missing items are expected. `core.hooksPath` is a setting of the local c
 - **Why GitHub does not take it** is documented, though this trial did not isolate the count: GitHub counts an approval only from someone with write permission to the repository ([about protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches), [available rules for rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)), and the Reviewer App has Contents: read by design (Spec 1 section 3).
 - **Code-owner review at a count of 0 holds** (rerun, #5). The decision relies on it: in Walk, code-owner review is all that keeps GitHub from merging the Worker App's pull request without the owner. The first pass did not observe it: Step 10 ran in Walk at a count of 1, and #3 changed README.md, which has no code owner in Flight. The rerun tried Flight's `/**/AGENTS.md` line only. Walk's `*` line relies on the same rule and was not tried separately.
 - **GitHub refuses a merge while `devctl check` is pending** (rerun, #4). Step 11's first attempt did not isolate the check, because the approval requirement was unmet then too. #4 ran under the `pull_request` settings with which experiment A merged #3. GitHub refused its merge while the run was queued, and merged it once the check passed. A run in progress or failed was not tried.
-- **Workflow changes.** GitHub accepted the Worker App's push whose only new commit merged in a workflow change already on `main` (rerun). The trial did not try an App's direct edit of a workflow, which the old plan observed GitHub refusing.
-- **A change request does not block a merge at a count of 0** (rerun, #6). After the Reviewer App requested changes and the check passed, `mergeStateStatus`, read as the owner, was `CLEAN`; the script did not try the merge. With Agent identity, plan 5's merge guard, which requires the Reviewer App's approval of the head commit, is what will stop an agent's merge past a change request, and only in a Harness wired to `devctl hook`.
-- **`reviewDecision` at a count of 0** was `""` in every read: with a code-owner review pending or given, and after a change request (rerun). A tool must read GitHub's block from `mergeStateStatus`, and each review's state from the pull request's reviews.
+- **Workflow changes.** GitHub accepted the Worker App's push whose only new commit merged in a workflow change already on `main` (rerun). The trial did not try an App's direct edit of a workflow. The old plan's sources, an issue and a Community thread, report GitHub refusing one, and no trial has observed it.
+- **GitHub showed no block from the Reviewer App's change request at a count of 0** (rerun, #6). After the App requested changes and the check passed, `mergeStateStatus`, read as the owner, was `CLEAN`; the script did not try the merge. The App has Contents: read, and GitHub counts an approval only from someone with write permission (above). So the result may come from the App's permission rather than the count. A change request from a reviewer with write access was not tried. With Agent identity, plan 5's merge guard, which requires the Reviewer App's approval of the head commit, is what will stop an agent's merge past a change request, and only in a Harness wired to `devctl hook`.
+- **`reviewDecision` at a count of 0** was `""` in every read: with a code-owner review pending or given, and after the Reviewer App's change request (rerun). A tool must read GitHub's block from `mergeStateStatus`, and each review's state from the pull request's reviews.
 - **`PROBE_MODEL`.** The rerun's `doctor --skills` ran devctl 0.1.0, whose `harness.py` passes `--model haiku`, and printed the expected skills item. doctor does not print the model ID that `haiku` resolved to on Claude Code 2.1.304. Its output also cannot show whether Claude Code listed `trial-release`, because doctor leaves a user-invoked skill out of the names it reports.
 - **doctor in Flight.** Step 11's doctor output was not recorded. The rerun's doctor, v0.1.0, ran in Flight with Agent identity: CODEOWNERS and the four `agent identity` items were ok. Its ruleset item reported the decided ruleset as missing, because v0.1.0 predates the decision. The doctor that follows the decision accepts that ruleset in offline tests only (`test_the_decided_ruleset_passes_in_every_mode`).
 - **Experiment B tested nothing**, because #3 had already merged. Experiment A shows only that `require_extra_approval_for_unattributed_changes` true, the Copilot option, did not block that one merge.
