@@ -121,7 +121,7 @@ Rows marked "old plan" were checked on 2026-10-14 and are recorded in the [GitHu
 | `git symbolic-ref --quiet --short HEAD` exits 1 on a detached `HEAD`. `git worktree remove --force` refuses a locked worktree and `--force --force` removes it. `git worktree add --detach <path> HEAD` in a repository with no commit fails with `invalid reference: HEAD`. | Observed with git 2.39.5 on 2026-10-16 |
 | An argparse positional with `nargs=argparse.REMAINDER` after two `choices` positionals collects every later argument, `-h`, `--help`, `--force` and `--` included. | Observed on Python 3.12.10, 3.13.12 and 3.14.3 on 2026-10-16 |
 | gh uses `GH_TOKEN` for github.com ahead of its stored sign-in, and `GH_REPO` names the repository for commands run outside a clone; `GH_PROMPT_DISABLED` stops prompts. | `gh help environment`; Task 10 Step 10 records the author of a PR opened through `devctl as` |
-| GitHub rejects an App-token push that creates or updates a file under `.github/workflows/` without the Workflows permission, with `refusing to allow a GitHub App to create or update workflow`. | Old plan; Task 10 Step 12 records the live message |
+| GitHub rejects an App-token push that creates or updates a file under `.github/workflows/` without the Workflows permission, with `refusing to allow a GitHub App to create or update workflow`. It accepted a push whose only new commit merged in a workflow change already on the base branch. | Old plan, for a direct edit; no live refusal is recorded. The merge: Task 10 Step 12's rerun on 2026-10-21 ([trial report](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)) |
 | On a GitHub Free private repository, `GET …/rulesets` returns 403 "Upgrade to GitHub Pro or make this repository public to enable this feature." | Old plan, observed on 18 private repositories |
 | `PROBE_MODELS`, the cheapest model for each Harness's probe: `haiku` for Claude Code, which ran as `claude-haiku-4-5-20251001` (Claude Code 2.1.287); `gpt-6-luna` for Codex, which `codex debug models --bundled` describes as its fast and affordable model, with `low` its lowest reasoning level (codex-cli 0.162.0); and `gemini-3.8-flash-low` for agy, the Flash model at the lowest effort that `agy models` lists (agy 1.3.4). No Harness lists prices. Follow-up 9 kept Claude Code's alone, as `PROBE_MODEL`. | Old plan; Task 10 Step 13 confirms or corrects `PROBE_MODEL` |
 | Ruff formats and checks a file under `rapid_ship/templates/` when the path is named, although `extend-exclude` skips the directory otherwise. | Observed with this repository's Ruff on 2026-10-16 |
@@ -6149,7 +6149,7 @@ git commit -m "docs: describe devctl doctor, Agent identity and devctl as in the
 
 ### Task 10: Live trials (Owner steps)
 
-Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in `$PLAN4`, Step 2's checkout of `main`. The owner ran Steps 1 to 11a on 2026-10-21; the [trial report](../../trials/2026-10-21-agent-identity.md) records them, and the Verification record lists what is still pending.
+Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in `$PLAN4`, Step 2's checkout of `main`. The owner ran Steps 1 to 11a on 2026-10-21, and Step 11a's second block and Steps 12 to 14 in a rerun the same day; the [trial report](../../trials/2026-10-21-agent-identity.md) records them, and the Verification record lists what is still not recorded.
 
 Steps 15 to 17 are implementer steps, done from the owner's record. When a result calls for a code fix (Steps 3, 9 and 13), the implementer makes it with its test after the owner's session, and the report says whether the owner reran the step with the fix.
 
@@ -6384,7 +6384,7 @@ README.md is outside the Protected set, so this pull request has no code owner, 
 
 The answer this step exists for: whether the last merge, after the check passed, succeeded with only the Reviewer App's approval. If it did, GitHub counts that approval, and the approval count stays 1; skip Step 11a. If GitHub refused the merge for want of an approval (`reviewDecision` stays `REVIEW_REQUIRED`), it does not count it: run Step 11a, and Step 17 applies.
 
-- [ ] **Step 11a: Owner step, only when GitHub did not count the approval: set the trial ruleset's count to 0, turn off last-push approval, and read it back**
+- [x] **Step 11a: Owner step, only when GitHub did not count the approval: set the trial ruleset's count to 0, turn off last-push approval, and read it back**
 
 On 2026-10-21 this step changed only the count, and GitHub still refused the merge until the owner also turned off approval of the most recent push ([trial report](../../trials/2026-10-21-agent-identity.md), experiment A). Its first line now makes both changes, as Step 17's decision does.
 
@@ -6415,7 +6415,7 @@ gh pr checks "$PR4" --watch
 
 Record every result. Expected: on `$PR4`, the merge attempt while its run is queued or in progress is refused, and the merge after the check passed succeeds. `$PR4` then differs from `$PR2`'s successful merge only by the pending check, so this pair shows GitHub enforcing `devctl check`. If the run had already finished at the first attempt, record that, as in Step 11.
 
-- [ ] **Step 12: Owner step: a Reviewer App change request, and a workflow change**
+- [x] **Step 12: Owner step: a Reviewer App change request, and a workflow change**
 
 ```sh
 git switch main && git pull --ff-only
@@ -6430,7 +6430,7 @@ gh pr checks "$PR3" --watch
 gh pr view "$PR3" --json reviewDecision,mergeStateStatus
 ```
 
-Expected: `CHANGES_REQUESTED`, and, with the count at 1, a blocked merge, read after the check passed. Record what GitHub reports: it tells Spec 3 whether the Reviewer App's change requests count as Revisions. After Step 11a the count is 0: record whether the change request alone still blocks the merge.
+Expected: `CHANGES_REQUESTED`, and, with the count at 1, a blocked merge, read after the check passed. Record what GitHub reports: it tells Spec 3 whether the Reviewer App's change requests count as Revisions. After Step 11a the count is 0: record whether the change request alone still blocks the merge. On 2026-10-21, at a count of 0, `reviewDecision` was `""` and `mergeStateStatus` `CLEAN`, so the change request alone did not block the merge ([trial report](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)).
 
 Next, the owner changes `.github/workflows/devctl-check.yml` on `main` through their own pull request, merged with the admin bypass, and the agent branch takes that change in:
 
@@ -6447,9 +6447,9 @@ git fetch origin main && git merge --no-edit origin/main
 ./devctl as worker push; echo "push exit $?"
 ```
 
-Record GitHub's message, devctl's `devctl: neither App may push a change under .github/workflows/; ...` line and the exit code. Expected: GitHub refuses the Worker App's push, because the merge brings in a workflow change (Checked facts), and devctl returns git's nonzero exit code with the hint. If GitHub accepts the push, record that; the hint still serves a direct workflow edit.
+Record GitHub's message, devctl's `devctl: neither App may push a change under .github/workflows/; ...` line and the exit code. Expected: GitHub refuses the Worker App's push, because the merge brings in a workflow change (Checked facts), and devctl returns git's nonzero exit code with the hint. If GitHub accepts the push, record that; the hint still serves a direct workflow edit. On 2026-10-21 GitHub accepted it, exit 0: the push's only new commit merged in a workflow change already on `main`, and devctl printed no hint ([trial report](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)).
 
-- [ ] **Step 13: Owner step: `doctor --skills` live**
+- [x] **Step 13: Owner step: `doctor --skills` live**
 
 The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers, and follow-up 9 narrowed it to Claude Code. Run the probe:
 
@@ -6460,7 +6460,7 @@ git worktree list
 
 Record every skills line and the exit code. Expected: one `skills (claude)` item when `claude` is on `PATH`, ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone. Record whether Claude Code listed `trial-release` anyway, and confirm or correct `PROBE_MODEL`; a wrong model is fixed in `harness.py`, with its test, in this plan's PR.
 
-- [ ] **Step 14: Owner step: clean up**
+- [x] **Step 14: Owner step: clean up**
 
 Close any open trial pull request. The owner decides whether to delete `rs-trial` and `rs-trial-private`; the Apps stay, as the owner's real Apps.
 
@@ -6841,116 +6841,38 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   build exit 0
   ```
   Rebuilt after this record was filled in, from the same work tree: `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` and no broken-link warning or error. The built page for this plan holds the "Task 11: pending Owner steps" subsection.
-- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: live, run by the owner on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`. The [trial report](../../trials/2026-10-21-agent-identity.md) records Steps 1 to 11a, the owner's experiments A and B beyond the plan, the deviations from Checked facts and the plan defects, in the commit "docs: record the Agent identity, ruleset and doctor trial". In Flight with Agent identity, GitHub refused the Worker App's merge of #3 with the Reviewer App's approval at an approval count of 1, and at 0 while `require_last_push_approval` was on; with that off too, it merged (experiment A). Whether GitHub counts the approval toward a count of 1 is not isolated, because last-push approval was on at that attempt. The owner decided on an approval count of 0 and last-push approval off in every Mode, and Step 17 made the edits ("fix: settle the ruleset's approval settings from plan 4's trial"). The installation object carries `app_slug` (Step 5).
-- GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: not shown. In Step 11, GitHub refused #3's merge while its check was pending, exit 1, but the approval requirement was unmet then too, and `reviewDecision` was not recorded, so the refusal does not isolate the check. Step 11a's `$PR4` pair, which would isolate it, did not run; it is pending under "Task 10: pending Owner steps" below.
-- `PROBE_MODEL` as confirmed or corrected in Task 10 Step 13: Pending owner step; Step 13 did not run in the trial of 2026-10-21. Unconfirmed: `harness.py` holds `haiku`, the value of the Checked facts. Follow-up 9 removed the codex and agy models, `gpt-6-luna` and `gemini-3.8-flash-low`, with their probes.
+- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: live, run by the owner on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`. The [trial report](../../trials/2026-10-21-agent-identity.md) records Steps 1 to 11a, the owner's experiments A and B beyond the plan, the deviations from Checked facts and the plan defects, in the commit "docs: record the Agent identity, ruleset and doctor trial". In Flight with Agent identity, GitHub refused the Worker App's merge of #3 with the Reviewer App's approval at an approval count of 1, and at 0 while `require_last_push_approval` was on; with that off too, it merged (experiment A). Whether GitHub counts the approval toward a count of 1 is not isolated, because last-push approval was on at that attempt. The owner decided on an approval count of 0 and last-push approval off in every Mode, and Step 17 made the edits ("fix: settle the ruleset's approval settings from plan 4's trial"). The installation object carries `app_slug` (Step 5). At 20:26 CST the same day, the owner reran the pending steps from a script that logged every command, its output and its exit code, and the report's rerun section records them. The rerun confirmed that any process the owner runs reads both App keys with no dialog. It showed that GitHub enforces a pending `devctl check`, and code-owner review at an approval count of 0. It also found that, at a count of 0, `reviewDecision` stays `""` and a Reviewer App change request alone does not block a merge. GitHub accepted the Worker App's push of a branch whose only new commit merged in a workflow change already on `main`, where Step 12 expected a refusal.
+- GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: shown live in the rerun of 2026-10-21. On #4, which changed README.md and had the Reviewer App's approval under the decided ruleset, `reviewDecision` was `""`, `mergeStateStatus` `BLOCKED` and the `devctl check` run `QUEUED`. GitHub refused the Worker App's merge, "the base branch policy prohibits the merge", exit 1. After the check passed in 9 s, the merge succeeded, exit 0 ([trial report](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)). Step 11's refusal of #3 did not isolate the check, because the approval requirement was unmet then too.
+- `PROBE_MODEL` as confirmed or corrected in Task 10 Step 13: not corrected, and confirmed only as the alias `haiku`. Live in the rerun of 2026-10-21, `./devctl doctor --skills` ran in the `rs-trial` clone with devctl 0.1.0, whose `harness.py` passes `--model haiku`, on Claude Code 2.1.304. It exited 1 with `doctor: 16 ok, 2 missing, 0 unknown`. The skills item was ok, with `1 repository skills seen` and `not checked, user-invoked: trial-release`, and `trial-release` was not among the names outside the repository. The two missing items were `core.hooksPath`, unset in the fresh clone, and v0.1.0's ruleset item, which predates the decided ruleset. doctor does not print the model ID that `haiku` resolved to, so the Checked facts' `claude-haiku-4-5-20251001` is not reconfirmed ([trial report](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)). Follow-up 9 removed the codex and agy models, `gpt-6-luna` and `gemini-3.8-flash-low`, with their probes.
 - PR URL, base, and the `devctl check` run: Pending owner step. No PR exists, so there is no PR URL and no `devctl check` run on GitHub. The base is `codex/devctl-check` while #30 is open, and `main` once it is merged. The PR body is written and passes `./devctl check --tier full --base origin/codex/devctl-check --pr-body <body>` with exit 0 (above). The commands are under "Task 11: pending Owner steps" below.
 - Final whole-branch review: two Important findings, handled after this record was first filled in.
   - R1, fixed in `ab473c6` (fix: pass doctor's tools the owner's sign-in and proxy variables). doctor's tools ran with only `PATH`, `HOME` and the locale, so a sign-in held only in the environment, such as `GH_TOKEN`, an API key, a gateway, Bedrock, Vertex, `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, read as missing. Each tool doctor runs now gets the owner's proxy and certificate variables, where the owner's files live, and its own sign-in variables (`SIGN_IN_VARIABLES` in `doctor_items.py`). `devctl as` passes `gh` and `git push` the proxy and certificate variables only. The 17 new tests are offline and simulated, with fake tools that answer from their own environment: `tests/devctl/test_devctl_doctor_environment.py`, and one test each in `test_devctl_doctor_skills.py`, `test_devctl_identity.py` and `test_devctl_askpass_limits.py`. Which variables each real Harness reads is unconfirmed.
   - R2, recorded and not fixed, because the fix needs a spec decision: doctor's CODEOWNERS item cannot pass on an organisation-owned repository (Remaining limits, below). Its Linear task is a pending Owner step under "Task 11: pending Owner steps".
   - Re-run on `ab473c6`, live as above: `./devctl check --tier full --base origin/codex/devctl-check` exit 1, with only `diff` failing, on the same three removed tests and 33 Protected paths; the same with the PR body exit 0, every step passed; `uv run rapid-ship status --strict` exit 0, "37 managed files unchanged."; `uv run pytest -q` "1284 passed in 193.93s (0:03:13)", exit 0; `./devctl doctor` exit 1, the same 14 lines as above and "doctor: 9 ok, 5 missing, 0 unknown"; each `--help` exit 0; `npm --prefix website ci --no-audit --no-fund` exit 0 and `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` After this entry was written, the build ran again from the work tree and exited 0 with the same line and no broken-link warning.
 - Remaining limits, including at least: Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`; a Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier; organisation-owned repositories cannot install the owner's private Apps; and this repository's own ruleset and GitHub settings wait for plan 6:
-  - Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`. A Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier.
+  - Agent identity works only on macOS, where any process the owner runs can read both App keys through `security`. A Worker can therefore act as the Reviewer App, and `rs-work` (Spec 2) is the only barrier. Task 10's rerun confirmed the read live, with no dialog.
   - Organisation-owned repositories cannot install the owner's private Apps, and doctor's CODEOWNERS item cannot pass on one. doctor takes the code owner from the repository's owner (`tools/devctl/devctl/doctor_github.py:134`), so it asks for `* @<organisation>`, which is not a valid code owner, and reports the owner's correct `* @<login>` as wrong; doctor never exits 0 there. The fix needs a spec decision, to record the owner's login or to scope Spec 1 to personal repositories, and must land before plan 6's `rs-setup` runs doctor for owners.
   - devctl's own REST client, which mints App tokens and reads the Apps, does not use `HTTPS_PROXY`. Where GitHub is reachable only through a proxy, `devctl as` and doctor's App items cannot mint a token.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
-  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10) ran on 2026-10-21, and its [report](../../trials/2026-10-21-agent-identity.md) names its own limits. It confirmed `app_slug` on the installation object and led to the approval settings, but did not show GitHub refusing a merge while `devctl check` is pending, or enforcing code-owner review at an approval count of 0, and `PROBE_MODEL` stays unconfirmed ("Task 10: pending Owner steps", below).
+  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10) ran on 2026-10-21, and its [report](../../trials/2026-10-21-agent-identity.md) names its own limits. It confirmed `app_slug` on the installation object and led to the approval settings. Its rerun showed GitHub refusing a merge while `devctl check` is pending, and enforcing code-owner review at an approval count of 0. doctor does not print the model ID behind `PROBE_MODEL`, and "Task 10: pending Owner steps", below, lists what is still not recorded.
   - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
   - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
 ### Task 10: pending Owner steps
 
-The owner ran Steps 1 to 11a on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`, and two experiments beyond the plan. The [trial report](../../trials/2026-10-21-agent-identity.md) records each result, and Steps 15 to 17 are done. What follows is still pending. Each item is neither a pass nor a skip until the owner's output replaces it.
+The owner ran Steps 1 to 11a on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`, and two experiments beyond the plan. At 20:26 CST the same day, the owner ran what was still pending from a script that logged every command, its output and its exit code: Step 5's key read, Step 11a's second block, a code-owner step at an approval count of 0, and Steps 12 to 14. The [trial report](../../trials/2026-10-21-agent-identity.md) records each result, and Steps 15 to 17 are done. What follows is still not recorded. Each item stays unknown until the owner reports it, and none is a pass or a skip.
 
-The trial's shell session has ended. A rerun starts in the `rs-trial` clone and sets the variables that the remaining steps use:
-
-```sh
-OWNER=$(gh api user --jq .login)
-RULESET_ID=25531114
-WORKER_ID=5376519
-REVIEWER_ID=5376520
-TRIALS=$(mktemp -d)
-printf '## Evidence\n\n- `./devctl check --tier fast`: exit 0\n\nNot covered: everything; this pull request is a trial.\n' > "$TRIALS/pr-body.md"
-```
-
-#### Step 11a, second block: the pending-check pair
-
-Experiment B left ruleset 25531114 with `require_extra_approval_for_unattributed_changes` false, which rs-setup's ruleset does not set. First apply the decided ruleset:
-
-1. Run only Step 8's `cat` command, which writes `$TRIALS/ruleset.json`. Do not run its `POST`: ruleset 25531114 exists, and a second `POST` would create another ruleset, or fail and leave `RULESET_ID` empty.
-2. Run Step 11a's `perl` line and its `PUT`. Skip its read-back, fixture and merge lines: the read-back below replaces the first, the fixture is committed, and #3 is merged.
-3. Read the ruleset back:
-
-```sh
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters | .required_approving_review_count, .require_last_push_approval, .require_extra_approval_for_unattributed_changes'
-```
-
-Must observe: `0`, then `false`. Record the third value. Step 11a's read-back showed `true` after a `POST` and a `PUT` that both left the parameter out. Whether a `PUT` that leaves it out resets experiment B's `false` is unknown. If it prints `false`, record that the steps below ran with a value that rs-setup's ruleset did not produce in the trial.
-
-Then run Step 11a's second block, from `git switch main && git pull --ff-only` to the last merge. Must observe: the merge attempt while the `devctl check` run is queued or in progress is refused, and the merge after the check passed succeeds. Record `reviewDecision`, `mergeStateStatus` and `statusCheckRollup` before the first attempt, gh's message and each exit code. If the run had finished before the first attempt, record that.
-
-#### Code-owner review at an approval count of 0
-
-The decided ruleset relies on code-owner review at a count of 0: in Walk, it is all that keeps GitHub from merging the Worker App's pull request without the owner. The trial did not observe it. Step 10 ran at a count of 1, and #3 changed README.md, which has no code owner in Flight. Run this after Step 11a's second block, which applies the decided ruleset. `rs-trial` is in Flight, so the pull request changes `docs/AGENTS.md`, which the Protected set's `/**/AGENTS.md` line gives to the owner. Walk's `*` line relies on the same code-owner rule and is not tried separately.
-
-First check the step's precondition: on `main`, an active CODEOWNERS line gives `docs/AGENTS.md` to the owner, and the ruleset requires code-owner review.
-
-```sh
-gh api "repos/$OWNER/rs-trial/contents/.github/CODEOWNERS?ref=main" --jq .content | base64 -d | grep -n AGENTS.md
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters.require_code_owner_review'
-```
-
-Must observe: an active line, one that does not start with `#`, such as `/**/AGENTS.md @<owner's login>`; then `true`. If either check fails, record both outputs and stop this step without a conclusion: GitHub's answer below would not show whether code-owner review holds at a count of 0. Otherwise:
-
-```sh
-git switch main && git pull --ff-only
-git switch -c trial-code-owner
-printf '\nA trial line in a Protected file.\n' >> docs/AGENTS.md
-git commit -am "Trial change to a Protected file"
-./devctl as worker push; echo "push exit $?"
-./devctl as worker gh pr create --base main --head trial-code-owner --title "Trial change to a Protected file" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
-PR5=$(gh pr view trial-code-owner --json number --jq .number)
-./devctl as reviewer gh pr review "$PR5" --approve --body "Trial approval by the Reviewer App"; echo "review exit $?"
-gh pr checks "$PR5" --watch
-gh pr view "$PR5" --json reviewDecision,mergeStateStatus
-./devctl as worker gh pr merge "$PR5" --squash; echo "merge exit $?"
-```
-
-Must observe: after the check passed, GitHub refuses the Worker App's merge, and the exit code is nonzero. Record `reviewDecision`, `mergeStateStatus`, gh's message and the exit code. Then the owner approves the pull request in the browser, and runs:
-
-```sh
-gh pr view "$PR5" --json reviewDecision,mergeStateStatus
-./devctl as worker gh pr merge "$PR5" --squash; echo "merge exit $?"
-```
-
-Must observe: `reviewDecision` is `APPROVED`, and the Worker App's merge succeeds. Record both outputs and the exit code. If GitHub merged the pull request before the owner approved, with the precondition met, code-owner review does not hold at a count of 0: record that and stop, because the owner's decisions of 2026-10-21 rely on it.
-
-#### Step 12: a Reviewer App change request, and a workflow change
-
-Run Task 10 Step 12 as written. The approval count is now 0, so record whether the Reviewer App's change request alone blocks the merge, with `reviewDecision` and `mergeStateStatus` after the check passed. Then record GitHub's answer to the Worker App's push of a branch that brings in a workflow change, devctl's `devctl: neither App may push a change under .github/workflows/; ...` line and the exit code.
-
-#### Step 13: `doctor --skills` live
-
-Run Task 10 Step 13 in the `rs-trial` clone. Record every skills line and the exit code, and whether Claude Code listed `trial-release`. `PROBE_MODEL`, `haiku`, stays unconfirmed until this step confirms or corrects it; a wrong model is fixed in `harness.py`, with its test.
-
-#### Step 14: clean up
-
-Deferred, so `rs-trial` stays available for the steps above. Once they are done, the owner closes any open trial pull request and decides whether to delete `rs-trial` and `rs-trial-private`. The Apps stay, as the owner's real Apps.
-
-#### Not reported from the steps that ran
-
-The owner's record does not hold these, so each stays unknown until the owner reports it:
-
-- Step 2: the macOS, git, gh, uv and Claude Code versions, the owner's GitHub plan, `git -C "$PLAN4" rev-parse HEAD` and the fast check's exit code.
+- The owner's GitHub plan. The rerun's `gh api user --jq .plan.name` printed an empty line, exit 0. Step 6's 403 matches GitHub Free.
+- Step 2: `git -C "$PLAN4" rev-parse HEAD` and the fast check's exit code. The rerun recorded the versions it ran with, not those of the first pass.
 - Step 3: the Apps existed from 2026-10-19. Not recorded: whether Step 3's command ran, and its output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key.
-- Step 5: the read of the existing item, `security find-generic-password -s "rapid-ship/worker-app/$WORKER_ID" -w`, its exit code, and whether a macOS dialog appeared. Until then, that any process the owner runs can read both keys is unconfirmed.
 - Step 6: the output and exit code of `rapid-ship app --repository`, and whether the install URL added `rs-trial-private` to the existing installation.
 - Step 7: both calls' output and exit codes.
 - Step 9: doctor's exit code, and whether GitHub's web interface names `actor_id` 5 as the admin role.
 - Step 10: the output and exit codes after the owner's review: the merge refused while the thread was open, and the Worker App's merge.
 - Step 11: the `grep -c` count, doctor's output after the move to Flight, and `reviewDecision` and `mergeStateStatus` before each merge attempt.
 - Step 11a: the `PUT` call's output and the first read-back's value.
+- Step 13: whether Claude Code listed `trial-release`. doctor leaves a user-invoked skill out of the names it reports, so its output cannot show it.
 
 ### Task 11: pending Owner steps
 
