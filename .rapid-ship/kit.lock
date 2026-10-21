@@ -211,7 +211,7 @@ sha256 = "d6e8d92c04dd0d11235ab926ada7432626abd382eedc2daf64a37f1319403440"
 [[file]]
 path = "tools/devctl/devctl/identity.py"
 kind = "managed"
-sha256 = "0708c914a11887e87bcab7af1e397d702c0595e501e3e3ea11184b10a7edd672"
+sha256 = "cafefb80c47fee424a3a9d26f75ef86ef94d9edd47df100057de3fdcb01c838d"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

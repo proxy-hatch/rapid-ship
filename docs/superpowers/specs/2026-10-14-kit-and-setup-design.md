@@ -679,7 +679,7 @@ Agent identity is optional ([ADR 0002](../../adr/0002-github-gates-merges-review
 - **`gh`:** runs `gh` with the given arguments as the role's App. The first argument must be `pr`, `issue` or `api`; any other is refused, because `gh auth` can print the token and `gh alias` or `gh extension` can run other code with it. `gh pr merge --admin` is refused.
 - **Exit codes:** 1 when devctl refuses; 2 when it cannot mint a token or start the tool, or when the tool timed out or printed more than devctl keeps, because devctl cannot then show its whole answer; otherwise the exit code of `gh` or `git`.
 - **Merges:** `./devctl as worker gh pr merge` is a merge like any other, so the merge guard checks it first. G3 denies the other forms it recognises when they run through `./devctl as <role> gh`, such as a merge or a write to the default branch's ref through `gh api` (section 4).
-- **Workflows:** neither App has the Workflows permission, so GitHub refuses an App's push that changes `.github/workflows/`. The owner pushes such a change, which is in the Protected set anyway.
+- **Workflows:** neither App has the Workflows permission, so GitHub refuses an App's push of its own change under `.github/workflows/`. The owner pushes such a change, which is in the Protected set anyway. GitHub accepted an App's push whose only new commit merged in a workflow change already on the base branch ([plan 4's trial](../../trials/2026-10-21-agent-identity.md#rerun-of-the-pending-steps)), so a Worker can still merge the base branch into its branch.
 
 Each run mints its own token and holds it only in memory:
 
