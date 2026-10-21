@@ -106,7 +106,7 @@ Agent identity is optional (Spec 1). It is on when `[github]` in `project.toml` 
 | A Worker pushes and opens a pull request | `./devctl as worker push`, then `./devctl as worker gh pr create` | `git push`, then `gh pr create`, as the owner |
 | A Reviewer posts its verdict | `./devctl as reviewer gh api` to `POST /repos/{owner}/{repo}/pulls/{number}/reviews`, with event `APPROVE` or `REQUEST_CHANGES` | `gh api` to the same endpoint, as the owner, with event `COMMENT`. GitHub never lets a pull request's author approve it or request changes on it |
 | A Reviewer resolves a review thread | `./devctl as reviewer gh api graphql`, with the `resolveReviewThread` mutation | `gh api graphql` with the same mutation, as the owner |
-| The Lead merges a pull request it may merge | `./devctl as worker gh pr merge <number> --squash` | `gh pr merge <number> --squash`, as the owner. GitHub accepts it only when the ruleset requires no approval (section 6.5) |
+| The Lead merges a pull request it may merge | `./devctl as worker gh pr merge <number> --squash` | `gh pr merge <number> --squash`, as the owner. GitHub accepts it only for a pull request that needs no approval. Under the ruleset, which requires code-owner review at an approval count of 0, that is one outside the Protected set in Flight (section 6.5) |
 | The owner approves an agent pull request | A normal GitHub approval | Not possible, because the owner is its author. The owner merges it in GitHub's web interface, through the admin bypass |
 | Revisions | Countable from GitHub (Spec 3) | "unknown: needs Agent identity" (Spec 3) |
 
