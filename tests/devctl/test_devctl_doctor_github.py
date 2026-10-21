@@ -40,13 +40,15 @@ RULESET: dict[str, Any] = json.loads((FIXTURES / "ruleset.json").read_text())
 # (every_pr, agent_identity): Walk and Flight, each with Agent identity off and on.
 MODES = ((True, False), (True, True), (False, False), (False, True))
 APPROVAL_IN_FLIGHT = (
-    "the pull_request rule requires an approval, so GitHub may refuse the Worker App's merge of an "
-    "agent PR outside the Protected set on the Reviewer App's approval, as in plan 4's trial"
+    "the pull_request rule requires an approval, which GitHub takes only from someone with write "
+    "access and not from the Reviewer App, so every agent PR waits for a person; set the count to "
+    "0 and approval of the most recent push off, or use Walk (every_pr = true)"
 )
 LAST_PUSH_IN_FLIGHT = (
-    "the pull_request rule requires approval of the most recent push, so GitHub refuses the Worker "
-    "App's merge of an agent PR outside the Protected set on the Reviewer App's approval, as in "
-    "plan 4's trial"
+    "the pull_request rule requires approval of the most recent push, which GitHub takes only from "
+    "someone with write access and not from the Reviewer App, so every agent PR waits for a "
+    "person; set the count to 0 and approval of the most recent push off, or use Walk "
+    "(every_pr = true)"
 )
 PROTECTED = "".join(
     f"/{path} @o\n"
@@ -159,8 +161,8 @@ def test_only_flight_with_agent_identity_refuses_a_required_approval(
 ) -> None:
     ruleset = copy.deepcopy(RULESET)
     rule(ruleset, "pull_request")["parameters"].update(required)
-    # Only Flight with Agent identity relies on the Reviewer App's approval alone, which either
-    # setting stops or may stop (plan 4's live trial).
+    # Only Flight with Agent identity relies on the Reviewer App's approval alone, which GitHub
+    # takes for neither setting: the App has no write access.
     assert ruleset_problems([ruleset], "main", every_pr=False, agent_identity=True) == [problem]
     for every_pr, agent_identity in ((True, False), (True, True), (False, False)):
         assert (

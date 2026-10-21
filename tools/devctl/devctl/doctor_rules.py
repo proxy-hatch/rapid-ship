@@ -160,17 +160,25 @@ def _closest(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> l
     return [] if any(not problems for problems in found) else min(found, key=len)
 
 
+# GitHub counts an approval only from someone with write access to the repository, and the Reviewer
+# App has Contents: read (Spec 1 section 3, and section 8, step 7.3).
+_NOT_FROM_THE_REVIEWER = (
+    "which GitHub takes only from someone with write access and not from the Reviewer App, so "
+    "every agent PR waits for a person; set the count to 0 and approval of the most recent push "
+    "off, or use Walk (every_pr = true)"
+)
+
+
 def _requires_approval(count: object) -> bool:
     return isinstance(count, int) and not isinstance(count, bool) and count > 0
 
 
 def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
-    """The approvals that stop, or may stop, the Worker App from merging an agent PR outside the
-    Protected set on the Reviewer App's approval, in Flight with Agent identity. GitHub applies
-    every active ruleset on the branch, so a requirement in any one of them applies. Plan 4's
-    live trial: GitHub refused such a merge at a count of 1 and at 0, each with approval of the
-    most recent push required, and merged it once that was off too. The count was never tried
-    alone."""
+    """The approvals that make every agent PR wait for a person in Flight with Agent identity,
+    because GitHub takes neither from the Reviewer App. GitHub applies every active ruleset on the
+    branch, so a requirement in any one of them applies. In plan 4's live trial, GitHub refused the
+    Worker App's merge on the Reviewer App's approval until both were off; it did not try the
+    count alone."""
     params = [
         _rules(ruleset).get("pull_request", {})
         for ruleset in rulesets
@@ -179,15 +187,12 @@ def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch
     blocks = [
         (
             any(_requires_approval(p.get("required_approving_review_count")) for p in params),
-            "the pull_request rule requires an approval, so GitHub may refuse the Worker App's "
-            "merge of an agent PR outside the Protected set on the Reviewer App's approval, as in "
-            "plan 4's trial",
+            "the pull_request rule requires an approval, " + _NOT_FROM_THE_REVIEWER,
         ),
         (
             any(p.get("require_last_push_approval") is True for p in params),
-            "the pull_request rule requires approval of the most recent push, so GitHub refuses "
-            "the Worker App's merge of an agent PR outside the Protected set on the Reviewer App's "
-            "approval, as in plan 4's trial",
+            "the pull_request rule requires approval of the most recent push, "
+            + _NOT_FROM_THE_REVIEWER,
         ),
     ]
     return [problem for blocked, problem in blocks if blocked]
@@ -206,8 +211,8 @@ def ruleset_problems(
     ruleset, code-owner review included, in every Mode and with or without Agent identity (section
     8, steps 7 and 8). rs-setup's ruleset requires no approval count and no approval of the most
     recent push (step 7). Walk, and Flight without Agent identity, accept a ruleset with or without
-    them. Flight with Agent identity needs every enforced ruleset without them: in plan 4's trial,
-    GitHub refused the Worker App's merge on the Reviewer App's approval until both were off.
+    them. Flight with Agent identity needs every enforced ruleset without them, because GitHub takes
+    neither approval from the Reviewer App, so every agent PR would wait for a person.
     """
     if not rulesets:
         return [NO_RULESET]
