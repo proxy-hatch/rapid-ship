@@ -77,11 +77,11 @@ The stand-in's answers and the wiring files follow each Harness's hook documenta
 **Antigravity CLI (agy).** Sources, read 2026-10-21: [hooks](https://antigravity.google/docs/hooks), [permissions](https://antigravity.google/docs/permissions), [the `/permissions` command](https://antigravity.google/docs/cli/commands/permissions), [headless mode](https://antigravity.google/docs/cli/headless), [subagents](https://antigravity.google/docs/subagents) and [execution modes](https://antigravity.google/docs/cli/modes).
 
 - Wiring file: `.agents/hooks.json` at the project root. It maps a hook name to its events: `{"<name>": {"PreToolUse": [{"matcher": "...", "hooks": [...]}]}}`. `/hooks` in the TUI lists the loaded hooks. Hooks in `~/.gemini/config/hooks.json`, in `~/.gemini/antigravity-cli/settings.json` and in installed plugins also load (hooks). No trust or review step is documented.
-- Matcher: a regular expression on the tool name, where `""` or `"*"` matches every tool. The shell tool is `run_command`; file edits use `write_to_file`, `replace_file_content` and `multi_replace_file_content`. No notebook tool is listed (hooks).
+- Matcher: a regular expression on the tool name, where `""` or `"*"` matches every tool. The shell tool is `run_command`; file edits use `write_to_file`, `replace_file_content` and `multi_replace_file_content`; `invoke_subagent` starts subagents. No notebook tool is listed (hooks).
 - Handler: `type` is `command`, the only type; `command` is a shell command; `timeout` is in seconds, with a default of 30 (hooks). The page does not say which directory the command runs in.
 - Input: camelCase JSON with `toolCall.name`, `toolCall.args`, `stepIdx`, `conversationId`, `workspacePaths`, `transcriptPath`, `artifactDirectoryPath` and `modelName` (hooks).
 - Answer: JSON on stdout with a required `decision` and an optional `reason`. `allow` delegates to the next hook or the default policy, `deny` hard-blocks, and `ask` prompts while respecting "Always Allow"; `auto_approve`, `force_ask` and `deny_unless_prior_grant` also exist (hooks). Because `decision` is required, mode `none` also tests what agy does with no answer. The documented way to give no decision is `allow`, which the stand-in prints in mode `allow`.
-- Permissions: the CLI asks before a shell command by default, and reads and writes inside the workspace are auto-allowed. Allow, ask and deny rules live in `~/.gemini/antigravity-cli/settings.json` (permissions). `/permissions` lists them in the Project, Shared and Global scopes (`/permissions` command).
+- Permissions: the CLI asks before a shell command by default, and reads and writes inside the workspace are auto-allowed. Allow, ask and deny rules live in `~/.gemini/antigravity-cli/settings.json`. Each rule names a resource, such as `command(git)` or `write_file(src/)`, and no listed resource kind covers `invoke_subagent` (permissions). `/permissions` lists the rules in the Project, Shared and Global scopes (`/permissions` command).
 - Exit codes and the timeout's effect: not documented.
 - Subagents: the agent starts one with `invoke_subagent`, in workspace mode `inherit`, `branch` (its own Git worktree) or `share`. A subagent inherits the parent's command prefixes, file scopes and sandbox settings (subagents). Hooks in subagents are not documented.
 - Headless: `agy -p "<prompt>"`. A tool that needs approval it cannot get is soft-denied: the run continues and exits 0. Reads and writes inside the workspace are auto-allowed; shell commands default to Ask, so they are soft-denied unless granted (headless mode). Hooks in headless mode are not documented.
@@ -101,8 +101,11 @@ It then acts on the word in `$SPIKE_DIR/mode`:
 | `exit1` | nothing | `spike: exit 1` | 1 |
 | `exit2` | nothing | `spike: exit 2` | 2 |
 | `sleep` | nothing, after sleeping 10 seconds, twice the wiring's `timeout` of 5 | nothing | 0 |
+| any mode, for agy's `invoke_subagent` | agy's allow answer, reason `spike: allow` | nothing | 0 |
 
 Any other word, or a missing mode file, acts as `none`. An unknown Harness name saves the event, writes `spike: unknown harness <name>` to stderr and exits 1. Mode `allow` is a fallback for agy, whose pages make `decision` required: Step 2 uses it if agy treats the empty answer of `none` as a failure.
+
+For agy, a call to `invoke_subagent` gets agy's allow answer in every mode, before the mode applies. agy's wiring matches every tool, so the hook also sees the lead's call that starts a subagent. A deny, a declined ask or a failed hook on that call would end a subagent run before the subagent starts. The permission resources that agy lists do not include `invoke_subagent`, so an ask on it would likely prompt on every run.
 
 | Harness | Answer in modes `deny` and `ask`, from the pages above | Answer in mode `allow` |
 | --- | --- | --- |
@@ -115,7 +118,7 @@ Each wiring file runs `standin.sh` with its Harness's name and a `timeout` of 5 
 
 - `.claude/settings.json`: `PreToolUse` with the matcher `Bash|Edit|Write|MultiEdit|NotebookEdit|Monitor`, running `"$CLAUDE_PROJECT_DIR"/standin.sh claude`, the form Spec 1 gives `devctl hook`.
 - `.codex/hooks.json`: `PreToolUse` with the matcher `Bash|apply_patch`, running `"$(git rev-parse --show-toplevel)/standin.sh" codex`, the form the Codex page advises.
-- `.agents/hooks.json`: `PreToolUse` with the matcher `*`, running the same git-root form with `agy`. It matches every tool because Spec 1's agy wiring names no tool and agy lists no notebook tool. In modes `deny`, `ask` and `sleep`, every agy tool call therefore gets that answer.
+- `.agents/hooks.json`: `PreToolUse` with the matcher `*`, running the same git-root form with `agy`. It matches every tool because Spec 1's agy wiring names no tool and agy lists no notebook tool. Every agy tool call therefore gets the mode's answer, except `invoke_subagent`, which the stand-in always allows.
 
 The block below creates the scratch repository `hook-spike` outside rapid-ship, at `$SPIKE_REPO`, which defaults to `$HOME/hook-spike`. It keeps the stand-in's files in `$SPIKE_DIR`, which defaults to `$SPIKE_REPO/.spike` and is ignored by git. `SPIKE_DIR` sits inside the repository because a Codex workspace-write sandbox can write there, and the Codex pages do not say whether a hook runs inside the sandbox. `standin.sh` holds the absolute `SPIKE_DIR`, so it works whatever directory and environment a Harness gives the hook.
 
@@ -189,6 +192,9 @@ case $harness in
   claude | codex | agy) ;;
   *) printf 'spike: unknown harness %s\n' "$harness" >&2; finish 1 ;;
 esac
+
+# agy's matcher * also matches invoke_subagent. Allowing it in every mode lets a subagent run reach the subagent.
+if [ "$harness" = agy ] && grep -q '"name" *: *"invoke_subagent"' "$event"; then answer allow; finish 0; fi
 
 case $mode in
   deny | ask) answer "$mode"; finish 0 ;;
@@ -293,8 +299,8 @@ The owner runs Steps 2 to 6 on one machine, in order. Note what each Session sho
 Answer the permission prompts for tool calls the same way in every run, so that a saved answer cannot hide the hook's effect. The trust prompts and Codex's `/hooks` review follow Steps 2 and 4 instead.
 
 1. Approve a prompt for that one call only. Never choose an answer that lasts for the Session or saves a rule, such as Claude Code's "Yes, and don't ask again" or agy's "Always Allow". Claude Code saves such a rule for the whole scratch repository. agy's `ask` answer respects "Always Allow", and agy's subagents inherit the parent's allowed command prefixes (Setup).
-2. In Step 3's `ask` runs, decline every prompt. A prompt then shows as a call that did not run.
-3. Record your answer to each prompt: in Step 2 under Notes, and in Step 3 under Owner's answer in Results.
+2. In Step 3's `ask` runs, decline only the prompt for the call under test: `git status`, or the write of `spike.txt` in a write-prompt run. Approve any other prompt, such as one for a read before the write, so that the agent reaches the call under test. A declined prompt then shows as a call that did not run.
+3. Record each prompt, the call it was for and your answer: in Step 2 under Notes, and in Step 3 under Owner's answer in Results.
 
 Paste these helpers into each new terminal:
 
@@ -330,7 +336,11 @@ The prompts:
 ### Step 2 (Owner): the event matrix
 
 - [ ] Start the first Session of each Harness in `$SPIKE_REPO`. Accept its trust prompt if it shows one, and check in `/hooks` that the spike's hook is loaded. For Codex, also do the first item of Step 4 now.
-- [ ] Before the first run, list what else runs on each Harness's tool calls: in Claude Code, `/hooks`, `/plugin` (its dim line names the active mods) and `/status`; in Codex, `/hooks`, `/plugins` and `/status`; in agy, `/hooks`. In Claude Code, turn off each active mod from the Installed tab in `/plugin`, because a mod that handles `tool.check` can approve a call that the hook blocked (Setup). Fill Conditions under Versions with what stays on.
+- [ ] Before the first run, list what else runs on each Harness's tool calls: in Claude Code, `/hooks`, `/plugin` (its dim line names the active mods) and `/status`; in Codex, `/hooks`, `/plugins` and `/status`; in agy, `/hooks`. In Claude Code, turn off each active mod from the Installed tab in `/plugin`, because a mod that handles `tool.check` can approve a call that the hook blocked (Setup).
+- [ ] Fill each row of Conditions under Versions:
+  - the Claude Code login, from the `Login method` row of `/status` (not the email), and the managed source on its `Setting sources` line;
+  - the permission mode or approval policy of each lead Session: the status bar under the prompt in Claude Code and agy, and `/status` in Codex;
+  - the mods you turned off, and the hooks, plugins and mods that stay on.
 - [ ] Run `spike_mode none`.
 - [ ] For each Harness, and for each Session kind (lead, subagent, headless): run `spike_reset`, give the edit prompt, wait until the Session finishes, then run `spike_keep <harness>-<session>-none`.
 - [ ] Record for each run whether an event was saved for the shell call, the write, the edit and the notebook edit, and in Claude Code for the Monitor call. Record the tool name each event carries, and anything the Session showed about the hook.
@@ -438,7 +448,7 @@ Step 7 adds a row for each `agy-<session>-allow` run, if Step 2 needed the fallb
 | agy | headless | `deny` | | | | n/a | | |
 | agy | headless | `ask` | | | | | | |
 
-agy's `ask` rows and its headless `deny` row are runs of the write prompt.
+agy's `ask` rows and its headless `deny` row are runs of the write prompt. In agy's subagent rows, the stand-in allowed the lead's `invoke_subagent` call (Setup).
 
 The edit inside the linked worktree, in Claude Code:
 
@@ -506,6 +516,6 @@ Step 7 records the owner's decisions from Step 6.
 - The stand-in is not `devctl hook`. It answers by mode, not by rules, and it starts `sh`, not uv and Python. Step 5 times `./devctl --version` instead, which runs no rule; Task 8 times the real hook.
 - Each run happens once, on one machine, with one version of each Harness. A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
 - The documented behaviour in Setup holds for the pages as read on 2026-10-21. Where a page documents nothing, such as agy's exit codes or Codex's exit 1, only the runs answer the question.
-- agy's wiring matches every tool, so its runs also save events for reads and listings.
+- agy's wiring matches every tool, so its runs also save events for reads and listings. The stand-in allows agy's `invoke_subagent` in every mode, so the spike does not observe a deny or an ask on starting a subagent.
 - Other hooks, plugins and mods on the owner's machine also run on these events. Conditions under Versions lists those that stayed on.
 - Desktop apps and IDE extensions are out of scope.
