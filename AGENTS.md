@@ -55,6 +55,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Linear is this repository's tracker. Maintainers keep its tasks there; GitHub holds code, checks and PRs. Do not mirror tasks into GitHub Issues. Connect Linear through its official MCP or API, never a third-party CLI.
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
+- Squash-merge every pull request; the repository's settings do not enforce it. In a stack of PRs, once the PR below is squash-merged, retarget the next PR to `main` and merge `main` into it before merging it.
 
 ## Safety
 
