@@ -65,6 +65,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
+- Squash-merge every pull request; the repository's settings do not enforce it. In a stack of PRs, once the PR below is squash-merged, retarget the next PR to `main` and merge `main` into it before merging it.
 
 ## Safety
 
