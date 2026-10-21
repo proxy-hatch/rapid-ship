@@ -22,7 +22,7 @@ Without Agent identity, agents act as the owner and these four are lost:
 1. The owner cannot approve an agent's pull request, so a solo owner merges it through the admin bypass.
 2. The Reviewer's verdicts are comments from the owner's account, not reviews.
 3. Revisions and the other per-agent-PR metrics report "unknown: needs Agent identity". Metrics over all pull requests still work: Reverts, red default-branch CI after a merge, and pull requests closed unmerged.
-4. In Flight, the ruleset must drop its review requirement so that the Lead can merge without a person's approval. CODEOWNERS then binds no one, and the merge guard holds the Protected set: it denies an agent's merge of a Protected-set pull request, which the owner merges in GitHub's web interface. `rs-lead` explains this, and the owner decides.
+4. In Flight, the ruleset must drop its review requirement so that the Lead can merge without a person's approval. CODEOWNERS then binds no one, and the merge guard holds the Protected set: it denies an agent's merge of a Protected-set pull request, which the owner merges in GitHub's web interface. `rs-lead` explains this, and the owner decides. On 2026-10-21 the owner changed this: the ruleset keeps code-owner review in every setup, because at an approval count of 0 the Lead can merge a pull request outside the Protected set with code-owner review on, and the owner merges a Protected-set pull request their account opened through the admin bypass ([Spec 1](../superpowers/specs/2026-10-14-kit-and-setup-design.md), section 11).
 
 ## When to set up Agent identity
 

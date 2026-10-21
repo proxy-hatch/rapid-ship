@@ -48,10 +48,6 @@ LAST_PUSH_IN_FLIGHT = (
     "App's merge of an agent PR outside the Protected set on the Reviewer App's approval, as in "
     "plan 4's trial"
 )
-RELAXED_IN_FLIGHT = (
-    "an active ruleset on main has rs-setup's settings without code-owner review, which doctor "
-    "accepts in Flight without Agent identity; GitHub then does not enforce the Protected set"
-)
 PROTECTED = "".join(
     f"/{path} @o\n"
     for path in (
@@ -344,59 +340,30 @@ def test_doctor_makes_no_writes(
     assert all(m == "POST" and p.endswith("/access_tokens") for m, p in writes)
 
 
-def relaxed_ruleset() -> dict[str, Any]:
-    """rs-setup's ruleset without code-owner review, which Flight without Agent identity drops."""
+@pytest.mark.parametrize(("every_pr", "agent_identity"), MODES)
+def test_every_mode_requires_code_owner_review(
+    ctx_github: MakeContext, recorded: RecordedOwner, every_pr: bool, agent_identity: bool
+) -> None:
+    context = ctx_github()
+    escalation = dataclasses.replace(context.project.escalation, every_pr=every_pr)
+    project = dataclasses.replace(context.project, escalation=escalation)
+    if not agent_identity:
+        project = dataclasses.replace(project, worker_app=None, reviewer_app=None)
+    mode = dataclasses.replace(context, project=project)
+    [whole] = [i for i in github_items(mode) if i.name == "ruleset"]
+    assert (whole.status, whole.detail) == (
+        "ok",
+        "an active ruleset on main has every setting rs-setup applies",
+    )
+    # One ruleset in every setup: no Mode accepts it without code-owner review (Spec 1 section 8).
     ruleset = copy.deepcopy(RULESET)
     rule(ruleset, "pull_request")["parameters"].update(require_code_owner_review=False)
-    return ruleset
-
-
-def test_only_flight_without_agent_identity_accepts_no_review_requirement() -> None:
-    relaxed = relaxed_ruleset()
-    assert ruleset_problems([relaxed], "main", every_pr=False, agent_identity=False) == []
-    assert ruleset_problems([RULESET], "main", every_pr=False, agent_identity=False) == []
-    # The whole ruleset passes in Walk without Agent identity and in Flight with it too.
-    for every_pr, agent_identity in ((True, False), (False, True)):
-        full = ruleset_problems([RULESET], "main", every_pr=every_pr, agent_identity=agent_identity)
-        assert full == []
-    for every_pr, agent_identity in ((True, False), (True, True), (False, True)):
-        problems = ruleset_problems(
-            [relaxed], "main", every_pr=every_pr, agent_identity=agent_identity
-        )
-        assert problems == ["the pull_request rule does not require code-owner review"]
-
-
-def test_the_relaxed_ruleset_still_needs_everything_else() -> None:
-    relaxed = relaxed_ruleset()
-    rule(relaxed, "pull_request")["parameters"].update(allowed_merge_methods=["merge"])
-    assert ruleset_problems([relaxed], "main", every_pr=False, agent_identity=False) == [
-        "the pull_request rule must allow squash merges only"
-    ]
-    relaxed["rules"] = [r for r in relaxed["rules"] if r["type"] != "pull_request"]
-    assert ruleset_problems([relaxed], "main", every_pr=False, agent_identity=False) == [
-        "the ruleset has no pull_request rule"
-    ]
-
-
-def test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identity(
-    ctx_github: MakeContext, recorded: RecordedOwner
-) -> None:
-    recorded.serve("repos/o/r/rulesets/9", relaxed_ruleset())
-    context = ctx_github()
-    walk = {i.name: i for i in github_items(context)}["ruleset"]
-    escalation = dataclasses.replace(context.project.escalation, every_pr=False)
-    on = dataclasses.replace(context.project, escalation=escalation)
-    off = dataclasses.replace(on, worker_app=None, reviewer_app=None)
-    with_identity = {i.name: i for i in github_items(dataclasses.replace(context, project=on))}
-    flight = {i.name: i for i in github_items(dataclasses.replace(context, project=off))}
-    assert walk.status == "missing"
-    assert with_identity["ruleset"].status == "missing"
-    assert flight["ruleset"].status == "ok"
-    assert flight["ruleset"].detail == RELAXED_IN_FLIGHT
-    # Flight with Agent identity, the Mode Task 10's trial reaches, accepts the whole ruleset.
-    recorded.serve("repos/o/r/rulesets/9", RULESET)
-    with_identity = {i.name: i for i in github_items(dataclasses.replace(context, project=on))}
-    assert with_identity["ruleset"].status == "ok"
+    recorded.serve("repos/o/r/rulesets/9", ruleset)
+    [without] = [i for i in github_items(mode) if i.name == "ruleset"]
+    assert (without.status, without.detail) == (
+        "missing",
+        "the pull_request rule does not require code-owner review",
+    )
 
 
 def test_agent_identity_off_has_no_app_items_and_asks_github_nothing(

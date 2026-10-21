@@ -255,7 +255,7 @@ One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_ap
 
 - Plan 4's live trial found that GitHub does not take the Reviewer App's approval: with Agent identity in Flight, GitHub refused the Worker App's merge until the count was 0 and last-push approval was off. Both are off in every Mode, and code-owner review decides who must approve (Spec 1 section 8, step 7).
 - doctor accepts an approval count and last-push approval in Walk, and in Flight without Agent identity. With `every_pr = false` and Agent identity on, it reports a count above 0, or `require_last_push_approval` `true`, in any active ruleset on the default branch. Last-push approval stops the Worker App's merge of an agent PR outside the Protected set on the Reviewer App's approval, and a count above 0 may stop it.
-- With `every_pr = false` and Agent identity off, doctor also accepts a `pull_request` rule with no code-owner review, because Spec 1 section 8, step 8 drops the review requirement in that Mode. Whether that Mode should still drop it, now that the count is 0, is open (Spec 1 section 11).
+- doctor requires code-owner review in every Mode, with or without Agent identity, because one ruleset serves every setup (Spec 1 section 8, step 8.6, and section 11).
 
 ### Agent identity (plan 4)
 

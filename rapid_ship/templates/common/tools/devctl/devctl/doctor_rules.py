@@ -71,13 +71,12 @@ def _target_problems(ruleset: Mapping[str, object], default_branch: str) -> list
     return ["the ruleset does not target the default branch"]
 
 
-def _pull_request_problems(params: Mapping[str, object], *, review: bool) -> list[str]:
-    """The pull_request rule's problems. review=False leaves out code-owner review, which Flight
-    without Agent identity drops (Spec 1 section 8, step 8). No Mode requires an approval count or
-    approval of the most recent push (step 7)."""
+def _pull_request_problems(params: Mapping[str, object]) -> list[str]:
+    """The pull_request rule's problems. Every Mode requires code-owner review, and none requires an
+    approval count or approval of the most recent push (Spec 1 section 8, step 7)."""
     holds = [
         (
-            not review or params.get("require_code_owner_review") is True,
+            params.get("require_code_owner_review") is True,
             "the pull_request rule does not require code-owner review",
         ),
         (
@@ -139,20 +138,14 @@ def _rules(ruleset: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
     return found
 
 
-def _one_ruleset_problems(
-    ruleset: Mapping[str, object], default_branch: str, *, review: bool
-) -> list[str]:
+def _one_ruleset_problems(ruleset: Mapping[str, object], default_branch: str) -> list[str]:
     rules = _rules(ruleset)
     pull_request = rules.get("pull_request")
     # Without the rule, its other settings have nothing to describe.
     return [
         *_target_problems(ruleset, default_branch),
         *([] if ruleset.get("enforcement") == "active" else ["the ruleset is not active"]),
-        *(
-            [NO_PULL_REQUEST_RULE]
-            if pull_request is None
-            else _pull_request_problems(pull_request, review=review)
-        ),
+        *([NO_PULL_REQUEST_RULE] if pull_request is None else _pull_request_problems(pull_request)),
         *_status_check_problems(rules.get("required_status_checks", {})),
         *([] if "non_fast_forward" in rules else ["force pushes are not blocked"]),
         *([] if "deletion" in rules else ["deletion is not blocked"]),
@@ -160,12 +153,10 @@ def _one_ruleset_problems(
     ]
 
 
-def _closest(
-    rulesets: Sequence[Mapping[str, object]], default_branch: str, *, review: bool
-) -> list[str]:
+def _closest(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
     """No problem when one ruleset has none, because GitHub applies every ruleset that matches.
     Otherwise the problems of the ruleset with the fewest."""
-    found = [_one_ruleset_problems(r, default_branch, review=review) for r in rulesets]
+    found = [_one_ruleset_problems(r, default_branch) for r in rulesets]
     return [] if any(not problems for problems in found) else min(found, key=len)
 
 
@@ -211,21 +202,19 @@ def ruleset_problems(
 ) -> list[str]:
     """What keeps the default branch from matching Spec 1 section 8's ruleset for the Mode.
 
-    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. rs-setup's ruleset requires
-    no approval count and no approval of the most recent push (section 8, step 7). Walk accepts a
-    ruleset with or without them. Flight with Agent identity needs every enforced ruleset without
-    them: in plan 4's trial, GitHub refused the Worker App's merge on the Reviewer App's approval
-    until both were off. Flight without Agent identity accepts a ruleset with or without them, and
-    also one without code-owner review (section 8, step 8).
+    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. Every setup needs the same
+    ruleset, code-owner review included, in every Mode and with or without Agent identity (section
+    8, steps 7 and 8). rs-setup's ruleset requires no approval count and no approval of the most
+    recent push (step 7). Walk, and Flight without Agent identity, accept a ruleset with or without
+    them. Flight with Agent identity needs every enforced ruleset without them: in plan 4's trial,
+    GitHub refused the Worker App's merge on the Reviewer App's approval until both were off.
     """
     if not rulesets:
         return [NO_RULESET]
-    strict = _closest(rulesets, default_branch, review=True)
-    if every_pr:
-        return strict
-    if agent_identity:
-        return [*strict, *_app_merge_problems(rulesets, default_branch)]
-    return _closest(rulesets, default_branch, review=False) if strict else []
+    problems = _closest(rulesets, default_branch)
+    if every_pr or not agent_identity:
+        return problems
+    return [*problems, *_app_merge_problems(rulesets, default_branch)]
 
 
 def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:
