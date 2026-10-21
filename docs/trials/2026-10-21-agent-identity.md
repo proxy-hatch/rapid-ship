@@ -203,6 +203,8 @@ With Agent identity in Flight, an App-only merge needed `required_approving_revi
 
 The cost the owner accepted: in a team, a code owner who pushed the last commit to an agent's pull request can approve it themselves. Dismissing stale approvals still voids an approval given before a new push. Code-owner review still holds, so CODEOWNERS alone decides who must approve: the owner for every path in Walk, and for the Protected set in Flight. In Flight with Agent identity, GitHub then requires no approval for a pull request outside the Protected set. The Reviewer App's approval there is process, which the Lead brief carries, and the merge guard still requires a passing `devctl check` and no Protected paths.
 
+doctor follows the decision. It requires neither setting in any Mode, and in Flight with Agent identity it reports either one on as missing. Its fixture, `tests/devctl/fixtures/github/ruleset.json`, is Step 11a's read-back with `require_last_push_approval` set to false by hand: the state under which experiment A merged.
+
 ## Deviations from Checked facts and the plan's expectations
 
 | Expected | Source | Observed |

@@ -50,7 +50,6 @@ PYTHON_PROTECTED_PATHS = (
     "tox.ini",
     ".importlinter",
 )
-NO_APPROVAL = "no pull_request rule requires an approval"
 NO_PULL_REQUEST_RULE = "the ruleset has no pull_request rule"
 NO_RULESET = "no ruleset targets the default branch"
 _COMMENT = re.compile(r"\s+#.*$")
@@ -72,16 +71,11 @@ def _target_problems(ruleset: Mapping[str, object], default_branch: str) -> list
     return ["the ruleset does not target the default branch"]
 
 
-def _approves(count: object) -> bool:
-    return isinstance(count, int) and not isinstance(count, bool) and count >= 1
-
-
 def _pull_request_problems(params: Mapping[str, object], *, review: bool) -> list[str]:
-    """The pull_request rule's problems. review=False leaves out the review requirement, which
-    Flight without Agent identity drops: an approval, code-owner review and approval of the most
-    recent push (Spec 1 section 8, step 8)."""
+    """The pull_request rule's problems. review=False leaves out code-owner review, which Flight
+    without Agent identity drops (Spec 1 section 8, step 8). No Mode requires an approval count or
+    approval of the most recent push (step 7)."""
     holds = [
-        (not review or _approves(params.get("required_approving_review_count")), NO_APPROVAL),
         (
             not review or params.get("require_code_owner_review") is True,
             "the pull_request rule does not require code-owner review",
@@ -89,10 +83,6 @@ def _pull_request_problems(params: Mapping[str, object], *, review: bool) -> lis
         (
             params.get("dismiss_stale_reviews_on_push") is True,
             "the pull_request rule does not dismiss stale approvals on push",
-        ),
-        (
-            not review or params.get("require_last_push_approval") is True,
-            "the pull_request rule does not require approval of the most recent push",
         ),
         (
             params.get("allowed_merge_methods") == ["squash"],
@@ -155,12 +145,11 @@ def _one_ruleset_problems(
     rules = _rules(ruleset)
     pull_request = rules.get("pull_request")
     # Without the rule, its other settings have nothing to describe.
-    missing_rule = NO_APPROVAL if review else NO_PULL_REQUEST_RULE
     return [
         *_target_problems(ruleset, default_branch),
         *([] if ruleset.get("enforcement") == "active" else ["the ruleset is not active"]),
         *(
-            [missing_rule]
+            [NO_PULL_REQUEST_RULE]
             if pull_request is None
             else _pull_request_problems(pull_request, review=review)
         ),
@@ -180,6 +169,36 @@ def _closest(
     return [] if any(not problems for problems in found) else min(found, key=len)
 
 
+def _requires_approval(count: object) -> bool:
+    return isinstance(count, int) and not isinstance(count, bool) and count > 0
+
+
+def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
+    """The approvals that stop the Worker App from merging an agent PR outside the Protected set
+    in Flight with Agent identity. GitHub applies every active ruleset on the branch, so any one of
+    them that requires an approval blocks. Plan 4's live trial: GitHub refused such a merge with
+    the Reviewer App's approval at a count of 1, and at 0 while approval of the most recent push
+    was required."""
+    params = [
+        _rules(ruleset).get("pull_request", {})
+        for ruleset in rulesets
+        if ruleset.get("enforcement") == "active" and not _target_problems(ruleset, default_branch)
+    ]
+    blocks = [
+        (
+            any(_requires_approval(p.get("required_approving_review_count")) for p in params),
+            "the pull_request rule requires an approval, which GitHub does not take from the "
+            "Reviewer App, so agent PRs cannot merge in Flight",
+        ),
+        (
+            any(p.get("require_last_push_approval") is True for p in params),
+            "the pull_request rule requires approval of the most recent push, which GitHub does "
+            "not take from the Reviewer App, so agent PRs cannot merge in Flight",
+        ),
+    ]
+    return [problem for blocked, problem in blocks if blocked]
+
+
 def ruleset_problems(
     rulesets: Sequence[Mapping[str, object]],
     default_branch: str,
@@ -189,17 +208,21 @@ def ruleset_problems(
 ) -> list[str]:
     """What keeps the default branch from matching Spec 1 section 8's ruleset for the Mode.
 
-    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. Walk, and Flight with
-    Agent identity, need the whole ruleset. Flight without Agent identity also accepts it without
-    the review requirement, because the owner cannot approve a pull request from their own
-    account (Spec 1 section 8, step 8).
+    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. rs-setup's ruleset requires
+    no approval count and no approval of the most recent push (section 8, step 7). Walk accepts a
+    ruleset with or without them. Flight with Agent identity needs every enforced ruleset without
+    them, because GitHub does not take the Reviewer App's approval. Flight without Agent identity
+    accepts a ruleset with or without them, and also one without code-owner review, because the
+    owner cannot approve a pull request from their own account (section 8, step 8).
     """
     if not rulesets:
         return [NO_RULESET]
     strict = _closest(rulesets, default_branch, review=True)
-    if not strict or every_pr or agent_identity:
+    if every_pr:
         return strict
-    return _closest(rulesets, default_branch, review=False)
+    if agent_identity:
+        return [*strict, *_app_merge_problems(rulesets, default_branch)]
+    return _closest(rulesets, default_branch, review=False) if strict else []
 
 
 def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:

@@ -251,10 +251,11 @@ def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack
 
 ### Ruleset (plan 7 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
 
-One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 1, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push`, `require_last_push_approval` and `required_review_thread_resolution` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`.
+One active ruleset on `~DEFAULT_BRANCH`. A `pull_request` rule with `required_approving_review_count` 0, `require_last_push_approval` `false`, `allowed_merge_methods` `["squash"]`, and `require_code_owner_review`, `dismiss_stale_reviews_on_push` and `required_review_thread_resolution` set to `true`. `required_status_checks` holds `{"context": "devctl check", "integration_id": 15368}`. `non_fast_forward` and `deletion` rules are present. `bypass_actors` is exactly `[{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}]`.
 
-- Plan 4's live trial settles the approval count with Agent identity in Flight (Spec 1 section 8, step 7). If GitHub does not count the Reviewer App's approval, the count becomes 0, and both plans change this paragraph.
-- With `every_pr = false` and Agent identity off, doctor also accepts a `pull_request` rule with no approval, no code-owner review and no last-push approval, because Flight without Agent identity needs that (Spec 1 section 8, step 8).
+- Plan 4's live trial found that GitHub does not take the Reviewer App's approval: with Agent identity in Flight, GitHub refused the Worker App's merge until the count was 0 and last-push approval was off. Both are off in every Mode, and code-owner review decides who must approve (Spec 1 section 8, step 7).
+- doctor accepts an approval count and last-push approval in Walk, and in Flight without Agent identity. With `every_pr = false` and Agent identity on, it reports a count above 0, or `require_last_push_approval` `true`, in any active ruleset on the default branch, because GitHub then refuses every agent PR outside the Protected set.
+- With `every_pr = false` and Agent identity off, doctor also accepts a `pull_request` rule with no code-owner review, because Flight without Agent identity needs that (Spec 1 section 8, step 8).
 
 ### Agent identity (plan 4)
 
