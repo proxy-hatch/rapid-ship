@@ -104,7 +104,7 @@ Where the old code, Spec 1 and the index differ, this plan follows the index and
 2. **Sign-ins.** The follow-ups removed doctor's Harness sign-in items after the owner descoped several Providers.
 3. **`doctor --skills`.** The old code fetched the default branch as the Worker App into a worktree under `worktree_root`. Spec 1 section 6 and the index want a detached worktree at `HEAD` in a temporary directory with the owner's git and no App fetch, so `probe_worktree(repo)` takes no setting and no start. Removal is forced twice, so a Session's lock cannot keep the worktree.
 4. **App items.** They move to the index's area `agent identity` and appear only while Agent identity is on. Each installation item also compares GitHub's `app_slug` with the recorded slug, because Spec 3 relies on it; Task 10 confirms the field live.
-5. **Ruleset.** `ruleset_problems` takes `every_pr` and `agent_identity`. Walk and Flight with Agent identity need the whole ruleset with an approval count of at least 1 until Task 10 settles it. Flight without Agent identity also accepts the ruleset without its review requirement: no approval, no code-owner review and no last-push approval (index, Ruleset).
+5. **Ruleset.** `ruleset_problems` takes `every_pr` and `agent_identity`. Walk and Flight with Agent identity need the whole ruleset with an approval count of at least 1 until Task 10 settles it. Flight without Agent identity also accepts the ruleset without its review requirement: no approval, no code-owner review and no last-push approval (index, Ruleset). Task 10 settled it on 2026-10-21: no Mode requires an approval count or approval of the most recent push, Flight with Agent identity reports either one as missing, and Flight without Agent identity drops only code-owner review (Task 10 Step 17).
 6. **`rapid-ship app`.** It prints `worker_app_id`, `worker_app_slug`, `reviewer_app_id` and `reviewer_app_slug` lines under each App, so `rs-setup` records them verbatim, and stays within the 500-line source cap.
 7. **`devctl as`.** Its token is minted only after every refusal that needs no GitHub. `push` reads the default branch with the Worker App's token, because the refusal needs it. gh's and git's output is relayed with the token hidden; a timeout or cut output exits 2.
 
@@ -6149,7 +6149,7 @@ git commit -m "docs: describe devctl doctor, Agent identity and devctl as in the
 
 ### Task 10: Live trials (Owner steps)
 
-Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in this plan's worktree.
+Steps 1 to 14, with Step 11a, use the owner's accounts or change outside state, so each is an Owner step: the owner runs it in their own terminal, and no agent runs it (Owner steps, in the header). Run Steps 2 to 14 in one terminal session, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output, and leaves the ruleset read-back of Steps 9 and 11a in `$PLAN4`, Step 2's checkout of `main`. The owner ran Steps 1 to 11a on 2026-10-21; the [trial report](../../trials/2026-10-21-agent-identity.md) records them, and the Verification record lists what is still pending.
 
 Steps 15 to 17 are implementer steps, done from the owner's record. When a result calls for a code fix (Steps 3, 9 and 13), the implementer makes it with its test after the owner's session, and the report says whether the owner reran the step with the fix.
 
@@ -6166,11 +6166,11 @@ Record the results in `docs/trials/<trial date>-agent-identity.md`, the date in 
 
 - [ ] **Step 1: Owner step: accept the outside changes**
 
-The owner reads this list and starts Step 2 only if they accept every change on it: creating two private GitHub Apps on their personal account, which become their real Worker and Reviewer Apps; creating the public repository `<login>/rs-trial` and the private repository `<login>/rs-trial-private`; installing both Apps on both; applying a ruleset, branch deletion after merge and the fork approval policy to `rs-trial`, and, if Step 11 calls for it, setting that ruleset's approval count to 0; opening, reviewing and merging pull requests there as the Apps and as the owner; merging the owner's own setup pull requests there with the admin bypass; and spending a little Claude Code quota on `doctor --skills`.
+The owner reads this list and starts Step 2 only if they accept every change on it: creating two private GitHub Apps on their personal account, which become their real Worker and Reviewer Apps; creating the public repository `<login>/rs-trial` and the private repository `<login>/rs-trial-private`; installing both Apps on both; applying a ruleset, branch deletion after merge and the fork approval policy to `rs-trial`, and, if Step 11 calls for it, setting that ruleset's approval count to 0 and turning off its approval of the most recent push; opening, reviewing and merging pull requests there as the Apps and as the owner; merging the owner's own setup pull requests there with the admin bypass; and spending a little Claude Code quota on `doctor --skills`.
 
 - [ ] **Step 2: Owner step: record the versions and prepare `rs-trial`**
 
-Run from this plan's worktree:
+Run from an up-to-date checkout of `main`, which becomes `$PLAN4`. This plan's worktree no longer exists; on 2026-10-21 the owner used their checkout of `main` at `v0.1.0`.
 
 ```sh
 PLAN4=$(pwd)
@@ -6200,28 +6200,37 @@ Record every version, the owner's GitHub plan, and the fast check's exit code. E
 
 ```sh
 uvx --from "$PLAN4" rapid-ship app; echo "exit $?"
-security find-generic-password -s rapid-ship/worker-app >/dev/null && echo "worker item stored"
-security find-generic-password -s rapid-ship/reviewer-app >/dev/null && echo "reviewer item stored"
 ```
 
-Complete both browser pages. Record: the printed lines (IDs, slugs, `[github]` lines and install URLs), the exit code, whether GitHub accepted the manifest without `hook_attributes`, whether the App's settings page shows no webhook, whether `security` showed a dialog while storing each key, and both "stored" lines. Expected: exit 0. If GitHub rejects the manifest, stop and record the error; the fix is a change to `app_manifest` with a test, in this plan's PR.
+Complete both browser pages. Then run this block, with the four values that `rapid-ship app` printed in place of `<worker_app_id>`, `<worker_app_slug>`, `<reviewer_app_id>` and `<reviewer_app_slug>`. It checks each App's Keychain item, `rapid-ship/<role>-app/<App ID>`, and later steps use its variables:
+
+```sh
+WORKER_ID=<worker_app_id>; WORKER_SLUG=<worker_app_slug>
+REVIEWER_ID=<reviewer_app_id>; REVIEWER_SLUG=<reviewer_app_slug>
+security find-generic-password -s "rapid-ship/worker-app/$WORKER_ID" >/dev/null && echo "worker item stored"
+security find-generic-password -s "rapid-ship/reviewer-app/$REVIEWER_ID" >/dev/null && echo "reviewer item stored"
+```
+
+Record: the printed lines (IDs, slugs, `[github]` lines and install URLs), the exit code, whether GitHub accepted the manifest without `hook_attributes`, whether the App's settings page shows no webhook, whether `security` showed a dialog while storing each key, and both "stored" lines. Expected: exit 0. If GitHub rejects the manifest, stop and record the error; the fix is a change to `app_manifest` with a test, in this plan's PR.
 
 - [ ] **Step 4: Owner step: install the Apps and record them**
 
-Open both printed install URLs and install each App on `rs-trial` only. In `.rapid-ship/project.toml`, set `worker_app_id`, `worker_app_slug`, `reviewer_app_id` and `reviewer_app_slug` under `[github]` to the four printed lines, then:
+Open both printed install URLs and install each App on `rs-trial` only. Then write the four values that Step 3 set under `[github]` in `.rapid-ship/project.toml`, and commit them:
 
 ```sh
-WORKER_ID=$(python3 -c 'import tomllib; print(tomllib.load(open(".rapid-ship/project.toml", "rb"))["github"]["worker_app_id"])')
-REVIEWER_ID=$(python3 -c 'import tomllib; print(tomllib.load(open(".rapid-ship/project.toml", "rb"))["github"]["reviewer_app_id"])')
+perl -pi -e "s/^worker_app_id = .*/worker_app_id = $WORKER_ID/; s/^worker_app_slug = .*/worker_app_slug = \"$WORKER_SLUG\"/; s/^reviewer_app_id = .*/reviewer_app_id = $REVIEWER_ID/; s/^reviewer_app_slug = .*/reviewer_app_slug = \"$REVIEWER_SLUG\"/" .rapid-ship/project.toml
+grep -E '^(worker|reviewer)_app_(id|slug) = ' .rapid-ship/project.toml
 git commit -am "Record the Worker and Reviewer Apps" && git push origin main
 ```
+
+Expected: `grep` prints the four lines with the values that `rapid-ship app` printed, and the push succeeds. If it shows `worker_app_id = 0`, stop: Steps 5 and 6 need both IDs.
 
 - [ ] **Step 5: Owner step: doctor reads both Apps**
 
 ```sh
 ./devctl doctor; echo "exit $?"
 uv run --project tools/devctl --frozen python -c 'import sys; from devctl.github.app import installation; print(sorted(installation("worker", sys.argv[1], int(sys.argv[2]))))' "$OWNER/rs-trial" "$WORKER_ID"
-security find-generic-password -s rapid-ship/worker-app -w >/dev/null; echo "read exit $?"
+security find-generic-password -s "rapid-ship/worker-app/$WORKER_ID" -w >/dev/null; echo "read exit $?"
 ```
 
 Record every doctor line and the exit code, the installation's keys, and whether a macOS dialog appeared. Expected: the four `agent identity` items are ok; the keys include `app_slug` (Checked facts); the key read exits 0 with no dialog, which confirms that any process the owner runs can read the keys (Spec 1 section 6). Record that under the report's limits. The ruleset, delete-branch and fork-approval items are missing until Steps 7 and 8.
@@ -6256,7 +6265,7 @@ gh api --method PUT "repos/$OWNER/rs-trial/actions/permissions/fork-pr-contribut
 
 - [ ] **Step 8: Owner step: apply the ruleset**
 
-Write the ruleset the index specifies, the one plan 6 ships as `rs-setup/ruleset.json`, outside the repository and apply it:
+Outside the repository, write the ruleset that the index specified when the trial ran, and apply it. Step 17 later set its approval count to 0 and turned off approval of the most recent push in the index; Step 11a makes the same two changes here.
 
 ```sh
 cat > "$TRIALS/ruleset.json" <<'EOF'
@@ -6375,17 +6384,19 @@ README.md is outside the Protected set, so this pull request has no code owner, 
 
 The answer this step exists for: whether the last merge, after the check passed, succeeded with only the Reviewer App's approval. If it did, GitHub counts that approval, and the approval count stays 1; skip Step 11a. If GitHub refused the merge for want of an approval (`reviewDecision` stays `REVIEW_REQUIRED`), it does not count it: run Step 11a, and Step 17 applies.
 
-- [ ] **Step 11a: Owner step, only when GitHub did not count the approval: set the trial ruleset's count to 0 and read it back**
+- [ ] **Step 11a: Owner step, only when GitHub did not count the approval: set the trial ruleset's count to 0, turn off last-push approval, and read it back**
+
+On 2026-10-21 this step changed only the count, and GitHub still refused the merge until the owner also turned off approval of the most recent push ([trial report](../../trials/2026-10-21-agent-identity.md), experiment A). Its first line now makes both changes, as Step 17's decision does.
 
 ```sh
-perl -pi -e 's/"required_approving_review_count": 1/"required_approving_review_count": 0/' "$TRIALS/ruleset.json"
+perl -pi -e 's/"required_approving_review_count": 1/"required_approving_review_count": 0/; s/"require_last_push_approval": true/"require_last_push_approval": false/' "$TRIALS/ruleset.json"
 gh api --method PUT "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --input "$TRIALS/ruleset.json"
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count'
+gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters | .required_approving_review_count, .require_last_push_approval'
 gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq 'del(.node_id, ._links, .created_at, .updated_at, .current_user_can_bypass) | .id = 9 | .source = "o/r"' > "$PLAN4/tests/devctl/fixtures/github/ruleset.json"
 ./devctl as worker gh pr merge "$PR2" --squash; echo "merge exit $?"
 ```
 
-Expected: the first read-back prints `0`, and `tests/devctl/fixtures/github/ruleset.json` in this plan's worktree now holds the count of 0; doctor still requires an approval, so Task 5's tests fail on that fixture until Step 17 changes doctor. `$PR2`, approved by the Reviewer App and with its check passed, now merges. If it is still refused, record GitHub's state and stop the trial here: a count of 0 is not enough for Flight with Agent identity, and the owner decides the ruleset before Step 17 runs. Otherwise:
+Expected: the first read-back prints `0` and `false`, and `tests/devctl/fixtures/github/ruleset.json` in `$PLAN4` now holds both; Task 5's tests fail on that fixture until Step 17 changes doctor. `$PR2`, approved by the Reviewer App and with its check passed, now merges. If it is still refused, record GitHub's state and stop the trial here: the two changes are not enough for Flight with Agent identity, and the owner decides the ruleset before Step 17 runs. Otherwise:
 
 ```sh
 git switch main && git pull --ff-only
@@ -6453,13 +6464,13 @@ Record every skills line and the exit code. Expected: one `skills (claude)` item
 
 Close any open trial pull request. The owner decides whether to delete `rs-trial` and `rs-trial-private`; the Apps stay, as the owner's real Apps.
 
-- [ ] **Step 15: Write the report (implementer, from the owner's record)**
+- [x] **Step 15: Write the report (implementer, from the owner's record)**
 
 Write `docs/trials/<trial date>-agent-identity.md` from the owner's record of Steps 2 to 14: a summary, the versions, then one section per step with its commands, exit codes, output and result, and the deviations from Checked facts. Its limits section names at least: any process the owner runs can read both keys (Step 5); the Reviewer App's approval does or does not count (Step 11); whether GitHub refused a merge while `devctl check` was pending (Step 11 or 11a), or that the run had finished before the attempt; and whether a merge that brings in a workflow change is refused (Step 12). Link it from `docs/trials/AGENTS.md` with one line naming what it records.
 
-- [ ] **Step 16: Commit the report, and the fixture when the count stays 1 (implementer)**
+- [x] **Step 16: Commit the report, and the fixture when the count stays 1 (implementer)**
 
-From this plan's worktree, when Step 11a did not run:
+From a branch off `main`, when Step 11a did not run:
 
 ```sh
 ./devctl check --tier fast
@@ -6469,7 +6480,9 @@ git commit -m "docs: record the Agent identity, ruleset and doctor trial" -m "Co
 
 When Step 11a ran, the fixture holds a count of 0 that doctor does not yet accept, so leave it out of this commit: run the same commands with `git add docs/trials` only. Step 17 commits the fixture with the change that accepts it.
 
-- [ ] **Step 17: Settle the approval count in the index and Spec 1 (implementer)**
+- [x] **Step 17: Settle the approval count in the index and Spec 1 (implementer)**
+
+The edits followed the owner's decision of 2026-10-21, an approval count of 0 and approval of the most recent push off in every Mode, not the branch text below; they are in the commit "fix: settle the ruleset's approval settings from plan 4's trial".
 
 Step 11 answered Spec 1 section 11's open question. Make the edits for its answer, then commit.
 
@@ -6828,9 +6841,9 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   build exit 0
   ```
   Rebuilt after this record was filled in, from the same work tree: `npm --prefix website run build` exit 0 with `[SUCCESS] Generated static files in "build".` and no broken-link warning or error. The built page for this plan holds the "Task 11: pending Owner steps" subsection.
-- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: Pending owner step. No agent ran Task 10 Steps 1 to 14. Outside the trial, the equivalents of Steps 3 to 5 ran on this repository on 2026-10-19, and no output was kept; "Task 10: pending Owner steps" below records what is known. There is no report under `docs/trials/`, no live ruleset fixture and no approval-count answer, and Step 17 has not run. Each step's command and what it must observe are under "Task 10: pending Owner steps" below.
-- GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: Pending owner step. Nothing was observed: no `reviewDecision` and no run state were read. The commands are under "Task 10: pending Owner steps" below, and the PR body's `Not covered:` line names this gap until the owner's record fills it.
-- `PROBE_MODEL` as confirmed or corrected in Task 10 Step 13: Pending owner step. Unconfirmed: `harness.py` holds `haiku`, the value of the Checked facts. Follow-up 9 removed the codex and agy models, `gpt-6-luna` and `gemini-3.8-flash-low`, with their probes.
+- Live trial report and its deviations from Checked facts (Task 10), with the approval-count answer and the Step 17 edits it led to: live, run by the owner on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`. The [trial report](../../trials/2026-10-21-agent-identity.md) records Steps 1 to 11a, the owner's experiments A and B beyond the plan, the deviations from Checked facts and the plan defects, in the commit "docs: record the Agent identity, ruleset and doctor trial". In Flight with Agent identity, GitHub refused the Worker App's merge of #3 with the Reviewer App's approval at an approval count of 1, and at 0 while `require_last_push_approval` was on; with that off too, it merged (experiment A). Whether GitHub counts the approval toward a count of 1 is not isolated, because last-push approval was on at that attempt. The owner decided on an approval count of 0 and last-push approval off in every Mode, and Step 17 made the edits ("fix: settle the ruleset's approval settings from plan 4's trial"). The installation object carries `app_slug` (Step 5).
+- GitHub refusing a merge while `devctl check` was pending (Task 10 Step 11, or Step 11a), with `reviewDecision` and the run's state at the attempt, or that the run had finished first: not shown. In Step 11, GitHub refused #3's merge while its check was pending, exit 1, but the approval requirement was unmet then too, and `reviewDecision` was not recorded, so the refusal does not isolate the check. Step 11a's `$PR4` pair, which would isolate it, did not run; it is pending under "Task 10: pending Owner steps" below.
+- `PROBE_MODEL` as confirmed or corrected in Task 10 Step 13: Pending owner step; Step 13 did not run in the trial of 2026-10-21. Unconfirmed: `harness.py` holds `haiku`, the value of the Checked facts. Follow-up 9 removed the codex and agy models, `gpt-6-luna` and `gemini-3.8-flash-low`, with their probes.
 - PR URL, base, and the `devctl check` run: Pending owner step. No PR exists, so there is no PR URL and no `devctl check` run on GitHub. The base is `codex/devctl-check` while #30 is open, and `main` once it is merged. The PR body is written and passes `./devctl check --tier full --base origin/codex/devctl-check --pr-body <body>` with exit 0 (above). The commands are under "Task 11: pending Owner steps" below.
 - Final whole-branch review: two Important findings, handled after this record was first filled in.
   - R1, fixed in `ab473c6` (fix: pass doctor's tools the owner's sign-in and proxy variables). doctor's tools ran with only `PATH`, `HOME` and the locale, so a sign-in held only in the environment, such as `GH_TOKEN`, an API key, a gateway, Bedrock, Vertex, `CLAUDE_CONFIG_DIR` or `CODEX_HOME`, read as missing. Each tool doctor runs now gets the owner's proxy and certificate variables, where the owner's files live, and its own sign-in variables (`SIGN_IN_VARIABLES` in `doctor_items.py`). `devctl as` passes `gh` and `git push` the proxy and certificate variables only. The 17 new tests are offline and simulated, with fake tools that answer from their own environment: `tests/devctl/test_devctl_doctor_environment.py`, and one test each in `test_devctl_doctor_skills.py`, `test_devctl_identity.py` and `test_devctl_askpass_limits.py`. Which variables each real Harness reads is unconfirmed.
@@ -6842,408 +6855,56 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   - devctl's own REST client, which mints App tokens and reads the Apps, does not use `HTTPS_PROXY`. Where GitHub is reachable only through a proxy, `devctl as` and doctor's App items cannot mint a token.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
-  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10), the approval count, `app_slug` on the installation object, GitHub refusing a merge while `devctl check` is pending, and the three `PROBE_MODELS` are pending Owner steps. The doctor run on this repository suggests that the installation object carries `app_slug`, but its output was not kept (Task 10 Step 5, below).
+  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10) ran on 2026-10-21, and its [report](../../trials/2026-10-21-agent-identity.md) names its own limits. It confirmed `app_slug` on the installation object and led to the approval settings, but did not show GitHub refusing a merge while `devctl check` is pending, and `PROBE_MODEL` stays unconfirmed ("Task 10: pending Owner steps", below).
   - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
   - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
 ### Task 10: pending Owner steps
 
-Every step of Task 10 is an Owner step, and no agent ran any of them. Outside the trial, on 2026-10-19, the owner created the Worker App and the Reviewer App and installed both on this repository, `proxy-hatch/rapid-ship`; `./devctl doctor` then ran here. Commit `699fe95` records both Apps under `[github]` in this repository's `.rapid-ship/project.toml`, and its message is the only record of these runs: no command output or exit code was kept. Steps 3 to 5 below start with what is known of them. The trial itself has not run: it works in `rs-trial`, and `gh api repos/proxy-hatch/rs-trial` returned 404 on 2026-10-20.
+The owner ran Steps 1 to 11a on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-hatch/rs-trial-private`, and two experiments beyond the plan. The [trial report](../../trials/2026-10-21-agent-identity.md) records each result, and Steps 15 to 17 are done. What follows is still pending. Each item is neither a pass nor a skip until the owner's output replaces it.
 
-Below, each step has the exact command and what it must observe, copied from Task 10, so the owner's session can be compared with them. Apart from the runs on this repository in Steps 3 to 5, nothing here is a result. Each of Steps 1 to 17 stays "Pending owner step" for the trial, neither a pass nor a skip, until the owner's record of Steps 2 to 14 replaces its entry with the exit code, the output and a live mark.
-
-Where this stood at `c2f0a70`, the base of this record: `docs/trials/` holds no `*-agent-identity.md` report and `docs/trials/AGENTS.md` links none; `tests/devctl/fixtures/github/ruleset.json` is still the offline fixture from Task 5, the ruleset the index specifies with `id` 9, `source` `o/r` and `required_approving_review_count` 1; `doctor_rules.py` still requires an approval; the index's approval-count paragraph, Spec 1 section 8, step 7.3 and Spec 1 section 11's open item read as drafted; and `PROBE_MODELS` in `harness.py` holds `haiku`, `gpt-6-luna` and `gemini-3.8-flash-low`, the values of the Checked facts.
-
-The owner runs Steps 2 to 14 in one terminal session, from this plan's worktree, because later steps use the shell variables earlier ones set. The owner keeps each command with its exit code and output. A trial report never records a token, a private key, a client secret or an email address; a token's length may be recorded.
-
-#### Step 1: accept the outside changes
-
-Pending owner step. Command: none. The owner reads the list of outside changes in Task 10 Step 1 and starts Step 2 only if they accept every change on it.
-
-Must observe: the owner's own acceptance of every change on that list. Until then none of Steps 2 to 14 starts.
-
-#### Step 2: record the versions and prepare `rs-trial`
-
-Pending owner step. Run from this plan's worktree:
+The trial's shell session has ended. A rerun starts in the `rs-trial` clone and sets the variables that the remaining steps use:
 
 ```sh
-PLAN4=$(pwd)
-TRIALS=$(mktemp -d)
 OWNER=$(gh api user --jq .login)
-sw_vers -productVersion; git --version; gh --version | head -1; uv --version
-git -C "$PLAN4" rev-parse HEAD
-gh api user --jq .plan.name
-claude --version
-cd "$TRIALS"
-gh repo create "$OWNER/rs-trial" --public --add-readme --clone
-cd rs-trial
-uvx --from "$PLAN4" rapid-ship init --stack agnostic --owner "$OWNER" --repository "$OWNER/rs-trial"
-mkdir -p .agents/skills/trial-notes .agents/skills/trial-release .claude/skills
-printf -- '---\nname: trial-notes\ndescription: Notes on the rs-trial repository. Use before editing README.md.\n---\n\nKeep README.md to one paragraph.\n' > .agents/skills/trial-notes/SKILL.md
-printf -- '---\nname: trial-release\ndescription: Release steps for the rs-trial repository.\ndisable-model-invocation: true\n---\n\nRun only when the owner asks.\n' > .agents/skills/trial-release/SKILL.md
-ln -s ../../.agents/skills/trial-notes .claude/skills/trial-notes
-ln -s ../../.agents/skills/trial-release .claude/skills/trial-release
-./devctl check --tier fast; echo "exit $?"
-git add .agents .claude && git commit -m "Add two trial skills"
-git switch main && git merge --ff-only rapid-ship/init && git push origin main
-```
-
-Must observe: the fast check exits 0 (map rule 7 accepts both skills and links), and `main` holds the Kit, the two skills and CODEOWNERS with `* @<login>` active. No ruleset exists yet, so the push to `main` goes through.
-
-Record: every version, the owner's GitHub plan, and the fast check's exit code.
-
-#### Step 3: create the Apps
-
-Run outside the trial: on 2026-10-19 the owner ran `rapid-ship app`, which created the Worker App, ID 5376519 (`proxy-hatch-rs-worker`), and the Reviewer App, ID 5376520 (`proxy-hatch-rs-reviewer`). `699fe95` records the four `[github]` lines. Not kept: the exit code, the install URLs, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, whether `security` showed a dialog while storing each key, and the two "stored" lines.
-
-Pending owner step on `rs-trial`. The owner completes both browser pages that `rapid-ship app` opens.
-
-```sh
-uvx --from "$PLAN4" rapid-ship app; echo "exit $?"
-security find-generic-password -s rapid-ship/worker-app >/dev/null && echo "worker item stored"
-security find-generic-password -s rapid-ship/reviewer-app >/dev/null && echo "reviewer item stored"
-```
-
-Must observe: exit 0. If GitHub rejects the manifest, stop and record the error; the fix is a change to `app_manifest` with a test, in this plan's PR.
-
-Record: the printed lines (IDs, slugs, `[github]` lines and install URLs), the exit code, whether GitHub accepted the manifest without `hook_attributes`, whether the App's settings page shows no webhook, whether `security` showed a dialog while storing each key, and both "stored" lines.
-
-#### Step 4: install the Apps and record them
-
-Run outside the trial: the owner installed both Apps on `proxy-hatch/rapid-ship`, not on `rs-trial`. `699fe95` (2026-10-19) sets this repository's `[github]` values to `worker_app_id = 5376519`, `worker_app_slug = "proxy-hatch-rs-worker"`, `reviewer_app_id = 5376520` and `reviewer_app_slug = "proxy-hatch-rs-reviewer"`. The step's push to `rs-trial` did not run. The installation date was not recorded.
-
-Pending owner step on `rs-trial`. The owner opens both printed install URLs and installs each App on `rs-trial` only. In `.rapid-ship/project.toml` they set `worker_app_id`, `worker_app_slug`, `reviewer_app_id` and `reviewer_app_slug` under `[github]` to the four printed lines, then run:
-
-```sh
-WORKER_ID=$(python3 -c 'import tomllib; print(tomllib.load(open(".rapid-ship/project.toml", "rb"))["github"]["worker_app_id"])')
-REVIEWER_ID=$(python3 -c 'import tomllib; print(tomllib.load(open(".rapid-ship/project.toml", "rb"))["github"]["reviewer_app_id"])')
-git commit -am "Record the Worker and Reviewer Apps" && git push origin main
-```
-
-The plan names no expected output for this step. The commands must set `WORKER_ID` and `REVIEWER_ID` from `project.toml`, and the commit and push of the four lines must succeed.
-
-Record: the four recorded values and the push's result.
-
-#### Step 5: doctor reads both Apps
-
-Run outside the trial: before `699fe95` (2026-10-19), `./devctl doctor` ran in this repository; who ran it is not recorded. That commit's message says that doctor reports all four `agent identity` items ok: the Worker App installation, the Reviewer App installation, the Worker App key and the Reviewer App key. The doctor output and its exit code were not kept, so the state of doctor's other items is unknown. An ok installation item would mean that the installation object carries `app_slug`, because that item compares it with the recorded slug (`_installation_item` in `doctor_github.py`); this is an inference, not an observation. Nothing records a run of the `installation` command that prints the installation object's keys, or of the `security ... -w` read, so whether a macOS dialog appears is unknown.
-
-Pending owner step on `rs-trial`.
-
-```sh
-./devctl doctor; echo "exit $?"
-uv run --project tools/devctl --frozen python -c 'import sys; from devctl.github.app import installation; print(sorted(installation("worker", sys.argv[1], int(sys.argv[2]))))' "$OWNER/rs-trial" "$WORKER_ID"
-security find-generic-password -s rapid-ship/worker-app -w >/dev/null; echo "read exit $?"
-```
-
-Must observe: the four `agent identity` items are ok; the installation's keys include `app_slug` (Checked facts); the key read exits 0 with no dialog, which confirms that any process the owner runs can read the keys (Spec 1 section 6). The ruleset, delete-branch and fork-approval items are missing until Steps 7 and 8.
-
-Record: every doctor line and the exit code, the installation's keys, and whether a macOS dialog appeared. Record that any process can read the keys under the report's limits.
-
-#### Step 6: a second, private repository on the owner's plan
-
-Pending owner step. First:
-
-```sh
-cd "$TRIALS"
-gh repo create "$OWNER/rs-trial-private" --private --add-readme --clone
-cd rs-trial-private
-uvx --from "$PLAN4" rapid-ship app --repository "$OWNER/rs-trial-private"; echo "exit $?"
-uvx --from "$PLAN4" rapid-ship init --stack agnostic --owner "$OWNER" --repository "$OWNER/rs-trial-private"
-git switch main && git merge --ff-only rapid-ship/init && git push origin main
-./devctl doctor; echo "exit $?"
-cd "$TRIALS/rs-trial"
-```
-
-Must observe: `rapid-ship app` opens no browser and prints both Apps' lines and install URLs for this repository. The owner then installs both Apps there with the printed URLs and proves a token mints without printing it:
-
-```sh
-uv run --project tools/devctl --frozen python -c 'import sys; from devctl.github.app import installation_token as t; t("worker", sys.argv[1], int(sys.argv[2])); print("minted")' "$OWNER/rs-trial-private" "$WORKER_ID"
-```
-
-Must observe, on a GitHub Free account: `missing  github  ruleset: rulesets need a public repository or a paid GitHub plan (GitHub returned 403)`. On a paid plan, record the plan and what doctor reports instead.
-
-Record: whether the install URL added the repository to the existing installation, the `minted` line, and doctor's `ruleset` line.
-
-#### Step 7: apply the repository settings to `rs-trial`
-
-Pending owner step.
-
-```sh
-gh api --method PATCH "repos/$OWNER/rs-trial" -F delete_branch_on_merge=true
-gh api --method PUT "repos/$OWNER/rs-trial/actions/permissions/fork-pr-contributor-approval" -f approval_policy=all_external_contributors
-```
-
-The plan names no expected output for this step beyond success; Step 9's doctor expects the `delete branch on merge` and `fork PR workflow approval` items ok.
-
-Record: each call's exit code and output.
-
-#### Step 8: apply the ruleset
-
-Pending owner step. The commands write the ruleset the index specifies, the one plan 6 ships as `rs-setup/ruleset.json`, outside the repository and apply it:
-
-```sh
-cat > "$TRIALS/ruleset.json" <<'EOF'
-{
-  "name": "rapid-ship",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
-  "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}],
-  "rules": [
-    {"type": "deletion"},
-    {"type": "non_fast_forward"},
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 1,
-        "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": true,
-        "require_last_push_approval": true,
-        "required_review_thread_resolution": true,
-        "allowed_merge_methods": ["squash"]
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [{"context": "devctl check", "integration_id": 15368}]
-      }
-    }
-  ]
-}
-EOF
-RULESET_ID=$(gh api --method POST "repos/$OWNER/rs-trial/rulesets" --input "$TRIALS/ruleset.json" --jq .id)
-echo "$RULESET_ID"
-```
-
-The plan names no expected output for this step beyond the ruleset's ID, which Steps 9 and 11a read back.
-
-Record: `$RULESET_ID` and the exit code.
-
-#### Step 9: read the ruleset back and keep it as the fixture
-
-Pending owner step.
-
-```sh
-./devctl doctor; echo "exit $?"
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq 'del(.node_id, ._links, .created_at, .updated_at, .current_user_can_bypass) | .id = 9 | .source = "o/r"' > "$PLAN4/tests/devctl/fixtures/github/ruleset.json"
-(cd "$PLAN4" && uv run pytest tests/devctl/test_devctl_doctor_github.py tests/devctl/test_devctl_doctor_github_limits.py -q)
-```
-
-Must observe: the `ruleset`, `CODEOWNERS`, `delete branch on merge` and `fork PR workflow approval` items are ok, and every test passes with the read-back as the fixture. If a test fails, the read-back differs from what doctor expects: record the difference, then fix doctor or `ruleset.json` with a test in this plan's PR.
-
-Record: every doctor line, whether the GitHub UI names `actor_id` 5 as the admin role, and the test result.
-
-#### Step 10: Walk with Agent identity
-
-Pending owner step.
-
-```sh
-git switch -c trial-walk
-printf '\nA trial line.\n' >> README.md
-git commit -am "Trial change"
-./devctl as worker push; echo "push exit $?"
+RULESET_ID=25531114
+TRIALS=$(mktemp -d)
 printf '## Evidence\n\n- `./devctl check --tier fast`: exit 0\n\nNot covered: everything; this pull request is a trial.\n' > "$TRIALS/pr-body.md"
-./devctl as worker gh pr create --base main --head trial-walk --title "Trial change" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
-PR=$(gh pr view trial-walk --json number --jq .number)
-gh pr view "$PR" --json author --jq .author.login
-./devctl as reviewer gh pr review "$PR" --approve --body "Trial approval by the Reviewer App"; echo "review exit $?"
-gh pr view "$PR" --json reviews,reviewDecision,mergeStateStatus
-./devctl as worker gh pr merge "$PR" --squash --admin; echo "admin exit $?"
-./devctl as worker gh pr merge "$PR" --squash; echo "merge exit $?"
 ```
 
-Must observe: the push and the pull request succeed, and the author is the Worker App (`<worker slug>[bot]`); the review is the Reviewer App's, yet `reviewDecision` stays `REVIEW_REQUIRED`, because CODEOWNERS `*` needs the owner; `--admin` is refused by devctl with exit 1 before anything runs; the plain merge is refused by GitHub, and devctl returns gh's nonzero exit code.
+#### Step 11a, second block: the pending-check pair
 
-Then, in the browser, the owner adds one review comment on the pull request's diff, which opens a thread, and approves the pull request. Run:
+Experiment B left ruleset 25531114 with `require_extra_approval_for_unattributed_changes` false, which rs-setup's ruleset does not set. First apply the decided ruleset: write Step 8's `ruleset.json` to `$TRIALS`, then run Step 11a's first three commands, the `perl` line, the `PUT` and the read-back. Skip its fixture and merge lines: the fixture is committed, and #3 is merged.
 
-```sh
-gh pr checks "$PR" --watch
-./devctl as worker gh pr merge "$PR" --squash; echo "merge exit $?"
-```
+Must observe: the read-back prints `0` and `false`.
 
-Must observe: refused, because a review thread is unresolved. The owner then resolves the thread in the browser and runs:
-
-```sh
-./devctl as worker gh pr merge "$PR" --squash; echo "merge exit $?"
-gh pr view "$PR" --json state,mergedBy
-```
-
-Must observe: merged by the Worker App, and the head branch deleted.
-
-Record: each step's exit code, output and result.
-
-#### Step 11: Flight with Agent identity, and whether GitHub counts the Reviewer App's approval
-
-Pending owner step. The owner moves `rs-trial` to Flight through their own pull request: CODEOWNERS loses its `*` line and owns only the Protected set, and `[escalation]` sets `every_pr = false`.
-
-```sh
-git switch main && git pull --ff-only
-git switch -c trial-flight
-perl -ni -e 'next if /^\* @/; s{^# (/\S+ @\S+)$}{$1}; print' .github/CODEOWNERS
-perl -pi -e 's/^every_pr = true/every_pr = false/' .rapid-ship/project.toml
-grep -v '^#' .github/CODEOWNERS | grep -c '^/'
-git commit -am "Move rs-trial to Flight"
-git push -u origin trial-flight
-gh pr create --base main --head trial-flight --title "Move rs-trial to Flight" --body-file "$TRIALS/pr-body.md"
-gh pr merge trial-flight --squash --admin --delete-branch
-git switch main && git pull --ff-only
-./devctl doctor; echo "exit $?"
-git switch -c trial-agent
-printf '\nA Flight trial line.\n' >> README.md
-git commit -am "Flight trial change"
-./devctl as worker push; echo "push exit $?"
-./devctl as worker gh pr create --base main --head trial-agent --title "Flight trial change" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
-PR2=$(gh pr view trial-agent --json number --jq .number)
-./devctl as reviewer gh pr review "$PR2" --approve --body "Trial approval by the Reviewer App"; echo "review exit $?"
-gh pr view "$PR2" --json reviewDecision,mergeStateStatus,statusCheckRollup
-./devctl as worker gh pr merge "$PR2" --squash; echo "pending merge exit $?"
-gh pr checks "$PR2" --watch
-gh pr view "$PR2" --json reviewDecision,mergeStateStatus
-./devctl as worker gh pr merge "$PR2" --squash; echo "merge exit $?"
-```
-
-Must observe: the `grep -c` prints 13, the agnostic stack's Protected set; doctor's `ruleset` and `CODEOWNERS` items are ok for `every_pr = false` with Agent identity on. README.md is outside the Protected set, so the pull request has no code owner, and the Reviewer App's approval is the only review it can get. The first merge attempt runs while the `devctl check` run is still queued or in progress, which `statusCheckRollup` shows; gh refuses it, exit nonzero. When `reviewDecision` is `APPROVED`, the pending required check is the only gate left, so this refusal is GitHub enforcing `devctl check` (Spec 1 section 10). If the run had already finished, the attempt shows nothing about the check.
-
-The answer this step exists for: whether the last merge, after the check passed, succeeded with only the Reviewer App's approval. If it did, GitHub counts that approval, the approval count stays 1, and Step 11a is skipped. If GitHub refused the merge for want of an approval (`reviewDecision` stays `REVIEW_REQUIRED`), it does not count it: Step 11a runs, and Step 17 applies.
-
-Record: every result, gh's message and the state just before the first merge attempt. If the run had finished, record that, and the PR body names the gap under `Not covered:`.
-
-#### Step 11a: only when GitHub did not count the approval: set the trial ruleset's count to 0 and read it back
-
-Pending owner step. Runs only if Step 11 found that GitHub did not count the Reviewer App's approval.
-
-```sh
-perl -pi -e 's/"required_approving_review_count": 1/"required_approving_review_count": 0/' "$TRIALS/ruleset.json"
-gh api --method PUT "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --input "$TRIALS/ruleset.json"
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count'
-gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq 'del(.node_id, ._links, .created_at, .updated_at, .current_user_can_bypass) | .id = 9 | .source = "o/r"' > "$PLAN4/tests/devctl/fixtures/github/ruleset.json"
-./devctl as worker gh pr merge "$PR2" --squash; echo "merge exit $?"
-```
-
-Must observe: the first read-back prints `0`, and `tests/devctl/fixtures/github/ruleset.json` in this plan's worktree now holds the count of 0; doctor still requires an approval, so Task 5's tests fail on that fixture until Step 17 changes doctor. `$PR2`, approved by the Reviewer App and with its check passed, now merges. If it is still refused, record GitHub's state and stop the trial here: a count of 0 is not enough for Flight with Agent identity, and the owner decides the ruleset before Step 17 runs. Otherwise the owner runs:
-
-```sh
-git switch main && git pull --ff-only
-git switch -c trial-agent-zero
-printf '\nA Flight trial line under an approval count of 0.\n' >> README.md
-git commit -am "Flight trial change under an approval count of 0"
-./devctl as worker push; echo "push exit $?"
-./devctl as worker gh pr create --base main --head trial-agent-zero --title "Flight trial change under an approval count of 0" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
-PR4=$(gh pr view trial-agent-zero --json number --jq .number)
-./devctl as reviewer gh pr review "$PR4" --approve --body "Trial approval by the Reviewer App"; echo "review exit $?"
-gh pr view "$PR4" --json reviewDecision,mergeStateStatus,statusCheckRollup
-./devctl as worker gh pr merge "$PR4" --squash; echo "pending merge exit $?"
-gh pr checks "$PR4" --watch
-./devctl as worker gh pr merge "$PR4" --squash; echo "merge exit $?"
-```
-
-Must observe: on `$PR4`, the merge attempt while its run is queued or in progress is refused, and the merge after the check passed succeeds. `$PR4` then differs from `$PR2`'s successful merge only by the pending check, so this pair shows GitHub enforcing `devctl check`. If the run had already finished at the first attempt, record that, as in Step 11.
-
-Record: every result.
+Then run Step 11a's second block, from `git switch main && git pull --ff-only` to the last merge. Must observe: the merge attempt while the `devctl check` run is queued or in progress is refused, and the merge after the check passed succeeds. Record `reviewDecision`, `mergeStateStatus` and `statusCheckRollup` before the first attempt, gh's message and each exit code. If the run had finished before the first attempt, record that.
 
 #### Step 12: a Reviewer App change request, and a workflow change
 
-Pending owner step.
-
-```sh
-git switch main && git pull --ff-only
-git switch -c trial-agent-2
-printf '\nAnother Flight trial line.\n' >> README.md
-git commit -am "Second Flight trial change"
-./devctl as worker push; echo "push exit $?"
-./devctl as worker gh pr create --base main --head trial-agent-2 --title "Second Flight trial change" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
-PR3=$(gh pr view trial-agent-2 --json number --jq .number)
-./devctl as reviewer gh pr review "$PR3" --request-changes --body "Trial change request by the Reviewer App"; echo "review exit $?"
-gh pr checks "$PR3" --watch
-gh pr view "$PR3" --json reviewDecision,mergeStateStatus
-```
-
-Must observe: `reviewDecision` is `CHANGES_REQUESTED`, and, with the count at 1, the merge is blocked, read after the check passed. After Step 11a the count is 0: record whether the change request alone still blocks the merge. Record what GitHub reports: it tells Spec 3 whether the Reviewer App's change requests count as Revisions.
-
-Next, the owner changes `.github/workflows/devctl-check.yml` on `main` through their own pull request, merged with the admin bypass, and the agent branch takes that change in:
-
-```sh
-git switch main
-git switch -c trial-workflow
-printf '# A trial comment.\n' >> .github/workflows/devctl-check.yml
-git commit -am "Trial workflow comment"
-git push -u origin trial-workflow
-gh pr create --base main --head trial-workflow --title "Trial workflow comment" --body-file "$TRIALS/pr-body.md"
-gh pr merge trial-workflow --squash --admin --delete-branch
-git switch trial-agent-2
-git fetch origin main && git merge --no-edit origin/main
-./devctl as worker push; echo "push exit $?"
-```
-
-Must observe: GitHub refuses the Worker App's push, because the merge brings in a workflow change (Checked facts), and devctl returns git's nonzero exit code with its `devctl: neither App may push a change under .github/workflows/; ...` hint. If GitHub accepts the push, record that; the hint still serves a direct workflow edit.
-
-Record: GitHub's message, devctl's hint line and the exit code.
+Run Task 10 Step 12 as written. The approval count is now 0, so record whether the Reviewer App's change request alone blocks the merge, with `reviewDecision` and `mergeStateStatus` after the check passed. Then record GitHub's answer to the Worker App's push of a branch that brings in a workflow change, devctl's `devctl: neither App may push a change under .github/workflows/; ...` line and the exit code.
 
 #### Step 13: `doctor --skills` live
 
-Pending owner step. The follow-ups removed this step's run with a `[roster]` table, and its sign-in items, after the owner descoped several Providers, and follow-up 9 narrowed it to Claude Code. The owner runs the probe.
-
-```sh
-./devctl doctor --skills; echo "exit $?"
-git worktree list
-```
-
-Must observe: one `skills (claude)` item when `claude` is on `PATH`, ok with `1 repository skills seen` and `not checked, user-invoked: trial-release`, never listing `trial-release` as outside the repository; outside skills are listed for information. `git worktree list` shows only the clone.
-
-Record: every skills line and the exit code, whether Claude Code listed `trial-release` anyway, and `PROBE_MODEL` confirmed or corrected. A wrong model is fixed in `harness.py`, with its test, in this plan's PR.
+Run Task 10 Step 13 in the `rs-trial` clone. Record every skills line and the exit code, and whether Claude Code listed `trial-release`. `PROBE_MODEL`, `haiku`, stays unconfirmed until this step confirms or corrects it; a wrong model is fixed in `harness.py`, with its test.
 
 #### Step 14: clean up
 
-Pending owner step. Command: none. The owner closes any open trial pull request and decides whether to delete `rs-trial` and `rs-trial-private`; the Apps stay, as the owner's real Apps.
+Deferred, so `rs-trial` stays available for the steps above. Once they are done, the owner closes any open trial pull request and decides whether to delete `rs-trial` and `rs-trial-private`. The Apps stay, as the owner's real Apps.
 
-Must observe: no trial pull request stays open.
+#### Not reported from the steps that ran
 
-#### Step 15: write the report (implementer, from the owner's record)
+The owner's record does not hold these, so each stays unknown until the owner reports it:
 
-Pending owner step: an implementer step that waits for the owner's record of Steps 2 to 14. Command: none.
-
-Must observe: `docs/trials/<trial date>-agent-identity.md` holds a summary, the versions, one section per step with its commands, exit codes, output and result, and the deviations from Checked facts, with each result marked live or offline and no token, private key, client secret or email address. Its limits section names at least: any process the owner runs can read both keys (Step 5); the Reviewer App's approval does or does not count (Step 11); whether GitHub refused a merge while `devctl check` was pending (Step 11 or 11a), or that the run had finished before the attempt; and whether a merge that brings in a workflow change is refused (Step 12). `docs/trials/AGENTS.md` links the report with one line naming what it records.
-
-#### Step 16: commit the report, and the fixture when the count stays 1 (implementer)
-
-Pending owner step: an implementer step that waits for Step 15. From this plan's worktree, when Step 11a did not run:
-
-```sh
-./devctl check --tier fast
-git add docs/trials tests/devctl/fixtures/github/ruleset.json
-git commit -m "docs: record the Agent identity, ruleset and doctor trial" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
-
-When Step 11a ran, the fixture holds a count of 0 that doctor does not yet accept, so the commit leaves it out and adds `docs/trials` only; Step 17 commits the fixture with the change that accepts it. The implementer who runs the commit writes the trailer of its own model in place of the plan's.
-
-Must observe: the fast check exits 0, and the commit holds the report and the guide line (and the fixture when the count stays 1).
-
-#### Step 17: settle the approval count in the index and Spec 1 (implementer)
-
-Pending owner step: an implementer step that waits for Step 11's answer. If GitHub counts the Reviewer App's approval, no code changes; the index and Spec 1 section 8, step 7.3 take the replacement text in Task 10 Step 17. If it does not, the count becomes 0. The commands for that case, in the order Task 10 Step 17 gives them: the first checks the fixture. Before the second, the implementer appends the new test and changes the assertion, as Task 10 Step 17 says; the second must then fail.
-
-```sh
-grep -n '"required_approving_review_count"' tests/devctl/fixtures/github/ruleset.json
-uv run pytest tests/devctl/test_devctl_doctor_github.py -q
-uv run ruff format rapid_ship/templates/common/tools/devctl/devctl/doctor_rules.py
-uv run ruff check rapid_ship/templates/common/tools/devctl/devctl/doctor_rules.py
-uv run rapid-ship sync --in-place
-uv run pytest tests/devctl -q
-```
-
-Between the second and third command the implementer deletes `_approves` and, in `_pull_request_problems`, the line that calls it with `NO_APPROVAL`, as Task 10 Step 17 says. Then, either way (the implementer writes the trailer of its own model in place of the plan's):
-
-```sh
-./devctl check --tier fast
-npm --prefix website run build
-git add -A docs tests rapid_ship/templates tools/devctl .rapid-ship/kit.lock
-git commit -m "docs: settle the ruleset's approval count from plan 4's trial" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
-
-Must observe: with a count of 0, the grep shows `0` in the fixture, and the second command fails for the new test, for `test_only_flight_without_agent_identity_accepts_no_review_requirement` with `assert NO_APPROVAL not in problems`, and for every test that checks the fixture as the whole ruleset, such as `test_the_rs_setup_ruleset_passes`; after the deletion `uv run pytest tests/devctl -q` passes with the fixture's count of 0. Either way the open item that starts `- **The ruleset's approval count with Agent identity in Flight:**` leaves Spec 1 section 11, the matching line joins the "Answered" list, the fast check and the docs site build pass, and the commit holds the docs, tests, templates, `tools/devctl` and `.rapid-ship/kit.lock`.
+- Step 2: the macOS, git, gh, uv and Claude Code versions, the owner's GitHub plan, `git -C "$PLAN4" rev-parse HEAD` and the fast check's exit code.
+- Step 3 did not run in the trial, because the Apps existed from 2026-10-19. So `rapid-ship app`'s output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key are not recorded.
+- Step 5: the read of the existing item, `security find-generic-password -s "rapid-ship/worker-app/$WORKER_ID" -w`, its exit code, and whether a macOS dialog appeared. Until then, that any process the owner runs can read both keys is unconfirmed.
+- Step 6: the output and exit code of `rapid-ship app --repository`, and whether the install URL added `rs-trial-private` to the existing installation.
+- Step 7: both calls' output and exit codes.
+- Step 9: doctor's exit code, and whether GitHub's web interface names `actor_id` 5 as the admin role.
+- Step 10: the output and exit codes after the owner's review: the merge refused while the thread was open, and the Worker App's merge.
+- Step 11: the `grep -c` count, doctor's output after the move to Flight, and `reviewDecision` and `mergeStateStatus` before each merge attempt.
+- Step 11a: the `PUT` call's output and the first read-back's value.
 
 ### Task 11: pending Owner steps
 
