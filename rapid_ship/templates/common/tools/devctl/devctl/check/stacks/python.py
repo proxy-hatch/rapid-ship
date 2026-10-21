@@ -6,9 +6,10 @@ import ast
 import io
 import json
 import re
+import shlex
 import tempfile
 import tokenize
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 from devctl.check.steps import (
@@ -295,3 +296,174 @@ def _dotted(node: ast.expr) -> str:
         base = _dotted(node.value)
         return f"{base}.{node.attr}" if base else ""
     return ""
+
+
+# The Python guardrail floor of spec section 4. The seeded pyproject.toml meets it, and an existing
+# project's settings are held to it by doctor.
+REQUIRED_RUFF = (
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "C4",
+    "RUF",
+    "PGH",
+    "ERA",
+    "T20",
+    "S",
+    "TID",
+    "PT",
+    "PTH",
+    "DTZ",
+    "C90",
+    "TD",
+    "BLE",
+    "ANN401",
+)
+ESCAPE_HATCHES = ("PGH003", "PGH004", "RUF100", "ERA001")
+MYPY_CODES = ("ignore-without-code", "redundant-expr", "truthy-bool")
+DEV_TOOLS = ("ruff", "mypy", "pytest", "import-linter")
+_ASYNC_FRAMEWORKS = frozenset({"fastapi", "anyio", "trio"})
+
+
+def _letters(code: str) -> str:
+    return code.rstrip("0123456789")
+
+
+def _covers(selectors: Sequence[str], code: str) -> bool:
+    """Whether a Ruff selector list selects every rule that code names.
+
+    A selector covers a code when it is ALL, or when it is a prefix of the code within one linter:
+    its letters must equal the code's, so E does not select ERA. The legacy groups C and T cover
+    C4 and C90, and T10 and T20, by the same rule.
+    """
+    return any(
+        s == "ALL" or (code.startswith(s) and _letters(s) == _letters(code)) for s in selectors
+    )
+
+
+def toml_table(parent: Mapping[str, object], *keys: str) -> Mapping[str, object]:
+    """The table at keys, or an empty one when a level is missing or is not a table."""
+    current: object = parent
+    for key in keys:
+        if not isinstance(current, Mapping):
+            return {}
+        current = current.get(key)
+    return current if isinstance(current, Mapping) else {}
+
+
+def toml_strings(value: object) -> list[str]:
+    """The strings of a list setting; a bare string is a list of one."""
+    if isinstance(value, str):
+        return [value]
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+
+def _requirement_name(requirement: str) -> str | None:
+    match = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", requirement.strip())
+    return re.sub(r"[-_.]+", "-", match.group()).lower() if match else None
+
+
+def _requirement_names(value: object) -> set[str]:
+    names = (_requirement_name(requirement) for requirement in toml_strings(value))
+    return {name for name in names if name is not None}
+
+
+def _ruff_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    lint = toml_table(pyproject, "tool", "ruff", "lint")
+    frameworks = _requirement_names(toml_table(pyproject, "project").get("dependencies"))
+    required = list(REQUIRED_RUFF)
+    if frameworks & _ASYNC_FRAMEWORKS:
+        required.append("ASYNC")
+    if "fastapi" in frameworks:
+        required.append("FAST")
+    selected = [*toml_strings(lint.get("select")), *toml_strings(lint.get("extend-select"))]
+    lacking = [code for code in required if not _covers(selected, code)]
+    gaps = [f"ruff: select lacks {', '.join(lacking)}"] if lacking else []
+    ignored = toml_strings(lint.get("ignore"))
+    gaps += [f"ruff: ignore disables {code}" for code in ESCAPE_HATCHES if _covers(ignored, code)]
+    if toml_table(lint, "flake8-tidy-imports").get("ban-relative-imports") != "all":
+        gaps.append("ruff: relative imports are not banned")
+    return gaps
+
+
+def _mypy_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    mypy = toml_table(pyproject, "tool", "mypy")
+    gaps = [
+        f"mypy: {setting} is not true"
+        for setting in ("strict", "warn_unreachable")
+        if mypy.get(setting) is not True
+    ]
+    enabled = {
+        part.strip()
+        for item in toml_strings(mypy.get("enable_error_code"))
+        for part in item.split(",")
+    }
+    lacking = [code for code in MYPY_CODES if code not in enabled]
+    if lacking:
+        gaps.append(f"mypy: enable_error_code lacks {', '.join(lacking)}")
+    return gaps
+
+
+def _import_linter_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    contracts = toml_table(pyproject, "tool", "importlinter").get("contracts")
+    types = (
+        {c.get("type") for c in contracts if isinstance(c, Mapping)}
+        if isinstance(contracts, list)
+        else set()
+    )
+    return [
+        f"import-linter: no {kind} contract"
+        for kind in ("layers", "forbidden")
+        if kind not in types
+    ]
+
+
+def pytest_addopts(options: Mapping[str, object]) -> list[str]:
+    value = options.get("addopts")
+    if not isinstance(value, str):
+        return toml_strings(value)
+    try:
+        return shlex.split(value)
+    except ValueError:
+        return value.split()
+
+
+def _pytest_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    options = toml_table(pyproject, "tool", "pytest", "ini_options")
+    addopts = pytest_addopts(options)
+    gaps = [
+        f"pytest: addopts lacks {flag}"
+        for flag in ("--strict-markers", "--strict-config")
+        if flag not in addopts
+    ]
+    if options.get("xfail_strict") is not True:
+        gaps.append("pytest: xfail_strict is not true")
+    warnings = [
+        line.strip()
+        for item in toml_strings(options.get("filterwarnings"))
+        for line in item.splitlines()
+    ]
+    if "error" not in warnings:
+        gaps.append("pytest: filterwarnings lacks error")
+    return gaps
+
+
+def _dev_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    present = _requirement_names(toml_table(pyproject, "dependency-groups").get("dev"))
+    lacking = [tool for tool in DEV_TOOLS if tool not in present]
+    return [f"dev dependencies lack {', '.join(lacking)}"] if lacking else []
+
+
+def guardrail_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    """The settings of spec section 4's Python floor that pyproject lacks, one message each."""
+    return [
+        *_ruff_gaps(pyproject),
+        *_mypy_gaps(pyproject),
+        *_import_linter_gaps(pyproject),
+        *_pytest_gaps(pyproject),
+        *_dev_gaps(pyproject),
+    ]

@@ -5,13 +5,14 @@ Nothing here contacts GitHub: a remote is a local bare repository.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import secrets
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,10 +22,11 @@ from urllib.parse import parse_qs, urlsplit
 
 import jwt
 
+from devctl.doctor_items import DoctorContext, OwnerReadError
 from devctl.github.app import KeychainMissing
 
 # run_process is imported directly, so recorded_argv and fake_run never see test setup.
-from devctl.process import run_process
+from devctl.process import ProcessResult, run_process
 
 WORKER_ID = 101
 REVIEWER_ID = 202
@@ -54,6 +56,7 @@ class Call:
 
 Reply = tuple[Any, ...]  # (status, body) or (status, body, headers)
 Handler = Callable[[Call, re.Match[str]], Reply]
+MakeContext = Callable[..., DoctorContext]
 
 
 @dataclass(frozen=True)
@@ -294,3 +297,160 @@ class Remote:
         git(worktree, "add", "--all")
         git(worktree, "commit", "-q", "-m", message)
         return git(worktree, "rev-parse", "HEAD")
+
+
+class RecordedOwner:
+    """The owner's gh GET, recorded: an owner_get that serves responses by exact path.
+
+    A path that nobody served is GitHub's 404. paths keeps every path asked for, in order.
+    """
+
+    def __init__(self, served: Mapping[str, object]) -> None:
+        self._served: dict[str, object] = dict(served)
+        self.paths: list[str] = []
+
+    def __call__(self, path: str) -> object:
+        self.paths.append(path)
+        found = self._served.get(path, OwnerReadError(404, "Not Found"))
+        if isinstance(found, OwnerReadError):
+            raise found
+        return found
+
+    def serve(self, path: str, value: object) -> None:
+        """Answer path with value from now on."""
+        self._served[path] = value
+
+    def fail(self, path: str, error: OwnerReadError) -> None:
+        """Make a read of path raise error from now on."""
+        self._served[path] = error
+
+
+class FakeRun:
+    """devctl.process.run_process and shutil.which, simulated for doctor's tests.
+
+    Every argv is recorded in argv. A command answers with the result set for its executable's base
+    name and arguments by answer(), or with exit 1 and no output; shutil.which finds every name
+    under /usr/bin. Test setup never goes through the patch: github_fakes.git imports run_process
+    directly, and Repo runs git through its own _git.
+    """
+
+    def __init__(self) -> None:
+        self.argv: list[list[str]] = []
+        self._answers: dict[tuple[str, ...], ProcessResult] = {}
+
+    @staticmethod
+    def _key(argv: Sequence[str]) -> tuple[str, ...]:
+        return (Path(argv[0]).name, *argv[1:])
+
+    def answer(self, argv: list[str], result: ProcessResult) -> None:
+        self._answers[self._key(argv)] = result
+
+    def run_process(
+        self,
+        argv: Sequence[str],
+        cwd: Path,
+        timeout_seconds: float,
+        env: Mapping[str, str] | None = None,
+        input_text: str | None = None,
+    ) -> ProcessResult:
+        self.argv.append(list(argv))
+        return self._answers.get(self._key(argv)) or ProcessResult(list(argv), 1, "", "", 0.0)
+
+    @staticmethod
+    def which(cmd: str, mode: int = os.F_OK | os.X_OK, path: str | None = None) -> str | None:
+        return f"/usr/bin/{cmd}"
+
+
+class FakeHarness:
+    """Harness executables on a PATH of their own: a /bin/sh script per installed name.
+
+    Each run appends its working directory to <name>.cwd and its arguments, one per line and then a
+    line --end--, to <name>.args; it prints <name>.stdout and <name>.stderr and exits with the
+    installed code. A name that was not installed is not on PATH.
+    """
+
+    def __init__(self, directory: Path) -> None:
+        self.directory = directory
+
+    def install(self, name: str, *, stdout: str = "", stderr: str = "", code: int = 0) -> None:
+        (self.directory / f"{name}.stdout").write_text(stdout)
+        (self.directory / f"{name}.stderr").write_text(stderr)
+        script = self.directory / name
+        script.write_text(
+            "#!/bin/sh\n"
+            'here="${0%/*}"\n'
+            f'pwd >> "$here/{name}.cwd"\n'
+            f'for argument in "$@"; do printf \'%s\\n\' "$argument" >> "$here/{name}.args"; done\n'
+            f"printf '%s\\n' --end-- >> \"$here/{name}.args\"\n"
+            f'cat "$here/{name}.stdout"\n'
+            f'cat "$here/{name}.stderr" >&2\n'
+            f"exit {code}\n"
+        )
+        script.chmod(0o755)
+
+    def calls(self, name: str) -> list[list[str]]:
+        """The arguments of each run of name, in order; empty when the script never ran."""
+        record = self.directory / f"{name}.args"
+        if not record.exists():
+            return []
+        runs: list[list[str]] = [[]]
+        for line in record.read_text().splitlines():
+            if line == "--end--":
+                runs.append([])
+            else:
+                runs[-1].append(line)
+        return runs[:-1]
+
+    def cwds(self, name: str) -> list[Path]:
+        record = self.directory / f"{name}.cwd"
+        if not record.exists():
+            return []
+        return [Path(line) for line in record.read_text().splitlines()]
+
+
+@dataclass(frozen=True)
+class RepoFiles:
+    """Writes tracked files into the temporary repository that the ctx fixture made."""
+
+    root: Path
+    stack: str
+
+    def write(self, path: str, text: str) -> None:
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+        git(self.root, "add", "--", path)
+
+    def workflow(self, job_name: str) -> None:
+        """.github/workflows/devctl-check.yml with one job of that name."""
+        self.write(
+            ".github/workflows/devctl-check.yml",
+            "name: devctl check\n"
+            "on:\n  pull_request:\n"
+            f"jobs:\n  check:\n    name: {job_name}\n    runs-on: ubuntu-24.04\n"
+            "    steps:\n      - run: ./devctl check --tier full\n",
+        )
+
+    def lock(
+        self, unchanged: Sequence[str], missing: Sequence[str], stale: Sequence[str] = ()
+    ) -> None:
+        """A lock at kit_version 0.2.0 that records no exclusion.
+
+        Each unchanged file is written with its real sha256. A missing file is not written. A stale
+        entry records a sha256 that no file matches: its file is modified, or missing when absent.
+        """
+        lines = [f'kit_version = "0.2.0"\nstack = "{self.stack}"\n']
+        written = [(path, self._write_unchanged(path)) for path in unchanged]
+        entries = [(path, hashlib.sha256(content).hexdigest()) for path, content in written]
+        entries += [(path, hashlib.sha256(b"missing").hexdigest()) for path in missing]
+        entries += [(path, "0" * 64) for path in stale]
+        for path, sha256 in entries:
+            lines.append(
+                f'[[file]]\npath = {json.dumps(path)}\nkind = "managed"\nsha256 = "{sha256}"\n'
+            )
+        self.write(".rapid-ship/kit.lock", "\n".join(lines))
+
+    def _write_unchanged(self, path: str) -> bytes:
+        content = f"{path}, as the lock records it\n"
+        self.write(path, content)
+        return content.encode()
