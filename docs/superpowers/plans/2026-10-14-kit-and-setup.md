@@ -446,6 +446,8 @@ The owner's decisions of 2026-10-19 and 2026-10-20 changed plan 4's built code: 
 
 ## Plan 5: Kit standards and Harness guardrails
 
+Its plan document, [Kit standards and Harness guardrails](2026-10-21-kit-standards-and-guardrails.md), holds the tasks of the four PRs below and lands in PR 5.1.
+
 **Goal:** Run the hook spike in Claude Code, Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings; and `sync`'s migrations. Plan 5 wires no other Harness: the spike's report decides whether a follow-up, with its own plan, adds the wiring for Codex or agy (Spec 1 section 4).
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
