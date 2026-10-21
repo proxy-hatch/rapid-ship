@@ -6894,6 +6894,15 @@ Then run Step 11a's second block, from `git switch main && git pull --ff-only` t
 
 The decided ruleset relies on code-owner review at a count of 0: in Walk, it is all that keeps GitHub from merging the Worker App's pull request without the owner. The trial did not observe it. Step 10 ran at a count of 1, and #3 changed README.md, which has no code owner in Flight. Run this after Step 11a's second block, which applies the decided ruleset. `rs-trial` is in Flight, so the pull request changes `docs/AGENTS.md`, which the Protected set's `/**/AGENTS.md` line gives to the owner. Walk's `*` line relies on the same code-owner rule and is not tried separately.
 
+First check the step's precondition: on `main`, an active CODEOWNERS line gives `docs/AGENTS.md` to the owner, and the ruleset requires code-owner review.
+
+```sh
+gh api "repos/$OWNER/rs-trial/contents/.github/CODEOWNERS?ref=main" --jq .content | base64 -d | grep -n AGENTS.md
+gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters.require_code_owner_review'
+```
+
+Must observe: an active line, one that does not start with `#`, such as `/**/AGENTS.md @<owner's login>`; then `true`. If either check fails, record both outputs and stop this step without a conclusion: GitHub's answer below would not show whether code-owner review holds at a count of 0. Otherwise:
+
 ```sh
 git switch main && git pull --ff-only
 git switch -c trial-code-owner
@@ -6915,7 +6924,7 @@ gh pr view "$PR5" --json reviewDecision,mergeStateStatus
 ./devctl as worker gh pr merge "$PR5" --squash; echo "merge exit $?"
 ```
 
-Must observe: `reviewDecision` is `APPROVED`, and the Worker App's merge succeeds. Record both outputs and the exit code. If GitHub merged the pull request before the owner approved, code-owner review does not hold at a count of 0: record that and stop, because the owner's decision of 2026-10-21 relies on it.
+Must observe: `reviewDecision` is `APPROVED`, and the Worker App's merge succeeds. Record both outputs and the exit code. If GitHub merged the pull request before the owner approved, with the precondition met, code-owner review does not hold at a count of 0: record that and stop, because the owner's decisions of 2026-10-21 rely on it.
 
 #### Step 12: a Reviewer App change request, and a workflow change
 
