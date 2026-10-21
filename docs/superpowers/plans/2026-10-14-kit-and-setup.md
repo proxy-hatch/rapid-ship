@@ -6,7 +6,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
-| 1 | [Remove the old controller](https://github.com/proxy-hatch/rapid-ship/pull/28) | 2 | — | Built: PR #28, `codex/remove-controller` |
+| 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
 | 2 | [The rapid-ship CLI](https://github.com/proxy-hatch/rapid-ship/pull/29): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](https://github.com/proxy-hatch/rapid-ship/pull/30), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first, and its live trials are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
