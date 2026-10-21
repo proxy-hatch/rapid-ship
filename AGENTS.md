@@ -65,6 +65,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
+- Squash-merge every pull request; the repository's settings do not enforce it. In a stack of PRs, once the PR below is squash-merged, retarget the next PR to `main` and merge `main` into it before merging it.
 
 ## Safety
 
