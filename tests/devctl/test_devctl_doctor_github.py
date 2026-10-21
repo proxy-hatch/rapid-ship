@@ -39,12 +39,17 @@ RULESET: dict[str, Any] = json.loads((FIXTURES / "ruleset.json").read_text())
 # (every_pr, agent_identity): Walk and Flight, each with Agent identity off and on.
 MODES = ((True, False), (True, True), (False, False), (False, True))
 APPROVAL_IN_FLIGHT = (
-    "the pull_request rule requires an approval, which GitHub does not take from the Reviewer "
-    "App, so agent PRs cannot merge in Flight"
+    "the pull_request rule requires an approval, so GitHub may refuse the Worker App's merge of an "
+    "agent PR outside the Protected set on the Reviewer App's approval, as in plan 4's trial"
 )
 LAST_PUSH_IN_FLIGHT = (
-    "the pull_request rule requires approval of the most recent push, which GitHub does not take "
-    "from the Reviewer App, so agent PRs cannot merge in Flight"
+    "the pull_request rule requires approval of the most recent push, so GitHub refuses the Worker "
+    "App's merge of an agent PR outside the Protected set on the Reviewer App's approval, as in "
+    "plan 4's trial"
+)
+RELAXED_IN_FLIGHT = (
+    "an active ruleset on main has rs-setup's settings without code-owner review, which doctor "
+    "accepts in Flight without Agent identity; GitHub then does not enforce the Protected set"
 )
 PROTECTED = "".join(
     f"/{path} @o\n"
@@ -167,8 +172,8 @@ def test_only_flight_with_agent_identity_refuses_a_required_approval(
 ) -> None:
     ruleset = copy.deepcopy(RULESET)
     rule(ruleset, "pull_request")["parameters"].update(required)
-    # GitHub does not take the Reviewer App's approval, so it refuses every agent PR outside the
-    # Protected set (plan 4's live trial).
+    # Only Flight with Agent identity relies on the Reviewer App's approval alone, which either
+    # setting stops or may stop (plan 4's live trial).
     assert ruleset_problems([ruleset], "main", every_pr=False, agent_identity=True) == [problem]
     for every_pr, agent_identity in ((True, False), (True, True), (False, False)):
         assert (
@@ -396,7 +401,7 @@ def test_doctor_calls_the_relaxed_ruleset_ok_only_in_flight_without_agent_identi
     assert walk.status == "missing"
     assert with_identity["ruleset"].status == "missing"
     assert flight["ruleset"].status == "ok"
-    assert "without the review requirement" in flight["ruleset"].detail
+    assert flight["ruleset"].detail == RELAXED_IN_FLIGHT
     # Flight with Agent identity, the Mode Task 10's trial reaches, accepts the whole ruleset.
     recorded.serve("repos/o/r/rulesets/9", RULESET)
     with_identity = {i.name: i for i in github_items(dataclasses.replace(context, project=on))}

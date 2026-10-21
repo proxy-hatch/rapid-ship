@@ -174,11 +174,12 @@ def _requires_approval(count: object) -> bool:
 
 
 def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
-    """The approvals that stop the Worker App from merging an agent PR outside the Protected set
-    in Flight with Agent identity. GitHub applies every active ruleset on the branch, so any one of
-    them that requires an approval blocks. Plan 4's live trial: GitHub refused such a merge with
-    the Reviewer App's approval at a count of 1, and at 0 while approval of the most recent push
-    was required."""
+    """The approvals that stop, or may stop, the Worker App from merging an agent PR outside the
+    Protected set on the Reviewer App's approval, in Flight with Agent identity. GitHub applies
+    every active ruleset on the branch, so a requirement in any one of them applies. Plan 4's
+    live trial: GitHub refused such a merge at a count of 1 and at 0, each with approval of the
+    most recent push required, and merged it once that was off too. The count was never tried
+    alone."""
     params = [
         _rules(ruleset).get("pull_request", {})
         for ruleset in rulesets
@@ -187,13 +188,15 @@ def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch
     blocks = [
         (
             any(_requires_approval(p.get("required_approving_review_count")) for p in params),
-            "the pull_request rule requires an approval, which GitHub does not take from the "
-            "Reviewer App, so agent PRs cannot merge in Flight",
+            "the pull_request rule requires an approval, so GitHub may refuse the Worker App's "
+            "merge of an agent PR outside the Protected set on the Reviewer App's approval, as in "
+            "plan 4's trial",
         ),
         (
             any(p.get("require_last_push_approval") is True for p in params),
-            "the pull_request rule requires approval of the most recent push, which GitHub does "
-            "not take from the Reviewer App, so agent PRs cannot merge in Flight",
+            "the pull_request rule requires approval of the most recent push, so GitHub refuses "
+            "the Worker App's merge of an agent PR outside the Protected set on the Reviewer App's "
+            "approval, as in plan 4's trial",
         ),
     ]
     return [problem for blocked, problem in blocks if blocked]
@@ -211,9 +214,9 @@ def ruleset_problems(
     rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. rs-setup's ruleset requires
     no approval count and no approval of the most recent push (section 8, step 7). Walk accepts a
     ruleset with or without them. Flight with Agent identity needs every enforced ruleset without
-    them, because GitHub does not take the Reviewer App's approval. Flight without Agent identity
-    accepts a ruleset with or without them, and also one without code-owner review, because the
-    owner cannot approve a pull request from their own account (section 8, step 8).
+    them: in plan 4's trial, GitHub refused the Worker App's merge on the Reviewer App's approval
+    until both were off. Flight without Agent identity accepts a ruleset with or without them, and
+    also one without code-owner review (section 8, step 8).
     """
     if not rulesets:
         return [NO_RULESET]
