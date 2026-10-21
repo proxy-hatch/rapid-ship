@@ -36,11 +36,12 @@
 - No `print`, no `Any` in a signature, complexity at most 10, every test annotated. Each suppression carries an `rs-exception` marker and an entry in `.rapid-ship/exceptions.toml`.
 - Write tests first. A test module's docstring starts `Offline:` and names what it simulates. A blocked, skipped or simulated check never counts as passed.
 - `uv run pytest` and `./devctl check --tier full` need network access and gitleaks 8.30.1 on `PATH`.
+- Agent identity is on in this repository. In every Session, the controller's included, agents push only with `./devctl as worker push` and run `gh` writes as `./devctl as <role> gh`.
 - From Task 6 on, a Claude Code Session started in a checkout that holds the seeded `.claude/settings.json` runs `devctl hook`. Claude Code reads its hooks when a Session starts, so a Session started earlier, or in a checkout without the file, runs none. The controller's Session for this plan is such a Session, so the owner approves the Protected changes at each PR, which only the owner merges. Never start a new Session in a checkout without the wiring to avoid an ask. In a Session that runs the hook:
   - G5 asks the owner before each Edit or Write of a Protected path. This repository's CODEOWNERS covers `/**/AGENTS.md`, `/.claude/`, `/.github/`, `/.rapid-ship/` and `/pyproject.toml`, which Tasks 6 to 9 and 13 to 16 edit. In a headless Session each such edit is denied, and the owner makes it.
-  - Agent identity is on here, so G7 and G8 deny an agent's `git push` and its `gh` writes as the owner. Agents push only with `./devctl as worker push`, and run `gh` writes as `./devctl as <role> gh`.
+  - G7 and G8 deny an agent's `git push` and its `gh` writes as the owner.
   - If the hook blocks every call, the owner, never an agent, starts a Session with `--settings '{"disableAllHooks": true}'` to fix it, and the PR body records that Session.
-- Branches: 5.1 `plan5-hook-spike` on `main`; 5.2 `plan5-guardrails` on 5.1; 5.3 `plan5-standards` on 5.2; 5.4 `plan5-settings-migrations` on 5.3. Each PR's base is the branch below it. Each PR touches the Protected set, so the owner merges it in GitHub's web interface. After the PR below squash-merges, the controller retargets the next PR to `main`, confirms that `main`'s tree equals that PR's head (`git diff --quiet main <the branch below>`), runs `git merge -s ours main` and pushes with `./devctl as worker push`: the branch already holds that content, and a plain merge conflicts on this plan file. The Worker App cannot push a commit that changes `.github/workflows/` (plan 4's Checked facts), so the owner pushes the commits of Tasks 14 and 15 that change this repository's CI workflow.
+- Branches: 5.1 `plan5-hook-spike` on `main`; 5.2 `plan5-guardrails` on 5.1; 5.3 `plan5-standards` on 5.2; 5.4 `plan5-settings-migrations` on 5.3. Each PR's base is the branch below it. Each PR touches the Protected set, so the owner merges it in GitHub's web interface. After the PR below squash-merges, the controller retargets the next PR with `./devctl as worker gh pr edit <n> --base main`. It then confirms that `main`'s tree equals that PR's head (`git diff --quiet main <the branch below>`), runs `git merge -s ours main` and pushes with `./devctl as worker push`: the branch already holds that content, and a plain merge conflicts on this plan file. The Worker App cannot push a commit that changes `.github/workflows/` (plan 4's Checked facts), so the owner pushes the commits of Tasks 14 and 15 that change this repository's CI workflow.
 - Each PR's last task runs and records `uv run pytest -q`, `./devctl check --tier fast`, `uv run rapid-ship status --strict`, `./devctl check --tier full --base <PR base> --pr-body <body file>` and, when docs change, `npm --prefix website run build`, in the Verification record at the end of this plan.
 - Ruff formats the `python` code blocks of a Markdown file, so keep this plan's blocks valid Python in Ruff's layout.
 - Commit trailer: each commit ends with `Co-Authored-By: <the model that writes the commit>`, such as `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -51,7 +52,7 @@
 2. **A command line hides a second command.** Inputs: a newline, `&`, a subshell `( … )`, `$( … )` and backticks, a `#` comment, a heredoc, a redirection such as `2>&1`, a leading `NAME=value` and an absolute path to git. Expected: each simple command is checked, no heredoc body is, and no redirection's words count as arguments. Task 3's `SHELL` rows pin it.
 3. **A Session edits in a linked worktree.** Claude Code keeps `$CLAUDE_PROJECT_DIR` at the main checkout while the edit lands in a worktree. Expected: G4 and G5 judge the path against the worktree that holds it, with that worktree's CODEOWNERS. Task 4's `test_run_hook_judges_an_edit_by_its_linked_worktree` pins it.
 4. **An event the hook does not expect.** Inputs: a tool the hook does not wire, a missing `tool_input`, bytes that are not JSON, an unknown or missing Harness name. Expected: no decision for an unwired tool, exit 1 for the rest, never exit 2. Task 4's `test_the_hook_never_exits_2` pins it.
-5. **`gh pr merge` names another repository.** Inputs: `-R x/y` and a PR URL. Expected: the guard reads that repository, not `[github] repository`. Task 5's `test_each_target_reads_its_pull_request` pins it.
+5. **`gh pr merge` names another repository.** Inputs: `-R x/y` after or before `merge`, and a PR URL. Expected: the guard reads that repository, not `[github] repository`. Task 5's `test_each_target_reads_its_pull_request` pins it.
 6. **The guard counts the wrong review.** With Agent identity on, a mistake here silently merges a head the Reviewer never approved, the case the check exists to stop. Inputs: no review, a person's approval, the login `o-reviewer` without `[bot]`, an approval of an older commit, a later request for changes, a later comment or dismissed review, and reviews over two pages. Expected: only the Reviewer App's latest review that approves or requests changes decides, and the guard denies unless it approves the head SHA the guard read. Task 5's `test_with_agent_identity_a_head_without_the_reviewer_apps_approval_is_denied`, `test_comments_and_dismissed_reviews_do_not_decide` and `test_reviews_are_read_page_by_page` pin it.
 
 ## File Structure
@@ -491,6 +492,13 @@ def test_a_pr_merge_keeps_its_repository_head_and_command() -> None:
         head="abc",
         command=("gh", "pr", "merge", "7", "-R", "x/y", "--squash"),
     )
+
+
+def test_a_repository_given_before_merge_is_kept() -> None:
+    words = simple_commands("gh pr -R x/y merge 7")[0]
+    assert find_merge(words, unread) == Merge(
+        "pr-merge", "7", repository="x/y", command=("gh", "pr", "-R", "x/y", "merge", "7")
+    )
 ```
 
 - [ ] **Step 2: run them.** `uv run pytest tests/devctl/test_devctl_hook_rules.py tests/devctl/test_devctl_merge_guard_forms.py -q`; expected FAIL with `ModuleNotFoundError: No module named 'devctl.hook'`.
@@ -830,7 +838,7 @@ def test_comments_and_dismissed_reviews_do_not_decide() -> None:
 ```
 
   Also in `test_devctl_merge_guard.py`:
-  - `test_each_target_reads_its_pull_request`: `gh pr merge task` and `gh pr merge` (current branch `task`) read `BY_BRANCH` first, served `[PULL]`; `gh pr merge https://github.com/x/y/pull/7` and `gh pr merge 7 -R x/y` read `repos/x/y/pulls/7` first, with `OFF`, whose repository is `o/r`.
+  - `test_each_target_reads_its_pull_request`: `gh pr merge task` and `gh pr merge` (current branch `task`) read `BY_BRANCH` first, served `[PULL]`; `gh pr merge https://github.com/x/y/pull/7`, `gh pr merge 7 -R x/y` and `gh pr -R x/y merge 7` read `repos/x/y/pulls/7` first, with `OFF`, whose repository is `o/r`.
   - `test_a_pr_the_guard_cannot_identify_or_read_is_denied`: `reader.fail(PR, OwnerReadError(404, "HTTP 404: Not Found"))` gives `merge denied: the merge guard cannot check this merge: HTTP 404: Not Found; fix that, then merge again`; `replace(OFF, repository=None)` without `-R` gives the `no repository` reason; `BY_BRANCH` served `[]` and served two PRs give their reasons; a detached HEAD with no target gives its reason.
   - `test_an_error_inside_the_guard_is_denied`: `PR` served as `[]` gives a message starting `merge denied: the merge guard cannot check this merge: the guard failed: `.
   - `test_files_are_read_page_by_page`: page 1 holds 100 unprotected files and page 2 `.github/x`; the message names `(.github/x)`.
@@ -996,7 +1004,7 @@ def settings_item(root: Path) -> Item: ...  # area "guardrails", name "settings"
 - [ ] **Step 1: move rule 7.** Move `_front_matter` and `_text` to `check/markdown.py` as `front_matter_of` and `text_value`, then the skill functions and `SKILLS` to `check/map_skills.py`; update `MapStep.run` and the test imports, among them `test_devctl_map_links.py:11`, which imports `skill_alias_errors` from `devctl.check.map`. Format, check and sync, then run `uv run pytest tests/devctl/test_devctl_map_*.py -q`; expected PASS. Commit `refactor: move map rule 7 into check/map_skills.py`.
 - [ ] **Step 2: write the failing tests.** In `test_devctl_map_root_documents.py`, docstring `Offline: map rule 8 in fixture repositories.`, using `Workspace`:
   - `test_rule_8_passes_with_both_documents_linked_from_the_root_guide`: `AGENTS.md` links both, each links `AGENTS.md`; `MapStep().run(ctx).status == "passed"`.
-  - `test_rule_8_reports_a_missing_document_and_a_broken_link`: without `README.md`, `root_document_errors` holds `README.md: missing at the repository root; rapid-ship init seeds it`; an ARCHITECTURE.md link to `gone.md` gives, in `root_link_errors`, rule 1's message for that link.
+  - `test_rule_8_reports_a_missing_document_and_a_broken_link`: `AGENTS.md` links both documents, `ARCHITECTURE.md` links `gone.md`, and `README.md` is missing. `root_document_errors` holds `README.md: missing at the repository root; rapid-ship init seeds it`, and `root_link_errors` holds only rule 1's message for the `gone.md` link.
   - `test_a_broken_link_in_architecture_md_warns_in_kit_0_2_0_and_fails_after`: through `MapStep`, that message is a note `warning: <message>; this fails from the next Kit version` under `0.2.0` and an error under `0.3.0`.
   - `test_a_root_guide_without_the_links_warns_in_kit_0_2_0_and_fails_after`: with `devctl.__version__` patched to `0.2.0`, the step passes with the note `warning: AGENTS.md: does not link README.md; add it to the Find the change table; this fails from the next Kit version`; patched to `0.3.0`, it fails with `AGENTS.md: does not link README.md; add it to the Find the change table`.
 
@@ -1021,7 +1029,7 @@ def root_guide(self, text: str = "# Root\n") -> None:
 
   In `tests/test_kit_contents.py`: `SEEDED` gains both files; `ROOT_GUIDE_LINKS` starts `["README.md", "ARCHITECTURE.md", ...]`; `POINTERS` gains ``"`./devctl doctor --settings`"``; the README seed contains `./devctl check` and `](AGENTS.md)`, and the ARCHITECTURE seed contains `| Part | Where | What it does |` and `` `docs/adr/` ``.
 - [ ] **Step 3: run** the three files; expected FAIL with `ImportError: cannot import name 'root_document_errors'`.
-- [ ] **Step 4: implement.** `root_document_errors` checks only that both files exist, and fails at once. `root_link_errors` returns `link_errors(root, files, ["README.md", "ARCHITECTURE.md"])` and the root guide's missing links to either document, found with `_guide_targets(root, "AGENTS.md")`; `MapStep.run` passes them through `graced`. `git add` the seeds, then sync: this repository's `README.md` and `ARCHITECTURE.md` stay as they are and are recorded as seeded.
+- [ ] **Step 4: implement.** `root_document_errors` checks only that both files exist, and fails at once. `root_link_errors` returns `link_errors` over those of `README.md` and `ARCHITECTURE.md` that exist (`(root / name).is_file()`), because `root_document_errors` already reports a missing one, and the root guide's missing links to either document, found with `_guide_targets(root, "AGENTS.md")`; `MapStep.run` passes them through `graced`. `git add` the seeds, then sync: this repository's `README.md` and `ARCHITECTURE.md` stay as they are and are recorded as seeded.
 - [ ] **Step 5: run** them, `tests/devctl/test_devctl_map_*.py` and `tests/devctl/test_devctl_doctor*.py`; expected PASS. Status, fast check.
 - [ ] **Step 6: commit** `feat: seed README.md and ARCHITECTURE.md, check them with map rule 8, and add doctor --settings`.
 
@@ -1032,7 +1040,7 @@ def root_guide(self, text: str = "# Root\n") -> None:
 
 **Interfaces:**
 - Consumes: `graced` (Task 9); `markdown.section(text, title, level)`.
-- Produces: `pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]` in `map.py`, whose messages `MapStep.run` passes through `graced`. `_document_errors` passes the file's text to its callback as a fourth argument. Ruling: `pattern_lesson_errors` skips a file whose front matter does not parse, because `pattern_errors` already reports that file.
+- Produces: `pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]` in `map.py`, whose messages `MapStep.run` passes through `graced`. `_document_errors` passes the file's text to its callback as a fourth argument. Ruling: `pattern_lesson_errors` skips a file for which `front_matter_of` (Task 9) gives a message, because `pattern_errors` already reports that file: the file cannot be read, or its front matter is missing, not closed, not YAML or not a mapping.
 
 The seed's front-matter example gains `task: Read configuration` first, with the bullet ``- `task` is the recurring task in a few words.``, and its last paragraph becomes Spec 1's: the text states the rule, when it applies and the bypass it bans, and a non-empty `## Lessons` section explains what the reference does right.
 
@@ -1073,7 +1081,7 @@ def test_a_pattern_needs_a_task_and_lessons(workspace: Workspace, text: str, mes
     assert errors == [f"docs/patterns/settings.md: {message}"]
 ```
 
-  and `test_a_complete_pattern_passes`, with `PATTERN` giving `[]`, and `test_a_front_matter_that_does_not_parse_is_left_to_pattern_errors`, with `PATTERN` less its closing `---` line giving `[]`. In `test_kit_contents.py`, the Pattern README names `task`, `reference`, `enforced_by` and `## Lessons`.
+  and `test_a_complete_pattern_passes`, with `PATTERN` giving `[]`, and `test_a_front_matter_problem_is_left_to_pattern_errors`, parametrized over `PATTERN` less its closing `---` line, `PATTERN` less its front matter, and `PATTERN` whose front matter is the list `- task`; each gives `[]`. In `test_kit_contents.py`, the Pattern README names `task`, `reference`, `enforced_by` and `## Lessons`.
 - [ ] **Step 2: run**; expected FAIL with `ImportError`.
 - [ ] **Step 3: implement**; sync.
 - [ ] **Step 4: run** the map tests and `tests/test_kit_contents.py`; expected PASS. Status, fast check.
