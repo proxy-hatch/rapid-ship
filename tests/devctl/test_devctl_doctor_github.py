@@ -34,7 +34,8 @@ from github_fakes import (
 from rapid_ship.kit.templates import render_files
 
 FIXTURES = Path(__file__).parent / "fixtures" / "github"
-# Plan 4's live read-back with no approval count and no last-push approval, as rs-setup applies it.
+# Plan 4's Task 10 Step 11a live read-back, with require_last_push_approval set to false by hand:
+# rs-setup's ruleset as GitHub reads it back.
 RULESET: dict[str, Any] = json.loads((FIXTURES / "ruleset.json").read_text())
 # (every_pr, agent_identity): Walk and Flight, each with Agent identity off and on.
 MODES = ((True, False), (True, True), (False, False), (False, True))
@@ -141,22 +142,12 @@ def test_ruleset_problems(change: Callable[[dict[str, Any]], object], problem: s
 
 
 @pytest.mark.parametrize(("every_pr", "agent_identity"), MODES)
-def test_an_approval_count_of_zero_passes_while_code_owner_review_is_required(
-    every_pr: bool, agent_identity: bool
-) -> None:
-    ruleset = copy.deepcopy(RULESET)
-    rule(ruleset, "pull_request")["parameters"].update(
-        required_approving_review_count=0, require_code_owner_review=True
-    )
-    problems = ruleset_problems([ruleset], "main", every_pr=every_pr, agent_identity=agent_identity)
-    assert problems == []
-
-
-@pytest.mark.parametrize(("every_pr", "agent_identity"), MODES)
-def test_every_mode_accepts_no_last_push_approval(every_pr: bool, agent_identity: bool) -> None:
-    ruleset = copy.deepcopy(RULESET)
-    rule(ruleset, "pull_request")["parameters"].update(require_last_push_approval=False)
-    problems = ruleset_problems([ruleset], "main", every_pr=every_pr, agent_identity=agent_identity)
+def test_the_decided_ruleset_passes_in_every_mode(every_pr: bool, agent_identity: bool) -> None:
+    params = rule(RULESET, "pull_request")["parameters"]
+    assert params["required_approving_review_count"] == 0
+    assert params["require_last_push_approval"] is False
+    assert params["require_code_owner_review"] is True
+    problems = ruleset_problems([RULESET], "main", every_pr=every_pr, agent_identity=agent_identity)
     assert problems == []
 
 
