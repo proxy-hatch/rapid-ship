@@ -18,7 +18,7 @@ from devctl.github.app import (
     run_guarded,
 )
 from devctl.process import ProcessResult
-from devctl.settings import Role, load_project
+from devctl.settings import ROLES, Role, load_project
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_PERMISSIONS,
@@ -161,3 +161,12 @@ def test_mac_keychain_decodes_hex_output_and_maps_exit_44(app_keys: AppKeys) -> 
     with pytest.raises(AppError) as caught:
         MacKeychain(run=lambda argv: ProcessResult(argv, 0, "not a key\n", "", 0.0)).read("s")
     assert "not a key" not in str(caught.value)
+
+
+def test_rapid_ship_and_devctl_agree_on_services_and_permissions() -> None:
+    from devctl.github import app
+    from rapid_ship import app_flow, app_keychain
+
+    for role in ROLES:
+        assert app_keychain.keychain_service(role, 7) == app.keychain_service(role, 7)
+    assert app_flow.APP_PERMISSIONS == app.APP_PERMISSIONS

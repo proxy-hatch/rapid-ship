@@ -1,13 +1,18 @@
-"""Command-line entry point: init, status and sync for the vendored Kit."""
+"""Command-line entry point: init, status and sync for the vendored Kit, and app for the owner's
+GitHub Apps."""
 
 import argparse
 import json
 import sys
+import webbrowser
 from collections.abc import Sequence
 from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
+from rapid_ship.app_import import import_key
+from rapid_ship.app_keychain import AppSetupError, MacKeychainStore
+from rapid_ship.github_app import current_repository, gh_owner_get, recorded_apps, run_app
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
 from rapid_ship.kit.pull_request import REVERT
@@ -94,12 +99,34 @@ def build_parser() -> argparse.ArgumentParser:
             "so sync updates it again; a path as status prints it; repeatable"
         ),
     )
+    app = commands.add_parser(
+        "app",
+        help=(
+            "create your Worker and Reviewer GitHub Apps once, keep their keys in the macOS "
+            "Keychain, and print how to install them on a repository"
+        ),
+    )
+    app.add_argument(
+        "--repository",
+        metavar="OWNER/NAME",
+        help="the GitHub repository to install the Apps on; default: the one gh finds here",
+    )
+    app.add_argument(
+        "--import-key",
+        choices=("worker", "reviewer"),
+        help=(
+            "store your own private key, read on stdin, for the role's App that "
+            ".rapid-ship/project.toml records, once GitHub accepts a token it signs"
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = build_parser().parse_args(argv)
+        if args.command == "app":  # app needs no work tree
+            return _app(args.repository, args.import_key)
         root = work_tree_root(Path.cwd())
         if args.command == "init":
             return _init(root, args)
@@ -118,6 +145,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, UnicodeDecodeError) as error:  # an unreadable file or template, for one
         sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
+
+
+def _app(repository: str | None, import_role: str | None) -> int:
+    try:
+        target = repository or current_repository()
+        # Inside a work tree, the Apps its .rapid-ship/project.toml records for target.
+        recorded = recorded_apps(root, target) if (root := _work_tree()) else {}
+    except AppSetupError as error:
+        sys.stderr.write(f"rapid-ship: {error}\n")
+        return 2
+    if import_role is not None:
+        return import_key(
+            import_role,
+            target,
+            recorded.get(import_role),
+            None if sys.stdin is None else sys.stdin.buffer,  # None: file descriptor 0 is closed
+            store=MacKeychainStore(),
+        )
+    return run_app(
+        target,
+        store=MacKeychainStore(),
+        owner_get=gh_owner_get,
+        open_browser=webbrowser.open,
+        recorded=recorded,
+    )
+
+
+def _work_tree() -> Path | None:
+    try:
+        return work_tree_root(Path.cwd())
+    except KitRefusal:  # outside a work tree
+        return None
 
 
 def _init(root: Path, args: argparse.Namespace) -> int:

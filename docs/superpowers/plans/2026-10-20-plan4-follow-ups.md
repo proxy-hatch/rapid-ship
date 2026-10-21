@@ -10,6 +10,8 @@
 
 **Spec:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`rapid-ship app`), 4 (settings files), 6 (doctor, Agent identity) and 11 (answered on 2026-10-19). The [plan index](2026-10-14-kit-and-setup.md) lists these follow-ups under "Plan 4 follow-ups, before #31 to #33 merge".
 
+**Status:** built in PRs #31 to #33, which are not merged yet: Tasks 1, 2 and 8 on #31, Tasks 3 and 9 on #32, Tasks 4 to 7 and 10 on #33, and Tasks 11 and 12 on all three. The [owner steps](#owner-steps-after-the-merge-up) are pending.
+
 ## Global Constraints
 
 - No private key or token is written to disk, put on a command line or printed. A key reaches `security` only on stdin.
@@ -167,7 +169,7 @@ Task 7 (PR #33) also covers these removals in #33's documents.
 - [ ] Merge `plan4-doctor` with `git merge --no-ff`. In `doctor_items.py`, keep `SIGN_IN_VARIABLES` and `owner_environment`: `run_installed` passes them to gh, gitleaks and each `--skills` Session. Take Task 9's removal of `harness_roles`. In the tests, drop `ctx(worker=...)` and every `roster=`.
 - [ ] Rewrite the claude case of `test_a_sign_in_held_only_in_the_environment_is_ok` as a `--skills` test. claude runs through `skills_items` with `doctor_ctx`, and its Session receives its own sign-in variable and no other tool's. The codex and agy cases go, because `--skills` no longer starts them (Task 12). Keep the gh cases on `local_items`.
 - [ ] `test_each_tool_gets_its_own_sign_in_and_the_network_settings_only` runs gh and gitleaks through `local_items`, and claude through `skills_items`.
-- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its Roster and runs claude: with `claude` on `PATH`, `--skills` probes Claude Code alone.
+- [ ] `test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable` drops its `[roster]` table and runs claude: with `claude` on `PATH`, `--skills` probes Claude Code alone.
 - [ ] The `diff` step knows a test by its function name, not by its parametrize cases, so it cannot see the dropped codex and agy cases; #33's body names them. Declare each test function that the rewrite removes under #33's `Removed tests:`, with the test that covers what remains.
 - [ ] Sync, run the four checks; commit the merge as `Merge plan4-doctor: doctor checks no Harness sign-in`, and the rewrite as `test: show that each --skills Session gets its own Harness sign-in`.
 
@@ -179,8 +181,8 @@ The owner's decision of 2026-10-20 has plan 5 wire the Harness guardrails for Cl
 
 - [ ] On #31, the comment on `Harness` in `settings.py` becomes `# the Harnesses doctor --skills probes (Spec 1 section 6)`. Built in b0bedf9; Task 12 then deleted the alias.
 - [ ] On #32, the last sentence of the comment on `PROTECTED_PATHS` in `doctor_rules.py` becomes `Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/.` Built in 58d52a5.
-- [ ] On each of #31 to #33, ARCHITECTURE.md's CODEOWNERS bullet replaces "The Harness settings join it with plan 5." with "`.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land.", and its plan 5 bullet says that plan 5 wires Claude Code alone. The merge of `codex/devctl-check` in 4b965df brought both to #31, and the merge of `plan4-settings-tokens` in 95cbd8a brought them to #32.
-- [ ] Change the copies of these texts in plan 4's plan documents, and their `devctl hook` command to the plan index's. Built on #31 in f385584, which the merge in 95cbd8a brought to #32. Sync, run the four checks; commit the code comment as `refactor:` and the documents as `docs: say plan 5 wires Claude Code first`.
+- [ ] On each of #31 to #33, ARCHITECTURE.md's CODEOWNERS bullet replaces "The Harness settings join it with plan 5." with "`.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land.", and its plan 5 bullet says that plan 5 wires Claude Code alone. The merge of `codex/devctl-check` in 4b965df brought both to #31, the merge of `plan4-settings-tokens` in 95cbd8a brought them to #32, and the merge of `plan4-doctor` in 11a5048 brought them to #33.
+- [ ] Change the copies of these texts in plan 4's plan documents, and their `devctl hook` command to the plan index's. Built on #31 in f385584, which the merges in 95cbd8a and 11a5048 brought to #32 and #33. Sync, run the four checks; commit the code comment as `refactor:` and the documents as `docs: say plan 5 wires Claude Code first`.
 
 ## `doctor --skills` probes Claude Code alone (the owner's review of PR #27 on 2026-10-20)
 
@@ -190,8 +192,8 @@ The owner's review of PR #27 on 2026-10-20 has `doctor --skills` probe Claude Co
 
 - [ ] On #31, `settings.py` drops the `Harness` alias: no setting names a Harness, and #32 needs no type for three Harnesses once it probes Claude Code alone. Built in a24ee32.
 - [ ] On #32, `--skills` adds its temporary worktree and starts one headless Claude Code Session there, only when `claude` is on `PATH`. `harness.py` drops the codex and agy models, arguments and parsers, and its import of `Harness`, which fails after the merge of `plan4-settings-tokens`. `doctor_skills.py` drops their entries and the note on Google's consumer terms. Their tests go; declare each removed test under #32's `Removed tests:`, with the test that covers what remains. Built in c05e443.
-- [ ] On #33, the `--skills` tests of each Session's sign-in variables keep the claude case alone.
-- [ ] On each of #31 to #33, the guides and plan text stop describing a probe of codex and agy, as the plan index's follow-up 9 lists. On #31, plan 4's plan document says that #32 narrows the probe, and its Task 10 expects one `skills (claude)` item without the warning about Google's consumer terms. Built in d7529c5. On #32, `doctor.py`'s `--skills` help, the root AGENTS.md doctor line, ARCHITECTURE.md's plan 4 bullet and plan 4's plan document describe the Claude Code probe. Built in c05e443 and 0700157.
+- [ ] On #33, the `--skills` tests of each Session's sign-in variables keep the claude case alone, and `SIGN_IN_VARIABLES` drops its codex and agy entries. Built in the merge of `plan4-doctor` in 2172517, and in 3e7ad36.
+- [ ] On each of #31 to #33, the guides and plan text stop describing a probe of codex and agy, as the plan index's follow-up 9 lists. On #31, plan 4's plan document says that #32 narrows the probe, and its Task 10 expects one `skills (claude)` item without the warning about Google's consumer terms. Built in d7529c5. On #32, `doctor.py`'s `--skills` help, the root AGENTS.md doctor line, ARCHITECTURE.md's plan 4 bullet and plan 4's plan document describe the Claude Code probe. Built in c05e443 and 0700157. On #33, ARCHITECTURE.md's `--skills` bullet and plan 4's pending Owner steps describe the Claude Code probe. Built in e4ae4e2.
 - [ ] Sync, run the four checks; commit the code as `refactor:` and the documents as `docs:`.
 
 ## Owner steps after the merge-up

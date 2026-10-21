@@ -1,15 +1,14 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 3 are built. This branch, PR #32, holds plan 4's settings, its App token code and `devctl doctor`. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 4 are built, plan 4 and its follow-ups in PRs #31 to #33, which are not merged yet. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
 | Part | Where | What it does |
 | --- | --- | --- |
-| `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current |
+| `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py`, `app_import.py`, `app_flow.py`, `app_keychain.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: finds or creates the Worker and Reviewer Apps of the repository's owner, a person or an organisation, for Agent identity; `app --import-key` stores a developer's own key for an App that exists |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
-| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack |
-| App token code | `tools/devctl/devctl/github/` | The REST client, App installation tokens and the askpass helper for git. `devctl doctor` checks the Apps with them; plan 4's `devctl as` will use them too |
+| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push` |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
 | Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
@@ -18,7 +17,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 7's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. The rest of plan 4, plans 5 to 7 of Spec 1, Spec 2 and Spec 3 are not on this branch ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Plans 5 to 7 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -47,7 +46,7 @@ The `project.toml` seeds hold the settings of the re-scope: `[github]` with the 
 
 ## devctl and `devctl check`
 
-The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. devctl has `--version`, `check` and `doctor`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
+The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. devctl has `--version`, `check`, `doctor` and `as`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
 
 `./devctl check [--tier fast|full] [--json] [--base REV] [--pr-body PATH]` runs the steps below in order and prints one line per step: passed, failed, blocked or not applicable. It exits 0 when every applicable step passed, 1 when a step failed and 2 when a step could not run. A blocked step never counts as passed, and 2 outranks 1. The default tier is `full`.
 
@@ -85,9 +84,26 @@ The `diff` and `evidence` steps need a change. In CI the base is the PR's base a
 
 `.github/workflows/docs.yml` is this repository's own: it builds the documentation site and deploys `main` to GitHub Pages.
 
+## `devctl doctor` and Agent identity
+
+`./devctl doctor [--skills]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_skills.py` for `--skills`, `harness.py` for its headless Claude Code Session, and `doctor_items.py` for the types they share. No item checks a Harness's sign-in.
+
+- **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
+- **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr` and `[github] code_owner`, branch deletion after merge and fork-PR workflow approval. While `code_owner` is unset, the CODEOWNERS item is missing and names the key. A GitHub Free private repository has no rulesets, and the item says so.
+- **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each key in its Keychain item, `rapid-ship/<role>-app/<App ID>`, proved by minting a token that is dropped unprinted.
+- **`--skills`:** when `claude` is on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Claude Code Session on its cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did. doctor probes Claude Code alone until the Kit integrates another Harness.
+
+Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md)). Each repository owner, a person or an organisation, has one Worker App and one Reviewer App, and each developer keeps their own key for each App in the macOS Keychain, in an item named `rapid-ship/<role>-app/<App ID>`. A key reaches `security` only on stdin, and rapid-ship never replaces or deletes an existing item.
+
+- `rapid-ship app` uses, for each role, the App that `[github]` records, or else an App of the repository's owner whose key this machine holds. It confirms such an App with `GET /apps/<slug>`, or, because GitHub shows no private App that way, with `GET /app` under a token that the item's key signs. An item whose key cannot confirm its App stops the command with exit 1, unless another item holds the owner's App, so that no second App is created beside it. Only a role with neither gets a new App, through GitHub's manifest flow. For an organisation, that is the organisation's manifest flow, which only an active admin of the organisation may run. The command prints each App's `[github]` lines and install URL.
+- `rapid-ship app --import-key {worker,reviewer}` stores a developer's own key, read on stdin, for the App that `[github]` records, once `GET /app` under a token that the key signs shows that App. A developer of an organisation uses it for the organisation's Apps. Whether an App manager may generate a key is unverified until the organisation trial, an Owner step ([Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) section 11).
+- A key kept under the old item name, `rapid-ship/<role>-app`, is re-stored by `rapid-ship app` under the new name, and the old item stays.
+
+`./devctl as worker push` pushes the current branch, never forcing, and `./devctl as {worker,reviewer} gh` runs `gh pr`, `gh issue` or `gh api` as that App. Each run mints one installation token in `devctl/github/app.py`, holds it in memory and gives it only to that `gh`, as `GH_TOKEN`, or to that `git push`, through `devctl/github/askpass.py` with every credential helper and repository hook switched off. No key or token is written to disk, put on a command line or printed.
+
 ## Dog-fooding
 
-This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy.
+This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy. Its `.rapid-ship/project.toml` records the Worker App, `proxy-hatch-rs-worker` (ID 5376519), and the Reviewer App, `proxy-hatch-rs-reviewer` (ID 5376520), under `[github]`, so Agent identity is on here. The owner stored the two keys on 2026-10-19 under the old item names, `rapid-ship/worker-app` and `rapid-ship/reviewer-app`, and devctl reads only the new names. Until the owner runs `uv run rapid-ship app` once, which re-stores both keys, `./devctl as` and doctor's key items report each item missing.
 
 To change devctl, the hook or the CI workflow:
 
@@ -99,9 +115,8 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines four more plans. Plan 4 is built in PRs #31 to #33, which are not merged yet; plans 5 to 7 are not started.
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans, which are not started:
 
-- **[Plan 4, doctor and Agent identity](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-4-doctor-and-agent-identity):** `devctl doctor` and `doctor --skills`; optional Agent identity through `rapid-ship app`, the App token code and `devctl as`, the thin command for `gh` and `git push`; and the settings for the escalation list, after which the Kit no longer seeds or reads `gate.toml`. It brings over the surviving code of `codex/github-commands`, the old plan 4's branch, which was never merged. That branch is not on GitHub, so its commits resolve only in the owner's clone; the [GitHub commands plan at `928fbe4`](https://github.com/proxy-hatch/rapid-ship/blob/928fbe493977ae41d2012e19baff3e861fd5b0e8/docs/superpowers/plans/2026-10-14-github-commands.md) describes its work. Its follow-ups land on #31 to #33 before they merge, so that repositories an organisation owns are supported from the start (backlog item PRO-105): doctor's CODEOWNERS item checked against a recorded code owner, the organisation's App manifest flow, a key that each developer imports, and Keychain names that carry the App's ID. Another follow-up removes the `[roster]` table that #31 built and the Harness sign-in items that #32 built, because rapid-ship does not run agents across several Providers. On this branch, devctl's settings refuse `[roster]`, doctor checks no Harness's sign-in, and `--skills` probes Claude Code alone, when `claude` is on `PATH`, until the Kit integrates another Harness.
 - **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** first a spike on whether the Codex and agy hooks fire, including inside subagents (backlog item PRO-139). Then `devctl hook` and its wiring for Claude Code alone, with the merge guard, which denies an agent's `gh pr merge` until `devctl check` passes on the PR's head commit, and whenever the PR touches the Protected set. The spike's report decides whether follow-ups wire Codex and agy. Then the README.md and ARCHITECTURE.md seeds; `devctl doctor --settings`; the Pattern `task` key and `## Lessons` section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap; the Corrections ledger rule; documented and validated settings; and `sync`'s migrations.
 - **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.

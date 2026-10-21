@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shlex
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -71,7 +70,7 @@ def not_applicable(name: str, *details: str) -> StepResult:
 
 def tool_environment() -> dict[str, str]:
     """The variables a check tool gets besides PATH, HOME and the locale."""
-    return {name: os.environ[name] for name in PASSED_VARIABLES if name in os.environ}
+    return process.passed_variables(PASSED_VARIABLES)
 
 
 def run_tool(

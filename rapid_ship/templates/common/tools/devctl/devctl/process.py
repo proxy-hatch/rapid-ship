@@ -8,13 +8,28 @@ import signal
 import subprocess
 import threading
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
 
 MAX_OUTPUT_BYTES = 1024 * 1024
 _GRACE_SECONDS = 0.15
+# How a tool that reaches the network finds the owner's proxy and extra certificate
+# authorities. A caller passes them with passed_variables; none is a token devctl mints.
+NETWORK_VARIABLES = (
+    "HTTPS_PROXY",
+    "https_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+    "NO_PROXY",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "NODE_EXTRA_CA_CERTS",
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +52,11 @@ def safe_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
     if env:
         result.update(env)
     return result
+
+
+def passed_variables(names: Iterable[str]) -> dict[str, str]:
+    """This process's value of each named variable that is set, for a child's env."""
+    return {name: os.environ[name] for name in names if name in os.environ}
 
 
 def first_line(text: str) -> str:

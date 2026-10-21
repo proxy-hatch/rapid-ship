@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Local tools for building software with coding agents and GitHub"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["tomli-w>=1.2,<2"]
+dependencies = ["tomli-w>=1.2,<2", "pyjwt[crypto]>=2.10,<3"]
 
 [project.urls]
 Repository = "https://github.com/proxy-hatch/rapid-ship"
@@ -97,6 +97,16 @@ include_external_packages = true
 name = "rapid-ship CLI layers"
 type = "layers"
 layers = ["rapid_ship.cli", "rapid_ship.kit", "rapid_ship.files"]
+
+[[tool.importlinter.contracts]]
+name = "rapid-ship app: the command and the key import, then the manifest flow, then the Keychain"
+type = "layers"
+layers = [
+    "rapid_ship.cli",
+    "rapid_ship.github_app | rapid_ship.app_import",
+    "rapid_ship.app_flow",
+    "rapid_ship.app_keychain",
+]
 
 [[tool.importlinter.contracts]]
 name = "rapid-ship never imports the vendored devctl"

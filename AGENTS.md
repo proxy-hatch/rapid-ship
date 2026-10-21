@@ -2,9 +2,8 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. Plan 4 is built in PRs #31 to #33, which are not merged yet; this branch, #32, holds its settings, the App token code and `devctl doctor`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
+Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 and its follow-ups are built in PRs #31 to #33, which are not merged yet: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
-- The rest of plan 4: `rapid-ship app` and `devctl as`, in #33. Its follow-ups support repositories that an organisation owns from the start (backlog item PRO-105).
 - Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
@@ -65,6 +64,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Outside contributors cannot see Linear. They use GitHub issues and PRs, and maintainers triage those into Linear. Do not copy Linear tasks into GitHub issues: backlog item PRO-103 covers exposing selected Linear issues on GitHub.
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
+- This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
 - Squash-merge every pull request; the repository's settings do not enforce it. In a stack of PRs, once the PR below is squash-merged, retarget the next PR to `main` and merge `main` into it before merging it.
 
 ## Safety

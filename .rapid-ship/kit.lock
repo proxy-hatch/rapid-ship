@@ -146,12 +146,12 @@ sha256 = "321300c5e30e03969c0ccd81616b9b0b8c85c822368462bf22469b9411785386"
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
 kind = "managed"
-sha256 = "a37294ed357b4dc19f2c8df528535cfbb382af0f27cb5b47e8d9abaa28160bd1"
+sha256 = "c965ab705d7b32e733766292c5163776d05d5f739df6a70195ec805957074322"
 
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "d9152c711e8b191e0b37a231e16def8969de89e675efe650e08a9cb9aee4cae9"
+sha256 = "81f61e1aa026799d29da7a9a286657b2041c2dabeb98d9053d496fd1c92216e5"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
@@ -166,7 +166,7 @@ sha256 = "fb7579b1c41d2827fb87e81f119a064cc03ed0b85f1baa1029a15ed07bbfa299"
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
 kind = "managed"
-sha256 = "3e1b49a51f3429d0ec41626c839fc78b271827a15f5b5c3911129db0ca075e69"
+sha256 = "0aed0cfdfe65565e7fe0c1e23e6e8202e2c120382616d0dcad6aea09b410e412"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
@@ -196,7 +196,7 @@ sha256 = "7b605a6849bd8ed37335d6d4019ff15e205773da22718ab949f6bd130b3770e7"
 [[file]]
 path = "tools/devctl/devctl/github/app.py"
 kind = "managed"
-sha256 = "52d35888559015e285c7ee78809e513c1d1420c082bcfe8bef722ee3439467c8"
+sha256 = "27c27b5ecbc946f4a0032bf0dcc73b7403adc3621a62221791a12463a51f325c"
 
 [[file]]
 path = "tools/devctl/devctl/github/askpass.py"
@@ -209,9 +209,14 @@ kind = "managed"
 sha256 = "d6e8d92c04dd0d11235ab926ada7432626abd382eedc2daf64a37f1319403440"
 
 [[file]]
+path = "tools/devctl/devctl/identity.py"
+kind = "managed"
+sha256 = "0708c914a11887e87bcab7af1e397d702c0595e501e3e3ea11184b10a7edd672"
+
+[[file]]
 path = "tools/devctl/devctl/process.py"
 kind = "managed"
-sha256 = "43d0d650fe92ea8aacb0533f39551a99633cb04c03dc8b969dfb260f77046d16"
+sha256 = "45646b54fded6d7d6428d638b267881f0c931cc5255f8da0542f5ad6fdd0e864"
 
 [[file]]
 path = "tools/devctl/devctl/repo.py"

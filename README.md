@@ -14,16 +14,15 @@ You choose the Mode. In Walk the Lead, your lead agent, merges a PR only when yo
 
 ## Status
 
-rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in seven plans, and plans 1 to 3 work today: `rapid-ship init` vendors the Kit into a repository, `status` compares the repository with the Kit, `sync` proposes Kit updates as a PR, and `./devctl check` runs the checks in the pre-commit hook and in CI. No release is tagged yet; [Architecture](ARCHITECTURE.md) says how to run `rapid-ship` from a checkout. The other four plans follow in order:
+rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in seven plans, and plans 1 to 4 work today: `rapid-ship init` vendors the Kit into a repository, `status` compares the repository with the Kit, `sync` proposes Kit updates as a PR, `./devctl check` runs the checks in the pre-commit hook and in CI, and `./devctl doctor` reports what this machine and repository lack. Optional Agent identity gives agents their own GitHub Apps, on a repository that you or an organisation owns: `rapid-ship app` creates them, `rapid-ship app --import-key` stores a developer's own key for Apps that already exist, and `./devctl as` runs `gh` and `git push` as one of them. Each developer keeps their own key for each App in the macOS Keychain, in an item named `rapid-ship/<role>-app/<App ID>`. Plan 4 is built in PRs #31 to #33, which are not merged yet. No release is tagged yet; [Architecture](ARCHITECTURE.md) says how to run `rapid-ship` from a checkout. The other three plans follow in order:
 
-- Plan 4 adds `devctl doctor` and the optional Agent identity. It is built in PRs #31 to #33, which are not merged yet.
 - Plan 5 adds Kit standards, the Python starter Patterns, the Harness guardrails and the merge guard.
 - Plan 6 adds the TypeScript stack and several stacks in one repository.
 - Plan 7 adds the setup skills, `rs-setup` and `rs-health`.
 
 [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md) adds the delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) the metrics, gardening and `rs-preflight`.
 
-*Dog-fooding:* this repository is built with its own Kit, and tracks its own tasks in Linear.
+*Dog-fooding:* this repository is built with its own Kit, tracks its own tasks in Linear, and records its own Worker App and Reviewer App for Agent identity.
 
 The earlier version, a local controller also named devctl, was removed on 2026-10-14. Its code and guides are kept at the git tag [`archive/controller-2026-10`](https://github.com/proxy-hatch/rapid-ship/tree/archive/controller-2026-10). Only its getting-started walkthrough remains on this site, marked historical.
 

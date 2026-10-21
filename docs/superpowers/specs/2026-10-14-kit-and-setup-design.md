@@ -1,6 +1,6 @@
 # Spec 1: Kit and Setup
 
-**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, and on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first, and to probe Claude Code alone in `doctor --skills`. Plans 1 to 3 are built. Plan 4 is built in PRs #31 to #33, which are not merged yet, and its follow-ups, among them support for organisation-owned repositories, land on them first. Plans 5 to 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
+**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, and on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first, and to probe Claude Code alone in `doctor --skills`. Plans 1 to 3 are built. Plan 4 is built in PRs #31 to #33, which are not merged yet, with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. Plans 5 to 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
 
 ## 1. Scope and outcome
 
@@ -112,10 +112,16 @@ Files not in the lock are the project's and are not reported. When `status` list
 
 ### `rapid-ship app`
 
-Part of Agent identity (section 6); built in plan 4 from its old branch, and extended for organisations by plan 4's follow-ups. Each repository owner, a personal account or an organisation, has two GitHub Apps. They belong to that account, not to one project: `app` creates each App that does not exist yet, then prints how to install both on the current repository. A private App installs only on its owner's repositories, so `app` creates the Apps on the account that owns the repository:
+Part of Agent identity (section 6); built in plan 4. Each repository owner, a personal account or an organisation, has two GitHub Apps. They belong to that account, not to one project: `app` creates each App that does not exist yet, then prints how to install both on the current repository. A private App installs only on its owner's repositories, so `app` creates the Apps on the account that owns the repository:
 
-- **A personal account:** GitHub's manifest flow on the owner's own account.
-- **An organisation:** GitHub's organisation manifest flow, at `https://github.com/organizations/<organisation>/settings/apps/new`, which an organisation admin runs once. The organisation's repositories then share both Apps, and each developer holds their own key (section 8, step 8). Plan 4 as built refused a repository that an organisation owns; its follow-ups add this flow (backlog item PRO-105).
+- **A personal account:** GitHub's manifest flow on the owner's own account. `app` exits 1 unless `gh` is signed in as that account.
+- **An organisation:** GitHub's organisation manifest flow, at `https://github.com/organizations/<organisation>/settings/apps/new`, which an organisation admin runs once. When an App must be created and `gh`'s login is not an active admin of the organisation, `app` exits 1 and opens no browser. It says to ask an admin to run `rapid-ship app`, or, where the Apps exist, to record their IDs and import a key (step 4). The organisation's repositories then share both Apps, and each developer holds their own key (section 8, step 8).
+
+For each role, `app` reads everything it needs before it changes anything, then uses the first of these:
+
+- **The recorded App.** When `[github]` records the role's App for this repository, `app` uses it and never creates one. When this machine has no key for it, `app` exits 1 and names `--import-key` (step 4).
+- **An App whose key this machine holds.** An App of the repository's owner, found by its Keychain item (step 2). `GET /apps/<slug>` with the owner's `gh` sign-in confirms a public App. GitHub answers 404 for any private App, even the owner's, so `GET /app` under a token that the item's key signs shows which account owns it. An App of another account is skipped. When no item holds a key of the owner's App, an item whose key GitHub refuses, or that cannot sign a token, stops the command with exit 1: `app` cannot tell whether that App exists, so it creates no second App beside it.
+- **A new App,** through the manifest flow of step 1.
 
 | App | Permissions | Used by |
 | --- | --- | --- |
@@ -125,9 +131,9 @@ Part of Agent identity (section 6); built in plan 4 from its old branch, and ext
 Neither App has the Workflows, Administration or Checks permission, and neither is a code owner, so an App's approval never stands in for the owner's.
 
 1. To create an App, `app` runs GitHub's manifest flow. A local HTTP server on `127.0.0.1` opens the browser at a page that posts the manifest. The App is private and has no webhook. `app` exchanges GitHub's one-time code at `POST /app-manifests/{code}/conversions`.
-2. It stores each private key in the macOS Keychain, by passing it to `security` on stdin, under an item whose name carries the role and the App's ID: `rapid-ship/<role>-app/<App ID>`, such as `rapid-ship/worker-app/5376519`. One machine can then hold the keys of several Apps, such as a developer's own and their organisation's. Plan 4 as built names the item `rapid-ship/<role>-app`, without the ID; its follow-ups rename it. `rapid-ship app` re-stores a key it finds under the old name under the new one. A key is never written to disk, put on a command line or printed. An existing Keychain item is left in place.
+2. It stores each private key in the macOS Keychain, by passing it to `security` on stdin, under an item whose name carries the role and the App's ID: `rapid-ship/<role>-app/<App ID>`, such as `rapid-ship/worker-app/5376519`. One machine can then hold the keys of several Apps, such as a developer's own and their organisation's. The item's account holds the App's ID, and its comment the slug. A key kept under the old name, `rapid-ship/<role>-app`, which has no ID, is re-stored under the new name, and `app` prints how to delete the old item once `./devctl doctor` passes. A key is never written to disk, put on a command line or printed. rapid-ship never replaces or deletes an existing Keychain item.
 3. It prints each App's ID and slug, and the URL that installs it on the repository; `--repository OWNER/NAME` names another repository. The owner installs both Apps, and `rs-setup` records the IDs and slugs in `project.toml`.
-4. Where the Apps already exist, such as an organisation's, a developer adds their own key. They generate a private key in the App's settings on GitHub and run `rapid-ship app --import-key {worker,reviewer}`. It reads the key on stdin, checks that it signs a token GitHub accepts for the App that `[github]` records, and stores it as step 2 does. GitHub's settings page downloads the key as a file, which rapid-ship never writes; it tells the developer to delete the download. In an organisation the admin makes each developer an App manager of both Apps, so that they can generate a key. Whether an App manager may generate one is unverified (section 11).
+4. Where the Apps already exist, such as an organisation's, a developer adds their own key. They generate a private key in the App's settings on GitHub and run `rapid-ship app --import-key {worker,reviewer}`. It reads the key on stdin, up to 64 KiB, and `GET /app` under a token that the key signs must show the ID and slug that `[github]` records. Only then does it store the key as step 2 does. It stores nothing and exits 1 when `[github]` records no App for the role, the Keychain item exists, stdin is a terminal or holds no unencrypted RSA PEM private key, or GitHub refuses the token or shows another App. No message echoes the input. GitHub's settings page downloads the key as a file, which rapid-ship never writes; it tells the developer to delete the download. In an organisation the admin makes each developer an App manager of both Apps, so that they can generate a key. Whether an App manager may generate one is unverified (section 11).
 
 ### Who owns what
 
@@ -148,7 +154,10 @@ Editing or deleting a managed Kit file makes it the project's own: the next `syn
 rapid_ship/
   cli.py              # init, status, sync; app from plan 4
   files.py            # atomic_replace, safe_path, create_file
-  github_app.py       # plan 4: manifest flows, key import, Keychain storage, install URLs
+  github_app.py       # plan 4: rapid-ship app, which finds or creates the Apps and prints install URLs
+  app_import.py       # plan 4: rapid-ship app --import-key
+  app_flow.py         # plan 4: the manifest flows, and GitHub calls made as an App
+  app_keychain.py     # plan 4: Keychain storage and item names
   kit/                # templates, lock, git, init, existing_checks, status, sync, writes, pull_request; migrations (plan 5); stacks (plan 6)
   templates/
     kit.toml          # seeded, new-project, executable and optional lists; template variables
@@ -648,7 +657,7 @@ doctor changes nothing in the repository. It reports each item as ok, missing or
 | agent identity | Worker App, Reviewer App key | Only with Agent identity on: the Keychain item exists and mints a token. Minting changes nothing in the repository |
 
 - **GitHub Free private repositories** have no rulesets. GitHub refuses the read with a plan-limit message, and doctor reports the ruleset as missing with that reason. There the merge guard is the enforcement (section 4).
-- **The code owner:** doctor reads it from `[github] code_owner`, never from the repository's owner, so a repository that an organisation owns, whose CODEOWNERS names a person or a team, can pass. While `code_owner` is unset, doctor reports the CODEOWNERS item as missing and names the key. Plan 4 as built took the code owner from the repository's owner, which on an organisation-owned repository asks for `* @<organisation>`, not a valid code owner; its follow-ups change that.
+- **The code owner:** doctor reads it from `[github] code_owner`, never from the repository's owner, so a repository that an organisation owns, whose CODEOWNERS names a person or a team, can pass. While `code_owner` is unset, doctor reports the CODEOWNERS item as missing and names the key, without reading CODEOWNERS. The comparison ignores case.
 - **Removed:** the issue-tracking item, the Harness sign-in items, and every App item while Agent identity is off.
 
 `devctl doctor --skills` also checks what a Claude Code Session would see, only when `claude` is on `PATH`. It adds a temporary detached worktree at `HEAD` in a temporary directory, starts one new headless Claude Code Session there on the cheapest model, and asks which skills it can load. A Kit or project skill the Session does not list is missing. A user-invoked skill (`disable-model-invocation: true`) is reported as not checked, because the Session may leave it out of its list. Skills the Session sees from outside the repository, such as the owner's own skills or plugins, are listed for the owner to judge. The worktree is removed afterwards, whatever the Session did. The probe uses a little quota. doctor passes Claude Code the owner's sign-in and proxy variables, and never reads a token file. `rs-setup` runs it, and the owner reruns it after adding a skill or upgrading Claude Code.
