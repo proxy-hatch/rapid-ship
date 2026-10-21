@@ -8,7 +8,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | --- | --- | --- | --- | --- |
 | 1 | [Remove the old controller](2026-10-14-remove-controller.md) | 2 | — | Built: PR #28, `codex/remove-controller` |
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
-| 3 | [`devctl check`](https://github.com/proxy-hatch/rapid-ship/pull/30), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
+| 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](#plan-4-doctor-and-agent-identity): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list | 3, 4, 6, 10 | 3 | Built: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`), not merged. Its follow-ups land first, and its live trials are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Planned: four PRs |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
@@ -38,7 +38,7 @@ This index fixes the layout and the names, signatures and formats that more than
 - devctl starts processes only through `process.run_process`, called through the module (`from devctl import process`). The one other caller is `repo._git` (EX-3). `rapid_ship` never imports devctl, which an import-linter `forbidden` contract enforces.
 - The Python guardrail settings cover `rapid_ship`, devctl and `tests/`: no `print`, no `Any` in a signature, complexity at most 10, every test annotated. Each suppression carries an `rs-exception` marker and an entry.
 - `uv run pytest` and `./devctl check --tier full` need network access and gitleaks 8.30.1 on `PATH`.
-- The Kit version is the rapid-ship package version. Each Kit release is a tag `v<version>` on `main`, created by the owner. Run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>`, or `--from <local checkout>` before the first tag. PyPI publishing is a later, separate change.
+- The Kit version is the rapid-ship package version. Each Kit release is a tag `v<version>` on `main`, created by the owner. Run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>`, or `--from <local checkout>` before the first tag. `sync` needs no tag: it never merges, and a Kit file the project edited or deleted becomes the project's own. PyPI publishing is a later, separate change.
 - A live trial is an Owner step: the plan names what to run and what to record under `docs/trials/`, and the owner runs or approves each external write.
 - Each plan's last task runs `./devctl check`, builds the docs site with `npm --prefix website run build`, and records the actual results in the plan.
 
@@ -351,7 +351,7 @@ def answer(
 Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `task` key, the `## Lessons` section, and the Evidence line `Over the diff cap: <reason>`, read only inside `## Evidence`, like `Removed tests:`. Plan 6 adds the TypeScript suppressions, with a table of rule names like plan 3's. Plan 3 also built these details, which Spec 1 leaves out:
 
 - A suppression's rules join sorted, separated by `,` (`E501,F401`), and an entry's `rule` is normalised the same way. The marker follows the suppression on its line: `# noqa: S603  # rs-exception: EX-1`. The seeded `exceptions.toml` holds comments only.
-- Plan 3's suppression table, PR #30, task 7, maps each suppression form to its rule name, such as `type-ignore`, `no-cover`, `mypy:ignore-errors`, `mypy:disable-error-code`, `skip`, `importorskip`, `autouse`, `gitleaks` and `zizmor:a,b`. Every `exceptions.toml` entry uses these names, including those that `rs-setup` writes for existing suppressions (plan 7).
+- [Plan 3's suppression table](2026-10-14-devctl-check.md#task-7-exceptions-step) maps each suppression form to its rule name, such as `type-ignore`, `no-cover`, `mypy:ignore-errors`, `mypy:disable-error-code`, `skip`, `importorskip`, `autouse`, `gitleaks` and `zizmor:a,b`. Every `exceptions.toml` entry uses these names, including those that `rs-setup` writes for existing suppressions (plan 7).
 - The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`).
 - In the Evidence section, a command is a list item that starts with a code span, a colon and text, or a fenced block whose first non-empty line starts with `$ ` and that has another non-empty line. `Not covered:` starts a line outside code, with text after the colon. Backticks around a removed test's identity are optional, and `<name>` is `test_x` or `TestA::test_x`.
 
