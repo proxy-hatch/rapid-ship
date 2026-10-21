@@ -81,9 +81,10 @@ The stand-in's answers and the wiring files follow each Harness's hook documenta
 - Handler: `type` is `command`, the only type; `command` is a shell command; `timeout` is in seconds, with a default of 30 (hooks). The page does not say which directory the command runs in.
 - Input: camelCase JSON with `toolCall.name`, `toolCall.args`, `stepIdx`, `conversationId`, `workspacePaths`, `transcriptPath`, `artifactDirectoryPath` and `modelName` (hooks).
 - Answer: JSON on stdout with a required `decision` and an optional `reason`. `allow` delegates to the next hook or the default policy, `deny` hard-blocks, and `ask` prompts while respecting "Always Allow"; `auto_approve`, `force_ask` and `deny_unless_prior_grant` also exist (hooks). Because `decision` is required, mode `none` also tests what agy does with no answer. The documented way to give no decision is `allow`, which the stand-in prints in mode `allow`.
-- Permissions: the CLI asks before a shell command by default, and reads and writes inside the workspace are auto-allowed. Allow, ask and deny rules live in `~/.gemini/antigravity-cli/settings.json`. Each rule names a resource, such as `command(git)` or `write_file(src/)`, and no listed resource kind covers `invoke_subagent` (permissions). `/permissions` lists the rules in the Project, Shared and Global scopes (`/permissions` command).
+- Permissions: the CLI's permission rules ask before a shell command by default, and allow reads and writes inside the workspace. Allow, ask and deny rules live in `~/.gemini/antigravity-cli/settings.json`. Each rule names a resource, such as `command(git)` or `write_file(src/)`, and no listed resource kind covers `invoke_subagent` (permissions). `/permissions` lists the rules in the Project, Shared and Global scopes (`/permissions` command).
+- Execution modes: in the `default` mode, the CLI also pauses for a diff review before it creates or modifies a file, under a `Create file` header for a new file. The `accept-edits` mode approves file writes and creations, and `agy --mode=accept-edits` starts a Session in it. Shell commands follow the permission rules in every mode. The status bar shows `[accept-edits]` or `[plan]`, and the page names no indicator for `default`. `--mode` overrides the `agentMode` setting for one run (execution modes). The pages do not say whether `accept-edits` also approves a hook's `ask` on a write.
 - Exit codes and the timeout's effect: not documented.
-- Subagents: the agent starts one with `invoke_subagent`, in workspace mode `inherit`, `branch` (its own Git worktree) or `share`. A subagent inherits the parent's command prefixes, file scopes and sandbox settings (subagents). Hooks in subagents are not documented.
+- Subagents: the agent starts one with `invoke_subagent`, in workspace mode `inherit`, `branch` (its own Git worktree) or `share`. A subagent inherits the parent's command prefixes, file scopes and sandbox settings (subagents), and its `accept-edits` mode (execution modes). Hooks in subagents are not documented.
 - Headless: `agy -p "<prompt>"`. A tool that needs approval it cannot get is soft-denied: the run continues and exits 0. Reads and writes inside the workspace are auto-allowed; shell commands default to Ask, so they are soft-denied unless granted (headless mode). Hooks in headless mode are not documented.
 
 ### The stand-in hook
@@ -105,7 +106,7 @@ It then acts on the word in `$SPIKE_DIR/mode`:
 
 Any other word, or a missing mode file, acts as `none`. An unknown Harness name saves the event, writes `spike: unknown harness <name>` to stderr and exits 1. Mode `allow` is a fallback for agy, whose pages make `decision` required: Step 2 uses it if agy treats the empty answer of `none` as a failure.
 
-For agy, a call to `invoke_subagent` gets agy's allow answer in every mode, before the mode applies. agy's wiring matches every tool, so the hook also sees the lead's call that starts a subagent. A deny, a declined ask or a failed hook on that call would end a subagent run before the subagent starts. The permission resources that agy lists do not include `invoke_subagent`, so an ask on it would likely prompt on every run.
+For agy, a call to `invoke_subagent` gets agy's allow answer in every mode, before the mode applies. agy's wiring matches every tool, so the hook also sees the lead's call that starts a subagent. A deny or a declined ask on that call would end a subagent run before the subagent starts. A failed hook might do the same, because agy documents no exit codes ([What each Harness documents](#what-each-harness-documents)). The permission resources that agy lists do not include `invoke_subagent`, so an ask on it would likely prompt on every run.
 
 | Harness | Answer in modes `deny` and `ask`, from the pages above | Answer in mode `allow` |
 | --- | --- | --- |
@@ -322,15 +323,15 @@ Start each Session in `$SPIKE_REPO`:
 | --- | --- | --- |
 | Claude Code | `claude` | `claude -p "<prompt>" --permission-mode acceptEdits` |
 | Codex | `codex` | `codex exec --sandbox workspace-write "<prompt>"` |
-| agy | `agy` | `agy -p "<prompt>"` |
+| agy | `agy --mode=accept-edits` | `agy -p "<prompt>"` |
 
-The headless options let the file edits run without a prompt. In Claude Code a hook runs before the permission check, so the option does not change what the hook sees. agy's headless mode soft-denies shell commands by default; record it when it does.
+The headless options let the file edits run without a prompt. In Claude Code a hook runs before the permission check, so the option does not change what the hook sees. In agy, `--mode=accept-edits` approves file writes without agy's diff review, in the lead Session and its subagents. agy's headless mode soft-denies shell commands by default; record it when it does.
 
 The prompts:
 
 - The edit prompt: "Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`." In Claude Code, add: "Then run `git status` through the Monitor tool."
 - The shell prompt: "Run `git status` in the shell."
-- The write prompt: "Write `spike.txt` containing `x`." agy's `ask` runs and its headless `deny` run use it instead of the shell prompt. agy asks before a shell command by default, and its headless mode soft-denies one, whatever the hook answers (Setup). A write inside the workspace is auto-allowed, so a prompt or a block on the write comes from the hook. G5 also asks before a file edit.
+- The write prompt: "Write `spike.txt` containing `x`." agy's `ask` runs and its headless `deny` run use it instead of the shell prompt. agy asks before a shell command by default, and its headless mode soft-denies one, whatever the hook answers (Setup). agy's permission rules allow a write inside the workspace, but its `default` mode adds a diff review before the write. In `accept-edits` mode and in headless mode, agy allows the write without a prompt (Setup), so a prompt or a block on the write comes from the hook. G5 also asks before a file edit.
 - For a subagent, give the lead: "Start one subagent and give it this task word for word. Do none of it yourself: <prompt>". In agy, add: "Use the inherit workspace."
 
 ### Step 2 (Owner): the event matrix
@@ -339,7 +340,7 @@ The prompts:
 - [ ] Before the first run, list what else runs on each Harness's tool calls: in Claude Code, `/hooks`, `/plugin` (its dim line names the active mods) and `/status`; in Codex, `/hooks`, `/plugins` and `/status`; in agy, `/hooks`. In Claude Code, turn off each active mod from the Installed tab in `/plugin`, because a mod that handles `tool.check` can approve a call that the hook blocked (Setup).
 - [ ] Fill each row of Conditions under Versions:
   - the Claude Code login, from the `Login method` row of `/status` (not the email), and the managed source on its `Setting sources` line;
-  - the permission mode or approval policy of each lead Session: the status bar under the prompt in Claude Code and agy, and `/status` in Codex;
+  - the permission mode or approval policy of each lead Session: the status bar under the prompt in Claude Code, and `/status` in Codex. agy's status bar must show `[accept-edits]`. If it shows nothing or `[plan]`, end the agy Session and start it again with `agy --mode=accept-edits`;
   - the mods you turned off, and the hooks, plugins and mods that stay on.
 - [ ] Run `spike_mode none`.
 - [ ] For each Harness, and for each Session kind (lead, subagent, headless): run `spike_reset`, give the edit prompt, wait until the Session finishes, then run `spike_keep <harness>-<session>-none`.
@@ -517,5 +518,6 @@ Step 7 records the owner's decisions from Step 6.
 - Each run happens once, on one machine, with one version of each Harness. A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
 - The documented behaviour in Setup holds for the pages as read on 2026-10-21. Where a page documents nothing, such as agy's exit codes or Codex's exit 1, only the runs answer the question.
 - agy's wiring matches every tool, so its runs also save events for reads and listings. The stand-in allows agy's `invoke_subagent` in every mode, so the spike does not observe a deny or an ask on starting a subagent.
+- agy's lead and subagent runs use `accept-edits` mode. The spike does not observe a hook's ask in agy's `default` mode, where agy's own diff review also asks before each write.
 - Other hooks, plugins and mods on the owner's machine also run on these events. Conditions under Versions lists those that stayed on.
 - Desktop apps and IDE extensions are out of scope.
