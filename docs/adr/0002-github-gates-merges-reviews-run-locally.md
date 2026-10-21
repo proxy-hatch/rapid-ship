@@ -13,14 +13,14 @@ Agent identity is an optional feature. `rapid-ship app` creates two GitHub Apps:
 GitHub never lets a pull request's author approve or request changes on it, on any plan. Agent identity therefore buys four things:
 
 1. The owner can formally approve agent pull requests, so merges need no admin bypass. In a team, teammates' approvals cover this without it.
-2. The Reviewer's verdicts are real GitHub reviews, so Revisions can be counted.
+2. The Reviewer's verdicts are real GitHub reviews, so Revisions can be counted and the merge guard can require the Reviewer App's approval before an agent merges.
 3. Agent pull requests can be told apart from the owner's, which every per-agent-PR metric needs.
 4. CODEOWNERS binds the Lead in Flight while the Lead acts through `devctl as`, because an App cannot use the owner's bypass.
 
 Without Agent identity, agents act as the owner and these four are lost:
 
 1. The owner cannot approve an agent's pull request, so a solo owner merges it through the admin bypass.
-2. The Reviewer's verdicts are comments from the owner's account, not reviews.
+2. The Reviewer's verdicts are comments from the owner's account, not reviews, so the merge guard cannot require the Reviewer's approval before an agent merges.
 3. Revisions and the other per-agent-PR metrics report "unknown: needs Agent identity". Metrics over all pull requests still work: Reverts, red default-branch CI after a merge, and pull requests closed unmerged.
 4. In Flight, the ruleset must drop its review requirement so that the Lead can merge without a person's approval. CODEOWNERS then binds no one, and the merge guard holds the Protected set: it denies an agent's merge of a Protected-set pull request, which the owner merges in GitHub's web interface. `rs-lead` explains this, and the owner decides.
 

@@ -102,7 +102,7 @@ The **Protected set** is the kinds of change that need the owner's approval in e
 **Agent identity** is optional ([ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md)). `rapid-ship app` creates two GitHub Apps: one opens and merges PRs, the other posts reviews. With it on, agents make their GitHub writes through `devctl as`, one thin command that runs `gh` and `git push` with an App's short-lived token. The Harness guardrails then deny `git push` and `gh` writes made as the owner. GitHub never lets a PR's author approve or request changes on it, on any plan, so Agent identity buys four things:
 
 1. The owner can formally approve agent PRs, so merges need no admin bypass. In a team, teammates' approvals cover this without it.
-2. Reviewer verdicts are real GitHub reviews, so Revisions can be counted.
+2. Reviewer verdicts are real GitHub reviews, so Revisions can be counted and the merge guard can require the Reviewer App's approval before an agent merges.
 3. Agent PRs can be told apart, which every per-agent-PR metric needs.
 4. CODEOWNERS binds the Lead in Flight while the Lead acts through `devctl as`, because an App cannot use the owner's bypass.
 
