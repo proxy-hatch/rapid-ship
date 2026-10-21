@@ -6855,7 +6855,7 @@ Fill in after Task 11. Record actual output, not expectations. Mark live, offlin
   - devctl's own REST client, which mints App tokens and reads the Apps, does not use `HTTPS_PROXY`. Where GitHub is reachable only through a proxy, `devctl as` and doctor's App items cannot mint a token.
   - This repository's own ruleset and GitHub settings (the ruleset, `delete branch on merge`, `fork PR workflow approval`, and CODEOWNERS on `main`) wait for plan 6.
   - Linux and Windows are untested for Agent identity.
-  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10) ran on 2026-10-21, and its [report](../../trials/2026-10-21-agent-identity.md) names its own limits. It confirmed `app_slug` on the installation object and led to the approval settings, but did not show GitHub refusing a merge while `devctl check` is pending, and `PROBE_MODEL` stays unconfirmed ("Task 10: pending Owner steps", below).
+  - The live results in this record are `./devctl check`, `./devctl doctor`, the docs site build and, within `uv run pytest -q`, the two network-dependent test files named there (`test_devctl_check_integration.py` and `test_devctl_project_dogfood.py`); the rest of the suite is offline, simulated except for `tests/test_gitleaks_settings.py`, which runs real gitleaks. The live trial (Task 10) ran on 2026-10-21, and its [report](../../trials/2026-10-21-agent-identity.md) names its own limits. It confirmed `app_slug` on the installation object and led to the approval settings, but did not show GitHub refusing a merge while `devctl check` is pending, or enforcing code-owner review at an approval count of 0, and `PROBE_MODEL` stays unconfirmed ("Task 10: pending Owner steps", below).
   - `devctl as` exits 2 when the tool's output was cut or the tool timed out, even if the tool exited 0 (ruling P5). Spec 1 section 11 still lists the exit-code pass-through as an open Proposal, and this PR does not edit the spec for it.
   - `rapid_ship/github_app.py` is at 499 of the 500 lines that `file-size` allows.
 
@@ -6868,17 +6868,54 @@ The trial's shell session has ended. A rerun starts in the `rs-trial` clone and 
 ```sh
 OWNER=$(gh api user --jq .login)
 RULESET_ID=25531114
+WORKER_ID=5376519
+REVIEWER_ID=5376520
 TRIALS=$(mktemp -d)
 printf '## Evidence\n\n- `./devctl check --tier fast`: exit 0\n\nNot covered: everything; this pull request is a trial.\n' > "$TRIALS/pr-body.md"
 ```
 
 #### Step 11a, second block: the pending-check pair
 
-Experiment B left ruleset 25531114 with `require_extra_approval_for_unattributed_changes` false, which rs-setup's ruleset does not set. First apply the decided ruleset: write Step 8's `ruleset.json` to `$TRIALS`, then run Step 11a's first three commands, the `perl` line, the `PUT` and the read-back. Skip its fixture and merge lines: the fixture is committed, and #3 is merged.
+Experiment B left ruleset 25531114 with `require_extra_approval_for_unattributed_changes` false, which rs-setup's ruleset does not set. First apply the decided ruleset:
 
-Must observe: the read-back prints `0` and `false`.
+1. Run only Step 8's `cat` command, which writes `$TRIALS/ruleset.json`. Do not run its `POST`: ruleset 25531114 exists, and a second `POST` would create another ruleset, or fail and leave `RULESET_ID` empty.
+2. Run Step 11a's `perl` line and its `PUT`. Skip its read-back, fixture and merge lines: the read-back below replaces the first, the fixture is committed, and #3 is merged.
+3. Read the ruleset back:
+
+```sh
+gh api "repos/$OWNER/rs-trial/rulesets/$RULESET_ID" --jq '.rules[] | select(.type == "pull_request") | .parameters | .required_approving_review_count, .require_last_push_approval, .require_extra_approval_for_unattributed_changes'
+```
+
+Must observe: `0`, then `false`. Record the third value. Step 11a's read-back showed `true` after a `POST` and a `PUT` that both left the parameter out. Whether a `PUT` that leaves it out resets experiment B's `false` is unknown. If it prints `false`, record that the steps below ran with a value that rs-setup's ruleset did not produce in the trial.
 
 Then run Step 11a's second block, from `git switch main && git pull --ff-only` to the last merge. Must observe: the merge attempt while the `devctl check` run is queued or in progress is refused, and the merge after the check passed succeeds. Record `reviewDecision`, `mergeStateStatus` and `statusCheckRollup` before the first attempt, gh's message and each exit code. If the run had finished before the first attempt, record that.
+
+#### Code-owner review at an approval count of 0
+
+The decided ruleset relies on code-owner review at a count of 0: in Walk, it is all that keeps GitHub from merging the Worker App's pull request without the owner. The trial did not observe it. Step 10 ran at a count of 1, and #3 changed README.md, which has no code owner in Flight. Run this after Step 11a's second block, which applies the decided ruleset. `rs-trial` is in Flight, so the pull request changes `docs/AGENTS.md`, which the Protected set's `/**/AGENTS.md` line gives to the owner. Walk's `*` line relies on the same code-owner rule and is not tried separately.
+
+```sh
+git switch main && git pull --ff-only
+git switch -c trial-code-owner
+printf '\nA trial line in a Protected file.\n' >> docs/AGENTS.md
+git commit -am "Trial change to a Protected file"
+./devctl as worker push; echo "push exit $?"
+./devctl as worker gh pr create --base main --head trial-code-owner --title "Trial change to a Protected file" --body-file "$TRIALS/pr-body.md"; echo "create exit $?"
+PR5=$(gh pr view trial-code-owner --json number --jq .number)
+./devctl as reviewer gh pr review "$PR5" --approve --body "Trial approval by the Reviewer App"; echo "review exit $?"
+gh pr checks "$PR5" --watch
+gh pr view "$PR5" --json reviewDecision,mergeStateStatus
+./devctl as worker gh pr merge "$PR5" --squash; echo "merge exit $?"
+```
+
+Must observe: after the check passed, GitHub refuses the Worker App's merge, and the exit code is nonzero. Record `reviewDecision`, `mergeStateStatus`, gh's message and the exit code. Then the owner approves the pull request in the browser, and runs:
+
+```sh
+gh pr view "$PR5" --json reviewDecision,mergeStateStatus
+./devctl as worker gh pr merge "$PR5" --squash; echo "merge exit $?"
+```
+
+Must observe: `reviewDecision` is `APPROVED`, and the Worker App's merge succeeds. Record both outputs and the exit code. If GitHub merged the pull request before the owner approved, code-owner review does not hold at a count of 0: record that and stop, because the owner's decision of 2026-10-21 relies on it.
 
 #### Step 12: a Reviewer App change request, and a workflow change
 
@@ -6897,7 +6934,7 @@ Deferred, so `rs-trial` stays available for the steps above. Once they are done,
 The owner's record does not hold these, so each stays unknown until the owner reports it:
 
 - Step 2: the macOS, git, gh, uv and Claude Code versions, the owner's GitHub plan, `git -C "$PLAN4" rev-parse HEAD` and the fast check's exit code.
-- Step 3 did not run in the trial, because the Apps existed from 2026-10-19. So `rapid-ship app`'s output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key are not recorded.
+- Step 3: the Apps existed from 2026-10-19. Not recorded: whether Step 3's command ran, and its output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key.
 - Step 5: the read of the existing item, `security find-generic-password -s "rapid-ship/worker-app/$WORKER_ID" -w`, its exit code, and whether a macOS dialog appeared. Until then, that any process the owner runs can read both keys is unconfirmed.
 - Step 6: the output and exit code of `rapid-ship app --repository`, and whether the install URL added `rs-trial-private` to the existing installation.
 - Step 7: both calls' output and exit codes.

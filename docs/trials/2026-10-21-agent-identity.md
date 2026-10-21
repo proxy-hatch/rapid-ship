@@ -22,7 +22,7 @@ Trial date: 2026-10-21. Live: the owner ran every step in their own terminal, on
 ## Setup and versions
 
 - Kit and `rapid-ship`: 0.1.0, from `$PLAN4` at `0e1d6d0` (`v0.1.0`).
-- Apps: the Worker App, ID 5376519, `proxy-hatch-rs-worker`, and the Reviewer App, ID 5376520, `proxy-hatch-rs-reviewer`. The owner created both with `rapid-ship app` on 2026-10-19, before this trial. On 2026-10-21 the owner stored their keys again under the Keychain items `rapid-ship/<role>-app/<App ID>`, and later deleted the items under the old names.
+- Apps: the Worker App, ID 5376519, `proxy-hatch-rs-worker`, and the Reviewer App, ID 5376520, `proxy-hatch-rs-reviewer`. The owner created both on 2026-10-19, before this trial. On 2026-10-21 the owner stored their keys again under the Keychain items `rapid-ship/<role>-app/<App ID>`, and later deleted the items under the old names.
 - Not recorded: the macOS, git, gh, uv and Claude Code versions, the owner's GitHub plan, and the output of `git -C "$PLAN4" rev-parse HEAD`. Step 6's 403 is what doctor reports on GitHub Free.
 
 ## Steps
@@ -37,7 +37,7 @@ The owner ran Step 2, from `gh repo create "$OWNER/rs-trial" --public --add-read
 
 ### Step 3: create the Apps
 
-Not run in this trial, because the Apps existed from 2026-10-19. Not recorded: `rapid-ship app`'s output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key. The step's two `security find-generic-password -s rapid-ship/<role>-app` lines name items that no longer exist (Step 5).
+The Apps existed from 2026-10-19. Not recorded: whether Step 3's command ran, and its output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key. The step's two `security find-generic-password -s rapid-ship/<role>-app` lines name items that no longer exist (Step 5).
 
 ### Step 4: install the Apps and record them
 
@@ -88,7 +88,7 @@ The owner ran both `gh api` calls. Their output and exit codes were not recorded
 
 ### Step 8: apply the ruleset
 
-The owner applied the ruleset that the plan index specifies, with Step 8's `gh api --method POST "repos/$OWNER/rs-trial/rulesets"`. `RULESET_ID` is 25531114.
+The owner applied the ruleset that the plan index specified when the trial ran (approval count 1, last-push approval on), with Step 8's `gh api --method POST "repos/$OWNER/rs-trial/rulesets"`. `RULESET_ID` is 25531114.
 
 ### Step 9: read the ruleset back and keep it as the fixture
 
@@ -201,7 +201,7 @@ Deferred, so `rs-trial` stays available. The Apps stay as the owner's real Apps.
 
 With Agent identity in Flight, an App-only merge needed `required_approving_review_count` 0 and `require_last_push_approval` false. A count of 1 failed, and a count of 0 with last-push approval on failed. On 2026-10-21 the owner decided that rs-setup's ruleset sets both, in every Mode. Spec 1 section 8, step 7 states the ruleset.
 
-The cost the owner accepted: in a team, a code owner who pushed the last commit to an agent's pull request can approve it themselves. Dismissing stale approvals still voids an approval given before a new push. Code-owner review still holds, so CODEOWNERS alone decides who must approve: the owner for every path in Walk, and for the Protected set in Flight. In Flight with Agent identity, GitHub then requires no approval for a pull request outside the Protected set. The Reviewer App's approval there is process, which the Lead brief carries, and the merge guard still requires a passing `devctl check` and no Protected paths.
+The cost the owner accepted: in a team, a code owner who pushed the last commit to an agent's pull request can approve it themselves. Dismissing stale approvals still voids an approval given before a new push. Code-owner review still holds, so CODEOWNERS alone decides who must approve: the owner for every path in Walk, and for the Protected set in Flight. In Flight with Agent identity, GitHub then requires no approval for a pull request outside the Protected set. The Reviewer App's approval there is process, which the Lead brief carries, and the merge guard still requires a passing `devctl check` and no Protected paths. The trial did not observe GitHub enforcing code-owner review at a count of 0 (Limits).
 
 doctor follows the decision. It requires neither setting in any Mode, and in Flight with Agent identity it reports either one on as missing. Its fixture, `tests/devctl/fixtures/github/ruleset.json`, is Step 11a's read-back with `require_last_push_approval` set to false by hand: the state under which experiment A merged.
 
@@ -233,11 +233,12 @@ doctor follows the decision. It requires neither setting in any Mode, and in Fli
 - **Reading both keys.** Spec 1 section 6 states that any process the owner runs can read both App keys. This trial did not confirm it: neither the read that names the existing item nor whether a dialog appeared was recorded (Step 5).
 - **The Reviewer App's approval does not satisfy the ruleset** (Step 11, Step 11a and experiment A). GitHub does not take it as approval of the most recent push. Whether it counts toward a count of 1 is not isolated: last-push approval was on at that attempt, and `reviewDecision` was not recorded. A count of 1 with last-push approval off was not tried.
 - **Why GitHub does not take it** is inferred, not verified: GitHub may take required approvals only from reviewers with write access, and the Reviewer App has Contents: read by design (Spec 1 section 3).
+- **Code-owner review at a count of 0 was not observed.** Step 10 ran in Walk at a count of 1. Pull request #3, the only one merged at a count of 0, changed README.md, which has no code owner in Flight. The decision relies on it: in Walk, code-owner review is all that keeps GitHub from merging the Worker App's pull request without the owner. Plan 4's Verification record lists the step that checks it as pending.
 - **GitHub refusing a merge while `devctl check` is pending is not shown.** Step 11's first attempt was refused while the check was pending, but the approval requirement was unmet then too, so the refusal does not isolate the check. Step 11a's `$PR4` pair did not run.
 - **A merge that brings in a workflow change was not tried**, nor a change request by the Reviewer App: Step 12 did not run.
 - **`doctor --skills` did not run** (Step 13), so `PROBE_MODEL` is unconfirmed.
 - **doctor in Flight was not recorded** (Step 11), so its Flight items with Agent identity were not observed live.
 - **Experiment B tested nothing**, because #3 had already merged. Experiment A shows only that `require_extra_approval_for_unattributed_changes` true did not block that one merge.
 - **Versions.** Only the Kit version is recorded, so the results are not tied to particular gh, git or macOS versions.
-- **One account.** The trial used one personal account on GitHub Free, with one public and one private repository. Organisation-owned repositories were not tried.
+- **One account.** The trial used one personal account, whose plan was not recorded (Step 6's 403 matches GitHub Free), with one public and one private repository. Organisation-owned repositories were not tried.
 - **The environment.** The `.venv` of the owner's checkout pointed at the repository's earlier path and needed `uv sync --locked --reinstall` (Step 9). That is an environment issue, not a product defect.
