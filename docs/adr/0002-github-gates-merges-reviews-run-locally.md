@@ -4,7 +4,7 @@ status: accepted
 
 # GitHub gates merges; Agent identity is optional
 
-Checks run in the project's CI on GitHub. Where GitHub offers rulesets, on public repositories and on private ones with a paid plan, the ruleset decides what merges, and with Agent identity CODEOWNERS also decides whose approval a merge needs. The merge guard, a rule of `devctl hook` that is on in every setup in each Harness wired to it, also denies an agent's merge when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. A GitHub Free private repository has no rulesets, so there the merge guard is the enforcement.
+Checks run in the project's CI on GitHub. Where GitHub offers rulesets, on public repositories and on private ones with a paid plan, the ruleset decides what merges, and with Agent identity CODEOWNERS also decides whose approval a merge needs. The merge guard, a rule of `devctl hook` that is on in every setup in each Harness wired to it, also denies an agent's merge when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. With Agent identity on, it also denies the merge until the Reviewer App has approved that head commit. A GitHub Free private repository has no rulesets, so there the merge guard is the enforcement.
 
 rapid-ship therefore keeps no local evidence store, policy store or merge broker. Reviews run wherever the Lead's Harness runs them: a subagent or a headless Session following `rs-review`, or the Lead itself. rapid-ship ships the review skill, not a review runner.
 

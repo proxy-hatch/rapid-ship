@@ -20,9 +20,10 @@
 - Exit codes: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. `devctl hook` follows Claude Code's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2 (index; Spec 1 section 4).
 - "The hook only denies or asks. It never allows or approves anything; with no rule matched it gives no decision" (Spec 1 section 4).
 - Claude Code wiring: `PreToolUse` for `Bash`, `Edit`, `Write`, `MultiEdit` and `NotebookEdit`, running `"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool`, as Spec 1 section 4 states it once PR 5.1 has merged. Plan 5 wires no other Harness.
-- The merge guard's three messages, exactly (Spec 1 section 4, step 5):
+- The merge guard's four messages, exactly (Spec 1 section 4, step 5):
   - `merge denied: devctl check on PR #<n> at <commit> is <state>; wait for it to pass or fix what it reports, then merge again`
   - `merge denied: PR #<n> touches the Protected set (<paths>); the owner merges it in GitHub's web interface`
+  - `merge denied: PR #<n> has no Reviewer App approval of its head <commit>; have the Reviewer review that commit, then merge again`
   - `merge denied: PR #<n> merges only at the checked head <commit>; run <the same command> --match-head-commit <commit>`
 - The guard's check has passed only when the latest check run named `devctl check` (`CI_JOB_NAME`) from GitHub Actions (`GITHUB_ACTIONS_APP_ID = 15368`) completed on the head commit with the conclusion `success`.
 - Diff cap: a change that adds and removes more than 1,500 lines in total fails, unless the PR's Evidence section has a line starting `Over the diff cap:` with a reason. The count leaves out files ending in `.md`, `.txt` or `.log`, binary files, Kit-managed files, `.rapid-ship/kit.lock`, `uv.lock` and `package-lock.json` (Spec 1 section 5).
@@ -51,6 +52,7 @@
 3. **A Session edits in a linked worktree.** Claude Code keeps `$CLAUDE_PROJECT_DIR` at the main checkout while the edit lands in a worktree. Expected: G4 and G5 judge the path against the worktree that holds it, with that worktree's CODEOWNERS. Task 4's `test_run_hook_judges_an_edit_by_its_linked_worktree` pins it.
 4. **An event the hook does not expect.** Inputs: a tool the hook does not wire, a missing `tool_input`, bytes that are not JSON, an unknown or missing Harness name. Expected: no decision for an unwired tool, exit 1 for the rest, never exit 2. Task 4's `test_the_hook_never_exits_2` pins it.
 5. **`gh pr merge` names another repository.** Inputs: `-R x/y` and a PR URL. Expected: the guard reads that repository, not `[github] repository`. Task 5's `test_each_target_reads_its_pull_request` pins it.
+6. **The guard counts the wrong review.** With Agent identity on, a mistake here silently merges a head the Reviewer never approved, the case the check exists to stop. Inputs: no review, a person's approval, the login `o-reviewer` without `[bot]`, an approval of an older commit, a later request for changes, a later comment or dismissed review, and reviews over two pages. Expected: only the Reviewer App's latest review that approves or requests changes decides, and the guard denies unless it approves the head SHA the guard read. Task 5's `test_with_agent_identity_a_head_without_the_reviewer_apps_approval_is_denied`, `test_comments_and_dismissed_reviews_do_not_decide` and `test_reviews_are_read_page_by_page` pin it.
 
 ## File Structure
 
@@ -60,7 +62,7 @@
 | --- | --- | --- |
 | `devctl/codeowners.py` | 5.2 | The Protected-set lines and their matcher, moved from `check/diff.py`; the ledger rule |
 | `devctl/command_line.py` | 5.2 | Shell splitting, and the git and gh forms the guardrails read |
-| `devctl/hook_protocols.py` | 5.2 | `Decision`, `ToolCall`, Claude Code's event and answer, the exit-code workaround |
+| `devctl/hook_protocols.py` | 5.2 | `Decision`, `ToolCall`, `HookSettings`, Claude Code's event and answer, the exit-code workaround |
 | `devctl/hook.py` | 5.2 | G1 to G5, G7 and G8, the hook's settings, `devctl hook` |
 | `devctl/merge_guard.py` | 5.2 | `find_merge` for G3, the merge guard (G9) |
 | `common/.claude/settings.json` | 5.2 | The seeded Claude Code wiring |
@@ -157,6 +159,14 @@ class ToolCall:  # one Harness's pre-tool event, normalised
     cwd: Path  # the event's working directory
 
 
+@dataclass(frozen=True)
+class HookSettings:  # what G5, G7, G8 and the merge guard read from the repository
+    agent_identity: bool
+    protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
+    repository: str | None  # [github] repository
+    reviewer_app_slug: str | None  # [github] reviewer_app_slug when Agent identity is on, else None
+
+
 # devctl/command_line.py, with the git push and gh api parsers hook.py and merge_guard.py share
 def simple_commands(line: str) -> list[tuple[str, ...]]: ...  # ValueError: shell rules fail
 
@@ -193,13 +203,6 @@ def find_merge(words: Sequence[str], branches: Callable[[], LocalBranches]) -> M
 
 
 # devctl/hook.py
-@dataclass(frozen=True)
-class HookSettings:  # what G5, G7, G8 and the merge guard read from the repository
-    agent_identity: bool
-    protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
-    repository: str | None  # [github] repository
-
-
 def work_tree_root(path: Path) -> Path | None: ...  # the nearest ancestor that holds .git
 def read_settings(root: Path) -> HookSettings | None: ...  # None: unreadable; reason on stderr
 def decide(
@@ -211,7 +214,7 @@ def decide(
 ```
 
 Rulings for this task, each where Spec 1 section 4 leaves the choice:
-- Ruling: the types live in `hook_protocols.py` and the parsers in `command_line.py`, because `hook.py` imports `merge_guard.py` and both use them; one module for each keeps every file far under the cap and the imports acyclic.
+- Ruling: the types, `HookSettings` included, live in `hook_protocols.py` and the parsers in `command_line.py`, because `hook.py` imports `merge_guard.py` and both use them; one module for each keeps every file far under the cap and the imports acyclic.
 - Ruling: `simple_commands` reads a line as the shell splits it, because agents often add comments, heredocs and `2>&1` to their commands:
   - It first removes each heredoc body: after a line holding `<<WORD`, `<<-WORD`, `<<'WORD'` or `<<"WORD"` (not `<<<`), the lines up to and including the one that equals `WORD` (after leading tabs for `<<-`), for each heredoc on the line in turn. It also removes a file-descriptor number written directly before `<` or `>`, as in `2>&1`, so `gh pr merge 7 >/dev/null` keeps `7`. Both passes read the raw text, quotes included; a `<<WORD` inside quotes can hide the lines after it, a bypass that Spec 1 section 4's limits accept.
   - It then splits with Step 3's lexer. A `#` word stays an argument of its own simple command, where it can add a deny but never hides the next command.
@@ -243,8 +246,12 @@ Rulings for this task, each where Spec 1 section 4 leaves the choice:
 ```python
 ROOT = Path("/repo")
 PROTECTED = ("/.github/", "/.claude/", "/**/AGENTS.md", "/.rapid-ship/")
-OFF = HookSettings(agent_identity=False, protected=PROTECTED, repository="o/r")
-ON = HookSettings(agent_identity=True, protected=PROTECTED, repository="o/r")
+OFF = HookSettings(
+    agent_identity=False, protected=PROTECTED, repository="o/r", reviewer_app_slug=None
+)
+ON = HookSettings(
+    agent_identity=True, protected=PROTECTED, repository="o/r", reviewer_app_slug="o-reviewer"
+)
 TASK = LocalBranches(frozenset({"main"}), "task")
 
 
@@ -428,7 +435,8 @@ Also in `test_devctl_hook_rules.py`, with `new_workspace` (local git only, no ne
   - `test_read_branches_from_local_git`: a fresh workspace with one commit reads `LocalBranches(frozenset({"main", "master"}), "main")`; after `update-ref refs/remotes/origin/trunk HEAD` and `symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk`, `default == frozenset({"trunk"})`; after `checkout --detach`, `current is None`.
   - `test_an_edit_in_a_linked_worktree_belongs_to_that_worktree`: with a worktree added at `<main>/.worktrees/wt`, `work_tree_root(<main>/.worktrees/wt/.rapid-ship/kit.lock) == <main>/.worktrees/wt`, and `work_tree_root(Path("/")) is None`. Task 4's `test_run_hook_judges_an_edit_by_its_linked_worktree` checks `run_hook` on such edits.
   - `test_unreadable_settings_switch_off_g5_g7_g8_and_say_why`: a `project.toml` holding `[linear]` gives `read_settings(root) is None`, and its one stderr line starts `devctl hook: `, contains `[linear] was removed` and ends `; G5, G7 and G8 give no decision`; a CODEOWNERS that is not UTF-8 gives `None` too.
-  - `test_a_missing_codeowners_is_an_empty_protected_set`: with `project.toml` holding `stack = "python"` and no CODEOWNERS, `read_settings(root) == HookSettings(False, (), None)`.
+  - `test_a_missing_codeowners_is_an_empty_protected_set`: with `project.toml` holding `stack = "python"` and no CODEOWNERS, `read_settings(root) == HookSettings(False, (), None, None)`.
+  - `test_read_settings_takes_the_reviewer_app_slug_with_agent_identity`: with `project.toml` recording `repository = "o/r"` and both Apps, with the slugs `o-worker` and `o-reviewer`, `read_settings(root)` has `agent_identity` true and `reviewer_app_slug == "o-reviewer"`.
 
 `test_devctl_merge_guard_forms.py`, docstring `Offline: find_merge on command lines; no git and no GitHub.`:
 
@@ -493,7 +501,7 @@ lexer.whitespace_split = True  # keeps HEAD:refs/heads/main, +task and {owner} w
 lexer.commenters = ""  # shlex's default comment would swallow the newline after it
 ```
 
-  `read_branches` runs `git symbolic-ref --quiet refs/remotes/origin/HEAD` and `git symbolic-ref --quiet --short HEAD` through `process.run_process` in `root`; any failure gives `{"main", "master"}` or `None`. `read_settings` uses `load_project` and `protected_patterns`.
+  `read_branches` runs `git symbolic-ref --quiet refs/remotes/origin/HEAD` and `git symbolic-ref --quiet --short HEAD` through `process.run_process` in `root`; any failure gives `{"main", "master"}` or `None`. `read_settings` uses `load_project` and `protected_patterns`, and takes `reviewer_app_slug` from `reviewer_app.slug` when Agent identity is on.
 - [ ] **Step 4: run.** Format, check and sync, then run the two files; expected PASS. `uv run rapid-ship status --strict`, `./devctl check --tier fast`.
 - [ ] **Step 5: commit** `feat: add devctl hook's rules G1 to G5, G7 and G8`.
 
@@ -619,7 +627,7 @@ GUARD_BUDGET_SECONDS = 300.0
 
 def guard(
     merge: Merge,
-    repository: str | None,
+    settings: HookSettings | None,  # None: unreadable, so every merge is denied
     owner_get: OwnerGet,
     branches: Callable[[], LocalBranches],
     elapsed: Callable[[], float],  # seconds since the hook run started
@@ -629,23 +637,26 @@ def guard(
 `protected_changes` returns the sorted, unique paths that a pattern covers, both paths of a rename included, plus each existing ledger entry that a change modifies, removes or renames away from. An added entry is never checked. Ruling: `ledger_entry` takes any `.md` path below `docs/corrections/` except `docs/corrections/README.md`, because Spec 1 says "under" and a wider Protected rule fails safe. Ruling: GitHub's file statuses map as `added` and `copied` to added, `removed` to removed, `renamed` to renamed, and every other status to modified.
 
 `guard` reads, in this order, through `owner_get`:
-1. The PR. A number: `repos/<repository>/pulls/<n>`. A URL `https://github.com/<o>/<r>/pull/<n>`: that repository and number. A branch, or no target (the current branch from `branches()`): `repos/<repository>/pulls?head=<owner>:<branch>&state=open&per_page=100`, which must list exactly one PR. The repository is `merge.repository`, else the URL's, else the `repository` argument.
+1. The PR. A number: `repos/<repository>/pulls/<n>`. A URL `https://github.com/<o>/<r>/pull/<n>`: that repository and number. A branch, or no target (the current branch from `branches()`): `repos/<repository>/pulls?head=<owner>:<branch>&state=open&per_page=100`, which must list exactly one PR. The repository is `merge.repository`, else the URL's, else `settings.repository`.
 2. CODEOWNERS on the base: `repos/<repository>/contents/<name>?ref=<base>` for each name of `CODEOWNERS_FILES` in turn, until one exists, which is the copy GitHub reads; decoded with `decoded_contents`. A 404 moves to the next name, and three 404s are an empty Protected set.
 3. The files: `repos/<repository>/pulls/<n>/files?per_page=100&page=<k>` from page 1 until a page holds fewer than 100. A 30th full page is a denial, because GitHub lists at most 3,000 files.
-4. The check runs: `repos/<repository>/commits/<head>/check-runs?check_name=devctl%20check&filter=latest&per_page=100`. Of the runs whose `app.id` is 15368, the one with the highest `id` decides. Its `<state>` is `missing` without one, its `status` while not `completed`, else its `conclusion`. Only `success` passes.
+4. The reviews, only with Agent identity on: `repos/<repository>/pulls/<n>/reviews?per_page=100&page=<k>` from page 1 until a page holds fewer than 100. Of the reviews whose `user.login` is `<settings.reviewer_app_slug>[bot]` and whose `state` is `APPROVED` or `CHANGES_REQUESTED`, the one with the highest `id` decides; `COMMENTED`, `DISMISSED` and `PENDING` reviews are ignored. The head is approved when that review is `APPROVED` and its `commit_id` equals the head SHA the guard read.
+5. The check runs: `repos/<repository>/commits/<head>/check-runs?check_name=devctl%20check&filter=latest&per_page=100`. Of the runs whose `app.id` is 15368, the one with the highest `id` decides. Its `<state>` is `missing` without one, its `status` while not `completed`, else its `conclusion`. Only `success` passes.
 
-Then it denies with the Protected message, else the check message, else the head message when `merge.head` differs from the head SHA it read; otherwise it returns `None`. `<the same command>` is `shlex.join(merge.command)`.
+Then it denies with the Protected message, else the check message, else, with Agent identity on, the review message when the head is not approved, else the head message when `merge.head` differs from the head SHA it read; otherwise it returns `None`. With `settings` None, it denies before any read. `<the same command>` is `shlex.join(merge.command)`.
 
 Rulings for this task:
 - Ruling: the guard does not run inside `devctl as`; the hook runs it for `./devctl as <role> gh pr merge`, because Spec 1 section 4 gives a Harness without wiring no merge guard.
 - Ruling: a `gh pr merge` that names no PR reads the current branch from local git (`LocalBranches.current`), because Spec 1's step 2 takes the PR of the current branch; the index allowed local git only for a push or a ref path, and Step 3 widens it.
 - Ruling: the repository source order above, because `gh_get` runs outside the repository and `devctl as` gives gh `GH_REPO` from `[github] repository`.
-- Ruling: the Protected message comes before the check message, and the check runs are read last, because waiting on a check cannot fix a PR only the owner can merge; a small PR still costs Spec 1's four reads.
+- Ruling: the Protected message comes before the check message, and the check runs are read last, because waiting on a check cannot fix a PR only the owner can merge; a small PR still costs Spec 1's four reads, five with Agent identity on. The review message comes after the check message, because fixing a failed check pushes a new head, which needs a new review anyway, and before the head message, because the retry that message names would be denied without the approval.
+- Ruling: of the Reviewer App's reviews that approve or request changes, the one with the highest `id` is the latest, as for the check runs. The reviews have no page limit of their own; the 300-second budget bounds their reads.
+- Ruling: with `settings` None, the guard denies before any read, because it cannot tell whether Agent identity is on (Spec 1 section 4). Its reason is fixed, because `read_settings` writes the file and the key only to stderr and returns None.
 - Ruling: `--match-head-commit` must equal the full 40-character head SHA, which is what GitHub compares.
 - Ruling: before each read, the guard denies when `elapsed() + GH_TIMEOUT_SECONDS > GUARD_BUDGET_SECONDS`, because Claude Code lets a call through when it kills a hook at its timeout, 600 seconds by default, which Task 1 records. `run_hook` passes every guard on a line one `elapsed`, so they share the budget.
-- Ruling: every other denial is `merge denied: the merge guard cannot check this merge: <reason>; fix that, then merge again`, where `<reason>` is gh's first error line (`OwnerReadError.message`), or one of: `no repository: set [github] repository in .rapid-ship/project.toml or pass -R OWNER/NAME`; `no open pull request has head <owner>:<branch>`; `<n> open pull requests have head <owner>:<branch>; name one by number`; `HEAD is detached and the command names no pull request`; `GitHub lists at most 3,000 files of a pull request, and this one has more`; `its GitHub reads would pass the 300-second budget`; `the guard failed: <exception type>: <message>`. The last comes from one `except Exception` around the guard, marked `# noqa: BLE001  # rs-exception: EX-12` with its entry in `.rapid-ship/exceptions.toml`.
+- Ruling: every other denial is `merge denied: the merge guard cannot check this merge: <reason>; fix that, then merge again`, where `<reason>` is gh's first error line (`OwnerReadError.message`), or one of: `no repository: set [github] repository in .rapid-ship/project.toml or pass -R OWNER/NAME`; `no open pull request has head <owner>:<branch>`; `<n> open pull requests have head <owner>:<branch>; name one by number`; `HEAD is detached and the command names no pull request`; `GitHub lists at most 3,000 files of a pull request, and this one has more`; `its GitHub reads would pass the 300-second budget`; `the hook cannot read .rapid-ship/project.toml or .github/CODEOWNERS`; `the guard failed: <exception type>: <message>`. The last comes from one `except Exception` around the guard, marked `# noqa: BLE001  # rs-exception: EX-12` with its entry in `.rapid-ship/exceptions.toml`.
 
-`run_hook` then, when `decide` gives no decision, calls `guard` for each simple command whose `find_merge` form is `pr-merge`, in order, with `settings.repository` (None when the settings are unreadable) and one `elapsed` for the hook run. It answers `("deny", message)` with the first denial, else no decision, because Spec 1 section 4 checks each simple command.
+`run_hook` then, when `decide` gives no decision, calls `guard` for each simple command whose `find_merge` form is `pr-merge`, in order, with the settings it read (None when they are unreadable) and one `elapsed` for the hook run. It answers `("deny", message)` with the first denial, else no decision, because Spec 1 section 4 checks each simple command.
 
 - [ ] **Step 1: write the failing tests.** In `test_devctl_codeowners.py`:
 
@@ -675,13 +686,18 @@ OTHER = "b" * 40
 PR = "repos/o/r/pulls/7"
 CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
 FILES = "repos/o/r/pulls/7/files?per_page=100&page=1"
+REVIEWS = "repos/o/r/pulls/7/reviews?per_page=100&page=1"
 RUNS = f"repos/o/r/commits/{HEAD}/check-runs?check_name=devctl%20check&filter=latest&per_page=100"
 BY_BRANCH = "repos/o/r/pulls?head=o:task&state=open&per_page=100"
 PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main"}}
 OWNERS = base64.b64encode(b"* @o\n# /.github/ @o\n# /**/AGENTS.md @o\n").decode()
 TASK = LocalBranches(frozenset({"main"}), "task")
+OFF = HookSettings(agent_identity=False, protected=(), repository="o/r", reviewer_app_slug=None)
+ON = replace(OFF, agent_identity=True, reviewer_app_slug="o-reviewer")
 CHECKED = f"merge denied: devctl check on PR #7 at {HEAD} is {{}}; "
 CHECKED += "wait for it to pass or fix what it reports, then merge again"
+UNAPPROVED = f"merge denied: PR #7 has no Reviewer App approval of its head {HEAD}; "
+UNAPPROVED += "have the Reviewer review that commit, then merge again"
 
 
 def run(status: str = "completed", conclusion: str | None = "success", **fields: object) -> object:
@@ -689,27 +705,39 @@ def run(status: str = "completed", conclusion: str | None = "success", **fields:
     return {**found, "app": {"id": 15368}, **fields}
 
 
-def owner(files: object = None, runs: object = None) -> RecordedOwner:
+def review(state: str = "APPROVED", commit: str = HEAD, **fields: object) -> object:
+    found = {"id": 1, "user": {"login": "o-reviewer[bot]"}, "state": state, "commit_id": commit}
+    return {**found, **fields}
+
+
+def owner(files: object = None, runs: object = None, reviews: object = None) -> RecordedOwner:
     return RecordedOwner(
         {
             PR: PULL,
             CODEOWNERS: {"encoding": "base64", "content": OWNERS},
             FILES: files or [{"filename": "src/app/core.py", "status": "modified"}],
+            REVIEWS: [review()] if reviews is None else reviews,
             RUNS: {"check_runs": [run()] if runs is None else runs},
         }
     )
 
 
-def guarded(line: str, reader: RecordedOwner, repository: str | None = "o/r") -> str | None:
+def guarded(line: str, reader: RecordedOwner, settings: HookSettings | None = OFF) -> str | None:
     merge = find_merge(simple_commands(line)[0], lambda: TASK)
     assert merge is not None
-    return guard(merge, repository, reader, lambda: TASK, lambda: 0.0)
+    return guard(merge, settings, reader, lambda: TASK, lambda: 0.0)
 
 
-def test_a_passing_unprotected_merge_at_the_checked_head_gets_no_decision() -> None:
+@pytest.mark.parametrize(
+    ("settings", "paths"),
+    [(OFF, [PR, CODEOWNERS, FILES, RUNS]), (ON, [PR, CODEOWNERS, FILES, REVIEWS, RUNS])],
+)
+def test_a_passing_unprotected_merge_at_the_checked_head_gets_no_decision(
+    settings: HookSettings, paths: list[str]
+) -> None:
     reader = owner()
-    assert guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader) is None
-    assert reader.paths == [PR, CODEOWNERS, FILES, RUNS]
+    assert guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader, settings) is None
+    assert reader.paths == paths
 
 
 @pytest.mark.parametrize(
@@ -772,11 +800,36 @@ def test_a_merge_not_pinned_to_the_checked_head_is_denied_with_the_exact_retry(
         f"merge denied: PR #7 merges only at the checked head {HEAD}; "
         f"run {retry} --match-head-commit {HEAD}"
     )
+
+
+@pytest.mark.parametrize(
+    "reviews",
+    [
+        [],
+        [review(user={"login": "octo"})],
+        [review(user={"login": "o-reviewer"})],
+        [review(commit=OTHER)],
+        [review(), review("CHANGES_REQUESTED", id=2)],
+        [review("COMMENTED")],
+        [review("DISMISSED")],
+    ],
+)
+def test_with_agent_identity_a_head_without_the_reviewer_apps_approval_is_denied(
+    reviews: list[object],
+) -> None:
+    line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
+    assert guarded(line, owner(reviews=reviews), ON) == UNAPPROVED
+
+
+def test_comments_and_dismissed_reviews_do_not_decide() -> None:
+    reviews = [review(), review("COMMENTED", OTHER, id=2), review("DISMISSED", id=3)]
+    line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
+    assert guarded(line, owner(reviews=reviews), ON) is None
 ```
 
   Also in `test_devctl_merge_guard.py`:
-  - `test_each_target_reads_its_pull_request`: `gh pr merge task` and `gh pr merge` (current branch `task`) read `BY_BRANCH` first, served `[PULL]`; `gh pr merge https://github.com/x/y/pull/7` and `gh pr merge 7 -R x/y` read `repos/x/y/pulls/7` first, with `repository="o/r"`.
-  - `test_a_pr_the_guard_cannot_identify_or_read_is_denied`: `reader.fail(PR, OwnerReadError(404, "HTTP 404: Not Found"))` gives `merge denied: the merge guard cannot check this merge: HTTP 404: Not Found; fix that, then merge again`; `repository=None` without `-R` gives the `no repository` reason; `BY_BRANCH` served `[]` and served two PRs give their reasons; a detached HEAD with no target gives its reason.
+  - `test_each_target_reads_its_pull_request`: `gh pr merge task` and `gh pr merge` (current branch `task`) read `BY_BRANCH` first, served `[PULL]`; `gh pr merge https://github.com/x/y/pull/7` and `gh pr merge 7 -R x/y` read `repos/x/y/pulls/7` first, with `OFF`, whose repository is `o/r`.
+  - `test_a_pr_the_guard_cannot_identify_or_read_is_denied`: `reader.fail(PR, OwnerReadError(404, "HTTP 404: Not Found"))` gives `merge denied: the merge guard cannot check this merge: HTTP 404: Not Found; fix that, then merge again`; `replace(OFF, repository=None)` without `-R` gives the `no repository` reason; `BY_BRANCH` served `[]` and served two PRs give their reasons; a detached HEAD with no target gives its reason.
   - `test_an_error_inside_the_guard_is_denied`: `PR` served as `[]` gives a message starting `merge denied: the merge guard cannot check this merge: the guard failed: `.
   - `test_files_are_read_page_by_page`: page 1 holds 100 unprotected files and page 2 `.github/x`; the message names `(.github/x)`.
   - `test_codeowners_is_read_where_github_reads_it`: with `CODEOWNERS` failed with a 404 and `repos/o/r/contents/CODEOWNERS?ref=main` serving what `owner()` serves at `CODEOWNERS`, a PR changing `docs/AGENTS.md` is denied with the Protected message after reading both; with all three names failed with a 404, the same PR with `--match-head-commit <HEAD>` gets no decision.
@@ -784,8 +837,12 @@ def test_a_merge_not_pinned_to_the_checked_head_is_denied_with_the_exact_retry(
   - `test_the_guard_denies_before_a_read_could_pass_its_budget`: an `elapsed` that answers `0.0`, then `250.0`, reads `PR` only, and the message ends `its GitHub reads would pass the 300-second budget; fix that, then merge again`.
   - `test_only_gh_pr_merge_reads_github`: `run_hook` with an `owner_get` that fails the test when called, for `git status`, `gh pr view 7`, `gh api repos/o/r/pulls/7`, `git push origin task` and `gh pr merge 7 --admin`; then `gh pr merge 7` in a workspace whose `project.toml` records `repository = "o/r"` reads `PR` first.
   - `test_with_agent_identity_a_direct_merge_meets_g8_before_the_guard`: with both Apps recorded, `gh pr merge 7` is denied with `G8: ` and reads nothing; `./devctl as worker gh pr merge 7` reaches the guard.
+  - `test_reviews_are_read_page_by_page`: with `ON`, `REVIEWS` serves 100 reviews by `octo` and `repos/o/r/pulls/7/reviews?per_page=100&page=2` serves `[review(id=101)]`; the merge at `HEAD` gets no decision, and `reader.paths` holds both review pages before `RUNS`.
+  - `test_the_review_message_comes_after_the_check_and_before_the_head`: with `ON` and `owner(reviews=[], runs=[run(conclusion="failure")])`, `gh pr merge 7 --match-head-commit <HEAD>` gives `CHECKED.format("failure")`; with `ON` and `owner(reviews=[])`, `gh pr merge 7 --squash`, without `--match-head-commit`, gives `UNAPPROVED`.
+  - `test_without_agent_identity_the_guard_reads_no_review`: with `OFF` and `owner(reviews=[])`, the merge at `HEAD` gets no decision, and `REVIEWS` is not in `reader.paths`.
+  - `test_unreadable_settings_deny_every_merge`: `guarded(f"gh pr merge 7 -R o/r --match-head-commit {HEAD}", reader, None)` gives `merge denied: the merge guard cannot check this merge: the hook cannot read .rapid-ship/project.toml or .github/CODEOWNERS; fix that, then merge again`, and `reader.paths == []`; `run_hook` on the same line, in a workspace whose `project.toml` holds `[linear]`, gives the same denial and reads nothing.
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_merge_guard.py tests/devctl/test_devctl_codeowners.py -q`; expected FAIL with `ImportError: cannot import name 'guard'`.
-- [ ] **Step 3: implement** the Interfaces; add EX-12 to `.rapid-ship/exceptions.toml` with `path = "rapid_ship/templates/common/tools/devctl/devctl/merge_guard.py"`, `rule = "BLE001"` and `remove_when = "The guard's reads and parsers raise only OwnerReadError, GitHubError and ValueError, so a narrow except covers them"`. Update the plan index's sketch: `Decision` and `ToolCall` in `hook_protocols.py`, `ToolCall.edits` as absolute paths, `decide`'s and `guard`'s signatures, `Merge`'s fields, `command_line.py` in the Layout, and `LocalBranches` read also for a `gh pr merge` without a target.
+- [ ] **Step 3: implement** the Interfaces; add EX-12 to `.rapid-ship/exceptions.toml` with `path = "rapid_ship/templates/common/tools/devctl/devctl/merge_guard.py"`, `rule = "BLE001"` and `remove_when = "The guard's reads and parsers raise only OwnerReadError, GitHubError and ValueError, so a narrow except covers them"`. Update the plan index's sketch: `Decision`, `ToolCall` and `HookSettings` in `hook_protocols.py`, `ToolCall.edits` as absolute paths, `decide`'s and `guard`'s signatures, `Merge`'s fields, `command_line.py` in the Layout, and `LocalBranches` read also for a `gh pr merge` without a target.
 - [ ] **Step 4: run.** Format, check and sync, then run both files and `tests/devctl/test_devctl_doctor_github*.py`; expected PASS. Status, fast check.
 - [ ] **Step 5: commit** `feat: add the merge guard to devctl hook`.
 
@@ -898,7 +955,7 @@ def test_codeowners_has_no_placeholder_for_harness_settings(stack: Stack) -> Non
 - [ ] **Step 3 (Owner): the scratch repository.** Ruling: every case whose failure would write to GitHub runs in a scratch repository, `proxy-hatch/rs-guardrail-trial`, never in `proxy-hatch/rapid-ship`. Create it private with a first commit, `gh repo create proxy-hatch/rs-guardrail-trial --private --add-readme --clone`, because `init` in a repository without commits commits on the current branch and makes no `rapid-ship/init` branch. Run `uvx --from <the plan5-guardrails worktree> rapid-ship init --stack agnostic --owner proxy-hatch --repository proxy-hatch/rs-guardrail-trial`, push the init branch and merge its PR. Record the commands and the merge.
 - [ ] **Step 4 (Owner): each rule, Agent identity off.** In a lead Claude Code Session started in the scratch clone, have the agent run each line and record the decision and message: `git commit --allow-empty -n -m g1` (G1), `git push --force origin HEAD:g2` (G2), `git push origin HEAD:main` (G3), `gh api -X PUT repos/{owner}/{repo}/pulls/1/merge` (G3), `gh pr merge 1 --admin --squash` (G3), an edit of `.rapid-ship/kit.lock` (G4), an edit of `AGENTS.md` (G5: the owner sees the prompt and declines) and `git status` (no decision). Repeat the list in a subagent that the lead starts.
 - [ ] **Step 5 (Owner): the merge guard, Agent identity off.** Open PR A, changing `notes.txt`, and PR B, changing `AGENTS.md`, each with an Evidence section; open PR C with an empty body, so its `evidence` step fails. Have the agent run `gh pr merge <n> --squash`, and record each message: A while its check is pending (check message); C after its check fails (check message); B after its check passes (Protected message); A after its check passes, without `--match-head-commit` (head message); then the retry it names, which merges A. Record A's merge commit.
-- [ ] **Step 6 (Owner): Agent identity on.** Run `uv run rapid-ship app --repository proxy-hatch/rs-guardrail-trial` from this repository, install the existing Apps there through the URLs it prints, record their IDs and slugs in the scratch repository's `project.toml`, and merge that change in GitHub's web interface. Then record: `git push origin HEAD` (G7); `gh pr create --fill` (G8); `gh pr merge <n> --squash` (G8), and these three again in a subagent that the lead starts; `./devctl as worker gh pr merge <n> --squash` while its check is pending (check message), after it passes (head message), and the retry, which merges; `./devctl as worker gh pr merge <C> --squash` (check message) and the same for `<B>` (Protected message); and `./devctl as worker gh api -X PUT repos/{owner}/{repo}/pulls/<n>/merge` (G3).
+- [ ] **Step 6 (Owner): Agent identity on.** Run `uv run rapid-ship app --repository proxy-hatch/rs-guardrail-trial` from this repository, install the existing Apps there through the URLs it prints, record their IDs and slugs in the scratch repository's `project.toml`, and merge that change in GitHub's web interface. Then record: `git push origin HEAD` (G7); `gh pr create --fill` (G8); `gh pr merge <n> --squash` (G8), and these three again in a subagent that the lead starts; `./devctl as worker gh pr merge <n> --squash` while its check is pending (check message); once it passes, `./devctl as worker gh pr merge <n> --squash --match-head-commit <head>` before the Reviewer App has approved the PR (review message); `./devctl as reviewer gh pr review <n> --approve`; `./devctl as worker gh pr merge <n> --squash` (head message); the retry it names, the same merge as before the approval, which merges; `./devctl as worker gh pr merge <C> --squash` (check message) and the same for `<B>` (Protected message); and `./devctl as worker gh api -X PUT repos/{owner}/{repo}/pulls/<n>/merge` (G3).
 - [ ] **Step 7 (Owner): the hook's cost.** In the scratch clone, run `/usr/bin/time -p ./devctl hook claude pre-tool < bash.json` 20 times, with Task 4's fixture whose `cwd` is set to the clone, and record the median and the maximum.
 - [ ] **Step 8 (implementer): write the record** from the owner's output: Claude Code's version, each message verbatim, PR numbers and merge commits, the timing, and every difference from the expected decision. A difference is fixed in PR 5.2 and its case rerun before the merge.
 - [ ] **Step 9: verify.** Run the five checks with `--base plan5-hook-spike`, and record the results in the Verification record. The PR body's Evidence section lists them and the trial record, with `Not covered:` naming what the trial did not run. Commit `docs: record the guardrails live trial and PR 5.2's verification`.
