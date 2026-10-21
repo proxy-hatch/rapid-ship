@@ -8,14 +8,13 @@ import pytest
 
 from devctl.settings import (
     EXCEPTIONS,
-    GATE,
     PROJECT,
-    Agent,
-    GateSettings,
+    REMOVED_TABLES,
+    App,
+    Escalation,
     ProjectSettings,
     SettingsError,
     load_exceptions,
-    load_gate,
     load_project,
 )
 from rapid_ship.kit.init import resolve_variables
@@ -23,7 +22,13 @@ from rapid_ship.kit.templates import KitError, render_files
 
 ROOT = Path(__file__).resolve().parents[2]
 VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "repository": ""}
-LOADERS = {PROJECT: load_project, GATE: load_gate, EXCEPTIONS: load_exceptions}
+LOADERS = {PROJECT: load_project, EXCEPTIONS: load_exceptions}
+SEEDED_KIND = "a pull request that removes a behavioural test"
+APPS = (
+    '[github]\nrepository = "o/r"\n'
+    'worker_app_id = 101\nworker_app_slug = "o-rs-worker"\n'
+    'reviewer_app_id = 202\nreviewer_app_slug = "o-rs-reviewer"\n'
+)
 
 
 def write(root: Path, relative: str, text: str) -> None:
@@ -38,55 +43,157 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
             assert template.content is not None
             write(tmp_path, template.path, template.content.decode())
 
-    assert load_project(tmp_path) == ProjectSettings(
+    project = load_project(tmp_path)
+
+    assert project == ProjectSettings(
         stack="python",
-        worker=None,
-        reviewer=None,
         repository=None,
-        worker_app_id=None,
-        reviewer_app_id=None,
-        linear_team_id=None,
-        linear_project_id=None,
+        code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
+        worker_app=None,
+        reviewer_app=None,
+        escalation=Escalation(every_pr=True, kinds=(SEEDED_KIND,), revision_rounds=3),
         optional_skills=(),
         excluded=(),
-        max_workers=5,
-        attempt_limit=3,
-        worktree_root="../demo-app.worktrees",
         source_roots=("src/demo_app",),
         unguided=(),
         map_exclude=(),
         unit_tests=("tests/unit/**",),
-        release_method="none",
     )
-    assert load_gate(tmp_path) == GateSettings(
-        "walk", None, owner_approves_behavioural_test_removal=True
-    )
+    assert not project.agent_identity
     assert load_exceptions(tmp_path) == []
+    assert not (tmp_path / ".rapid-ship/gate.toml").exists()
 
 
 def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     write(tmp_path, PROJECT, 'stack = "agnostic"\n')
-    write(tmp_path, GATE, "")
 
     project = load_project(tmp_path)
 
-    assert (project.max_workers, project.attempt_limit, project.unit_tests) == (
-        5,
-        3,
-        ("tests/unit/**",),
+    assert project.escalation == Escalation(every_pr=True, kinds=(), revision_rounds=3)
+    assert project.unit_tests == ("tests/unit/**",)
+    assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
+        None,
+        None,
+        False,
     )
-    assert project.worktree_root == f"../{tmp_path.name}.worktrees"
-    assert load_gate(tmp_path) == GateSettings("walk", None, True)
 
 
-def test_agents_keep_the_exact_model(tmp_path: Path) -> None:
+# devctl knows nothing about Providers (Spec 1 section 4): a [roster] table left from plan 4 is
+# refused whatever it holds.
+@pytest.mark.parametrize(
+    "roster",
+    [
+        "[roster]\n",
+        '[roster.worker]\nharness = "codex"\nmodel = "m"\n',
+        '[roster.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
+    ],
+)
+def test_a_leftover_roster_is_refused(tmp_path: Path, roster: str) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n' + roster)
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    assert str(raised.value) == (
+        f"{PROJECT}: [roster] was removed: rapid-ship does not run agents across several "
+        "Providers; delete the table"
+    )
+
+
+def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n' + APPS)
+
+    project = load_project(tmp_path)
+
+    assert (project.worker_app, project.reviewer_app) == (
+        App(101, "o-rs-worker"),
+        App(202, "o-rs-reviewer"),
+    )
+    assert project.agent_identity
+
+
+@pytest.mark.parametrize("code_owner", ["@octocat", "@Octo-Cat", "@my-org/platform-team"])
+def test_a_code_owner_loads_as_codeowners_writes_it(tmp_path: Path, code_owner: str) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = "{code_owner}"\n')
+
+    assert load_project(tmp_path).code_owner == code_owner
+
+
+@pytest.mark.parametrize("github", ['[github]\ncode_owner = ""\n', "[github]\n", ""])
+def test_an_empty_or_absent_code_owner_is_unset(tmp_path: Path, github: str) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n' + github)
+
+    assert load_project(tmp_path).code_owner is None
+
+
+@pytest.mark.parametrize(
+    "value", ['"octocat"', '"@"', '"@org/"', '"@-bad"', '"@a/b/c"', '"@octocat "', "7"]
+)
+def test_an_invalid_code_owner_names_the_file_the_key_and_both_forms(
+    tmp_path: Path, value: str
+) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = {value}\n')
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    message = str(raised.value)
+    assert message.startswith(PROJECT)
+    assert "code_owner" in message
+    assert '"@login" or "@organisation/team"' in message
+
+
+def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
-        'stack = "python"\n[agents.reviewer]\nharness = "claude"\nmodel = "claude-opus-5-5"\n',
+        'stack = "python"\n[escalation]\nevery_pr = false\n'
+        'kinds = ["a database migration", "a public API change"]\nrevision_rounds = 2\n',
     )
 
-    assert load_project(tmp_path).reviewer == Agent("claude", "claude-opus-5-5")
+    assert load_project(tmp_path).escalation == Escalation(
+        every_pr=False, kinds=("a database migration", "a public API change"), revision_rounds=2
+    )
+
+
+# What each removed table's message says replaced it, or why nothing did (Spec 1 section 4),
+# written out so the test does not compare the code with itself.
+SEVERAL_PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
+REPLACED_BY = {
+    "agents": SEVERAL_PROVIDERS,
+    "dispatch": "no longer starts Workers",
+    "linear": "never talks to the issue tracker",
+    "release": "Spec 3",
+    "roster": SEVERAL_PROVIDERS,
+}
+
+
+def test_every_removed_table_is_tested() -> None:
+    assert sorted(REMOVED_TABLES) == sorted(REPLACED_BY)
+
+
+def test_the_dispatch_message_claims_no_worker_cap() -> None:
+    # rapid-ship takes no notice of how many Sessions run (ADR 0004), so nothing caps Workers.
+    assert "cap" not in REMOVED_TABLES["dispatch"]
+
+
+def test_the_agents_message_points_at_no_roster_table() -> None:
+    # devctl reads no [roster] table, so the message must not send the owner to one.
+    assert "[roster" not in REMOVED_TABLES["agents"]
+
+
+@pytest.mark.parametrize(("table", "replacement"), sorted(REPLACED_BY.items()))
+def test_a_removed_table_names_what_replaced_it(
+    tmp_path: Path, table: str, replacement: str
+) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[{table}]\n')
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    message = str(raised.value)
+    assert message.startswith(f"{PROJECT}: [{table}] was removed: ")
+    assert replacement in message
 
 
 def test_kit_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
@@ -113,9 +220,12 @@ def test_map_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
 def test_this_repository_settings_load() -> None:
     project = load_project(ROOT)
     assert (project.repository, project.source_roots) == ("proxy-hatch/rapid-ship", ("rapid_ship",))
+    # .github/CODEOWNERS names @proxy-hatch on every line.
+    assert project.code_owner == "@proxy-hatch"
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
     assert project.excluded == ()
-    assert load_gate(ROOT).mode == "walk"
+    assert project.escalation.every_pr  # Walk
+    assert not (ROOT / ".rapid-ship/gate.toml").exists()
 
 
 def test_a_missing_file_is_a_settings_error(tmp_path: Path) -> None:
@@ -125,6 +235,9 @@ def test_a_missing_file_is_a_settings_error(tmp_path: Path) -> None:
 
 EXCEPTION = (
     '[[exception]]\nid = "EX-1"\npath = "a.py"\nrule = "S603"\nreason = "r"\nremove_when = "w"\n'
+)
+NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").replace(
+    'reviewer_app_slug = "o-rs-reviewer"', 'reviewer_app_slug = ""'
 )
 
 
@@ -142,20 +255,40 @@ EXCEPTION = (
         ),
         (
             PROJECT,
-            'stack = "python"\n[dispatch]\nmax_workers = 0\n',
-            "max_workers: expected an integer of at least 1",
-        ),
-        (PROJECT, 'stack = "python"\n[agents.worker]\nharness = "agy"\n', "model: required"),
-        (
-            PROJECT,
-            'stack = "python"\n[agents.worker]\nharness = "agy"\nmodel = " m "\n',
-            "model: required",
+            'stack = "python"\n[github]\nrepository = "o/r"\nworker_app_id = 101\n',
+            "worker_app_id and worker_app_slug go together",
         ),
         (
             PROJECT,
-            'stack = "python"\n[agents.worker]\nharness = "x"\nmodel = "m"\n',
-            "harness: expected claude or codex or agy",
+            'stack = "python"\n' + NO_REVIEWER_APP,
+            "Agent identity needs both the Worker App and the Reviewer App",
         ),
+        (
+            PROJECT,
+            'stack = "python"\n' + APPS.replace('repository = "o/r"\n', ""),
+            "Apps are recorded but repository is not",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n' + APPS.replace('"o-rs-worker"', '"O RS Worker"'),
+            "worker_app_slug: expected an App slug",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[escalation]\nevery_pr = "no"\n',
+            "every_pr: expected true or false",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[escalation]\nrevision_rounds = 0\n',
+            "revision_rounds: expected an integer of at least 1",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[escalation]\nkinds = ["", "x"]\n',
+            "kinds: expected a list of non-empty strings",
+        ),
+        (PROJECT, 'stack = "python"\n[escalation]\nmode = "flight"\n', "unknown key 'mode'"),
         (
             PROJECT,
             'stack = "python"\n[github]\nrepository = "not a repo"\n',
@@ -191,14 +324,6 @@ EXCEPTION = (
             'stack = "python"\n[map]\nexclude = ["../x"]\n',
             "exclude: expected paths inside the repository",
         ),
-        (GATE, 'mode = "run"\n', "mode: expected walk or flight"),
-        (GATE, 'owner_approves_behavioural_test_removal = "false"\n', "expected true or false"),
-        (
-            GATE,
-            "owner_approves_behavioral_test_removal = false\n",
-            "unknown key 'owner_approves_behavioral_test_removal'",
-        ),
-        (GATE, "[thresholds.weekly]\nwindow = 7\n", "unknown key 'weekly'"),
         (EXCEPTIONS, EXCEPTION.replace('remove_when = "w"\n', ""), "remove_when: required"),
         (EXCEPTIONS, EXCEPTION + EXCEPTION, "EX-1 is listed twice"),
         (EXCEPTIONS, EXCEPTION.replace("EX-1", "EX-01"), "id: expected EX-<n>"),

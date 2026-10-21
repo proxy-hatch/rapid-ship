@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 import devctl.process as process
-from devctl.process import MAX_OUTPUT_BYTES, run_process
+from devctl.process import MAX_OUTPUT_BYTES, first_line, run_process
 
 
 def python(code: str) -> list[str]:
@@ -139,9 +139,28 @@ def test_kill_denial_is_ignored_only_after_group_disappears(
     assert calls == [signal.SIGKILL, 0, 0]
 
 
+def test_term_denial_is_ignored_only_after_group_disappears(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # After a normal exit, run_process sends SIGTERM to the group. A child that outlived the
+    # leader and has exited but is not yet reaped makes macOS refuse it with EPERM.
+    calls: list[int] = []
+
+    def teardown(pid: int, sig: int) -> None:
+        calls.append(sig)
+        if len(calls) <= 2:
+            raise PermissionError("group is exiting")
+        raise ProcessLookupError("group is gone")
+
+    monkeypatch.setattr(os, "killpg", teardown)
+    process._kill_group(123, signal.SIGTERM)
+    assert calls == [signal.SIGTERM, 0, 0]
+
+
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGKILL])
 @pytest.mark.parametrize("probe_denied", [False, True])
 def test_kill_denial_for_existing_group_remains_an_error(
-    monkeypatch: pytest.MonkeyPatch, probe_denied: bool
+    monkeypatch: pytest.MonkeyPatch, probe_denied: bool, sig: signal.Signals
 ) -> None:
     elapsed = [0.0]
     calls: list[int] = []
@@ -156,9 +175,9 @@ def test_kill_denial_for_existing_group_remains_an_error(
     monkeypatch.setattr(time, "monotonic", lambda: elapsed[0])
     monkeypatch.setattr(time, "sleep", lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds))
     with pytest.raises(PermissionError) as caught:
-        process._kill_group(123, signal.SIGKILL)
+        process._kill_group(123, sig)
     assert caught.value is denial
-    assert calls.count(signal.SIGKILL) == 1
+    assert calls.count(sig) == 1
     assert 0 in calls
     assert elapsed[0] <= 0.051
 
@@ -259,3 +278,19 @@ def test_a_refused_sigterm_still_ends_the_group_and_is_reported(
         run_process(python("import time; time.sleep(4)"), tmp_path, 0.3)
 
     assert time.monotonic() - started < 2
+
+
+def test_first_line_is_the_first_line_of_the_stripped_text() -> None:
+    assert first_line("fatal: not a repository\nhint: try again\n") == "fatal: not a repository"
+    assert first_line("\n  \nfatal: late\nmore") == "fatal: late"
+    assert first_line("only") == "only"
+
+
+def test_first_line_of_nothing_is_empty() -> None:
+    assert first_line("") == ""
+    assert first_line(" \n\t\n ") == ""
+
+
+def test_first_line_is_cut_to_300_characters() -> None:
+    assert first_line("x" * 300) == "x" * 300
+    assert first_line("x" * 301 + "\nnext") == "x" * 300

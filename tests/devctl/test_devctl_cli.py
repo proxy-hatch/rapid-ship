@@ -47,7 +47,7 @@ def test_a_settings_error_exits_2_with_its_message(
     from devctl.settings import SettingsError
 
     def broken(args: argparse.Namespace) -> NoReturn:
-        raise SettingsError(".rapid-ship/gate.toml mode: expected walk or flight")
+        raise SettingsError(".rapid-ship/project.toml stack: required")
 
     monkeypatch.setattr(
         devctl_project,
@@ -56,7 +56,7 @@ def test_a_settings_error_exits_2_with_its_message(
     )
 
     assert cli.main(["go"]) == 2
-    assert "devctl: .rapid-ship/gate.toml mode: expected walk or flight" in capsys.readouterr().err
+    assert "devctl: .rapid-ship/project.toml stack: required" in capsys.readouterr().err
 
 
 def test_a_repo_error_exits_2_with_its_message(

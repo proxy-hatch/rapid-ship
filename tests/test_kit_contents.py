@@ -8,6 +8,7 @@ import pytest
 
 from devctl.check.diff import codeowners_match
 from devctl.process import run_process
+from devctl.settings import load_project
 from rapid_ship.kit.templates import (
     STACKS,
     Stack,
@@ -23,10 +24,13 @@ VARIABLES = {
     "owner": "octo",
     "repository": "octo/demo-app",
 }
+CODE_OWNER_COMMENT = (
+    "# The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "
+    '"@login" or "@organisation/team".'
+)
 SEEDED = {
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
-    ".rapid-ship/gate.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "CLAUDE.md",
@@ -82,17 +86,22 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
         "stack": stack,
-        "github": {"repository": "octo/demo-app", "worker_app_id": 0, "reviewer_app_id": 0},
-        "kit": {"optional": [], "exclude": []},
-        "linear": {"team_id": "", "project_id": ""},
-        "dispatch": {
-            "max_workers": 5,
-            "attempt_limit": 3,
-            "worktree_root": "../demo-app.worktrees",
+        "github": {
+            "repository": "octo/demo-app",
+            "code_owner": "@octo",
+            "worker_app_id": 0,
+            "worker_app_slug": "",
+            "reviewer_app_id": 0,
+            "reviewer_app_slug": "",
         },
+        "escalation": {
+            "every_pr": True,
+            "kinds": ["a pull request that removes a behavioural test"],
+            "revision_rounds": 3,
+        },
+        "kit": {"optional": [], "exclude": []},
         "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},
-        "release": {"method": "none"},
     }
     assert "github" in tomllib.loads(text(stack, ".rapid-ship/project.toml", repository=""))
     assert (
@@ -101,16 +110,34 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
     )
 
 
-def test_gate_seed_has_the_spec_defaults() -> None:
-    gate = tomllib.loads(text("agnostic", ".rapid-ship/gate.toml"))
-    assert gate["mode"] == "walk"
-    assert gate["flight_lease_until"] == ""
-    assert gate["owner_approves_behavioural_test_removal"] is True
-    limits = {"max_revisions_per_pr": 1.0, "max_rollbacks": 1, "max_open_alarms": 0}
-    assert gate["thresholds"] == {
-        "promotion": {"window": 30, **limits},
-        "demotion": {"window": 20, **limits},
-    }
+@pytest.mark.parametrize("stack", STACKS)
+def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: Stack) -> None:
+    lines = text(stack, ".rapid-ship/project.toml", owner="").splitlines()
+
+    # devctl reads "" as unset; a placeholder there would fail every later devctl command.
+    assert 'code_owner = ""' in lines
+    assert not any("<owner>" in line or "<code_owner>" in line for line in lines)
+    # Spec 1 section 4's comment, directly above the key and below repository.
+    comment = lines.index('code_owner = ""') - 1
+    assert lines[comment] == CODE_OWNER_COMMENT
+    assert lines[comment - 1] == 'repository = "octo/demo-app"'
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_settings_seed_names_no_roster_and_still_loads(stack: Stack, tmp_path: Path) -> None:
+    seed = text(stack, ".rapid-ship/project.toml")
+
+    # rapid-ship does not run agents across several Providers, so the seed names none.
+    assert "roster" not in seed.lower()
+    assert "Provider" not in seed
+    (tmp_path / ".rapid-ship").mkdir()
+    (tmp_path / ".rapid-ship/project.toml").write_text(seed)
+    assert load_project(tmp_path).stack == stack
+
+
+def test_the_kit_no_longer_seeds_gate_toml() -> None:
+    assert ".rapid-ship/gate.toml" not in rendered("python")
+    assert ".rapid-ship/gate.toml" not in load_manifest().seeded
 
 
 def test_exceptions_seed_lists_none() -> None:
@@ -377,3 +404,8 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
     files = rendered("agnostic")
     assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
     assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"
+
+
+def test_askpass_is_written_executable() -> None:
+    # init and sync set the executable bit only for paths kit.toml lists (plan 2).
+    assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable

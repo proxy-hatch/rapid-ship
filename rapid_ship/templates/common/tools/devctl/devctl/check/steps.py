@@ -12,7 +12,7 @@ from typing import Literal, Protocol
 from devctl import process
 from devctl.process import ProcessResult
 from devctl.repo import Repo
-from devctl.settings import GateSettings, ProjectSettings
+from devctl.settings import ProjectSettings
 
 Tier = Literal["fast", "full"]
 Status = Literal["passed", "failed", "blocked", "not_applicable"]
@@ -41,7 +41,6 @@ class StepResult:
 class CheckContext:
     repo: Repo
     project: ProjectSettings
-    gate: GateSettings
     base: str | None  # base commit for the diff policy; None outside a change
     pr_body: str | None  # from GITHUB_EVENT_PATH or --pr-body; None outside a PR
 

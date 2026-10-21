@@ -14,7 +14,7 @@ from devctl import __version__
 from devctl.check import ChangeError, exit_code, resolve_change, run_check
 from devctl.check.steps import CheckContext, Status, StepResult
 from devctl.repo import Repo, RepoError
-from devctl.settings import SettingsError, load_gate, load_project
+from devctl.settings import SettingsError, load_project
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -43,7 +43,7 @@ def check_command(args: argparse.Namespace) -> int:
     try:
         repo = Repo.discover(Path.cwd())
         base, pr_body = resolve_change(repo, args.base, args.pr_body, os.environ)
-        context = CheckContext(repo, load_project(repo.root), load_gate(repo.root), base, pr_body)
+        context = CheckContext(repo, load_project(repo.root), base, pr_body)
         results = run_check(context, args.tier)
     except (RepoError, SettingsError, ChangeError, OSError, ValueError) as error:
         sys.stderr.write(f"devctl check: {error}\n")

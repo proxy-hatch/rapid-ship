@@ -17,6 +17,8 @@ from pathlib import Path, PurePosixPath
 from devctl.check.steps import CheckContext, StepResult, Tier, failed, passed
 
 LOCK_PATH = ".rapid-ship/kit.lock"
+# rapid-ship is fetched from a git tag, so a message that tells the owner to run it names one.
+RAPID_SHIP_SOURCE = "git+https://github.com/proxy-hatch/rapid-ship"
 
 _STACKS = ("python", "agnostic")
 _KINDS = ("managed", "seeded")
@@ -32,6 +34,12 @@ class _LockFile:
     kind: str
     sha256: str | None
     link: str | None
+
+
+@dataclass(frozen=True)
+class _Lock:
+    kit_version: str
+    files: tuple[_LockFile, ...]  # the [[file]] entries in lock order
 
 
 def is_excluded(path: str, excluded: Sequence[str]) -> bool:
@@ -79,30 +87,49 @@ def _lock_file(item: object, number: int) -> _LockFile:
     return _LockFile(path, kind, sha256, link)
 
 
-def _entries(root: Path) -> tuple[_LockFile, ...]:
-    """The lock's [[file]] entries in lock order. Raises KitLockError if the lock is unreadable."""
+def _lock(root: Path) -> _Lock:
+    """The lock's kit_version and [[file]] entries. Raises KitLockError if it is unreadable."""
     data = _read_lock(root)
-    if not isinstance(data.get("kit_version"), str):
+    kit_version = data.get("kit_version")
+    if not isinstance(kit_version, str):
         raise _lock_error("kit_version must be a string")
     if data.get("stack") not in _STACKS:
         raise _lock_error("stack must be python or agnostic")
     items = data.get("file", [])
     if not isinstance(items, list):
         raise _lock_error("file must be a list of [[file]] entries")
-    return tuple(_lock_file(item, number) for number, item in enumerate(items, start=1))
+    files = tuple(_lock_file(item, number) for number, item in enumerate(items, start=1))
+    return _Lock(kit_version, files)
 
 
-def _managed(root: Path, excluded: Sequence[str]) -> list[_LockFile]:
+def _entries(root: Path) -> tuple[_LockFile, ...]:
+    """The lock's [[file]] entries in lock order. Raises KitLockError if the lock is unreadable."""
+    return _lock(root).files
+
+
+def _managed(entries: Sequence[_LockFile], excluded: Sequence[str]) -> list[_LockFile]:
     return [
         entry
-        for entry in _entries(root)
+        for entry in entries
         if entry.kind == "managed" and not is_excluded(entry.path, excluded)
     ]
 
 
 def managed_paths(root: Path, excluded: Sequence[str]) -> frozenset[str]:
     """The managed paths in the lock, less those the project owns under [kit] exclude."""
-    return frozenset(entry.path for entry in _managed(root, excluded))
+    return frozenset(entry.path for entry in _managed(_entries(root), excluded))
+
+
+def _command(kit_version: str, command: str) -> str:
+    return f"uvx --from {RAPID_SHIP_SOURCE}@v{kit_version} rapid-ship {command}"
+
+
+def rapid_ship_command(root: Path, command: str) -> str:
+    """The full command that runs rapid-ship at the lock's kit_version, for devctl's messages.
+
+    Raises KitLockError when the lock is unreadable.
+    """
+    return _command(_lock(root).kit_version, command)
 
 
 def _is_regular_file(path: Path) -> bool:
@@ -112,8 +139,11 @@ def _is_regular_file(path: Path) -> bool:
         return False
 
 
-def _problem(root: Path, entry: _LockFile) -> str | None:
-    """What is wrong with a managed entry's path on disk, or None when it is as the lock says."""
+def _problem(root: Path, entry: _LockFile, kit_version: str) -> str | None:
+    """What is wrong with a managed entry's path on disk, or None when it is as the lock says.
+
+    Both of spec section 5's choices are named, because sync alone keeps the deletion.
+    """
     target = root / entry.path
     if entry.link is not None:
         present, noun = target.is_symlink(), "link"
@@ -121,9 +151,11 @@ def _problem(root: Path, entry: _LockFile) -> str | None:
         present, noun = _is_regular_file(target), "file"
     if present:
         return None
+    revert = _command(kit_version, f"sync --revert {entry.path}")
+    keep = _command(kit_version, "sync")
     return (
-        f"{entry.path}: managed {noun} is missing; rapid-ship sync --revert {entry.path} "
-        "restores it, and rapid-ship sync keeps the deletion as the project's own"
+        f"{entry.path}: managed {noun} is missing; {revert} restores it, "
+        f"and {keep} keeps the deletion as the project's own"
     )
 
 
@@ -134,8 +166,11 @@ class KitStep:
     def run(self, context: CheckContext) -> StepResult:
         root = context.repo.root
         try:
-            managed = _managed(root, context.project.excluded)
+            lock = _lock(root)
         except KitLockError as error:
             return failed(self.name, str(error))
-        problems = [problem for entry in managed if (problem := _problem(root, entry))]
+        managed = _managed(lock.files, context.project.excluded)
+        problems = [
+            problem for entry in managed if (problem := _problem(root, entry, lock.kit_version))
+        ]
         return failed(self.name, *problems) if problems else passed(self.name)

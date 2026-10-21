@@ -2,15 +2,15 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
+Plans 1 to 3 are built: `rapid-ship init`, `status` and `sync`, and `devctl check`. Plan 4 is built in PRs #31 to #33, which are not merged yet; this branch, #31, holds its settings and the App token code. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not on this branch yet:
 
-- Plan 4, doctor and Agent identity. It is built in PRs #31 to #33, which are not merged yet. Its follow-ups, which add repositories that an organisation owns (backlog item PRO-105), land on them first.
+- The rest of plan 4: `devctl doctor` in #32, and `rapid-ship app` and `devctl as` in #33. Its follow-ups support repositories that an organisation owns from the start (backlog item PRO-105).
 - Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
 - [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.
 
-devctl still reads the settings written before the re-scope: `[agents]`, `[linear]`, `[dispatch]` with its `max_workers`, `[release]` and `gate.toml`. Plan 4 replaces them, so build nothing new on them. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
+The settings hold the code owner, the escalation list and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built. rapid-ship does not run agents across several Providers, so nothing replaces `[agents]` or `[roster]`. The Kit no longer seeds or reads `gate.toml`. The design sets no Worker cap; it only advises at most 3 Workers at once in Walk.
 
 ## Commands
 
@@ -31,7 +31,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |
 | The vendored devctl, and this repository's own check steps in `tools/devctl/devctl_project/` | [Tools](tools/AGENTS.md) |
-| This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [gate.toml](.rapid-ship/gate.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
+| This repository's Kit settings (`.rapid-ship/`); `rapid-ship` writes the lock, so never edit it by hand | [project.toml](.rapid-ship/project.toml), [exceptions.toml](.rapid-ship/exceptions.toml), [kit.lock](.rapid-ship/kit.lock) |
 | The secrets step's settings: gitleaks's default rules, plus an allowlist for the placeholder key that a plan document quotes. Protected | [.gitleaks.toml](.gitleaks.toml) |
 | Tests | [Tests](tests/AGENTS.md) |
 | The distribution smoke that the `distribution` check step runs | [Scripts](scripts/AGENTS.md) |
