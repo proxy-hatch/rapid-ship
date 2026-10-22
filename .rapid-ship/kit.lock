@@ -241,7 +241,7 @@ sha256 = "3830ffcb5f240653debb44f4c9ab37a94ce418517f54e9b0ba82c8ed5fc36134"
 [[file]]
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
-sha256 = "8110b89930ab61d5cd3cfbcc235da8a66ef229bcb94eb5e908f7062e62cee271"
+sha256 = "22276b3e69bd0e8102732f71f25b16c2649e807969e35eb26dfc999b54763417"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

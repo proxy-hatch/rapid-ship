@@ -127,7 +127,7 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
 def changed_files(read: OwnerGet, pull: PullRequest) -> list[FileChange]:
     """The PR's changed files, page by page; a full last page that GitHub lists is a denial."""
     path = f"repos/{pull.repository}/pulls/{pull.number}/files"
-    entries = _pages(read, path, "the pull request's files", _FILE_PAGES)
+    entries = _pages(read, path, "the pull request's files", (_FILE_PAGES, _TOO_MANY_FILES))
     return [_change(json_object(entry, "a changed file")) for entry in entries]
 
 
@@ -190,18 +190,21 @@ def _from_actions(run: Mapping[str, object]) -> bool:
     return isinstance(app, dict) and app.get("id") == GITHUB_ACTIONS_APP_ID
 
 
-def _pages(read: OwnerGet, path: str, what: str, limit: int | None = None) -> Iterator[object]:
+def _pages(
+    read: OwnerGet, path: str, what: str, limit: tuple[int, str] | None = None
+) -> Iterator[object]:
     """Each entry of a listing, read 100 to a page from page 1 until a page holds fewer.
 
-    A full page at limit raises Unchecked: GitHub lists no more.
+    limit is the last page GitHub lists and the reason that a full page there raises as
+    Unchecked, because GitHub lists no more.
     """
     for page in count(1):
         entries = json_list(read(f"{path}?per_page={_PAGE}&page={page}"), what)
         yield from entries
         if len(entries) < _PAGE:
             return
-        if page == limit:
-            raise Unchecked(_TOO_MANY_FILES)
+        if limit is not None and page == limit[0]:
+            raise Unchecked(limit[1])
 
 
 def _text(fields: Mapping[str, object], key: str, what: str) -> str:
