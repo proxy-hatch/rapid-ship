@@ -1,6 +1,6 @@
 # Hook spike (PRO-139)
 
-Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). No Harness Session has run yet. The owner runs Steps 2 to 6. Step 7 fills Versions, Results, Events, Timing and Decisions from the owner's output, and renames this file to the owner's run date.
+Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). The owner ran Steps 2 to 6 on 2026-10-21 from 22:02 to 22:18 and on 2026-10-22 from 19:45 to 20:18, in UTC+8. Step 7 filled Versions, Results, Events, Timing, Decisions and Limits on 2026-10-22 from the owner's results file, the kept event files and the headless output.
 
 ## Purpose
 
@@ -16,24 +16,31 @@ From this record the owner decides whether G1 to G4 stay in the hook, and whethe
 
 ## Versions
 
-Step 7 fills this table from the owner's runs.
+From the owner's results file, written when the runs started.
 
 | Item | Command | Version |
 | --- | --- | --- |
-| Claude Code | `claude --version` | |
-| Codex CLI | `codex --version` | |
-| Antigravity CLI (agy) | `agy --version` | |
-| uv | `uv --version` | |
-| rapid-ship commit timed in Step 5 | `git rev-parse --short HEAD` | |
-| Operating system | `uname -sr` | |
+| Claude Code | `claude --version` | 2.1.304 |
+| Codex CLI | `codex --version` | codex-cli 0.163.0 |
+| Antigravity CLI (agy) | `agy --version` | 1.4.3 |
+| uv | `uv --version` | 0.11.0 (Homebrew, aarch64-apple-darwin) |
+| rapid-ship commit timed in Step 5 | `git rev-parse --short HEAD` | `0e1d6d0`, tagged `v0.1.0` |
+| Operating system | `uname -sr` | Darwin 24.6.0 |
 
 Conditions, from Steps 2 and 3:
 
-- Claude Code login, a personal subscription or a Team or Enterprise `/login`, and the managed source on the `Setting sources` line of `/status`, if any:
-- Mods turned off for the spike:
+- Claude Code login, a personal subscription or a Team or Enterprise `/login`, and the managed source on the `Setting sources` line of `/status`, if any: a Claude Max subscription, in the owner's words. The owner named no managed source.
+- Mods turned off for the spike: many, "including mcp and skills", in the owner's words. The record has no list of them.
 - User-level hooks, plugins and mods that stayed on, for each Harness:
+  - Claude Code: two user-level `PreToolUse` hooks in the owner's `~/.claude/settings.json`, an iTerm2 status script and an inline shell command.
+  - Codex: `/hooks` listed two `PreToolUse` hooks, installed and active, and each `codex exec` output shows two `PreToolUse` hook runs for each shell call. The owner described the plugins as "quite a few".
+  - agy: none besides `spike`.
 - Permission mode or approval policy of each Harness's lead Session:
-- Saved allow rules found before Step 3:
+  - Claude Code: the owner gave none. Every lead and subagent event carries `permission_mode` `auto`, the `bypassPermissions` run carries `bypassPermissions`, and the headless runs carry `acceptEdits`.
+  - Codex: the interactive events carry `permission_mode` `default`. The `codex exec` events carry `bypassPermissions`, and the output header of each `codex exec` run shows `approval: never` and `sandbox: workspace-write`.
+  - agy: not recorded, because its interactive Sessions did not run.
+- Saved allow rules found before Step 3: none in each Harness, in the owner's answers.
+- Models named in the events: Codex used `gpt-6.1-sol` in its first lead Session and `gpt-6-luna` after it, and agy used `gemini-3.8-flash-high`. Claude Code's events name no model; each carries `effort` `{"level": "max"}`.
 
 ## Setup
 
@@ -395,129 +402,344 @@ awk '{t[NR] = $1} END {print "median", (t[10] + t[11]) / 2, "max", t[NR]}' "$SPI
 
 ## Results
 
-Step 7 fills these tables from the owner's notes and kept files, and labels each result as observed in a run.
+Each result below is observed in the run it names. A result that is an inference, or only the owner's words, says so.
+
+### How the runs went
+
+The owner ran Steps 2 to 6 through a guide script kept outside this repository. For each run, the guide set the mode, gave the prompt, kept the events when the owner said that the Session had finished, and wrote the owner's answers to a results file. Step 7 took each result from the event files and the headless output. It took the owner's answers only for what those files cannot show: whether a call ran, what the Session showed, and the prompts. Four points affect how to read the results.
+
+1. **Stray folders.** When the owner went on before a Session had finished, the guide kept that run too early. The run's later events stayed in `$SPIKE_DIR/events/`, and the guide moved them to `kept/_stray-<time>/` when the next run started. Step 7 maps each stray folder to its run by the events' start time, mode and Session:
+
+   | Folder | Events, with the stand-in's mode | Run | Evidence |
+   | --- | --- | --- | --- |
+   | `_stray-221151` | Claude Code `Bash`, `Write`, `NotebookEdit`, `Edit` and `Monitor`, each with `agent_id`; `none` | `claude-subagent-none` | The guide kept that run 14 seconds before the first event |
+   | `_stray-221502` | Claude Code `Bash`, answered with the deny answer; `deny` | `claude-lead-deny` | The guide kept that run 1 second before the event |
+   | `_stray-221622` | Claude Code `Bash`; `ask` | `claude-lead-ask` | The same Session as that run's event, from a later prompt |
+   | `_stray-194519` | Claude Code `Bash`, exit 2, at 22:18 on 2026-10-21; `exit2` | `claude-lead-exit2` | The guide kept that run 1 second before the event, and moved the event when the runs went on, on 2026-10-22 |
+   | `_stray-195944` | One Codex lead `Bash` event and six subagent `Bash` events with `agent_id`; `none` | `codex-subagent-none` | The guide kept that run 21 seconds before the first event; all seven events have one `session_id` |
+
+2. **An invalid run.** `claude-lead-exit1` saved no event, and no Claude Code lead event has the mode `exit1`. The owner's answers for it describe the `ask` prompt of `_stray-221622`. This record counts the run as invalid. `claude-subagent-exit1` shows what Claude Code does with exit 1.
+3. **Runs that did not happen.** The owner skipped agy's interactive Sessions. Every `agy-lead-*` and `agy-subagent-*` folder is empty, and the guide kept each one within seconds of the one before it. The owner answered "yes" to "Did agy's none runs show hook errors or blocked calls?" only to move on, so the answer is not an observation. It started the `allow` runs, and of those only the headless run ran.
+4. **Codex worktrees.** `codex-subagent-none` and each Codex lead and subagent run of Step 3 ran in a worktree that Codex made outside the scratch repository (path `<redacted>`). The hook there ran that worktree's `standin.sh`, which the wiring finds with `git rev-parse --show-toplevel`, and saved its events in the same `SPIKE_DIR`. `codex-lead-none`, the `codex exec` runs and `codex-changed-none` ran in the scratch repository.
 
 ### Event matrix (Step 2)
 
+Each cell names the tool of the event that the run saved for that call. Where no file-edit tool ran, the cell names the shell command that made the change.
+
 | Harness | Session | Shell | Write | Edit | Notebook edit | Monitor | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Claude Code | lead | | | | | | |
-| Claude Code | subagent | | | | | | |
-| Claude Code | headless | | | | | | |
-| Codex | lead | | | | | n/a | |
-| Codex | subagent | | | | | n/a | |
-| Codex | headless | | | | | n/a | |
-| agy | lead | | | | | n/a | |
-| agy | subagent | | | | | n/a | |
-| agy | headless | | | | | n/a | |
+| Claude Code | lead (`claude-lead-none`) | `Bash` | `Write` | `Edit` | `NotebookEdit` | `Monitor` | No prompt. No event names `MultiEdit` |
+| Claude Code | subagent (`claude-subagent-none`, in `_stray-221151`) | `Bash` | `Write` | `Edit` | `NotebookEdit` | `Monitor` | Each event carries `agent_id` and `agent_type` `general-purpose`. No prompt |
+| Claude Code | headless (`claude-headless-none`) | `Bash`, twice | `Write` | `Edit` | `NotebookEdit` | `Monitor` | Exit 0. The second `Bash` call is `ls -la /repo`. No event carries `scratchpad_dir` |
+| Codex | lead (`codex-lead-none`) | `Bash` | `Bash`: `printf x > spike.txt` | `Bash`: a `python3` heredoc | `apply_patch` | n/a | Eight events: seven `Bash`, among them reads of plugin skill files, and one `apply_patch`. No prompt |
+| Codex | subagent (`codex-subagent-none`, in `_stray-195944`) | `Bash` | `Bash`: `printf 'x' > spike.txt` | `Bash`: `printf 'y' > spike.txt` | `Bash`: `python3 -c` | n/a | The six subagent events carry `agent_id` and `agent_type` `worker`. No prompt |
+| Codex | headless (`codex-headless-none`) | `Bash`: `git status --short --branch && rg --files …` | `Bash`: one `python3 -c` wrote both files | the same call | the same call | n/a | Exit 0. Three `Bash` events |
+| agy | lead | not run | not run | not run | not run | n/a | Skipped by the owner |
+| agy | subagent | not run | not run | not run | not run | n/a | Skipped by the owner |
+| agy | headless (`agy-headless-none`) | `run_command` | not reached | not reached | not reached | n/a | Exit 0. The stand-in gave no answer, then agy soft-denied the shell command: `a tool required the "command" permission that headless mode cannot prompt for`. The run ended with no output |
+| agy | headless, mode `allow` (`agy-headless-allow`) | `run_command` | not reached | not reached | not reached | n/a | Exit 0. The stand-in answered `allow`, and agy soft-denied the shell command, as in `none` |
 
-Step 7 adds a row for each `agy-<session>-allow` run, if Step 2 needed the fallback.
+agy's `allow` runs in a lead Session and in a subagent did not run.
+
+### Fixture events (Step 2)
+
+Task 4 copies the blocks under [Events](#events). Each block's scrubbed values match what Task 4 expects: `command` `git status`, `/repo/spike.txt` and `/repo/spike.ipynb`, with `cwd` `/repo`.
+
+| Fixture | Run, and its event file | `tool_name` | Scrubbed `tool_input` value | `cwd` |
+| --- | --- | --- | --- | --- |
+| `bash.json` | `claude-lead-none`, `1792591708677-claude-11892.txt` | `Bash` | `command`: `git status` | `/repo` |
+| `bash-subagent.json` | `claude-subagent-none`, `_stray-221151/1792591849756-claude-12657.txt` | `Bash` | `command`: `git status` | `/repo` |
+| `write.json` | `claude-lead-none`, `1792591718058-claude-12178.txt` | `Write` | `file_path`: `/repo/spike.txt` | `/repo` |
+| `edit.json` | `claude-lead-none`, `1792591721236-claude-12246.txt` | `Edit` | `file_path`: `/repo/spike.txt` | `/repo` |
+| `notebook-edit.json` | `claude-lead-none`, `1792591718511-claude-12208.txt` | `NotebookEdit` | `notebook_path`: `/repo/spike.ipynb` | `/repo` |
+| `monitor.json` | `claude-lead-none`, `1792591728430-claude-12306.txt` | `Monitor` | `command`: `git status` | `/repo` |
+
+The other Claude Code events all have `cwd` `/repo`. Their `Bash` events have `command` `git status`, except three: `ls -la /repo` in `claude-headless-none`, `git -C /repo status` in `claude-subagent-deny`, and the first event of `claude-worktree-none` (below). Their `Write`, `Edit`, `NotebookEdit` and `Monitor` events have the fixtures' `command`, `file_path` and `notebook_path` values, except the worktree write.
 
 ### Answers (Step 3)
 
+"Reason appeared" gives the owner's answer to the guide's question: to the agent, to the owner, or nowhere. A quoted Session message is the owner's copy of it, or the headless output.
+
 | Harness | Session | Mode | Call ran | Session showed | Reason appeared | Ask prompt | Owner's answer | `end_ms` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Claude Code | lead | `deny` | | | | n/a | | |
-| Claude Code | lead | `ask` | | | | | | |
-| Claude Code | lead | `exit1` | | | | n/a | | |
-| Claude Code | lead | `exit2` | | | | n/a | | |
-| Claude Code | lead | `sleep` | | | | n/a | | |
-| Claude Code | subagent | `deny` | | | | n/a | | |
-| Claude Code | subagent | `ask` | | | | | | |
-| Claude Code | subagent | `exit1` | | | | n/a | | |
-| Claude Code | headless | `deny` | | | | n/a | | |
-| Claude Code | headless | `ask` | | | | | | |
-| Claude Code | lead, `bypassPermissions` | `ask` | | | | | | |
-| Codex | lead | `deny` | | | | n/a | | |
-| Codex | lead | `ask` | | | | | | |
-| Codex | lead | `exit1` | | | | n/a | | |
-| Codex | lead | `exit2` | | | | n/a | | |
-| Codex | lead | `sleep` | | | | n/a | | |
-| Codex | subagent | `deny` | | | | n/a | | |
-| Codex | subagent | `ask` | | | | | | |
-| Codex | subagent | `exit1` | | | | n/a | | |
-| Codex | headless | `deny` | | | | n/a | | |
-| Codex | headless | `ask` | | | | | | |
-| agy | lead | `deny` | | | | n/a | | |
-| agy | lead | `ask` | | | | | | |
-| agy | lead | `exit1` | | | | n/a | | |
-| agy | lead | `exit2` | | | | n/a | | |
-| agy | lead | `sleep` | | | | n/a | | |
-| agy | subagent | `deny` | | | | n/a | | |
-| agy | subagent | `ask` | | | | | | |
-| agy | subagent | `exit1` | | | | n/a | | |
-| agy | headless | `deny` | | | | n/a | | |
-| agy | headless | `ask` | | | | | | |
+| Claude Code | lead | `deny` | no | nothing else, in the owner's notes | to the owner | n/a | no prompt | yes, exit 0, in `_stray-221502` |
+| Claude Code | lead | `ask` | yes | a prompt: "Hook PreToolUse:Bash requires confirmation for this command: spike: ask [settings]", with a line about `settings.json` | to the owner, in the prompt | yes | not recorded; the call ran | yes. A second `ask` event, from a later prompt in the same Session, is in `_stray-221622` |
+| Claude Code | lead | `exit1` | invalid: no `exit1` event | the owner's answers describe the `ask` prompt | n/a | n/a | n/a | no event |
+| Claude Code | lead | `exit2` | no | Claude said that the hook blocked `git status` and "exited 2 with the message spike: exit 2", and did not retry | to the agent | n/a | no prompt | yes, exit 2, in `_stray-194519` |
+| Claude Code | lead | `sleep` | yes | nothing about the hook | nowhere | n/a | no prompt | no: the hook was ended before it finished, as the wiring's 5-second timeout explains. The owner's answer for the wait, 0 seconds, was not measured |
+| Claude Code | subagent | `deny` | no | nothing else, in the owner's notes | to the agent | n/a | no prompt | yes. The subagent ran `git -C /repo status` |
+| Claude Code | subagent | `ask` | yes | a prompt, with the line about `settings.json` | to the owner | yes | yes | yes |
+| Claude Code | subagent | `exit1` | yes | nothing about the hook | nowhere | n/a | no prompt | yes, exit 1 |
+| Claude Code | headless | `deny` | no | Exit 0. Claude replied that the call "was denied with the message `spike: deny`", and did not retry | to the agent, in the output | n/a | n/a | yes |
+| Claude Code | headless | `ask` | no | Exit 0. Claude replied that the call "came back with `spike: ask`", that nobody could answer the prompt in a non-interactive Session, and that it treated the answer as a denial | to the agent, in the output | no prompt; Claude Code denied the call | n/a | yes |
+| Claude Code | lead, `bypassPermissions` | `ask` | yes | a prompt with "spike: ask [settings]". The event's `permission_mode` is `bypassPermissions` | to the owner, in the prompt | yes | yes | yes |
+| Codex | lead | `deny` | no | nothing else, in the owner's notes | to the owner | n/a | no prompt | yes |
+| Codex | lead | `ask` | yes | nothing about the hook | nowhere | no | no prompt | yes |
+| Codex | lead | `exit1` | yes | "hook exited with code 1" | nowhere | n/a | no prompt | yes, exit 1 |
+| Codex | lead | `exit2` | no | a block notice. The owner's note reads "Blocked by hook spike: exit 21"; the stand-in writes `spike: exit 2` | to the owner | n/a | no prompt | yes, exit 2 |
+| Codex | lead | `sleep` | yes | "Hook failed" and "hook timed out after 5s" | the timeout notice, to the owner | n/a | no prompt | no. The owner's answer for the wait: 5 seconds |
+| Codex | subagent | `deny` | no | "The subagent attempted git status, but the PreToolUse hook (spike: deny) blocked it." | to the agent | n/a | no prompt | yes |
+| Codex | subagent | `ask` | yes | nothing about the hook | nowhere | no | no prompt | yes |
+| Codex | subagent | `exit1` | yes | nothing about the hook | nowhere | n/a | no prompt | yes, exit 1. The subagent ran `git status --short --branch` |
+| Codex | headless | `deny` | no | Exit 0. The error line `Command blocked by PreToolUse hook: spike: deny. Command: git status`, then `hook: PreToolUse Blocked`, and the agent's reply that the hook blocked the command | in the output, and to the agent | n/a | n/a | yes |
+| Codex | headless | `ask` | yes | Exit 0. `hook: PreToolUse Failed`, then `git status` ran and succeeded | nowhere | no | n/a | yes |
+| agy | lead | `deny` | not run | | | n/a | | |
+| agy | lead | `ask` | not run | | | | | |
+| agy | lead | `exit1` | not run | | | n/a | | |
+| agy | lead | `exit2` | not run | | | n/a | | |
+| agy | lead | `sleep` | not run | | | n/a | | |
+| agy | subagent | `deny` | not run | | | n/a | | |
+| agy | subagent | `ask` | not run | | | | | |
+| agy | subagent | `exit1` | not run | | | n/a | | |
+| agy | headless | `deny` | no: no `spike.txt` | Exit 0. `tool call denied by pre-tool hook: spike: deny`. The hook also answered deny to the agent's next three calls: `run_command` `ls -la` and two `read_file` | in the output, and to the agent | n/a | n/a | yes, four events |
+| agy | headless | `ask` | no: no `spike.txt` | Exit 0. agy's notice that the `write_file` permission cannot be prompted for in headless mode, so it was auto-denied | nowhere | no prompt; agy denied the call | n/a | yes |
 
-agy's `ask` rows and its headless `deny` row are runs of the write prompt. In agy's subagent rows, the stand-in allowed the lead's `invoke_subagent` call (Setup).
+agy's `ask` rows and its headless `deny` row are runs of the write prompt. agy's lead and subagent rows did not run, so the stand-in's allowance of `invoke_subagent` was not exercised.
 
-The edit inside the linked worktree, in Claude Code:
+Inference, not observed: agy's headless page says that writes inside the workspace are allowed without a prompt. The hook's `ask` is therefore the likely cause of the soft-deny of `write_file` in `agy-headless-ask`, but its output does not name the hook.
+
+The edit inside the linked worktree, in Claude Code (`claude-worktree-none`):
 
 | Event `cwd` | `tool_input.file_path` | `CLAUDE_PROJECT_DIR` | `standin.sh` that ran |
 | --- | --- | --- | --- |
-| | | | |
+| `/repo` | `/repo/.worktrees/wt/spike.txt` | `/repo` | `/repo/standin.sh`, the main checkout's |
+
+A lead Session started in the main checkout wrote `.worktrees/wt/spike.txt` with `Write`. Before the write it ran `ls -la /repo/.worktrees/ /repo/.worktrees/wt/ 2>&1; git -C /repo worktree list 2>&1` with `Bash`, and that event shows the same `cwd`, `CLAUDE_PROJECT_DIR` and `standin.sh`. The hook's `pwd` was `/repo` for both events. Only the edited path names the worktree, so the hook has to judge an edit by the repository that holds its path, as plan 5's Task 3 rules.
 
 ### Codex review (Step 4)
 
-- Trust prompt on the first run:
-- Hooks before review:
-- `/hooks` review:
-- `codex exec` with the trusted hook:
-- The changed hook:
+- Trust prompt on the first run: the owner chose to require a review, then trusted the spike's hook ("require review. Trusted.", in the owner's words).
+- Hooks before review: Codex showed a startup warning about hooks. The guide found no event between the Session's start and the first run, so no hook run before the review was saved.
+- `/hooks` review: after the review, `/hooks` listed `PreToolUse` with two hooks, installed and active.
+- `codex exec` with the trusted hook: it ran the hook. `codex-headless-none` saved three events, so the run with `--dangerously-bypass-hook-trust` was not needed.
+- The changed hook: after the change to `"timeout": 6`, Codex offered to review the hook or trust all ("review hook or trust all", in the owner's words). The changed hook did not run before the owner trusted it, in the owner's answer. `codex-changed-none` then saved one `Bash` event, `git status`, in the scratch repository.
+- In the Codex worktrees of Step 3, the trusted hook ran, and the owner recorded no new review.
+
+### Other observations
+
+- The hook's working directory: Claude Code's hook ran with `pwd` and `CLAUDE_PROJECT_DIR` at `/repo` in every run. Codex's hook ran with `pwd` at the Session's `cwd`, the scratch repository or a Codex worktree, and with `CLAUDE_PROJECT_DIR` unset. agy's hook ran with `pwd` at `/repo/.agents`, the folder that holds its `hooks.json`.
+- Claude Code's events carry the fields that Setup lists. `effort` is an object, such as `{"level": "max"}`, and the headless events have no `scratchpad_dir`.
+- Codex's events carry `session_id`, `turn_id`, `transcript_path`, `cwd`, `hook_event_name`, `model`, `permission_mode`, `tool_name`, `tool_input` and `tool_use_id`. A subagent's events also carry `agent_id` and `agent_type`. The `tool_input.command` of `apply_patch` holds the patch.
+- agy's events carry `artifactDirectoryPath`, `conversationId`, `modelName`, `stepIdx`, `toolCall`, `transcriptPath` and `workspacePaths`. Its tools were `run_command` (`args.CommandLine`), `write_file` (`args.Path` and `args.Content`) and `read_file` (`args.Path`). agy's hooks page names the write tool `write_to_file`.
+- In Codex, the agent wrote and edited files with shell commands in every Session kind, and used `apply_patch` once, for the notebook. A Codex wiring sees such writes only as shell commands.
 
 ## Events
 
-Step 7 puts each Claude Code event here as a fenced `json` block under the heading of its fixture file, and Task 4 copies each block byte for byte into `tests/devctl/fixtures/hooks/claude/`. Step 7 replaces the values of `session_id`, `prompt_id`, `transcript_path`, `tool_use_id`, `agent_id` and `scratchpad_dir` with `"<redacted>"`. It replaces the scratch repository's path with `/repo`, so its worktree becomes `/repo/.worktrees/wt`, and any other home or temporary path with `<redacted>`. It lists the fields it replaced.
+Task 4 copies each block below byte for byte into `tests/devctl/fixtures/hooks/claude/`, named by its heading. Each block is the Claude Code event that [Fixture events](#fixture-events-step-2) names, pretty-printed with two-space indents, with its keys in the order Claude Code sent them.
+
+Step 7 replaced these values, and no others:
+
+- In every event: `session_id`, `prompt_id`, `transcript_path`, `tool_use_id` and `scratchpad_dir` became `"<redacted>"`, and `cwd`, the scratch repository's path, became `/repo`.
+- In `bash-subagent.json`: `agent_id` became `"<redacted>"`.
+- In `write.json` and `edit.json`: `tool_input.file_path` became `/repo/spike.txt`. In `notebook-edit.json`: `tool_input.notebook_path` became `/repo/spike.ipynb`.
+
+No other value held a home or temporary path. No Claude Code event in the spike names `MultiEdit`, so the record has no `multi-edit.json`.
 
 ### bash.json
 
-From the run `claude-lead-none`. Step 7 adds it.
+From the run `claude-lead-none`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status",
+    "description": "Show working tree status"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
 ### bash-subagent.json
 
-From the run `claude-subagent-none`. Step 7 adds it.
+From the run `claude-subagent-none`, whose events the guide moved to `_stray-221151`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "agent_id": "<redacted>",
+  "agent_type": "general-purpose",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status",
+    "description": "Show working tree status"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
 ### write.json
 
-From the run `claude-lead-none`. Step 7 adds it.
+From the run `claude-lead-none`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/repo/spike.txt",
+    "content": "x"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
 ### edit.json
 
-From the run `claude-lead-none`. Step 7 adds it.
+From the run `claude-lead-none`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/repo/spike.txt",
+    "old_string": "x",
+    "new_string": "y",
+    "replace_all": false
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
 ### notebook-edit.json
 
-From the run `claude-lead-none`. Step 7 adds it.
+From the run `claude-lead-none`.
 
-### multi-edit.json
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "NotebookEdit",
+  "tool_input": {
+    "notebook_path": "/repo/spike.ipynb",
+    "cell_id": "cell-0",
+    "new_source": "print(1)",
+    "edit_mode": "replace"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
-Only if Step 2 saw a `MultiEdit` event. Otherwise Step 7 removes this heading and says so.
+### monitor.json
+
+From the run `claude-lead-none`. Plan 5 wires `Monitor` after this spike ([Decisions](#what-the-record-changes-in-plan-5)).
+
+```json
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Monitor",
+  "tool_input": {
+    "description": "git status output after spike.txt and spike.ipynb edits",
+    "timeout_ms": 30000,
+    "command": "git status"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
 
 ## Timing
 
-Claude Code's documented default `timeout` for a command hook is 600 seconds ([hooks reference](https://code.claude.com/docs/en/hooks), read 2026-10-21). Step 7 fills the rest from Step 5.
+Claude Code's documented default `timeout` for a command hook is 600 seconds ([hooks reference](https://code.claude.com/docs/en/hooks), read 2026-10-21). The spike's wiring set 5 seconds, and its `sleep` runs show what a timeout does to the call (Answers).
+
+The owner ran Step 5's block on 2026-10-22, in rapid-ship's main checkout at `0e1d6d0` (`v0.1.0`). The cold run printed `devctl 0.1.0`.
 
 | Measure | Seconds |
 | --- | --- |
-| Cold run, after `rm -rf tools/devctl/.venv` | |
-| Warm median of 20 runs | |
-| Warm maximum of 20 runs | |
+| Cold run, after `rm -rf tools/devctl/.venv` | 2.39 real (0.49 user, 0.21 sys) |
+| Warm median of 20 runs | 0.10 |
+| Warm maximum of 20 runs | 0.14 |
+
+The 20 warm times, sorted: twelve of 0.10, six of 0.11, one of 0.12 and one of 0.14.
 
 ## Decisions
 
-Step 7 records the owner's decisions from Step 6.
+The owner made these decisions on 2026-10-22, from this record.
 
 ### G1 to G4 in the hook
 
+G1 to G4 stay in the hook. A warm `./devctl --version` took 0.10 seconds at the median and 0.14 at most. The one cold run, which rebuilt devctl's environment, took 2.39 seconds. Task 8 times the real `devctl hook`.
+
 ### Codex and agy wiring
+
+- Codex: a follow-up wires Codex after plan 5, without G5, because Codex ran the call with no prompt on the hook's ask (backlog item PRO-142).
+- agy: no decision yet. The owner decides after agy's interactive runs, a lead Session and a subagent, which this spike did not run (backlog item PRO-143).
+
+### What the record changes in plan 5
+
+Task 1 Step 9 of plan 5 compares the record with what Tasks 3 to 8 assume:
+
+- `Monitor`: Claude Code's `Monitor` tool fired `PreToolUse` with `tool_input.command`, a shell command, in a lead Session, a subagent and a headless Session. Without it in the wiring, an agent could bypass G1 to G3, G7, G8 and the merge guard through `Monitor`. Plan 5 therefore wires `Monitor` and reads its `command` as `Bash`'s.
+- `MultiEdit`: no event named it, and Claude Code's permissions page calls it legacy. Plan 5 keeps it in the wiring, which costs nothing and covers versions that still have it.
+- `"onFailure": "block"`: the spike's wiring left it unset, and no run exercised it. The seed leaves it unset, and Spec 1 section 11 holds it as an open question.
+- The rest held: the event fields, the command and paths that Task 4 expects, the deny and ask answers, exit 1 not blocking, a timed-out hook letting the call through, and the paths of an edit in a linked worktree.
 
 ## Limits
 
-- On 2026-10-21 the record holds only its preparation: no Harness Session has run, and every result above is empty.
+- Each run happened once, on one machine, with one version of each Harness (Versions). A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
 - The stand-in is not `devctl hook`. It answers by mode, not by rules, and it starts `sh`, not uv and Python. Step 5 times `./devctl --version` instead, which runs no rule; Task 8 times the real hook.
-- Each run happens once, on one machine, with one version of each Harness. A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
+- agy's lead and subagent Sessions did not run. The record has nothing on agy's interactive hooks, its subagents, its exit codes or its timeout, and nothing on agy's `invoke_subagent` or its `accept-edits` mode. agy's own soft-deny of a shell command hid the hook's answer in its headless `none` and `allow` runs.
+- Claude Code's lead `exit1` run is invalid. Exit 1 in Claude Code is observed only in a subagent.
+- In the interactive `ask` runs, the owner approved Claude Code's prompts, where the Procedure asked to decline the call under test. The spike shows that the prompt appears and that an approved call runs. It does not show a declined ask in an interactive Session. The headless runs show Claude Code denying an ask that nobody can answer.
+- Some answers are the owner's own words, quoted as given. The owner did not measure `claude-lead-sleep`'s wait and answered 0 seconds; the event's missing `end_ms` shows that Claude Code ended the hook.
+- The stand-in's exit 2 stood in for uv's exit 2. No real uv failure ran.
+- No run exercised `"onFailure": "block"`.
+- Codex's Step 3 Sessions ran in Codex worktrees, which `spike_reset` did not reach. The shell prompt does not depend on those files.
+- Other hooks, plugins and mods on the owner's machine also ran on these events. Conditions under Versions lists those that stayed on.
 - The documented behaviour in Setup holds for the pages as read on 2026-10-21. Where a page documents nothing, such as agy's exit codes or Codex's exit 1, only the runs answer the question.
-- agy's wiring matches every tool, so its runs also save events for reads and listings. The stand-in allows agy's `invoke_subagent` in every mode, so the spike does not observe a deny or an ask on starting a subagent.
-- agy's lead and subagent runs use `accept-edits` mode. The spike does not observe a hook's ask in agy's `default` mode, where agy's own diff review also asks before each write.
-- Other hooks, plugins and mods on the owner's machine also run on these events. Conditions under Versions lists those that stayed on.
+- agy's wiring matches every tool, so its headless `deny` run also saved events for a listing and for reads.
 - Desktop apps and IDE extensions are out of scope.

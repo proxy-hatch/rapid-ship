@@ -8,4 +8,5 @@ Identify deterministic simulations, live provider calls, and later reruns separa
 Preserve the relationship between each report, its saved artifacts, and the revision actually tested.
 When replacing an artifact, update its recorded checksum and explain which observations the replacement reproduces.
 Check bundles for credentials and private paths before publication; the website publishes these reports.
+A spike record keeps its scrubbed event JSON in fenced blocks, and tests copy them as fixtures.
 Passing unit tests or one successful probe does not qualify a project for Flight.
