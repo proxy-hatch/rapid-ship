@@ -315,6 +315,17 @@ def test_each_merge_on_the_line_is_guarded(tmp_path: Path) -> None:
     assert reader.paths == [PR, CODEOWNERS, FILES, RUNS, "repos/o/r/pulls/8"]
 
 
+def test_a_merge_on_a_line_that_shell_rules_cannot_split_is_denied(tmp_path: Path) -> None:
+    root = project(tmp_path)
+    line = "gh pr merge 7 --squash; echo 'unclosed"
+    assert hooked(root, line, unread_github) == (
+        "deny",
+        CANNOT.format("shell rules cannot split the command line: No closing quotation"),
+    )
+    with pytest.raises(ValueError, match="No closing quotation"):
+        hooked(root, "git push -f origin task; echo 'unclosed", unread_github)
+
+
 def test_the_guard_denies_before_a_read_could_pass_its_budget() -> None:
     clock = iter([0.0, 250.0])
     merge = find_merge(simple_commands("gh pr merge 7")[0], lambda: TASK)

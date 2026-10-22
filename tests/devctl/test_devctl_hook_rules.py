@@ -85,6 +85,14 @@ SHELL = [  # command line, the rule that denies it with Agent identity off (None
     ("cd sub  # go there\ngit push -f origin task", "G2"),
     ("echo $(git push -f origin task)", "G2"),
     ("echo `git push -f origin task`", "G2"),
+    # The words after a substitution stay in the command that holds it.
+    ("git push origin $(git branch --show-current) --force", "G2"),
+    ("git push -u origin $(git rev-parse --abbrev-ref HEAD) --force-with-lease", "G2"),
+    ("git push origin `git branch --show-current` --force", "G2"),
+    ("git commit -F $(mktemp) --no-verify", "G1"),
+    ("gh pr merge 7 $(true) --admin", "G3"),
+    ("gh pr merge 7 `true` --admin", "G3"),
+    ("git push origin $(git rev-parse HEAD):main", "G3"),
     ("cat <<'EOF' > notes.md\ngit push --force origin task\nEOF", None),
     ("git commit -n -F - <<EOF\nIt's done\nEOF", "G1"),
 ]
@@ -141,6 +149,22 @@ GRAMMAR = [
     ("cat <<A <<B\nit's\nA\nit's\nB\ngit push -f origin task", "G2"),
     ("cat << 'EOF'\nit's\nEOF\ngit push -f origin task", "G2"),
     ("cat <<\\EOF\nit's\nEOF\ngit push -f origin task", "G2"),
+    # Only an unquoted << opens a heredoc: not one in quotes, a comment or $(( ... )).
+    ("echo '<<EOF'\ngit push -f origin task", "G2"),
+    ("cd sub  # copy it with cat <<EOF\ngit push -f origin task", "G2"),
+    ("echo $((1<<2))\ngit push -f origin task", "G2"),
+    ("gh pr view 7 --json body -q \"$(cat <<'EOF'\nit's\nEOF\n)\"; git push -f origin task", "G2"),
+    # Quotes that shlex alone misreads.
+    ("gh pr merge 5 --admin; echo $'it\\'s'", "G3"),
+    ('git push --force origin task; y="$(echo \'a"b\')"', "G2"),
+    ('echo "$(git push -f origin task)"', "G2"),
+    ('echo "`git push -f origin task`"', "G2"),
+    ("x=$((git push -f origin task) )", "G2"),
+    # A quoted or escaped operator is a word.
+    ("git commit -m ';' --no-verify", "G1"),
+    ("git commit -m \\; --no-verify", "G1"),
+    ("git push origin '>' -f", "G2"),
+    ("'if' git push -f origin task", None),
 ]
 G3 = "lands a change on the default branch outside the merge guard; open a pull request and "
 MESSAGES = [  # command line, Agent identity on, the whole message
@@ -319,9 +343,46 @@ def test_simple_commands_drop_comments_and_reserved_words() -> None:
         ("git", "log"),
         ("fi",),
     ]
-    assert simple_commands("diff <(git show a) b") == [("diff",), ("git", "show", "a"), ("b",)]
+    assert simple_commands("diff <(git show a) b") == [
+        ("git", "show", "a"),
+        ("diff", "$(...)", "b"),
+    ]
     assert simple_commands("git log \\\n  --oneline") == [("git", "log", "--oneline")]
     assert simple_commands("echo 'a\\\nb'") == [("echo", "a\\\nb")]
+
+
+def test_a_substitution_gives_its_commands_first_and_stays_one_word_part() -> None:
+    assert simple_commands("git push origin $(git rev-parse HEAD):main --force") == [
+        ("git", "rev-parse", "HEAD"),
+        ("git", "push", "origin", "$(...):main", "--force"),
+    ]
+    assert simple_commands("a `b $(c)` <(d)x >(e) \"$(f)\" '$(g)'") == [
+        ("c",),
+        ("b", "$(...)"),
+        ("d",),
+        ("e",),
+        ("f",),
+        ("a", "$(...)", "$(...)x", "$(...)", "$(...)", "$(g)"),
+    ]
+    assert simple_commands("echo $(( $(a) << 2 ))x; b") == [("a",), ("echo", "$(...)x"), ("b",)]
+    assert simple_commands("x=$((a; b) )") == [("a",), ("b",), ("x=$(...)",)]
+    for unclosed in ("echo $(a", "echo `a", "echo $((1", "echo <(a"):
+        with pytest.raises(ValueError, match="no closing"):
+            simple_commands(unclosed)
+
+
+def test_simple_commands_read_quotes_and_escapes_as_the_shell_does() -> None:
+    assert simple_commands('echo "a\\$(b)\\"c" $"d" $\'e\\\'f\\n\' g\\') == [
+        ("echo", 'a$(b)"c', "d", "e'f\n", "g\\")
+    ]
+    assert simple_commands("cat <<'A' | wc\n$(x)\nA\necho `printf '\\`'`") == [
+        ("printf", "`"),
+        ("cat",),
+        ("wc",),
+        ("echo", "$(...)"),
+    ]
+    with pytest.raises(ValueError, match="heredoc has no WORD"):
+        simple_commands("cat <<")
 
 
 def test_read_branches_from_local_git(tmp_path: Path) -> None:

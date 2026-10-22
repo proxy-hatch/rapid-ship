@@ -16,10 +16,6 @@ from pathlib import PurePosixPath
 from typing import Literal
 
 _PUNCTUATION = "();<>|&`\n"
-# <<WORD, <<-WORD, <<'WORD' or <<"WORD" opens a heredoc; the here-string <<< does not.
-_HEREDOC = re.compile(
-    r"""(?<!<)<<(?!<)(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([^\s;&|()<>'"`]+))"""
-)
 # A file-descriptor number written directly before a redirection, as the 2 of 2>&1.
 _DESCRIPTOR = re.compile(r"(?<![^\s;&|()<>`])\d+(?=[<>])")
 _WORD_BREAKS = frozenset(" \t\n;&|()<>`")  # an unescaped one of these ends a word
@@ -48,77 +44,243 @@ _API_VALUED = _API_FIELDS | {
 }
 _API_URL = "https://api.github.com/"
 REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})  # gh's options that name another repository
+# The scanner puts _MARK where a substitution was, and the words then carry SUBSTITUTED there:
+# the hook cannot know what the substitution prints.
+_MARK = "\x00"
+SUBSTITUTED = "$(...)"
+# The scanner puts _QUOTED before quoted or escaped text, so that shlex never gives it as a token
+# of punctuation alone, which _split would read as an operator: ';' and \; are words.
+_QUOTED = "\x01"
+_NO_QUOTE = "No closing quotation"
+# A backslash in double quotes before one of these: the shell removes a newline, and keeps $ and
+# ` without the backslash. shlex reads \" and \\ itself and keeps any other backslash, as the
+# shell does.
+_IN_DOUBLE_QUOTES = {"\n": "", "$": "$", "`": "`"}
+# $'...' escapes that name one character; any other escape stays as written.
+_ANSI_C = {"n": "\n", "t": "\t", "r": "\r", "a": "\a", "b": "\b", "e": "\x1b", "E": "\x1b"}
+_ANSI_C.update({"f": "\f", "v": "\v", "\\": "\\", "'": "'", '"': '"', "?": "?"})
 
 
 def simple_commands(line: str) -> list[tuple[str, ...]]:
     """Each simple command of a command line, as the words the shell passes it.
 
     Heredoc bodies, comments and redirections are left out, and so is a reserved word such as
-    if or then before a command. A subshell, $( ... ), backticks and <( ... ) give their contents
-    as commands of their own. Raises ValueError when shell rules cannot split the line, such as
-    for an unclosed quote outside a heredoc: the shell rejects it too.
+    if or then before a command. A subshell gives its contents as commands of their own. So do
+    $( ... ), backticks, <( ... ), >( ... ) and $(( ... )), inside double quotes too, ahead of the
+    line's other commands. The command that holds one keeps its other words, and SUBSTITUTED
+    stands where it was, joined to the text around it. Raises ValueError when shell rules cannot
+    split the line, such as for an unclosed quote or $(: the shell rejects it too.
     """
-    text = _DESCRIPTOR.sub("", _joined_without_comments(_without_heredoc_bodies(line)))
-    lexer = shlex.shlex(text, posix=True, punctuation_chars=_PUNCTUATION)
+    scanner = _Scanner(line)
+    scanned = scanner.scan(close="")
+    return [*scanner.commands, *_words(scanned)]
+
+
+def _words(scanned: str) -> list[tuple[str, ...]]:
+    """The simple commands of text the scanner has read, split by shlex."""
+    lexer = shlex.shlex(_DESCRIPTOR.sub("", scanned), posix=True, punctuation_chars=_PUNCTUATION)
     lexer.whitespace = lexer.whitespace.replace("\n", "")  # a newline separates commands
     lexer.whitespace_split = True  # keeps HEAD:refs/heads/main, +task and {owner} whole
-    lexer.commenters = ""  # comments are gone; shlex's would also swallow the newline after one
-    return _split(lexer)
+    lexer.commenters = ""  # the scanner removed the comments
+    return [
+        tuple(word.replace(_QUOTED, "").replace(_MARK, SUBSTITUTED) for word in words)
+        for words in _split(lexer)
+    ]
 
 
-def _without_heredoc_bodies(text: str) -> str:
-    """text without each heredoc's body: the lines after a <<WORD line, up to the line WORD.
+class _Scanner:
+    """One pass over a command line as the shell reads it, before shlex splits the words.
 
-    This reads the raw text, quotes and comments included, so a <<WORD inside quotes hides the
-    lines after it, a bypass that Spec 1 section 4's limits accept.
+    It removes comments, heredoc bodies and each backslash-newline outside single quotes. It puts
+    _QUOTED before quoted or escaped text, and _MARK where each substitution was, after it has
+    added the commands inside it to commands, innermost first. It turns $'...' into a quoted word
+    that shlex reads.
     """
-    kept: list[str] = []
-    ends: list[tuple[str, bool]] = []  # each open heredoc's WORD, and whether <<- strips tabs
-    for line in text.split("\n"):
-        if ends:
-            word, tabs = ends[0]
-            if (line.lstrip("\t") if tabs else line) == word:
-                ends.pop(0)
-            continue
-        kept.append(line)
-        ends = [(m[2] or m[3] or m[4] or "", m[1] == "-") for m in _HEREDOC.finditer(line)]
-    return "\n".join(kept)
 
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.at = 0
+        self.commands: list[tuple[str, ...]] = []
+        self.heredocs: list[tuple[str, bool]] = []  # the line's heredocs: WORD, and <<- or not
 
-def _joined_without_comments(text: str) -> str:
-    """text with each line that a backslash continues joined, and without its comments.
+    def scan(self, close: str) -> str:
+        """The text from here up to close, ")" for a substitution or "" for the end."""
+        kept: list[str] = []
+        depth = 0  # the subshells open inside this substitution
+        word_start = True  # a # here starts a comment
+        while self.at < len(self.text):
+            char = self.text[self.at]
+            if close and char == ")" and depth == 0:
+                self.at += 1
+                return "".join(kept)
+            if char == "#" and word_start:
+                end = self.text.find("\n", self.at)
+                self.at = len(self.text) if end < 0 else end
+                continue
+            piece, word_start = self._piece(word_start)
+            depth += {"(": 1, ")": -1}.get(piece, 0)
+            kept.append(piece)
+        if close:
+            raise ValueError(f"no closing {close}")
+        return "".join(kept)
 
-    A comment runs from a # that starts an unquoted word to the end of its line; one such as
-    "# don't" would otherwise open a quote that never closes. A # after an escaped space, as in
-    a\\ #b, or after a backslash-newline inside a word, is part of that word. A backslash-newline
-    outside single quotes is removed, as the shell removes it, so the next line stays in the
-    same command.
-    """
-    kept: list[str] = []
-    quote = ""
-    word_start = True  # a # here starts a comment
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "\\" and quote != "'":
-            escape = text[index : index + 2]
-            if escape != "\\\n":  # a removed backslash-newline leaves word_start as it was
-                kept.append(escape)
-                word_start = False
-            index += 2
-            continue
-        if quote:
-            quote = "" if char == quote else quote
-        elif char in "'\"":
-            quote = char
-        elif char == "#" and word_start:
-            end = text.find("\n", index)
-            index = len(text) if end < 0 else end
-            continue
-        kept.append(char)
-        word_start = not quote and char in _WORD_BREAKS
-        index += 1
-    return "".join(kept)
+    def _piece(self, word_start: bool) -> tuple[str, bool]:
+        """Read what starts here outside quotes: the text to keep, and whether a word can start
+        after it."""
+        text, at = self.text, self.at
+        if self._substitution(process=True):
+            return _MARK, False
+        if text[at] == "\\":
+            escaped = text[at : at + 2]
+            self.at += 2
+            # A backslash-newline goes and the word goes on; shlex needs a final \ escaped.
+            if escaped == "\\\n":
+                return "", word_start
+            return _QUOTED + escaped.ljust(2, "\\"), False
+        if text[at] == "'":
+            end = text.find("'", at + 1)
+            if end < 0:
+                raise ValueError(_NO_QUOTE)
+            self.at = end + 1
+            return _QUOTED + text[at : end + 1], False
+        if text.startswith("$'", at):
+            return _QUOTED + self._ansi_c(), False
+        if text.startswith(('"', '$"'), at):  # $"..." is a translated "..."
+            return _QUOTED + self._double_quoted(), False
+        if text.startswith("<<", at):
+            return self._here(), True
+        self.at += 1
+        if text[at] == "\n":
+            self._skip_heredoc_bodies()
+        return text[at], text[at] in _WORD_BREAKS
+
+    def _substitution(self, process: bool) -> bool:
+        """Read a substitution that starts here and add the commands inside it; False when none
+        starts here. process: <( ... ) and >( ... ) count, which they do outside double quotes."""
+        text, at = self.text, self.at
+        if text.startswith("$((", at) and self._arithmetic(at + 3):
+            return True
+        if text.startswith("$(", at) or (process and text.startswith(("<(", ">("), at)):
+            self.at = at + 2
+            scanned = self.scan(close=")")
+            self.commands += _words(scanned)
+            return True
+        if text.startswith("`", at):
+            self.at = at + 1
+            inner = _Scanner(self._backquoted())
+            scanned = inner.scan(close="")
+            self.commands += [*inner.commands, *_words(scanned)]
+            return True
+        return False
+
+    def _arithmetic(self, start: int) -> bool:
+        """Read $(( ... )) from start, after its $((, with each substitution inside it.
+
+        False, with no command added, when a lone ) closes it: the shell then reads $((a) ) as a
+        command substitution that starts with a subshell.
+        """
+        found, self.at, depth = len(self.commands), start, 0
+        while self.at < len(self.text):
+            char = self.text[self.at]
+            if char == ")" and depth == 0:
+                if self.text.startswith("))", self.at):
+                    self.at += 2
+                    return True
+                break
+            if not self._substitution(process=False):
+                depth += {"(": 1, ")": -1}.get(char, 0)
+                self.at += 1
+        del self.commands[found:]
+        return False
+
+    def _backquoted(self) -> str:
+        """The command between backquotes, from after the first: \\`, \\$ and \\\\ unescaped."""
+        inner: list[str] = []
+        while self.at < len(self.text):
+            char, after = self.text[self.at], self.text[self.at + 1 : self.at + 2]
+            if char == "`":
+                self.at += 1
+                return "".join(inner)
+            escaped = char == "\\" and after in ("`", "$", "\\")
+            inner.append(after if escaped else char)
+            self.at += 2 if escaped else 1
+        raise ValueError("no closing `")
+
+    def _double_quoted(self) -> str:
+        """A double-quoted string, with _MARK for each substitution in it."""
+        self.at += 2 if self.text[self.at] == "$" else 1
+        kept = ['"']
+        while self.at < len(self.text):
+            char = self.text[self.at]
+            if char == '"':
+                self.at += 1
+                return "".join([*kept, '"'])
+            if self._substitution(process=False):
+                kept.append(_MARK)
+                continue
+            escaped = self.text[self.at + 1 : self.at + 2] if char == "\\" else ""
+            self.at += 1 + len(escaped)
+            kept.append(_IN_DOUBLE_QUOTES.get(escaped, char + escaped))
+        raise ValueError(_NO_QUOTE)
+
+    def _ansi_c(self) -> str:
+        """$'...' as one single-quoted word that shlex reads."""
+        decoded: list[str] = []
+        self.at += 2
+        while self.at < len(self.text):
+            char = self.text[self.at]
+            if char == "'":
+                self.at += 1
+                return shlex.quote("".join(decoded))
+            escaped = self.text[self.at + 1 : self.at + 2] if char == "\\" else ""
+            decoded.append(_ANSI_C.get(escaped, char + escaped) if escaped else char)
+            self.at += 1 + len(escaped)
+        raise ValueError(_NO_QUOTE)
+
+    def _here(self) -> str:
+        """<<< as written, or a heredoc's << and WORD, whose body the next newline skips."""
+        if self.text.startswith("<<<", self.at):
+            self.at += 3
+            return "<<<"
+        self.at += 2
+        strip_tabs = self.text.startswith("-", self.at)
+        self.at += int(strip_tabs)
+        while self.text[self.at : self.at + 1] in (" ", "\t"):
+            self.at += 1
+        word = self._delimiter()
+        self.heredocs.append((word, strip_tabs))
+        return f"<< {shlex.quote(word)} "
+
+    def _delimiter(self) -> str:
+        """A heredoc's WORD without its quotes and backslashes; the shell needs one."""
+        start, word = self.at, []
+        while self.at < len(self.text) and self.text[self.at] not in _WORD_BREAKS:
+            char = self.text[self.at]
+            if char in "'\"":
+                end = self.text.find(char, self.at + 1)
+                if end < 0:
+                    raise ValueError(_NO_QUOTE)
+                word.append(self.text[self.at + 1 : end])
+                self.at = end + 1
+            else:
+                skip = int(char == "\\")  # a backslash quotes the character after it
+                word.append(self.text[self.at + skip : self.at + 1 + skip])
+                self.at += 1 + skip
+        if self.at == start:
+            raise ValueError("a heredoc has no WORD")
+        return "".join(word)
+
+    def _skip_heredoc_bodies(self) -> None:
+        """After a newline, skip the body of each heredoc opened before it, up to its WORD line;
+        a body without that line runs to the end of the text, as the shell reads it."""
+        for word, strip_tabs in self.heredocs:
+            while self.at < len(self.text):
+                end = self.text.find("\n", self.at)
+                line = self.text[self.at : len(self.text) if end < 0 else end]
+                self.at = len(self.text) if end < 0 else end + 1
+                if (line.lstrip("\t") if strip_tabs else line) == word:
+                    break
+        self.heredocs.clear()
 
 
 def _split(tokens: Iterable[str]) -> list[tuple[str, ...]]:
@@ -141,15 +303,13 @@ def _operator(token: str) -> tuple[bool, bool]:
     """Whether a run of punctuation ends the simple command, and whether a target follows it.
 
     A run that holds < or > is a redirection, such as >, the >& of 2>&1, &> or <<; a ) or ;
-    before it still ends the command. <( and >( start process substitution, whose contents are
-    a command of their own. Every other run, such as ;, &&, |, & or a newline, ends the command.
+    before it still ends the command. Every other run, such as ;, &&, |, &, ( or a newline, ends
+    the command. The scanner has already replaced each <( and >( with _MARK.
     """
     positions = [at for at in (token.find("<"), token.find(">")) if at >= 0]
     if not positions:
         return True, False
-    before, redirection = token[: min(positions)], token[min(positions) :]
-    if redirection.endswith("("):
-        return True, False
+    before = token[: min(positions)]
     return bool(before.removesuffix("&")), True  # the & of &> belongs to the redirection
 
 

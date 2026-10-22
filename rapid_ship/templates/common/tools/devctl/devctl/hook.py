@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import re
 import shlex
 import sys
 import time
@@ -47,6 +48,8 @@ PR_READS = frozenset({"view", "list", "status", "diff", "checks", "checkout"})
 ISSUE_READS = frozenset({"view", "list", "status"})
 # git commit's short options that take a value: the letters after one are that value.
 _COMMIT_VALUED = frozenset("mFCctSu")
+# A command line that may hold gh pr merge, read as plain text when shell rules cannot split it.
+_MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
 
 G1 = (
     "G1: --no-verify and git commit -n skip the pre-commit hook; run the command without them, "
@@ -120,13 +123,20 @@ def run_hook(
     shell command to the one that holds cwd (Spec 1 section 4); each Claude Code edit writes one
     path. Outside every repository no settings are read. owner_get is the merge guard's only way
     to read GitHub, and clock times the hook run, whose budget every merge on the line shares.
+    Raises ValueError when shell rules cannot split the command line, unless its text holds gh,
+    pr and merge in that order: the guard then denies the merge it cannot check.
     """
     started = clock()
     root = work_tree_root(call.edits[0] if call.edits else call.cwd)
     read = read_settings(root) if root is not None else None
     settings = read if isinstance(read, HookSettings) else None
     branches = functools.cache(functools.partial(read_branches, root or call.cwd))
-    decision, reason = decide(call, root, settings, branches)
+    try:
+        decision, reason = decide(call, root, settings, branches)
+    except ValueError as error:
+        if call.shell is None or not _MERGE_TEXT.search(call.shell):
+            raise
+        return "deny", cannot_check(f"shell rules cannot split the command line: {error}")
     if decision is not None or call.shell is None:
         return decision, reason
     denial = _guard_merges(call.shell, read, owner_get, branches, lambda: clock() - started)

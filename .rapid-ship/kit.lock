@@ -166,7 +166,7 @@ sha256 = "ac53ee2ba61ffe4af538d50a02bd3eda53e522d651b7d2db67c220a9a2488171"
 [[file]]
 path = "tools/devctl/devctl/command_line.py"
 kind = "managed"
-sha256 = "39781f6aea1b6eab7c2afb4b34fa995763637a38855435031bda2c8e1030174a"
+sha256 = "fba06bc30651b21377db408aba485c02757597b68c373097d1c6ab8905533366"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
@@ -231,7 +231,7 @@ sha256 = "d6e8d92c04dd0d11235ab926ada7432626abd382eedc2daf64a37f1319403440"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "d144c8be3687a9a9713a544694ddcc6bda08a36a46895bb21afe8aedb331e0dd"
+sha256 = "6087435bd31d58e42ce9f46322a5643d2988e2eb8412c2db22e1d4e00724bf09"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
