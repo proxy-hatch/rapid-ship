@@ -60,6 +60,11 @@ _WIRED: dict[str, _Input] = {
 }
 WIRED_TOOLS = tuple(_WIRED)
 HOOK_COMMAND = "devctl hook claude pre-tool"
+# Claude Code lets a call through when it kills a hook at its timeout, 600 seconds by default, as
+# the hook spike recorded. The merge guard therefore denies before a read that could end past this
+# budget, which every merge on a line shares, and doctor's wiring item counts no hook whose
+# timeout is shorter than the budget plus devctl's start.
+GUARD_BUDGET_SECONDS = 300.0
 
 
 @dataclass(frozen=True)

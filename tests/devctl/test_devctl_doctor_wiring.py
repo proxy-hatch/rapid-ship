@@ -118,6 +118,49 @@ def test_wiring_problems_in_other_shapes(settings: object, problems: list[str]) 
     assert wiring_problems(settings) == problems
 
 
+@pytest.mark.parametrize(
+    ("settings", "problems"),
+    [
+        (wired(command="devctl hook claude pre-tool"), []),
+        (wired(command="$CLAUDE_PROJECT_DIR/devctl hook claude pre-tool"), []),
+        (wired(command='"${CLAUDE_PROJECT_DIR}/devctl" hook claude pre-tool'), []),
+        (wired(command="'/repo/devctl' 'hook' claude \"pre-tool\""), []),
+        (args_form("devctl", PRE_TOOL), []),
+        # Exec form passes command and each args element to the program as they are.
+        (args_form("devctl hook claude pre-tool", []), [GAP + EVERY_TOOL]),
+        (args_form("devctl", ["hook claude pre-tool"]), [GAP + EVERY_TOOL]),
+        (
+            args_form("${CLAUDE_PROJECT_DIR}/devctl hook", ["claude", "pre-tool"]),
+            [GAP + EVERY_TOOL],
+        ),
+        (args_form("${CLAUDE_PROJECT_DIR}/mydevctl", PRE_TOOL), [GAP + EVERY_TOOL]),
+        (args_form("devctl", [*PRE_TOOL, "--verbose"]), [GAP + EVERY_TOOL]),
+        # Shell form: the words after quote removal, and a $ the shell keeps literal.
+        (wired(command="'$CLAUDE_PROJECT_DIR/devctl' hook claude pre-tool"), [GAP + EVERY_TOOL]),
+        (wired(command="\\$CLAUDE_PROJECT_DIR/devctl hook claude pre-tool"), [GAP + EVERY_TOOL]),
+        (wired(command='"\\$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'), [GAP + EVERY_TOOL]),
+        (wired(command="echo devctl hook claude pre-tool"), [GAP + EVERY_TOOL]),
+        (wired(command='"$CLAUDE_PROJECT_DIR"/mydevctl hook claude pre-tool'), [GAP + EVERY_TOOL]),
+        (wired(command='"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool-x'), [GAP + EVERY_TOOL]),
+        (wired(command="devctl hook claude pre-tool >/dev/null"), [GAP + EVERY_TOOL]),
+        (wired(command="devctl hook claude pre-tool; true"), [GAP + EVERY_TOOL]),
+        (wired(command="devctl hook claude 'pre-tool"), [GAP + EVERY_TOOL]),
+        # A timeout must leave the merge guard its 300-second budget and the shim its start.
+        (wired(timeout=600), []),
+        (wired(timeout=360), []),
+        (wired(timeout=359.5), [GAP + EVERY_TOOL]),
+        (wired(timeout=30), [GAP + EVERY_TOOL]),
+        (wired(timeout="600"), [GAP + EVERY_TOOL]),
+        (wired(timeout=True), [GAP + EVERY_TOOL]),
+        (wired(timeout=None), [GAP + EVERY_TOOL]),
+    ],
+)
+def test_wiring_problems_for_the_words_and_the_timeout(
+    settings: object, problems: list[str]
+) -> None:
+    assert wiring_problems(settings) == problems
+
+
 @pytest.mark.usefixtures("fake_run")
 class TestItem:
     def test_the_rendered_seed_is_ok(self, ctx: MakeContext, repo_files: RepoFiles) -> None:

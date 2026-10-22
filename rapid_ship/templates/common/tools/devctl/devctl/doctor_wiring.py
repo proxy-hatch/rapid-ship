@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from devctl.doctor_items import Item
-from devctl.hook_protocols import HOOK_COMMAND, WIRED_TOOLS
+from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HOOK_COMMAND, WIRED_TOOLS
 
 WIRING_FILE = ".claude/settings.json"
 _ITEM = "Harness wiring"
@@ -27,6 +28,14 @@ _QUOTES = re.compile(r"[\"']")
 _PLACEHOLDER = re.compile(r"\$\{[^}]*\}")
 # A command hook with either field set to true runs in the background (hooks reference).
 _BACKGROUND = ("async", "asyncRewake")
+_PROGRAM, *_HOOK_ARGS = HOOK_COMMAND.split()
+# The shortest timeout that leaves the merge guard its budget after the devctl shim has started
+# uv and Python, which took 2.39 seconds on the hook spike's one cold run.
+_SHORTEST_TIMEOUT = GUARD_BUDGET_SECONDS + 60.0
+# A shell-form command as quoted strings, escapes and single characters, in order.
+_SHELL_PIECE = re.compile(r"""'[^']*'|"(?:\\.|[^"\\])*"|\\.|.""", re.DOTALL)
+_ESCAPE = re.compile(r"\\(.)", re.DOTALL)
+_LITERAL_DOLLAR = "\x00"  # a $ that the shell keeps as it is, which no path to devctl holds
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -52,29 +61,61 @@ def _covers(matcher: object, tool: str) -> bool:
 
 
 def _runs_the_hook(hook: Mapping[str, object]) -> bool:
-    """A command hook whose command and args run devctl hook claude pre-tool on every call.
+    """A command hook that runs devctl hook claude pre-tool, and nothing more, on every call.
 
-    A hook with async or asyncRewake runs in the background, so it cannot block the call, and an
-    if condition narrows the calls the hook runs on, so none of them counts.
-
-    A hook without args is shell form: the shell removes the quotes and expands "$". A hook with
-    args is exec form: Claude Code starts command with no shell, keeps every quote and "$"
-    literally and replaces only ${...} placeholders, so command must hold none of the others.
+    A hook with async or asyncRewake runs in the background, so it cannot block the call; an if
+    condition narrows the calls the hook runs on; and a timeout below _SHORTEST_TIMEOUT lets
+    Claude Code kill the merge guard before its budget ends. None of them counts.
     """
-    if hook.get("type") != "command" or "if" in hook:
+    if hook.get("type") != "command" or "if" in hook or not _waits(hook):
         return False
     if any(hook.get(field) is True for field in _BACKGROUND):
         return False
+    words = _exec_words(hook) if "args" in hook else _shell_words(hook.get("command"))
+    program, *args = words or [""]
+    named = program == _PROGRAM or program.endswith(f"/{_PROGRAM}")
+    return named and _LITERAL_DOLLAR not in program and args == _HOOK_ARGS
+
+
+def _waits(hook: Mapping[str, object]) -> bool:
+    """Whether Claude Code waits _SHORTEST_TIMEOUT for the hook: no timeout means 600 seconds."""
+    timeout = hook.get("timeout", _SHORTEST_TIMEOUT)
+    if isinstance(timeout, bool) or not isinstance(timeout, int | float):
+        return False
+    return timeout >= _SHORTEST_TIMEOUT
+
+
+def _exec_words(hook: Mapping[str, object]) -> list[str] | None:
+    """The words of an exec-form hook, one with args: Claude Code starts command with no shell
+    and passes each args element as one word. It replaces only ${...} placeholders and keeps
+    every quote and other "$" as it is, so a command that holds one names no file: None."""
     words = [hook.get("command"), *_sequence(hook.get("args"))]
     text = [word for word in words if isinstance(word, str)]
-    if len(text) != len(words):
-        return False
-    if "args" not in hook:
-        return HOOK_COMMAND in _QUOTES.sub("", " ".join(text))
-    program = text[0]
-    if _QUOTES.search(program) or "$" in _PLACEHOLDER.sub("", program):
-        return False
-    return HOOK_COMMAND in " ".join(text)
+    if len(text) != len(words) or not text:
+        return None
+    if _QUOTES.search(text[0]) or "$" in _PLACEHOLDER.sub("", text[0]):
+        return None
+    return text
+
+
+def _shell_words(command: object) -> list[str] | None:
+    """The words of a shell-form command, split and unquoted as the shell does; None when it
+    cannot be split. A $ in single quotes or after a backslash becomes _LITERAL_DOLLAR. An
+    operator or a redirection stays a word, so the hook's command must stand alone."""
+    if not isinstance(command, str):
+        return None
+    pieces = (piece[0] for piece in _SHELL_PIECE.finditer(command))
+    try:
+        return shlex.split("".join(map(_literal_dollars, pieces)))
+    except ValueError:
+        return None
+
+
+def _literal_dollars(piece: str) -> str:
+    """One piece of a shell-form command, with each $ that the shell keeps as _LITERAL_DOLLAR."""
+    if piece.startswith("'"):
+        return piece.replace("$", _LITERAL_DOLLAR)
+    return _ESCAPE.sub(lambda found: _LITERAL_DOLLAR if found[1] == "$" else found[0], piece)
 
 
 def wiring_problems(settings: object) -> list[str]:

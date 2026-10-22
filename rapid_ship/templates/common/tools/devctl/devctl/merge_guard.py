@@ -33,7 +33,7 @@ from devctl.command_line import (
     read_arguments,
 )
 from devctl.doctor_items import OWNER_GET_TIMEOUT_SECONDS, OwnerGet, OwnerReadError
-from devctl.hook_protocols import HookSettings
+from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HookSettings
 from devctl.merge_guard_github import (
     Unchecked,
     base_patterns,
@@ -72,11 +72,6 @@ _MUTATIONS = re.compile(
     r"\b(?:mergePullRequest|enablePullRequestAutoMerge|enqueuePullRequest|mergeBranch"
     r"|updateRefs?|createCommitOnBranch)\b"
 )
-
-# Claude Code lets a call through when it kills a hook at its timeout, 600 seconds by default, as
-# the hook spike recorded, so the guard denies before a read that could end past this budget,
-# which every merge on a line shares.
-GUARD_BUDGET_SECONDS = 300.0
 
 # The guard's four denials, exactly as Spec 1 section 4, step 5 words them.
 _CHECK_DENIED = (
