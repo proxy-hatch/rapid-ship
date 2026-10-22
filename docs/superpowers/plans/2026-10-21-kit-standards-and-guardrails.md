@@ -1396,7 +1396,7 @@ Each PR's last task fills its row with the command, its exit code and the summar
 
 | PR | `uv run pytest -q` | `./devctl check --tier fast` | `uv run rapid-ship status --strict` | `./devctl check --tier full --base <base> --pr-body <body>` | `npm --prefix website run build` |
 | --- | --- | --- | --- | --- | --- |
-| 5.1 | | | | | |
+| 5.1 | exit 0 at 738c845: `1320 passed in 217.00s (0:03:36)` | exit 0 at 738c845: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 738c845: `36 managed files unchanged.` | exit 0 at 738c845, with `--base main` and the draft body `pr-5.1-body.md`: every step passed; the diff step listed the Protected paths `AGENTS.md`, `docs/superpowers/AGENTS.md` and `docs/trials/AGENTS.md` | exit 0 at 738c845: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 | 5.2 | | | | | |
 | 5.3 | | | | | |
 | 5.4 | | | | | |
