@@ -1,5 +1,5 @@
 # Written by rapid-ship. To own or drop a Kit file, list it under [kit] exclude in project.toml.
-kit_version = "0.1.0"
+kit_version = "0.2.0"
 stack = "python"
 
 [variables]
@@ -81,7 +81,7 @@ sha256 = "ae7de5051fe720987a3edea876f0bd6e66e6c577d5bdd47b6bf55e6ef74cc2ce"
 [[file]]
 path = "tools/devctl/devctl/__init__.py"
 kind = "managed"
-sha256 = "c57989812b21344f05ee2247b8853ac25782b8e715ff46e5ff35ea6fd1ccf652"
+sha256 = "1d92b98236b910d30f536179149df2bfa8fd5170beedbdeb5f1915216223d1a7"
 
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
@@ -236,9 +236,9 @@ template_sha256 = "b11535883c9112757712956ceaa57cd79ba523e32bb3e271e858ad3ca8c59
 [[file]]
 path = "tools/devctl/pyproject.toml"
 kind = "managed"
-sha256 = "c63f84b4118996a6b0561f2f977415a3cc28bf68204ad40d0917d74fa523da42"
+sha256 = "57568f297a0df5618780f42e1883e7b22dba2b6f514144d37602c93a0065616d"
 
 [[file]]
 path = "tools/devctl/uv.lock"
 kind = "managed"
-sha256 = "70787586e15c32e137f43e625353b32490161de93a2dedfbccc66ff7eb7a9e3c"
+sha256 = "3d47129685619660e44ec15d5964e2ee14d57d26b209e4d7f41fd69910193ca4"
