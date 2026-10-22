@@ -23,6 +23,9 @@ from devctl.github.api import GitHubError, json_list, json_object
 
 _PAGE = 100  # GitHub's largest page
 _FILE_PAGES = 30  # GitHub lists at most 3,000 files of a pull request
+# The fields of a changed file that the guard reads. A page of 100 files with their patches can
+# pass gh_get's output cap, so gh prints only these.
+_FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 _VERDICTS = frozenset({"APPROVED", "CHANGES_REQUESTED"})  # the reviews that decide
 # A pull request's URL as gh reads one, whose repository wins over -R.
 _PR_URL = re.compile(
@@ -127,7 +130,8 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
 def changed_files(read: OwnerGet, pull: PullRequest) -> list[FileChange]:
     """The PR's changed files, page by page; a full last page that GitHub lists is a denial."""
     path = f"repos/{pull.repository}/pulls/{pull.number}/files"
-    entries = _pages(read, path, "the pull request's files", (_FILE_PAGES, _TOO_MANY_FILES))
+    limit = (_FILE_PAGES, _TOO_MANY_FILES)
+    entries = _pages(read, path, "the pull request's files", limit, jq=_FILE_FIELDS)
     return [_change(json_object(entry, "a changed file")) for entry in entries]
 
 
@@ -191,15 +195,19 @@ def _from_actions(run: Mapping[str, object]) -> bool:
 
 
 def _pages(
-    read: OwnerGet, path: str, what: str, limit: tuple[int, str] | None = None
+    read: OwnerGet,
+    path: str,
+    what: str,
+    limit: tuple[int, str] | None = None,
+    jq: str | None = None,
 ) -> Iterator[object]:
     """Each entry of a listing, read 100 to a page from page 1 until a page holds fewer.
 
     limit is the last page GitHub lists and the reason that a full page there raises as
-    Unchecked, because GitHub lists no more.
+    Unchecked, because GitHub lists no more. jq, gh's filter, must keep one entry for each.
     """
     for page in count(1):
-        entries = json_list(read(f"{path}?per_page={_PAGE}&page={page}"), what)
+        entries = json_list(read(f"{path}?per_page={_PAGE}&page={page}", jq), what)
         yield from entries
         if len(entries) < _PAGE:
             return

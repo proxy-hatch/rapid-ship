@@ -181,7 +181,7 @@ sha256 = "f2c2f5719434a6c2b258c92c5686b3ce727c65a314d0a173a41bf98ab308c6cc"
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
 kind = "managed"
-sha256 = "e87cc26279463086a48adb6e32356e266fb3eed4a04f64a05c64b264fb920d8f"
+sha256 = "55f7d49fdc77eb5367a9f35b07d58e3a6afd01cd2f8c7eff501215f9274b1092"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
@@ -246,12 +246,12 @@ sha256 = "cafefb80c47fee424a3a9d26f75ef86ef94d9edd47df100057de3fdcb01c838d"
 [[file]]
 path = "tools/devctl/devctl/merge_guard.py"
 kind = "managed"
-sha256 = "05ecb7529826cf4e51521412de81e6cb67e1ef1ad676d2fc14c26f3eaa9947d1"
+sha256 = "0e37615a5ab0b1519c25697afe90ca1999e59933daac6a6e4dbe106c55140ffa"
 
 [[file]]
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
-sha256 = "22276b3e69bd0e8102732f71f25b16c2649e807969e35eb26dfc999b54763417"
+sha256 = "c5ece1640c25d6eb01f85214cd07421528a3991910e0a68cf98bf587b777e6cd"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

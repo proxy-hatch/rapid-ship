@@ -47,7 +47,7 @@ def hook(monkeypatch: pytest.MonkeyPatch, payload: bytes, *argv: str) -> int:
     return cli.main(["hook", *argv])
 
 
-def unread_github(path: str) -> object:
+def unread_github(path: str, jq: str | None = None) -> object:
     raise AssertionError(f"GitHub was read: {path}")
 
 

@@ -267,10 +267,10 @@ def guard(
 def _budgeted(owner_get: OwnerGet, elapsed: Callable[[], float]) -> OwnerGet:
     """owner_get, refused before a read that could end past GUARD_BUDGET_SECONDS."""
 
-    def read(path: str) -> object:
+    def read(path: str, jq: str | None = None) -> object:
         if elapsed() + OWNER_GET_TIMEOUT_SECONDS > GUARD_BUDGET_SECONDS:
             raise Unchecked(_OVER_BUDGET)
-        return owner_get(path)
+        return owner_get(path, jq)
 
     return read
 

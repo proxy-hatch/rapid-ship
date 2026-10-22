@@ -11,10 +11,10 @@ import json
 import re
 import shutil
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
 from devctl import process
 from devctl.github.app import GitHubAccess
@@ -86,7 +86,14 @@ class Item:
     detail: str
 
 
-OwnerGet = Callable[[str], object]  # GET with the owner's gh sign-in; raises OwnerReadError
+class OwnerGet(Protocol):
+    """GET with the owner's gh sign-in, which raises OwnerReadError.
+
+    jq is gh's --jq filter: gh then prints only what it selects, so fields the caller does not
+    read, such as a pull request's patches, do not count against process.MAX_OUTPUT_BYTES.
+    """
+
+    def __call__(self, path: str, jq: str | None = None) -> object: ...
 
 
 class OwnerReadError(Exception):
@@ -124,11 +131,12 @@ def _json_message(stdout: str) -> str:
     return process.first_line(message) if isinstance(message, str) else ""
 
 
-def gh_get(path: str) -> object:
-    """GET path with the owner's gh sign-in and return the parsed JSON. Raises OwnerReadError."""
+def gh_get(path: str, jq: str | None = None) -> object:
+    """GET path with the owner's gh sign-in and return the parsed JSON, or with jq what that
+    filter selects. Raises OwnerReadError."""
     try:
         result = process.run_process(
-            ["gh", "api", "--method", "GET", path],
+            ["gh", "api", "--method", "GET", path, *(("--jq", jq) if jq else ())],
             Path(tempfile.gettempdir()),
             OWNER_GET_TIMEOUT_SECONDS,
             env=owner_environment("gh"),

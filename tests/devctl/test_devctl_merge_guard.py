@@ -9,18 +9,22 @@ from pathlib import Path
 import pytest
 
 from check_workspace import new_workspace
+from devctl.codeowners import FileChange
 from devctl.command_line import simple_commands
-from devctl.doctor_items import OwnerGet, OwnerReadError
+from devctl.doctor_items import OwnerGet, OwnerReadError, gh_get
 from devctl.hook import run_hook
 from devctl.hook_protocols import Decision, HookSettings, ToolCall
 from devctl.merge_guard import LocalBranches, Merge, find_merge, guard
-from github_fakes import RecordedOwner
+from devctl.merge_guard_github import PullRequest, changed_files
+from devctl.process import ProcessResult
+from github_fakes import FakeRun, RecordedOwner
 
 HEAD = "a" * 40
 OTHER = "b" * 40
 PR = "repos/o/r/pulls/7"
 CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
 FILES = "repos/o/r/pulls/7/files?per_page=100&page=1"
+FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 REVIEWS = "repos/o/r/pulls/7/reviews?per_page=100&page=1"
 RUNS = f"repos/o/r/commits/{HEAD}/check-runs?check_name=devctl%20check&filter=latest&per_page=100"
 BY_BRANCH = "repos/o/r/pulls?head=o:task&state=open&per_page=100"
@@ -86,7 +90,7 @@ def hooked(root: Path, line: str, reader: OwnerGet) -> tuple[Decision, str]:
     return run_hook(ToolCall(line, (), root), reader)
 
 
-def unread_github(path: str) -> object:
+def unread_github(path: str, jq: str | None = None) -> object:
     raise AssertionError(f"GitHub was read: {path}")
 
 
@@ -269,6 +273,17 @@ def test_files_are_read_page_by_page() -> None:
     reader.serve(second, [{"filename": ".github/x", "status": "added"}])
     assert guarded("gh pr merge 7", reader) == TOUCHES.format(".github/x")
     assert reader.paths == [PR, CODEOWNERS, FILES, second]
+    assert reader.filters == {FILES: FILE_FIELDS, second: FILE_FIELDS}
+
+
+def test_gh_prints_only_the_fields_of_the_files_that_the_guard_reads(fake_run: FakeRun) -> None:
+    """Simulated gh: the whole page, patches included, passes gh_get's output cap."""
+    whole = ["gh", "api", "--method", "GET", FILES]
+    fake_run.answer(whole, ProcessResult(whole, 0, "[", "", 0.0, stdout_truncated=True))
+    page = '[{"filename": "a.py", "status": "renamed", "previous_filename": "b.py"}]'
+    fake_run.answer([*whole, "--jq", FILE_FIELDS], ProcessResult(whole, 0, page, "", 0.0))
+    pull = PullRequest("o/r", 7, HEAD, "main")
+    assert changed_files(gh_get, pull) == [FileChange("a.py", "renamed", "b.py")]
 
 
 def test_a_pr_with_more_files_than_github_lists_is_denied() -> None:
