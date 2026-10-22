@@ -6,3 +6,5 @@ Edit canonical files so both agent discovery surfaces receive the same content.
 
 Preserve each symlink's repository-relative target.
 The parameterized checks in [test_skill_discovery.py](../tests/test_skill_discovery.py) cover both discovery surfaces.
+
+[settings.json](settings.json) wires `devctl hook` for Claude Code; it is seeded, in the Protected set, and doctor checks it.

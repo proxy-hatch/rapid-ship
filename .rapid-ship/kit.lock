@@ -9,6 +9,11 @@ project_name = "rapid-ship"
 repository = "proxy-hatch/rapid-ship"
 
 [[file]]
+path = ".claude/settings.json"
+kind = "seeded"
+template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0de7"
+
+[[file]]
 path = ".githooks/pre-commit"
 kind = "managed"
 sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
@@ -181,7 +186,7 @@ sha256 = "e87cc26279463086a48adb6e32356e266fb3eed4a04f64a05c64b264fb920d8f"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "d10c3007ec93ee754464b05e4667840d4d952344f2fa5bf09b5f52a04eca322f"
+sha256 = "5bba939b1bbbada138ae5d38f2de400c51d9159c94111070d88c57ac2ef304be"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
@@ -192,6 +197,11 @@ sha256 = "c93289480640d1c44cf383633579a95c7e28ef35df591517d461049b05a7fef6"
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
 sha256 = "a03fd196122bc34ca81abd8fc00ef372f2c2d6351afb1e13679ddda7971b739f"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_wiring.py"
+kind = "managed"
+sha256 = "c1fb43aec238a39565e5cb0ce6c9ded1baa1f83030e73afe7e2eda5fa8a72007"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"

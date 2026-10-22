@@ -25,6 +25,7 @@ from devctl.check.stacks.python import (
     toml_table,
 )
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
+from devctl.doctor_wiring import wiring_item
 from devctl.repo import Repo
 
 DEVCTL_DIRECTORY = "tools/devctl"
@@ -290,6 +291,7 @@ def local_items(ctx: DoctorContext) -> list[Item]:
         gitleaks_item(),
         _hooks_item(ctx.root),
         _ci_item(ctx.root, tracked),
+        wiring_item(ctx.root, tracked),
         *([_guardrail_item(ctx.root)] if python else []),
         _exclusions_item(ctx, tracked),
         _kit_item(ctx),

@@ -28,6 +28,7 @@ from devctl.doctor_local import gitleaks_item
 from devctl.process import MAX_OUTPUT_BYTES, ProcessResult
 from github_fakes import FakeRun, MakeContext, RepoFiles
 from rapid_ship.kit.templates import render_files
+from test_devctl_doctor_wiring import rendered_seed
 
 GH_GET = ["gh", "api", "--method", "GET", "repos/o/r"]
 
@@ -205,6 +206,7 @@ class TestItems:
             ("toolchain", "gitleaks"),
             ("guardrails", "core.hooksPath"),
             ("guardrails", "CI workflow"),
+            ("guardrails", "Harness wiring"),
             ("guardrails", "Python guardrail settings"),
             ("guardrails", "tools/devctl exclusions"),
             ("kit", "Kit files"),
@@ -364,8 +366,9 @@ class TestOutput:
         self, ctx: MakeContext, fake_run: FakeRun, capsys: pytest.CaptureFixture[str]
     ) -> None:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
-        # missing, and gitleaks (no version printed) is unknown. With no repository, the GitHub
-        # part is one missing item, printed after the local ones.
+        # missing, and gitleaks (no version printed) is unknown. No .claude/settings.json is
+        # tracked, so the Harness wiring is missing. With no repository, the GitHub part is one
+        # missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
             ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
@@ -379,8 +382,8 @@ class TestOutput:
             lines[-2]
             == "missing  github  repository: repository is not set in .rapid-ship/project.toml"
         )
-        assert lines[-1] == "doctor: 4 ok, 5 missing, 1 unknown"
-        assert len(lines) == 11
+        assert lines[-1] == "doctor: 4 ok, 6 missing, 1 unknown"
+        assert len(lines) == 12
 
     def test_doctor_reads_the_project_and_reports_every_local_item_ok(
         self,
@@ -392,6 +395,7 @@ class TestOutput:
     ) -> None:
         repo_files.write(".rapid-ship/project.toml", 'stack = "agnostic"\n')
         repo_files.workflow(job_name="devctl check")
+        repo_files.write(".claude/settings.json", rendered_seed())
         repo_files.lock(unchanged=["devctl"], missing=[])
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         fake_run.answer(["gitleaks", "version"], result(0, f"{GITLEAKS_VERSION}\n"))
@@ -401,7 +405,7 @@ class TestOutput:
         # The project names no repository, so GitHub's part is one missing item and the exit is 1.
         assert doctor_command(argparse.Namespace(skills=False)) == 1
         lines = capsys.readouterr().out.splitlines()
-        assert lines[-1] == "doctor: 9 ok, 1 missing, 0 unknown"
+        assert lines[-1] == "doctor: 10 ok, 1 missing, 0 unknown"
         assert lines[-2].startswith("missing  github  repository: ")
         assert all(line.startswith("ok  ") for line in lines[:-2])
 
