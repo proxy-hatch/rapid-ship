@@ -22,7 +22,7 @@ _HEREDOC = re.compile(
 )
 # A file-descriptor number written directly before a redirection, as the 2 of 2>&1.
 _DESCRIPTOR = re.compile(r"(?<![^\s;&|()<>`])\d+(?=[<>])")
-_WORD_BREAKS = frozenset(" \t\n;&|()<>`")  # a # after one of these starts a comment
+_WORD_BREAKS = frozenset(" \t\n;&|()<>`")  # an unescaped one of these ends a word
 # Reserved words that stand before a command, as in "if git push; then git log; fi".
 _RESERVED = frozenset({"!", "{", "do", "elif", "else", "if", "then", "time", "until", "while"})
 _ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
@@ -89,27 +89,34 @@ def _joined_without_comments(text: str) -> str:
     """text with each line that a backslash continues joined, and without its comments.
 
     A comment runs from a # that starts an unquoted word to the end of its line; one such as
-    "# don't" would otherwise open a quote that never closes. A backslash-newline outside single
-    quotes is removed, as the shell removes it, so the next line stays in the same command.
+    "# don't" would otherwise open a quote that never closes. A # after an escaped space, as in
+    a\\ #b, or after a backslash-newline inside a word, is part of that word. A backslash-newline
+    outside single quotes is removed, as the shell removes it, so the next line stays in the
+    same command.
     """
     kept: list[str] = []
     quote = ""
+    word_start = True  # a # here starts a comment
     index = 0
     while index < len(text):
         char = text[index]
         if char == "\\" and quote != "'":
-            kept.append(text[index : index + 2].removesuffix("\\\n"))
+            escape = text[index : index + 2]
+            if escape != "\\\n":  # a removed backslash-newline leaves word_start as it was
+                kept.append(escape)
+                word_start = False
             index += 2
             continue
         if quote:
             quote = "" if char == quote else quote
         elif char in "'\"":
             quote = char
-        elif char == "#" and (index == 0 or text[index - 1] in _WORD_BREAKS):
+        elif char == "#" and word_start:
             end = text.find("\n", index)
             index = len(text) if end < 0 else end
             continue
         kept.append(char)
+        word_start = not quote and char in _WORD_BREAKS
         index += 1
     return "".join(kept)
 

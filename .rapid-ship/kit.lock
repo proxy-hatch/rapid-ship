@@ -161,7 +161,7 @@ sha256 = "3a20470287ccbcf751ae038f14cc2355edc21db91378c41472a5884a49ddb62a"
 [[file]]
 path = "tools/devctl/devctl/command_line.py"
 kind = "managed"
-sha256 = "72c5af36cc9f1bd2075d551e4b7c1e83e44c74ccdf108b1e42bb20e8f0b0dd45"
+sha256 = "39781f6aea1b6eab7c2afb4b34fa995763637a38855435031bda2c8e1030174a"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"

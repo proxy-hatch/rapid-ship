@@ -115,8 +115,10 @@ EDITS = [
 ]
 # The shell runs each of these commands, so Spec 1 section 4 checks it: a comment that holds
 # an apostrophe, a reserved word or a brace before a command, process substitution, a
-# redirection after a subshell, --branches, git's newer name for --all, and a backslash that
-# continues the line.
+# redirection after a subshell, --branches, git's newer name for --all, a backslash that
+# continues the line, a # inside a word, and each heredoc form. Each heredoc body holds an
+# apostrophe, so a heredoc the hook misses fails the split, and one it opens wrongly hides
+# the push.
 GRAMMAR = [
     ("git status  # don't push yet\ngit push -f origin task", "G2"),
     ("if git push origin main; then echo ok; fi", "G3"),
@@ -130,6 +132,15 @@ GRAMMAR = [
     ("git push origin \\\n  main", "G3"),
     ("echo '# not a comment' && git push origin main", "G3"),
     ("git log a#b c'#d' \"#e\" # --no-verify", None),
+    ("ls a\\ #b; git push -f origin task", "G2"),
+    ("ls a\\\n#b; git push -f origin task", "G2"),
+    ("git log \\\n# --no-verify", None),
+    ('git commit -F - <<< "it\'s"\ngit push -f origin task', "G2"),
+    ("cat <<-EOF\n\tit's\n\tEOF\ngit push -f origin task", "G2"),
+    ('cat <<"EOF"\nit\'s\nEOF\ngit push -f origin task', "G2"),
+    ("cat <<A <<B\nit's\nA\nit's\nB\ngit push -f origin task", "G2"),
+    ("cat << 'EOF'\nit's\nEOF\ngit push -f origin task", "G2"),
+    ("cat <<\\EOF\nit's\nEOF\ngit push -f origin task", "G2"),
 ]
 G3 = "lands a change on the default branch outside the merge guard; open a pull request and "
 MESSAGES = [  # command line, Agent identity on, the whole message
@@ -302,6 +313,7 @@ def test_simple_commands_drop_comments_and_reserved_words() -> None:
         ("git", "log"),
     ]
     assert simple_commands("echo '#' a#b \\#c") == [("echo", "#", "a#b", "#c")]
+    assert simple_commands("ls a\\ #b c\\\n#d") == [("ls", "a #b", "c#d")]
     assert simple_commands("if git diff; then git log; fi") == [
         ("git", "diff"),
         ("git", "log"),
