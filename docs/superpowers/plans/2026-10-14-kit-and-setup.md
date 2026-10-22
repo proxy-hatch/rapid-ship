@@ -122,7 +122,7 @@ The code on `codex/devctl-check` is canonical; this list names what later plans 
 - `devctl/process.py`: `ProcessResult`, `safe_environment`, `run_process(argv, cwd, timeout_seconds, env=None, input_text=None)`, `MAX_OUTPUT_BYTES`. The child gets only `safe_environment(env)`: the caller's `PATH` and `HOME`, with `LANG` and `LC_ALL` set to `C.UTF-8`, then `env`. `run_process` has no cancellation, and it reports truncation in flags, never inside the output.
 - `devctl/check/steps.py`: `Tier`, `Status`, `StepResult`, `CheckContext`, `Step`, `CommandStep`, `passed`, `failed`, `blocked`, `not_applicable`, `run_tool`, `command_result`. `devctl/check/__init__.py`: `core_steps`, `all_steps`, `run_check`, `exit_code`, `resolve_change`, `ChangeError`.
 - `devctl/check/kit.py`: `LOCK_PATH`, `KitLockError`, `is_excluded` (devctl's copy of the CLI's, held equal by a parity test), `managed_paths`.
-- `devctl/check/exceptions.py`: `MARKER`, `SuppressedLine`, `scan`, `normal_rule`. `devctl/check/evidence.py`: `evidence_section`, `removed_test_declarations`. `devctl/check/diff.py`: `codeowners_match`, `protected_patterns`, `glob_match`.
+- `devctl/check/exceptions.py`: `MARKER`, `SuppressedLine`, `scan`, `normal_rule`. `devctl/check/evidence.py`: `evidence_section`, `removed_test_declarations`. `devctl/codeowners.py`: `CODEOWNERS_FILES`, `glob_match`, `codeowners_match`, `patterns_in`, `protected_patterns` (moved from `devctl/check/diff.py` in plan 5).
 - `devctl_project/__init__.py` (seeded): `register(commands)` adds verbs; `check_steps()` returns extra steps.
 
 ### Kit manifest

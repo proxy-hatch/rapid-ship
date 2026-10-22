@@ -5,8 +5,9 @@ from __future__ import annotations
 import pytest
 
 from check_workspace import Workspace
-from devctl.check.diff import Change, DiffStep, changed_files, glob_match, removed_tests
+from devctl.check.diff import Change, DiffStep, changed_files, removed_tests
 from devctl.check.steps import StepResult
+from devctl.codeowners import glob_match
 
 EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
 # A passed or failed result ends with this note: these workspaces have no CODEOWNERS file.

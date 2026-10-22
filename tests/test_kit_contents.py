@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from devctl.check.diff import codeowners_match
+from devctl.codeowners import codeowners_match
 from devctl.process import run_process
 from devctl.settings import load_project
 from rapid_ship.kit.templates import (
