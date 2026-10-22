@@ -121,6 +121,11 @@ EDITS = [
     ("src/app/AGENTS.md", "ask", "G5"),
     (".claude/settings.json", "ask", "G5"),
     ("src/app/core.py", None, None),
+    # macOS's default file system ignores case, so a case variant writes the same file.
+    ("agents.md", "ask", "G5"),
+    (".GitHub/workflows/ci.yml", "ask", "G5"),
+    (".rapid-ship/KIT.lock", "deny", "G4"),
+    (".Rapid-Ship/kit.lock", "deny", "G4"),
 ]
 # The shell runs each of these commands, so Spec 1 section 4 checks it: a comment that holds
 # an apostrophe, a reserved word or a brace before a command, process substitution, a
@@ -262,6 +267,14 @@ def test_each_edit_message_names_the_file() -> None:
     assert edited("src/app/AGENTS.md") == (
         "ask",
         "G5: src/app/AGENTS.md is in the Protected set (CODEOWNERS pattern /**/AGENTS.md); "
+        "the owner approves this edit",
+    )
+
+
+def test_a_case_variant_names_the_path_and_the_pattern_as_written() -> None:
+    assert edited("Src/App/Agents.MD") == (
+        "ask",
+        "G5: Src/App/Agents.MD is in the Protected set (CODEOWNERS pattern /**/AGENTS.md); "
         "the owner approves this edit",
     )
 

@@ -282,13 +282,17 @@ def _gh_writes(args: tuple[str, ...]) -> bool:
 def _edit_rules(
     edits: Sequence[Path], root: Path | None, settings: HookSettings | None
 ) -> tuple[Decision, str]:
-    """G4, then G5, for each path the edit writes; an edit outside root gets no decision."""
+    """G4, then G5, for each path the edit writes; an edit outside root gets no decision.
+
+    Both compare paths in any case: macOS's default file system ignores case, so agents.md writes
+    AGENTS.md. On a file system that keeps case, G5 also asks before such a new file.
+    """
     asked: str | None = None
     for path in edits:
         if root is None or not path.is_relative_to(root):
             continue
         relative = path.relative_to(root).as_posix()
-        if relative == KIT_LOCK:
+        if relative.casefold() == KIT_LOCK:
             return "deny", G4
         pattern = _protecting_pattern(relative, settings)
         if asked is None and pattern is not None:
@@ -297,6 +301,7 @@ def _edit_rules(
 
 
 def _protecting_pattern(relative: str, settings: HookSettings | None) -> str | None:
-    """The first Protected-set pattern that covers a path; None without settings."""
+    """The first Protected-set pattern that covers a path in any case; None without settings."""
     protected = settings.protected if settings is not None else ()
-    return next((pattern for pattern in protected if codeowners_match(pattern, relative)), None)
+    folded = relative.casefold()
+    return next((one for one in protected if codeowners_match(one.casefold(), folded)), None)
