@@ -1,13 +1,15 @@
-"""devctl hook's rules: G1 to G5, G7 and G8 on one normalised tool call (Spec 1 section 4).
+"""devctl hook: G1 to G5, G7 and G8 on one normalised tool call (Spec 1 section 4).
 
 decide applies them in the order of the simple commands, and within one command G1, G2, G3,
 G7 and G8; for an edit G4, then G5. The first deny wins, and a deny beats an ask. The hook only
 denies or asks: with no rule matched it gives no decision. G1 to G4 need no settings, so they
-apply when the settings are unreadable; G5, G7 and G8 then give no decision.
+apply when the settings are unreadable; G5, G7 and G8 then give no decision. hook_command reads
+the event and answers in the Harness's protocol, which hook_protocols.py keeps.
 """
 
 from __future__ import annotations
 
+import argparse
 import functools
 import shlex
 import sys
@@ -23,13 +25,13 @@ from devctl.command_line import (
     parse_push,
     simple_commands,
 )
-from devctl.hook_protocols import Decision, HookSettings, ToolCall
-from devctl.merge_guard import LocalBranches, MergeForm, find_merge
+from devctl.doctor_items import OwnerGet, gh_get
+from devctl.hook_protocols import HOOK_COMMAND, Decision, HookSettings, ToolCall, answer, read_event
+from devctl.merge_guard import LocalBranches, MergeForm, find_merge, read_branches
+from devctl.repo import RepoError
 from devctl.settings import SettingsError, load_project
 
-# check/kit.py names the lock too. The hook runs before every tool call, so it leaves out the
-# check package, which loads every step.
-KIT_LOCK = ".rapid-ship/kit.lock"
+KIT_LOCK = ".rapid-ship/kit.lock"  # check/kit.py's LOCK_PATH names the same file
 PR_READS = frozenset({"view", "list", "status", "diff", "checks", "checkout"})
 ISSUE_READS = frozenset({"view", "list", "status"})
 # git commit's short options that take a value: the letters after one are that value.
@@ -60,6 +62,57 @@ _G3_FORMS: dict[MergeForm, str] = {
     "rest": "a gh api write to a merge, ref or contents endpoint",
     "graphql": "a GraphQL merge or ref mutation",
 }
+
+
+def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = commands.add_parser(
+        "hook",
+        help="Answer a Harness's hook event with the Kit's guardrails",
+        description=f"{HOOK_COMMAND} reads Claude Code's PreToolUse event on stdin and answers "
+        "with a deny, an ask or no decision, with exit 0. It never exits 2, which Claude Code "
+        "reads as block: an internal error exits 1, and the tool call goes through.",
+    )
+    # Optional strings, not choices: argparse exits 2 on a missing or unknown choice, and
+    # Claude Code would then block every wired call.
+    parser.add_argument("harness", nargs="?", help="the Harness: claude")
+    parser.add_argument("event", nargs="?", help="the hook event: pre-tool")
+    parser.set_defaults(handler=hook_command)
+
+
+def hook_command(args: argparse.Namespace) -> int:
+    """Answer one event on stdin. Exit 0 with an answer, else 1 with one stderr line; never 2."""
+    if args.harness is not None and args.harness != "claude":
+        return _fail(f"unknown Harness '{args.harness}'; this devctl wires claude only")
+    if args.harness is None or args.event != "pre-tool":
+        return _fail(f"usage: {HOOK_COMMAND}")
+    try:
+        call = read_event("claude", sys.stdin.buffer.read())
+        decision, reason = run_hook(call, gh_get)
+    except (ValueError, OSError, RepoError, SettingsError) as error:
+        return _fail(f"internal error: {error}; the tool call goes through")
+    stdout, code = answer("claude", decision, reason)
+    sys.stdout.write(stdout)
+    return code
+
+
+def _fail(message: str) -> int:
+    sys.stderr.write(f"devctl hook: {' '.join(message.splitlines())}\n")
+    return 1
+
+
+def run_hook(call: ToolCall, owner_get: OwnerGet) -> tuple[Decision, str]:
+    """The answer to one tool call, judged in the repository that holds it.
+
+    An edit belongs to the repository that holds its path, a linked worktree included, and a
+    shell command to the one that holds cwd (Spec 1 section 4); each Claude Code edit writes one
+    path. Outside every repository no settings are read. owner_get is the merge guard's only way
+    to read GitHub.
+    """
+    root = work_tree_root(call.edits[0] if call.edits else call.cwd)
+    read = read_settings(root) if root is not None else None
+    settings = read if isinstance(read, HookSettings) else None
+    branches = functools.cache(functools.partial(read_branches, root or call.cwd))
+    return decide(call, root, settings, branches)
 
 
 def work_tree_root(path: Path) -> Path | None:

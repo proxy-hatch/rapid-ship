@@ -151,7 +151,7 @@ sha256 = "c965ab705d7b32e733766292c5163776d05d5f739df6a70195ec805957074322"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "81f61e1aa026799d29da7a9a286657b2041c2dabeb98d9053d496fd1c92216e5"
+sha256 = "2f51240bc366faab64721376cb38a310e6551f086f474d74d8df796286bfbac9"
 
 [[file]]
 path = "tools/devctl/devctl/codeowners.py"
@@ -221,12 +221,12 @@ sha256 = "d6e8d92c04dd0d11235ab926ada7432626abd382eedc2daf64a37f1319403440"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "6482b9da4dd58d58ddd0237766ed177db416f156597e03f99d3076611f0c8a14"
+sha256 = "5c0721a537af489ee241f7b0564a06f5cbe3ce781f827fb91ca2b15f782c894a"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
 kind = "managed"
-sha256 = "ed5825cbb1d9700d6f407c2ab25fa854fd419c2c606cb84177f826ee55c373d0"
+sha256 = "0ccf01f71a27d77fc8d40b5cf47e4fabe3fbdd051d6f2dc55cccad1714740219"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"
