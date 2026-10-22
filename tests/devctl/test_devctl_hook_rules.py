@@ -21,6 +21,7 @@ ON = HookSettings(
     agent_identity=True, protected=PROTECTED, repository="o/r", reviewer_app_slug="o-reviewer"
 )
 TASK = LocalBranches(frozenset({"main"}), "task")
+ON_MAIN = LocalBranches(frozenset({"main"}), "main")
 
 
 def unread() -> LocalBranches:
@@ -293,6 +294,27 @@ def test_an_edit_outside_the_repository_gets_no_decision() -> None:
         ("git push 2>&1", LocalBranches(frozenset({"main"}), "main"), "G3"),
         ("git push", TASK, None),
         ("git push", LocalBranches(frozenset({"main"}), None), None),
+        ("git push origin @", ON_MAIN, "G3"),
+        ("git push origin @", TASK, None),
+        ("git push origin HEAD:heads/main", TASK, "G3"),
+        ("git push --delete origin heads/main", TASK, "G3"),
+        ("git push origin HEAD:remotes/main", TASK, None),
+        ("git push origin :", TASK, "G3"),
+        ("git push origin 'refs/heads/*:refs/heads/*'", TASK, "G3"),
+        ("git push origin 'refs/*:refs/*'", TASK, "G3"),
+        ("git push origin 'refs/heads/ma*:refs/heads/ma*'", TASK, "G3"),
+        ("git push origin 'refs/heads/feature/*:refs/heads/feature/*'", TASK, None),
+        ("git push origin 'refs/tags/*:refs/tags/*'", TASK, None),
+        # The hook cannot read an expansion, so it takes the current branch, wherever an
+        # expansion could name a branch.
+        ('git push -u origin "$(git branch --show-current)"', ON_MAIN, "G3"),
+        ('git push -u origin "$(git branch --show-current)"', TASK, None),
+        ("git push -u origin `git branch --show-current`", ON_MAIN, "G3"),
+        ("git push origin HEAD:$BRANCH", ON_MAIN, "G3"),
+        ('git push origin "HEAD:refs/heads/${BRANCH}"', ON_MAIN, "G3"),
+        ("git push origin HEAD:$BRANCH", TASK, None),
+        ("git push origin HEAD:release/$VERSION", ON_MAIN, None),
+        ("git push origin refs/tags/$TAG", ON_MAIN, None),
     ],
 )
 def test_a_push_to_the_default_branch(line: str, branches: LocalBranches, rule: str | None) -> None:

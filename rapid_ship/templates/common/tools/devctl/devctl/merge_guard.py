@@ -49,6 +49,8 @@ _ORIGIN = "refs/remotes/origin/"
 _FALLBACK = frozenset({"main", "master"})  # the default branch without refs/remotes/origin/HEAD
 _GIT_SECONDS = 30.0
 _EVERY_BRANCH = frozenset({"--all", "--branches", "--mirror"})  # --branches is --all's new name
+_HEADS = "refs/heads/"
+_EXPANSION = re.compile(r"[$`]")  # a parameter expansion, or a substitution's $(...)
 _DELETE = frozenset({"-d", "--delete"})
 _HEAD = "--match-head-commit"
 # gh pr merge's options that take a value, which is never the pull request.
@@ -161,20 +163,38 @@ def _push(args: Sequence[str], branches: Callable[[], LocalBranches]) -> Merge |
     if not push.refspecs:  # git push and git push origin push the current branch
         return Merge("push") if local.current in local.default else None
     deleting = bool(push.options & _DELETE)
-    if any(_destination(spec, deleting, local) in local.default for spec in push.refspecs):
-        return Merge("push")
-    return None
+    return Merge("push") if any(_lands(spec, deleting, local) for spec in push.refspecs) else None
 
 
-def _destination(spec: str, deleting: bool, local: LocalBranches) -> str | None:
-    """The branch a refspec writes, or with --delete the branch it deletes; None for a tag."""
+def _lands(spec: str, deleting: bool, local: LocalBranches) -> bool:
+    """Whether a refspec writes a default branch, or with --delete deletes one.
+
+    Its destination is the part after its last ":", or with --delete the whole refspec. ":" alone
+    pushes each branch that both sides have. HEAD and @ name the current branch. A * matches any
+    text, as in a refspec pattern. The hook cannot read a $ or ` expansion, so a destination that
+    holds one names the current branch, when the text before it could start that branch's ref.
+    """
     name = spec.removeprefix("+")
+    if name == ":" and not deleting:
+        return True
     destination = name if deleting else name.rpartition(":")[2]
-    if destination == "HEAD":
-        return local.current
-    if destination.startswith("refs/heads/"):
-        return destination.removeprefix("refs/heads/")
-    return None if destination.startswith("refs/") else destination
+    if destination in ("HEAD", "@"):
+        return local.current in local.default
+    ref = _remote_ref(destination)
+    expansion = _EXPANSION.search(ref)
+    if expansion:
+        current = f"{_HEADS}{local.current}"
+        return local.current in local.default and current.startswith(ref[: expansion.start()])
+    pattern = re.escape(ref).replace(r"\*", ".*")
+    return any(re.fullmatch(pattern, f"{_HEADS}{branch}") for branch in local.default)
+
+
+def _remote_ref(destination: str) -> str:
+    """The ref a destination names on the remote: git reads heads/<branch> as
+    refs/heads/<branch>, and a name outside refs/ as a branch."""
+    if destination.startswith("refs/"):
+        return destination
+    return f"refs/{destination}" if destination.startswith("heads/") else _HEADS + destination
 
 
 def _pr_merge(command: Command) -> Merge | None:
