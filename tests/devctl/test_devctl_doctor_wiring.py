@@ -40,7 +40,7 @@ def rendered_seed() -> str:
     return template.content.decode()
 
 
-def wiring_item(ctx: MakeContext) -> Item:
+def harness_wiring_item(ctx: MakeContext) -> Item:
     [item] = [i for i in local_items(ctx()) if i.name == "Harness wiring"]
     assert item.area == "guardrails"
     return item
@@ -75,8 +75,9 @@ def test_wiring_problems(settings: object, problems: list[str]) -> None:
         (wired(""), []),
         (wired("Bash, Edit, Write, MultiEdit, NotebookEdit, Monitor"), []),
         (wired(**{"async": False}), []),
-        (args_form('"$CLAUDE_PROJECT_DIR"/devctl', ["hook", "claude", "pre-tool"]), []),
-        (args_form("'$CLAUDE_PROJECT_DIR/devctl'", ["hook", "claude", "pre-tool"]), []),
+        (wired(**{"asyncRewake": True}), [GAP + EVERY_TOOL]),  # runs in the background
+        (wired(**{"asyncRewake": False}), []),
+        (args_form("${CLAUDE_PROJECT_DIR}/devctl", ["hook", "claude", "pre-tool"]), []),
         (args_form("devctl", ["hook", "claude"]), [GAP + EVERY_TOOL]),
         (args_form("devctl", ["hook", "claude", 3]), [GAP + EVERY_TOOL]),
         (
@@ -115,14 +116,14 @@ class TestItem:
     def test_the_rendered_seed_is_ok(self, ctx: MakeContext, repo_files: RepoFiles) -> None:
         assert json.loads(rendered_seed()) == SEED
         repo_files.write(WIRING, rendered_seed())
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == (
             "ok",
             f".claude/settings.json runs devctl hook claude pre-tool for {EVERY_TOOL}",
         )
 
     def test_a_missing_file_is_missing(self, ctx: MakeContext) -> None:
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == ("missing", ".claude/settings.json is not tracked")
 
     def test_a_file_that_git_does_not_track_does_not_count(
@@ -131,7 +132,7 @@ class TestItem:
         settings = repo_files.root / WIRING
         settings.parent.mkdir()
         settings.write_text(rendered_seed())
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == ("missing", ".claude/settings.json is not tracked")
 
     @pytest.mark.parametrize("content", [b"{\n", b"", b'{"hooks": {}', b"\xff\xfe{}"])
@@ -140,14 +141,14 @@ class TestItem:
     ) -> None:
         repo_files.write(WIRING, "tracked")
         (repo_files.root / WIRING).write_bytes(content)
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == ("missing", ".claude/settings.json is not valid JSON")
 
     def test_a_gap_names_the_file_and_the_tools(
         self, ctx: MakeContext, repo_files: RepoFiles
     ) -> None:
         repo_files.write(WIRING, json.dumps({**wired("Bash"), "disableAllHooks": True}))
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == (
             "missing",
             ".claude/settings.json: disableAllHooks is true, so no hook runs; "
@@ -159,5 +160,5 @@ class TestItem:
     ) -> None:
         repo_files.write(WIRING, rendered_seed())
         (repo_files.root / WIRING).unlink()
-        item = wiring_item(ctx)
+        item = harness_wiring_item(ctx)
         assert (item.status, item.detail) == ("unknown", "cannot read .claude/settings.json")

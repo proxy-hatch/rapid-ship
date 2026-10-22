@@ -23,6 +23,8 @@ _ITEM = "Harness wiring"
 _NAME_LIST = re.compile(r"[A-Za-z0-9_\- ,|]*")
 _NAME_SEPARATORS = re.compile(r"[|,]")
 _QUOTES = re.compile(r"[\"']")
+# A command hook with either field set to true runs in the background (hooks reference).
+_BACKGROUND = ("async", "asyncRewake")
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -50,10 +52,12 @@ def _covers(matcher: object, tool: str) -> bool:
 def _runs_the_hook(hook: Mapping[str, object]) -> bool:
     """A command hook whose command and args run devctl hook claude pre-tool on every call.
 
-    An async hook cannot block the call, and an if condition narrows the calls the hook runs on,
-    so neither counts.
+    A hook with async or asyncRewake runs in the background, so it cannot block the call, and an
+    if condition narrows the calls the hook runs on, so none of them counts.
     """
-    if hook.get("type") != "command" or hook.get("async") is True or "if" in hook:
+    if hook.get("type") != "command" or "if" in hook:
+        return False
+    if any(hook.get(field) is True for field in _BACKGROUND):
         return False
     words = [hook.get("command"), *_sequence(hook.get("args"))]
     text = [word for word in words if isinstance(word, str)]
