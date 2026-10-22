@@ -164,15 +164,16 @@ def _push(args: Sequence[str], branches: Callable[[], LocalBranches]) -> Merge |
 def _lands(spec: str, deleting: bool, local: LocalBranches) -> bool:
     """Whether a refspec writes a default branch, or with --delete deletes one.
 
-    Its destination is the part after its last ":", or with --delete the whole refspec. ":" alone
-    pushes each branch that both sides have. HEAD and @ name the current branch. A * matches any
-    text, as in a refspec pattern. The hook cannot read a $ or ` expansion, so a destination that
-    holds one names the current branch, when the text before it could start that branch's ref.
+    Its destination is the part after its last ":" outside ${ ... }, or with --delete the whole
+    refspec. ":" alone pushes each branch that both sides have. HEAD and @ name the current
+    branch. A * matches any text, as in a refspec pattern. The hook cannot read a $ or `
+    expansion, so a destination that holds one names the current branch, when the text before it
+    could start that branch's ref.
     """
     name = spec.removeprefix("+")
     if name == ":" and not deleting:
         return True
-    destination = name if deleting else name.rpartition(":")[2]
+    destination = name if deleting else _destination(name)
     if destination in ("HEAD", "@"):
         return local.current in local.default
     ref = _remote_ref(destination)
@@ -182,6 +183,20 @@ def _lands(spec: str, deleting: bool, local: LocalBranches) -> bool:
         return local.current in local.default and current.startswith(ref[: expansion.start()])
     pattern = re.escape(ref).replace(r"\*", ".*")
     return any(re.fullmatch(pattern, f"{_HEADS}{branch}") for branch in local.default)
+
+
+def _destination(refspec: str) -> str:
+    """The part of a refspec after its last ":" outside a ${ ... } expansion, which can hold one,
+    as ${BRANCH:-main} does; the whole refspec without such a ":". Only a ${ nests, as in bash."""
+    depth, split = 0, -1
+    for at, char in enumerate(refspec):
+        if char == "{" and refspec[at - 1 : at] == "$":
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+        elif char == ":" and not depth:
+            split = at
+    return refspec[split + 1 :]
 
 
 def _remote_ref(destination: str) -> str:

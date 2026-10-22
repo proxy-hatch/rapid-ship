@@ -337,6 +337,14 @@ def test_an_edit_outside_the_repository_gets_no_decision() -> None:
         ("git push origin HEAD:$BRANCH", TASK, None),
         ("git push origin HEAD:release/$VERSION", ON_MAIN, None),
         ("git push origin refs/tags/$TAG", ON_MAIN, None),
+        # A ":" inside ${ ... } does not split the refspec.
+        ("git push origin HEAD:${BRANCH:-main}", ON_MAIN, "G3"),
+        ("git push origin ${BRANCH:-main}", ON_MAIN, "G3"),
+        ('git push origin "${BRANCH:-${FALLBACK:-main}}"', ON_MAIN, "G3"),
+        ("git push origin HEAD:${BRANCH:-main}", TASK, None),
+        ("git push origin HEAD:release/${VERSION:-1}", ON_MAIN, None),
+        ("git push origin ${SOURCE:-HEAD}:main", TASK, "G3"),
+        ("git push origin --delete ${BRANCH:-main}", ON_MAIN, "G3"),
     ],
 )
 def test_a_push_to_the_default_branch(line: str, branches: LocalBranches, rule: str | None) -> None:
