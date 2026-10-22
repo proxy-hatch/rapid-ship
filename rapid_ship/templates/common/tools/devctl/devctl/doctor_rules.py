@@ -50,7 +50,6 @@ PYTHON_PROTECTED_PATHS = (
     "tox.ini",
     ".importlinter",
 )
-NO_APPROVAL = "no pull_request rule requires an approval"
 NO_PULL_REQUEST_RULE = "the ruleset has no pull_request rule"
 NO_RULESET = "no ruleset targets the default branch"
 _COMMENT = re.compile(r"\s+#.*$")
@@ -72,27 +71,17 @@ def _target_problems(ruleset: Mapping[str, object], default_branch: str) -> list
     return ["the ruleset does not target the default branch"]
 
 
-def _approves(count: object) -> bool:
-    return isinstance(count, int) and not isinstance(count, bool) and count >= 1
-
-
-def _pull_request_problems(params: Mapping[str, object], *, review: bool) -> list[str]:
-    """The pull_request rule's problems. review=False leaves out the review requirement, which
-    Flight without Agent identity drops: an approval, code-owner review and approval of the most
-    recent push (Spec 1 section 8, step 8)."""
+def _pull_request_problems(params: Mapping[str, object]) -> list[str]:
+    """The pull_request rule's problems. Every Mode requires code-owner review, and none requires an
+    approval count or approval of the most recent push (Spec 1 section 8, step 7)."""
     holds = [
-        (not review or _approves(params.get("required_approving_review_count")), NO_APPROVAL),
         (
-            not review or params.get("require_code_owner_review") is True,
+            params.get("require_code_owner_review") is True,
             "the pull_request rule does not require code-owner review",
         ),
         (
             params.get("dismiss_stale_reviews_on_push") is True,
             "the pull_request rule does not dismiss stale approvals on push",
-        ),
-        (
-            not review or params.get("require_last_push_approval") is True,
-            "the pull_request rule does not require approval of the most recent push",
         ),
         (
             params.get("allowed_merge_methods") == ["squash"],
@@ -149,21 +138,14 @@ def _rules(ruleset: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
     return found
 
 
-def _one_ruleset_problems(
-    ruleset: Mapping[str, object], default_branch: str, *, review: bool
-) -> list[str]:
+def _one_ruleset_problems(ruleset: Mapping[str, object], default_branch: str) -> list[str]:
     rules = _rules(ruleset)
     pull_request = rules.get("pull_request")
     # Without the rule, its other settings have nothing to describe.
-    missing_rule = NO_APPROVAL if review else NO_PULL_REQUEST_RULE
     return [
         *_target_problems(ruleset, default_branch),
         *([] if ruleset.get("enforcement") == "active" else ["the ruleset is not active"]),
-        *(
-            [missing_rule]
-            if pull_request is None
-            else _pull_request_problems(pull_request, review=review)
-        ),
+        *([NO_PULL_REQUEST_RULE] if pull_request is None else _pull_request_problems(pull_request)),
         *_status_check_problems(rules.get("required_status_checks", {})),
         *([] if "non_fast_forward" in rules else ["force pushes are not blocked"]),
         *([] if "deletion" in rules else ["deletion is not blocked"]),
@@ -171,13 +153,49 @@ def _one_ruleset_problems(
     ]
 
 
-def _closest(
-    rulesets: Sequence[Mapping[str, object]], default_branch: str, *, review: bool
-) -> list[str]:
+def _closest(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
     """No problem when one ruleset has none, because GitHub applies every ruleset that matches.
     Otherwise the problems of the ruleset with the fewest."""
-    found = [_one_ruleset_problems(r, default_branch, review=review) for r in rulesets]
+    found = [_one_ruleset_problems(r, default_branch) for r in rulesets]
     return [] if any(not problems for problems in found) else min(found, key=len)
+
+
+# GitHub counts an approval only from someone with write access to the repository, and the Reviewer
+# App has Contents: read (Spec 1 section 3, and section 8, step 7.3).
+_NOT_FROM_THE_REVIEWER = (
+    "which GitHub takes only from someone with write access and not from the Reviewer App, so "
+    "every agent PR waits for a person; set the count to 0 and approval of the most recent push "
+    "off, or use Walk (every_pr = true)"
+)
+
+
+def _requires_approval(count: object) -> bool:
+    return isinstance(count, int) and not isinstance(count, bool) and count > 0
+
+
+def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
+    """The approvals that make every agent PR wait for a person in Flight with Agent identity,
+    because GitHub takes neither from the Reviewer App. GitHub applies every active ruleset on the
+    branch, so a requirement in any one of them applies. In plan 4's live trial, GitHub refused the
+    Worker App's merge on the Reviewer App's approval until both were off; it did not try the
+    count alone."""
+    params = [
+        _rules(ruleset).get("pull_request", {})
+        for ruleset in rulesets
+        if ruleset.get("enforcement") == "active" and not _target_problems(ruleset, default_branch)
+    ]
+    blocks = [
+        (
+            any(_requires_approval(p.get("required_approving_review_count")) for p in params),
+            "the pull_request rule requires an approval, " + _NOT_FROM_THE_REVIEWER,
+        ),
+        (
+            any(p.get("require_last_push_approval") is True for p in params),
+            "the pull_request rule requires approval of the most recent push, "
+            + _NOT_FROM_THE_REVIEWER,
+        ),
+    ]
+    return [problem for blocked, problem in blocks if blocked]
 
 
 def ruleset_problems(
@@ -189,17 +207,19 @@ def ruleset_problems(
 ) -> list[str]:
     """What keeps the default branch from matching Spec 1 section 8's ruleset for the Mode.
 
-    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. Walk, and Flight with
-    Agent identity, need the whole ruleset. Flight without Agent identity also accepts it without
-    the review requirement, because the owner cannot approve a pull request from their own
-    account (Spec 1 section 8, step 8).
+    rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. Every setup needs the same
+    ruleset, code-owner review included, in every Mode and with or without Agent identity (section
+    8, steps 7 and 8). rs-setup's ruleset requires no approval count and no approval of the most
+    recent push (step 7). Walk, and Flight without Agent identity, accept a ruleset with or without
+    them. Flight with Agent identity needs every enforced ruleset without them, because GitHub takes
+    neither approval from the Reviewer App, so every agent PR would wait for a person.
     """
     if not rulesets:
         return [NO_RULESET]
-    strict = _closest(rulesets, default_branch, review=True)
-    if not strict or every_pr or agent_identity:
-        return strict
-    return _closest(rulesets, default_branch, review=False)
+    problems = _closest(rulesets, default_branch)
+    if every_pr or not agent_identity:
+        return problems
+    return [*problems, *_app_merge_problems(rulesets, default_branch)]
 
 
 def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:
