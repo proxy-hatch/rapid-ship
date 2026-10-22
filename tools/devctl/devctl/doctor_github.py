@@ -100,12 +100,6 @@ def _ruleset_item(ctx: DoctorContext, repository: str, repo: Mapping[str, object
     problems = ruleset_problems(rulesets, default, every_pr=every_pr, agent_identity=identity)
     if problems:
         return _github(name, "missing", "; ".join(problems))
-    if ruleset_problems(rulesets, default, every_pr=True, agent_identity=True):
-        detail = (
-            f"an active ruleset on {default} has rs-setup's settings without the review "
-            "requirement, as Flight without Agent identity needs; the Protected set is advice"
-        )
-        return _github(name, "ok", detail)
     return _github(name, "ok", f"an active ruleset on {default} has every setting rs-setup applies")
 
 

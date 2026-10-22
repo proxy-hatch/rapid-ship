@@ -30,7 +30,9 @@ OFF = (
     "requests under your own sign-in, or turn Agent identity on with rs-setup: run rapid-ship "
     "app, install both Apps, and record each App's ID and slug under [github]"
 )
-# GitHub's reason when an App without the Workflows permission pushes a workflow change.
+# GitHub's reason when an App without the Workflows permission pushes its own workflow change.
+# In plan 4's trial, GitHub accepted an App's push whose only new commit merged in a workflow
+# change already on the base branch.
 _WORKFLOW_REFUSAL = "refusing to allow a GitHub App to create or update workflow"
 
 
@@ -58,7 +60,7 @@ def push_hint(stderr: str) -> str | None:
     if _WORKFLOW_REFUSAL not in stderr:
         return None
     return (
-        "neither App may push a change under .github/workflows/; that change is in the "
+        "neither App may push its own change under .github/workflows/; that change is in the "
         "Protected set, so the owner pushes it under their own sign-in"
     )
 
