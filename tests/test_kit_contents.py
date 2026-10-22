@@ -228,6 +228,11 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     assert python == [*agnostic, *added]
 
 
+@pytest.mark.parametrize("stack", ["python", "agnostic"])
+def test_codeowners_has_no_placeholder_for_harness_settings(stack: Stack) -> None:
+    assert "Harness settings" not in text(stack, ".github/CODEOWNERS")
+
+
 def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup() -> None:
     lines = text("agnostic", ".github/CODEOWNERS", owner="").splitlines()
     assert active(lines) == []
