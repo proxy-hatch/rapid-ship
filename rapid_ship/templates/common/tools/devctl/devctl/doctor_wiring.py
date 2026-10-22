@@ -23,6 +23,8 @@ _ITEM = "Harness wiring"
 _NAME_LIST = re.compile(r"[A-Za-z0-9_\- ,|]*")
 _NAME_SEPARATORS = re.compile(r"[|,]")
 _QUOTES = re.compile(r"[\"']")
+# Claude Code replaces only ${...} placeholders in an exec-form command.
+_PLACEHOLDER = re.compile(r"\$\{[^}]*\}")
 # A command hook with either field set to true runs in the background (hooks reference).
 _BACKGROUND = ("async", "asyncRewake")
 
@@ -54,6 +56,10 @@ def _runs_the_hook(hook: Mapping[str, object]) -> bool:
 
     A hook with async or asyncRewake runs in the background, so it cannot block the call, and an
     if condition narrows the calls the hook runs on, so none of them counts.
+
+    A hook without args is shell form: the shell removes the quotes and expands "$". A hook with
+    args is exec form: Claude Code starts command with no shell, keeps every quote and "$"
+    literally and replaces only ${...} placeholders, so command must hold none of the others.
     """
     if hook.get("type") != "command" or "if" in hook:
         return False
@@ -61,7 +67,14 @@ def _runs_the_hook(hook: Mapping[str, object]) -> bool:
         return False
     words = [hook.get("command"), *_sequence(hook.get("args"))]
     text = [word for word in words if isinstance(word, str)]
-    return len(text) == len(words) and HOOK_COMMAND in _QUOTES.sub("", " ".join(text))
+    if len(text) != len(words):
+        return False
+    if "args" not in hook:
+        return HOOK_COMMAND in _QUOTES.sub("", " ".join(text))
+    program = text[0]
+    if _QUOTES.search(program) or "$" in _PLACEHOLDER.sub("", program):
+        return False
+    return HOOK_COMMAND in " ".join(text)
 
 
 def wiring_problems(settings: object) -> list[str]:

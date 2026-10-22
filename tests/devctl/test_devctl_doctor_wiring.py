@@ -13,6 +13,7 @@ HOOK = {"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/devctl hook claude 
 ALL = "Bash|Edit|Write|MultiEdit|NotebookEdit|Monitor"
 GAP = "no PreToolUse hook runs devctl hook claude pre-tool for "
 EVERY_TOOL = "Bash, Edit, Write, MultiEdit, NotebookEdit, Monitor"
+PRE_TOOL: list[object] = ["hook", "claude", "pre-tool"]
 WIRING = ".claude/settings.json"
 
 
@@ -77,7 +78,13 @@ def test_wiring_problems(settings: object, problems: list[str]) -> None:
         (wired(**{"async": False}), []),
         (wired(**{"asyncRewake": True}), [GAP + EVERY_TOOL]),  # runs in the background
         (wired(**{"asyncRewake": False}), []),
-        (args_form("${CLAUDE_PROJECT_DIR}/devctl", ["hook", "claude", "pre-tool"]), []),
+        (args_form("${CLAUDE_PROJECT_DIR}/devctl", PRE_TOOL), []),
+        # Exec form starts command with no shell: quotes and a "$" outside ${...} stay literal.
+        (args_form('"$CLAUDE_PROJECT_DIR"/devctl', PRE_TOOL), [GAP + EVERY_TOOL]),
+        (args_form("'$CLAUDE_PROJECT_DIR/devctl'", PRE_TOOL), [GAP + EVERY_TOOL]),
+        (args_form("$CLAUDE_PROJECT_DIR/devctl", PRE_TOOL), [GAP + EVERY_TOOL]),
+        (args_form("${CLAUDE_PROJECT_DIR/devctl", PRE_TOOL), [GAP + EVERY_TOOL]),
+        (args_form("devctl", ["hook", "claude", "'pre-tool'"]), [GAP + EVERY_TOOL]),
         (args_form("devctl", ["hook", "claude"]), [GAP + EVERY_TOOL]),
         (args_form("devctl", ["hook", "claude", 3]), [GAP + EVERY_TOOL]),
         (

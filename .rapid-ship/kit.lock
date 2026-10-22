@@ -201,7 +201,7 @@ sha256 = "a03fd196122bc34ca81abd8fc00ef372f2c2d6351afb1e13679ddda7971b739f"
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
 kind = "managed"
-sha256 = "3d360c1f76ddd0f4ef2e04eb7db92deb78da3d5b74b52e8507f5d6564142318e"
+sha256 = "fed03985c6a2a370c3af017bb7a51e14703a83603bda6cb3d45dcf1d3807de87"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
