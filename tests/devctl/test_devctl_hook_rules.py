@@ -155,10 +155,19 @@ GRAMMAR = [
     ("cat <<A <<B\nit's\nA\nit's\nB\ngit push -f origin task", "G2"),
     ("cat << 'EOF'\nit's\nEOF\ngit push -f origin task", "G2"),
     ("cat <<\\EOF\nit's\nEOF\ngit push -f origin task", "G2"),
-    # Only an unquoted << opens a heredoc: not one in quotes, a comment or $(( ... )).
+    # Only an unquoted << opens a heredoc: not one in quotes, a comment or arithmetic, which
+    # $(( ... )), (( ... )), a C-style for (( ... )) and the older $[ ... ] hold.
     ("echo '<<EOF'\ngit push -f origin task", "G2"),
     ("cd sub  # copy it with cat <<EOF\ngit push -f origin task", "G2"),
     ("echo $((1<<2))\ngit push -f origin task", "G2"),
+    ("(( n = 1 << 2 ))\ngit push -f origin task", "G2"),
+    ("if((1<<2)); then :; fi\ngit push -f origin task", "G2"),
+    ("for (( i = 0; i < 1 << 2; i++ )); do :; done\ngit push -f origin task", "G2"),
+    ("echo $[1<<2]\ngit push -f origin task", "G2"),
+    # Arithmetic still runs the substitutions inside it, and ((a) ) is a subshell in a subshell.
+    ("(( $(git push -f origin task) ))", "G2"),
+    ("echo $[ `git push -f origin task` ]", "G2"),
+    ("((git push -f origin task) )", "G2"),
     ("gh pr view 7 --json body -q \"$(cat <<'EOF'\nit's\nEOF\n)\"; git push -f origin task", "G2"),
     # Quotes that shlex alone misreads.
     ("gh pr merge 5 --admin; echo $'it\\'s'", "G3"),
@@ -401,7 +410,15 @@ def test_a_substitution_gives_its_commands_first_and_stays_one_word_part() -> No
     ]
     assert simple_commands("echo $(( $(a) << 2 ))x; b") == [("a",), ("echo", "$(...)x"), ("b",)]
     assert simple_commands("x=$((a; b) )") == [("a",), ("b",), ("x=$(...)",)]
-    for unclosed in ("echo $(a", "echo `a", "echo $((1", "echo <(a"):
+    assert simple_commands("(( $(a) << 2 )); b") == [("a",), ("b",)]
+    assert simple_commands('echo $[ $(a) << [2] ]x "$[1]"; b') == [
+        ("a",),
+        ("echo", "$(...)x", "$(...)"),
+        ("b",),
+    ]
+    assert simple_commands("((a; b) )") == [("a",), ("b",)]
+    assert simple_commands("((a; b))") == []  # the shell evaluates it as arithmetic
+    for unclosed in ("echo $(a", "echo `a", "echo $((1", "echo <(a", "echo $[1"):
         with pytest.raises(ValueError, match="no closing"):
             simple_commands(unclosed)
 

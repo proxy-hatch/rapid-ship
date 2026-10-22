@@ -64,12 +64,14 @@ _ANSI_C.update({"f": "\f", "v": "\v", "\\": "\\", "'": "'", '"': '"', "?": "?"})
 def simple_commands(line: str) -> list[tuple[str, ...]]:
     """Each simple command of a command line, as the words the shell passes it.
 
-    Heredoc bodies, comments and redirections are left out, and so is a reserved word such as
-    if or then before a command. A subshell gives its contents as commands of their own. So do
-    $( ... ), backticks, <( ... ), >( ... ) and $(( ... )), inside double quotes too, ahead of the
-    line's other commands. The command that holds one keeps its other words, and SUBSTITUTED
-    stands where it was, joined to the text around it. Raises ValueError when shell rules cannot
-    split the line, such as for an unclosed quote or $(: the shell rejects it too.
+    Heredoc bodies, comments, redirections and arithmetic commands, (( ... )), are left out, and
+    so is a reserved word such as if or then before a command. A subshell gives its contents as
+    commands of their own. So do $( ... ), backticks, <( ... ) and >( ... ), inside double quotes
+    too, and so does each of them inside arithmetic: (( ... )), $(( ... )) or $[ ... ]. These
+    commands come ahead of the line's other commands. The command that holds a substitution or
+    an arithmetic expansion keeps its other words, and SUBSTITUTED stands where it was, joined to
+    the text around it. Raises ValueError when shell rules cannot split the line, such as for an
+    unclosed quote or $(: the shell rejects it too.
     """
     scanner = _Scanner(line)
     scanned = scanner.scan(close="")
@@ -91,10 +93,10 @@ def _words(scanned: str) -> list[tuple[str, ...]]:
 class _Scanner:
     """One pass over a command line as the shell reads it, before shlex splits the words.
 
-    It removes comments, heredoc bodies and each backslash-newline outside single quotes. It puts
-    _QUOTED before quoted or escaped text, and _MARK where each substitution was, after it has
-    added the commands inside it to commands, innermost first. It turns $'...' into a quoted word
-    that shlex reads.
+    It removes comments, heredoc bodies, arithmetic commands and each backslash-newline outside
+    single quotes. It puts _QUOTED before quoted or escaped text, and _MARK where each
+    substitution or arithmetic expansion was, after it has added the commands inside it to
+    commands, innermost first. It turns $'...' into a quoted word that shlex reads.
     """
 
     def __init__(self, text: str) -> None:
@@ -117,6 +119,13 @@ class _Scanner:
                 end = self.text.find("\n", self.at)
                 self.at = len(self.text) if end < 0 else end
                 continue
+            start = self.at
+            # (( ... )) is an arithmetic command; ((a) ) falls back to a subshell in a subshell.
+            if self.text.startswith("((", start) and self._arithmetic(start + 2):
+                kept.append(" ")
+                word_start = True
+                continue
+            self.at = start
             piece, word_start = self._piece(word_start)
             depth += {"(": 1, ")": -1}.get(piece, 0)
             kept.append(piece)
@@ -160,6 +169,10 @@ class _Scanner:
         text, at = self.text, self.at
         if text.startswith("$((", at) and self._arithmetic(at + 3):
             return True
+        if text.startswith("$[", at):  # the older form of $(( ... ))
+            if not self._arithmetic(at + 2, close="]"):
+                raise ValueError("no closing ]")
+            return True
         if text.startswith("$(", at) or (process and text.startswith(("<(", ">("), at)):
             self.at = at + 2
             scanned = self.scan(close=")")
@@ -173,22 +186,22 @@ class _Scanner:
             return True
         return False
 
-    def _arithmetic(self, start: int) -> bool:
-        """Read $(( ... )) from start, after its $((, with each substitution inside it.
-
-        False, with no command added, when a lone ) closes it: the shell then reads $((a) ) as a
-        command substitution that starts with a subshell.
+    def _arithmetic(self, start: int, close: str = "))") -> bool:
+        """Read arithmetic from start, after its $((, (( or $[, up to close, "))" or "]", with each
+        substitution inside it. False, with no command added, when the text ends first or a lone )
+        ends it: the shell then reads $((a) ) and ((a) ) as a subshell inside $( ... ) or ( ... ).
         """
         found, self.at, depth = len(self.commands), start, 0
+        nesting = {"(": 1, ")": -1} if close == "))" else {"[": 1, "]": -1}
         while self.at < len(self.text):
             char = self.text[self.at]
-            if char == ")" and depth == 0:
-                if self.text.startswith("))", self.at):
-                    self.at += 2
+            if char == close[0] and depth == 0:
+                if self.text.startswith(close, self.at):
+                    self.at += len(close)
                     return True
                 break
             if not self._substitution(process=False):
-                depth += {"(": 1, ")": -1}.get(char, 0)
+                depth += nesting.get(char, 0)
                 self.at += 1
         del self.commands[found:]
         return False
