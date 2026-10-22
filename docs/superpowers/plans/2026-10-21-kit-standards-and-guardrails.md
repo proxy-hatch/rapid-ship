@@ -6,11 +6,11 @@
 
 **Architecture:** Four stacked PRs, 5.1 to 5.4, each reviewed and squash-merged on its own. devctl changes only in its template under `rapid_ship/templates/common/tools/devctl/devctl/`, and `uv run rapid-ship sync --in-place` vendors it. `devctl hook claude pre-tool` turns Claude Code's PreToolUse event into a `ToolCall` (`hook_protocols.py`), splits the command line and parses the git and gh forms (`command_line.py`), applies the rules (`hook.py`) and, for `gh pr merge` alone, the merge guard (`merge_guard.py`), which reads GitHub through doctor's `OwnerGet`. The Protected-set reader and the ledger rule live in `codeowners.py`, which the hook, the guard and the `diff` step share. `rapid_ship/kit/migrations.py` holds the migrations that `sync` proposes.
 
-**Tech Stack:** Python 3.12+ standard library (`shlex`, `json`, `base64`, `difflib`, `tomllib`), PyYAML, git 2.31+, gh, uv, pytest, Ruff, mypy, import-linter, zizmor 1.30.1, Claude Code hooks (2.1.287 on record), Docusaurus for the docs site.
+**Tech Stack:** Python 3.12+ standard library (`shlex`, `json`, `base64`, `difflib`, `tomllib`), PyYAML, git 2.31+, gh, uv, pytest, Ruff, mypy, import-linter, zizmor 1.30.1, Claude Code hooks (2.1.304 in the hook spike), Docusaurus for the docs site.
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (migrations), 4 (Kit contents, settings files, Patterns, Harness guardrails, the merge guard, the Protected set, CI), 5 (map rules, diff policy), 6 (`doctor --settings`, `devctl hook`), 10 (plan 5's tests and trials) and 11 (open questions). Plan 5 of 7 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Shared interfaces and "Plan 5: Kit standards and Harness guardrails" outline bind this plan.
 
-**Status:** planned on 2026-10-21. Plan 4 and its follow-ups are merged (#31 to #33), and `v0.1.0` is tagged at `0e1d6d0`. This document lands in PR 5.1.
+**Status:** planned on 2026-10-21. Plan 4 and its follow-ups are merged (#31 to #33), and `v0.1.0` is tagged at `0e1d6d0`. This document lands in PR 5.1. The hook spike is recorded on 2026-10-22, and Task 1 Step 9 revised Global Constraints, Review Focus and Tasks 4 and 6 to wire Claude Code's `Monitor` tool.
 
 **Owner steps:** Task 1 and Task 8 are Owner steps that an agent prepares. The controller never dispatches an Owner step to an implementer subagent, and no agent runs one. The agent writes the procedure and the empty record. The owner runs every Harness Session, GitHub write and push. The implementer then writes from the owner's recorded output.
 
@@ -19,7 +19,7 @@
 - Commands (index, Conventions): `devctl hook claude pre-tool`; `devctl doctor [--skills | --settings]`; `rapid-ship sync [--in-place] [--revert PATH]...`.
 - Exit codes: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. `devctl hook` follows Claude Code's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2 (index; Spec 1 section 4).
 - "The hook only denies or asks. It never allows or approves anything; with no rule matched it gives no decision" (Spec 1 section 4).
-- Claude Code wiring: `PreToolUse` for `Bash`, `Edit`, `Write`, `MultiEdit` and `NotebookEdit`, running `"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool`, as Spec 1 section 4 states it once PR 5.1 has merged. Plan 5 wires no other Harness.
+- Claude Code wiring: `PreToolUse` for `Bash`, `Edit`, `Write`, `MultiEdit`, `NotebookEdit` and `Monitor`, running `"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool`, as Spec 1 section 4 states it once PR 5.1 has merged. Plan 5 wires no other Harness.
 - The merge guard's four messages, exactly (Spec 1 section 4, step 5):
   - `merge denied: devctl check on PR #<n> at <commit> is <state>; wait for it to pass or fix what it reports, then merge again`
   - `merge denied: PR #<n> touches the Protected set (<paths>); the owner merges it in GitHub's web interface`
@@ -54,6 +54,7 @@
 4. **An event the hook does not expect.** Inputs: a tool the hook does not wire, a missing `tool_input`, bytes that are not JSON, an unknown or missing Harness name. Expected: no decision for an unwired tool, exit 1 for the rest, never exit 2. Task 4's `test_the_hook_never_exits_2` pins it.
 5. **`gh pr merge` names another repository.** Inputs: `-R x/y` after or before `merge`, and a PR URL. Expected: the guard reads that repository, not `[github] repository`. Task 5's `test_each_target_reads_its_pull_request` pins it.
 6. **The guard counts the wrong review.** With Agent identity on, a mistake here silently merges a head the Reviewer never approved, the case the check exists to stop. Inputs: no review, a person's approval, the login `o-reviewer` without `[bot]`, an approval of an older commit, a later request for changes, a later comment or dismissed review, and reviews over two pages. Expected: only the Reviewer App's latest review that approves or requests changes decides, and the guard denies unless it approves the head SHA the guard read. Task 5's `test_with_agent_identity_a_head_without_the_reviewer_apps_approval_is_denied`, `test_comments_and_dismissed_reviews_do_not_decide` and `test_reviews_are_read_page_by_page` pin it.
+7. **A shell command runs through `Monitor`.** Claude Code's `Monitor` tool runs a shell command, and the hook spike recorded its `PreToolUse` event with `tool_input.command`. A wiring or a `read_event` that leaves it out lets every shell rule and the merge guard be bypassed. Expected: the seed's matcher names `Monitor`, `read_event` reads its `command` as `Bash`'s, and doctor reports a wiring without it. Task 4's `test_a_recorded_monitor_event_with_a_force_push_is_denied` and Task 6's `wired("Bash|Edit|Write|MultiEdit|NotebookEdit")` row pin it.
 
 ## File Structure
 
@@ -83,7 +84,7 @@
 - Modify: `docs/trials/AGENTS.md`; Spec 1 sections 4, 10 and 11 where the record differs, and its status line; the plan index; the files that hold the stale text of Step 8; this plan, for the gate in Step 9 and the Verification record
 
 **Interfaces:**
-- Produces: the record's scrubbed Claude Code events, each a fenced `json` block under a heading named by its fixture file: `bash.json`, `bash-subagent.json`, `write.json`, `edit.json`, `notebook-edit.json`, and `multi-edit.json` only if Claude Code still has that tool. Task 4 copies them into `tests/devctl/fixtures/hooks/claude/`. Ruling: the events live in the record, because PR 5.1 holds no product or test code and the docs site publishes Markdown only.
+- Produces: the record's scrubbed Claude Code events, each a fenced `json` block under a heading named by its fixture file: `bash.json`, `bash-subagent.json`, `write.json`, `edit.json`, `notebook-edit.json` and `monitor.json`. No event named `MultiEdit`, so the record has no `multi-edit.json`. Task 4 copies them into `tests/devctl/fixtures/hooks/claude/`. Ruling: the events live in the record, because PR 5.1 holds no product or test code and the docs site publishes Markdown only.
 
 - [ ] **Step 1 (agent): write the record's preparation.** Sections: Purpose, Versions, Setup, Procedure, Results, Events, Timing, Decisions, Limits. Setup holds, as fenced blocks:
   - the stand-in hook `standin.sh <harness>`, a POSIX `sh` script. It saves stdin, with its argv, `pwd`, `$CLAUDE_PROJECT_DIR` and its start and end times in milliseconds, to a new file under `$SPIKE_DIR/events/`. It then acts on the word in `$SPIKE_DIR/mode`: `none` exits 0 with no output; `deny` and `ask` print that Harness's documented deny or ask answer with the reason `spike: <mode>` and exit 0; `exit1` and `exit2` write `spike: exit <n>` to stderr and exit with that code; `sleep` sleeps 10 seconds, twice the wiring's `timeout` of 5;
@@ -529,7 +530,7 @@ lexer.commenters = ""  # shlex's default comment would swallow the newline after
 ```python
 # devctl/hook_protocols.py
 WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
-WIRED_TOOLS = ("Bash", "Edit", "Write", "MultiEdit", "NotebookEdit")  # as Spec 1 section 4 has it
+WIRED_TOOLS = ("Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "Monitor")  # Spec 1 section 4
 HOOK_COMMAND = "devctl hook claude pre-tool"
 
 
@@ -543,7 +544,7 @@ def hook_command(args: argparse.Namespace) -> int: ...  # never 2
 def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None: ...
 ```
 
-`read_event` takes `tool_input.command` for `Bash`, `file_path` for `Edit`, `Write` and `MultiEdit`, and `notebook_path` for `NotebookEdit`; a relative path is resolved against `cwd`, and every path is normalised with `os.path.normpath`, without following symlinks. Any other tool gives `ToolCall(None, (), cwd)`. An event whose `hook_event_name` is not `PreToolUse`, or that lacks `cwd`, `tool_name` or `tool_input`, is a `ValueError`. `answer` returns `("", 0)` for no decision, and for `deny` or `ask` one line of JSON with exit 0. The module docstring documents the workaround: Claude Code blocks on exit 2, so the hook never exits 2; exit 1 is a non-blocking error, so the call goes through; and, from Spec 1 section 4, the cases before devctl runs (the shim's 127, uv's own exit 2, a parse failure, a timeout).
+`read_event` takes `tool_input.command` for `Bash` and `Monitor`, which runs a shell command, `file_path` for `Edit`, `Write` and `MultiEdit`, and `notebook_path` for `NotebookEdit`; a relative path is resolved against `cwd`, and every path is normalised with `os.path.normpath`, without following symlinks. Any other tool gives `ToolCall(None, (), cwd)`. An event whose `hook_event_name` is not `PreToolUse`, or that lacks `cwd`, `tool_name` or `tool_input`, is a `ValueError`. `answer` returns `("", 0)` for no decision, and for `deny` or `ask` one line of JSON with exit 0. The module docstring documents the workaround: Claude Code blocks on exit 2, so the hook never exits 2; exit 1 is a non-blocking error, so the call goes through; and, from Spec 1 section 4, the cases before devctl runs (the shim's 127, uv's own exit 2, a parse failure, a timeout).
 
 `hook_command` reads stdin, calls `read_event`, `run_hook` and `answer`, and writes stdout. It catches `ValueError`, `OSError`, `RepoError` and `SettingsError`, writes `devctl hook: internal error: <message>; the tool call goes through` to stderr and returns 1. Ruling: `register` declares `harness` and `event` as optional positional strings (`nargs="?"`), not argparse choices, so a missing or unknown Harness or event is the hook's exit 1 (`devctl hook: unknown Harness '<name>'; this devctl wires claude only`, or `devctl hook: usage: devctl hook claude pre-tool`), never argparse's exit 2, which Claude Code reads as block.
 
@@ -563,6 +564,7 @@ REPO = Path("/repo")
         ("write.json", ToolCall(None, (REPO / "spike.txt",), REPO)),
         ("edit.json", ToolCall(None, (REPO / "spike.txt",), REPO)),
         ("notebook-edit.json", ToolCall(None, (REPO / "spike.ipynb",), REPO)),
+        ("monitor.json", ToolCall("git status", (), REPO)),
     ],
 )
 def test_read_event_normalises_each_recorded_event(name: str, expected: ToolCall) -> None:
@@ -594,6 +596,7 @@ def test_no_decision_is_empty_with_exit_0() -> None:
 
   Then, through `devctl.cli.main(["hook", "claude", "pre-tool"])` with `sys.stdin` patched and an event whose `cwd` is a `new_workspace`:
   - `test_a_recorded_bash_event_with_a_force_push_is_denied`: stdout's `permissionDecision` is `deny` and its reason starts `G2: `; exit 0.
+  - `test_a_recorded_monitor_event_with_a_force_push_is_denied`: `monitor.json` with its `tool_input.command` set to `git push --force origin task`; stdout's `permissionDecision` is `deny` and its reason starts `G2: `; exit 0.
   - `test_a_harmless_event_gets_no_decision`: stdout is empty; exit 0.
   - `test_the_hook_never_exits_2`, parametrized over: bytes that are not JSON; `{}`; a `PostToolUse` event; an event without `tool_input`; Harness `codex`; event `post-tool`; `main(["hook"])`; `main(["hook", "claude"])`; a `cwd` with an invalid `project.toml`. Each case returns 1 and writes a stderr line that starts `devctl hook: `, except the `cwd` with an invalid `project.toml`, which returns 0 and writes `read_settings`'s stderr line, which starts `devctl hook: ` too.
 
@@ -874,7 +877,7 @@ The seed, exactly Spec 1 section 4's wiring:
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|Monitor",
         "hooks": [
           {
             "type": "command",
@@ -893,9 +896,9 @@ The item is ok when `.claude/settings.json` is tracked, is valid JSON, does not 
 
 ```python
 HOOK = {"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'}
-ALL = "Bash|Edit|Write|MultiEdit|NotebookEdit"
+ALL = "Bash|Edit|Write|MultiEdit|NotebookEdit|Monitor"
 GAP = "no PreToolUse hook runs devctl hook claude pre-tool for "
-EVERY_TOOL = "Bash, Edit, Write, MultiEdit, NotebookEdit"
+EVERY_TOOL = "Bash, Edit, Write, MultiEdit, NotebookEdit, Monitor"
 
 
 def wired(matcher: str | None = ALL, **fields: object) -> dict[str, object]:
@@ -914,12 +917,13 @@ SEED = wired()
         (SEED, []),
         (wired("*"), []),
         (wired(None), []),
-        (wired("Bash,Edit,Write,MultiEdit,NotebookEdit"), []),
-        (wired("Bash|.*Edit|Write"), []),
-        (wired("Bash"), [GAP + "Edit, Write, MultiEdit, NotebookEdit"]),
-        (wired("Bash,Edit"), [GAP + "Write, MultiEdit, NotebookEdit"]),
-        (wired("Edit"), [GAP + "Bash, Write, MultiEdit, NotebookEdit"]),
-        (wired("Bash|Edit|Write|NotebookEdit"), [GAP + "MultiEdit"]),
+        (wired("Bash,Edit,Write,MultiEdit,NotebookEdit,Monitor"), []),
+        (wired("Bash|Monitor|.*Edit|Write"), []),
+        (wired("Bash"), [GAP + "Edit, Write, MultiEdit, NotebookEdit, Monitor"]),
+        (wired("Bash,Edit"), [GAP + "Write, MultiEdit, NotebookEdit, Monitor"]),
+        (wired("Edit"), [GAP + "Bash, Write, MultiEdit, NotebookEdit, Monitor"]),
+        (wired("Bash|Edit|Write|NotebookEdit|Monitor"), [GAP + "MultiEdit"]),
+        (wired("Bash|Edit|Write|MultiEdit|NotebookEdit"), [GAP + "Monitor"]),
         (wired(**{"async": True}), [GAP + EVERY_TOOL]),
         (wired(**{"if": "Bash(git *)"}), [GAP + EVERY_TOOL]),
         ({**SEED, "disableAllHooks": True}, ["disableAllHooks is true, so no hook runs"]),
