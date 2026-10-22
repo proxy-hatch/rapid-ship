@@ -13,7 +13,7 @@ import pytest
 from check_workspace import Workspace, new_workspace
 from devctl import cli
 from devctl.hook import run_hook
-from devctl.hook_protocols import Decision, ToolCall, answer, read_event
+from devctl.hook_protocols import WIRED_TOOLS, Decision, ToolCall, answer, read_event
 
 FIXTURES = Path(__file__).parent / "fixtures" / "hooks" / "claude"
 REPO = Path("/repo")
@@ -77,12 +77,36 @@ def test_multi_edit_is_read_by_its_file_path() -> None:
     assert read_event("claude", payload) == ToolCall(None, (REPO / "spike.txt",), REPO)
 
 
-def test_a_path_is_resolved_against_cwd_and_normalised_without_following_links() -> None:
+def test_a_path_is_resolved_against_cwd_and_normalised_lexically() -> None:
     relative = recorded("write.json", cwd="/repo/sub/", tool_input={"file_path": "../a/./b.txt"})
     dotted = recorded("write.json", tool_input={"file_path": "/repo/x/../.rapid-ship/kit.lock"})
 
     assert read_event("claude", relative) == ToolCall(None, (REPO / "a/b.txt",), REPO / "sub")
     assert read_event("claude", dotted).edits == (REPO / ".rapid-ship/kit.lock",)
+
+
+def test_a_path_through_a_symlink_keeps_the_link(tmp_path: Path) -> None:
+    cwd = tmp_path / "repo"
+    elsewhere = tmp_path / "elsewhere"
+    cwd.mkdir()
+    elsewhere.mkdir()
+    (cwd / "link").symlink_to(elsewhere, target_is_directory=True)
+    payload = recorded("write.json", cwd=str(cwd), tool_input={"file_path": "link/x.txt"})
+
+    assert read_event("claude", payload).edits == (cwd / "link/x.txt",)
+
+
+@pytest.mark.parametrize("tool", WIRED_TOOLS)
+def test_every_wired_tool_is_read_into_a_call_a_rule_can_match(tool: str) -> None:
+    tool_input = {
+        "command": "git status",
+        "file_path": "/repo/x.txt",
+        "notebook_path": "/repo/x.ipynb",
+    }
+
+    call = read_event("claude", recorded(tool_name=tool, tool_input=tool_input))
+
+    assert call.shell is not None or call.edits
 
 
 @pytest.mark.parametrize(

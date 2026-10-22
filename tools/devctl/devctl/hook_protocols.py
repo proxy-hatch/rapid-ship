@@ -31,22 +31,35 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 # None: no decision. The hook only denies or asks; it never allows (Spec 1 section 4).
 Decision = Literal["deny", "ask"] | None
 WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
-# The tools Claude Code's seeded wiring sends to the hook (Spec 1 section 4). Monitor runs a shell
-# command; MultiEdit is legacy, kept for versions that still have it.
-WIRED_TOOLS = ("Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "Monitor")
-HOOK_COMMAND = "devctl hook claude pre-tool"
-_SHELL_TOOLS = frozenset({"Bash", "Monitor"})
-_PATH_KEYS = {
-    "Edit": "file_path",
-    "Write": "file_path",
-    "MultiEdit": "file_path",
-    "NotebookEdit": "notebook_path",
+
+
+class _Input(NamedTuple):
+    """Where read_event finds what a wired tool acts on."""
+
+    key: str  # the tool_input field
+    is_shell: bool  # True: the field is a command line; False: a path the tool writes
+
+
+# The tools Claude Code's seeded wiring sends to the hook (Spec 1 section 4), each with how
+# read_event reads it. WIRED_TOOLS comes from this one table, so a tool cannot be wired without
+# being read: a wired tool that read_event skipped would reach the rules as an empty ToolCall, a
+# silent bypass. Monitor runs a shell command; MultiEdit is legacy, kept for versions that still
+# have it.
+_WIRED: dict[str, _Input] = {
+    "Bash": _Input("command", is_shell=True),
+    "Edit": _Input("file_path", is_shell=False),
+    "Write": _Input("file_path", is_shell=False),
+    "MultiEdit": _Input("file_path", is_shell=False),
+    "NotebookEdit": _Input("notebook_path", is_shell=False),
+    "Monitor": _Input("command", is_shell=True),
 }
+WIRED_TOOLS = tuple(_WIRED)
+HOOK_COMMAND = "devctl hook claude pre-tool"
 
 
 @dataclass(frozen=True)
@@ -93,13 +106,13 @@ def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:
     if not isinstance(tool_input, dict):
         raise ValueError("the event has no tool_input object")
     base = Path(os.path.normpath(cwd))
-    if tool in _SHELL_TOOLS:
-        return ToolCall(_text(tool_input, "command", f"{tool}'s tool_input"), (), base)
-    key = _PATH_KEYS.get(tool)
-    if key is None:
+    wired = _WIRED.get(tool)
+    if wired is None:
         return ToolCall(None, (), base)
-    path = _text(tool_input, key, f"{tool}'s tool_input")
-    return ToolCall(None, (Path(os.path.normpath(base / path)),), base)
+    value = _text(tool_input, wired.key, f"{tool}'s tool_input")
+    if wired.is_shell:
+        return ToolCall(value, (), base)
+    return ToolCall(None, (Path(os.path.normpath(base / value)),), base)
 
 
 def _text(fields: Mapping[str, object], key: str, where: str) -> str:
