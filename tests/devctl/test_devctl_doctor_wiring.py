@@ -9,7 +9,8 @@ from devctl.doctor_wiring import wiring_problems
 from github_fakes import MakeContext, RepoFiles
 from rapid_ship.kit.templates import render_files
 
-HOOK = {"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'}
+COMMAND = '"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'
+HOOK = {"type": "command", "command": COMMAND}
 ALL = "Bash|Edit|Write|MultiEdit|NotebookEdit|Monitor"
 GAP = "no PreToolUse hook runs devctl hook claude pre-tool for "
 EVERY_TOOL = "Bash, Edit, Write, MultiEdit, NotebookEdit, Monitor"
@@ -145,6 +146,10 @@ def test_wiring_problems_in_other_shapes(settings: object, problems: list[str]) 
         (wired(command="devctl hook claude pre-tool >/dev/null"), [GAP + EVERY_TOOL]),
         (wired(command="devctl hook claude pre-tool; true"), [GAP + EVERY_TOOL]),
         (wired(command="devctl hook claude 'pre-tool"), [GAP + EVERY_TOOL]),
+        # A path that only quotes make one word, or that starts at the home directory, is a path.
+        (wired(command='"/my repo/devctl" hook claude pre-tool'), []),
+        (wired(command="~/repo/devctl hook claude pre-tool"), []),
+        (wired(command="./devctl hook claude pre-tool"), []),
         # A timeout must leave the merge guard its 300-second budget and the shim its start.
         (wired(timeout=600), []),
         (wired(timeout=360), []),
@@ -159,6 +164,13 @@ def test_wiring_problems_for_the_words_and_the_timeout(
     settings: object, problems: list[str]
 ) -> None:
     assert wiring_problems(settings) == problems
+
+
+# shlex.split does not split at shell operators, so each of these gives a program word that ends
+# in /devctl, yet the shell would not run devctl on the event.
+@pytest.mark.parametrize("before", ["false&&", ":||", "#", "X=", "(", "$(pwd)", "!", "/re*", "a|"])
+def test_punctuation_glued_before_the_path_is_a_gap(before: str) -> None:
+    assert wiring_problems(wired(command=before + COMMAND)) == [GAP + EVERY_TOOL]
 
 
 @pytest.mark.usefixtures("fake_run")

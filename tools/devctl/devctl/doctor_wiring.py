@@ -36,6 +36,10 @@ _SHORTEST_TIMEOUT = GUARD_BUDGET_SECONDS + 60.0
 _SHELL_PIECE = re.compile(r"""'[^']*'|"(?:\\.|[^"\\])*"|\\.|.""", re.DOTALL)
 _ESCAPE = re.compile(r"\\(.)", re.DOTALL)
 _LITERAL_DOLLAR = "\x00"  # a $ that the shell keeps as it is, which no path to devctl holds
+# A shell-form program word after quote removal: path characters, $NAME and ${NAME}. shlex.split
+# does not split at an operator, so false&&, #, X= or other punctuation can stand before the path
+# in that word, and the shell then runs something else. A space survives only inside quotes.
+_PATH_WORD = re.compile(r"(?:[\w./~ -]|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})*")
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -74,7 +78,7 @@ def _runs_the_hook(hook: Mapping[str, object]) -> bool:
     words = _exec_words(hook) if "args" in hook else _shell_words(hook.get("command"))
     program, *args = words or [""]
     named = program == _PROGRAM or program.endswith(f"/{_PROGRAM}")
-    return named and _LITERAL_DOLLAR not in program and args == _HOOK_ARGS
+    return named and args == _HOOK_ARGS
 
 
 def _waits(hook: Mapping[str, object]) -> bool:
@@ -100,15 +104,17 @@ def _exec_words(hook: Mapping[str, object]) -> list[str] | None:
 
 def _shell_words(command: object) -> list[str] | None:
     """The words of a shell-form command, split and unquoted as the shell does; None when it
-    cannot be split. A $ in single quotes or after a backslash becomes _LITERAL_DOLLAR. An
-    operator or a redirection stays a word, so the hook's command must stand alone."""
+    cannot be split, or when its program word is not _PATH_WORD. A $ in single quotes or after a
+    backslash becomes _LITERAL_DOLLAR, which no path holds. An operator or a redirection after the
+    program stays a word, so the hook's command must stand alone."""
     if not isinstance(command, str):
         return None
     pieces = (piece[0] for piece in _SHELL_PIECE.finditer(command))
     try:
-        return shlex.split("".join(map(_literal_dollars, pieces)))
+        words = shlex.split("".join(map(_literal_dollars, pieces)))
     except ValueError:
         return None
+    return words if words and _PATH_WORD.fullmatch(words[0]) else None
 
 
 def _literal_dollars(piece: str) -> str:
