@@ -101,8 +101,9 @@ tools/devctl/
     harness.py                   # plan 4: the Claude Code skills probe
     identity.py                  # plan 4: devctl as
     github/api.py github/app.py github/askpass.py   # plan 4: REST client, App tokens, GIT_ASKPASS helper
-    hook.py hook_protocols.py    # plan 5: devctl hook's rules, and Claude Code's protocol
-    merge_guard.py               # plan 5: the merge guard, G9
+    hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and Claude Code's protocol
+    command_line.py              # plan 5: shell splitting, and the git and gh forms the guardrails read
+    merge_guard.py merge_guard_github.py   # plan 5: the merge guard, G9, and its GitHub reads
   devctl_project/                # seeded: project verbs and extra check steps
     __init__.py
 ```
@@ -295,52 +296,73 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 ### `devctl hook` and the merge guard (plan 5)
 
 ```python
-# devctl/hook.py
+# devctl/hook_protocols.py: the types the rules share, and Claude Code's protocol; the exit-code
+# workaround is documented here
 Decision = Literal["deny", "ask"] | None  # None: no decision; the hook never allows
+WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
 
 
 @dataclass(frozen=True)
 class ToolCall:  # one Harness's pre-tool event, normalised
     shell: str | None  # the command line of a shell tool
-    edits: tuple[str, ...]  # repository-relative paths a file-edit tool writes
+    edits: tuple[Path, ...]  # the absolute, normalised paths a file-edit tool writes
     cwd: Path
 
 
-def decide(
-    call: ToolCall, project: ProjectSettings | None, protected: Sequence[str] | None
-) -> tuple[Decision, str]: ...  # None: unreadable; G5, G7 and G8 give no decision, G1 to G4 apply
-
-
-# devctl/merge_guard.py
 @dataclass(frozen=True)
-class Merge:  # a way to land a change on the default branch, also through devctl as
-    form: Literal["pr-merge", "admin", "push", "rest", "graphql"]  # G3 denies all but pr-merge
-    target: str | None  # pr-merge: the number, URL or branch it names; None: the branch's PR
-
-
-@dataclass(frozen=True)
-class LocalBranches:  # read from local git, only for a git push or a ref path
-    default: frozenset[str]  # origin/HEAD's branch; {"main", "master"} when that ref is missing
-    current: str | None  # None: a detached HEAD
-
-
-def find_merge(argv: Sequence[str], branches: Callable[[], LocalBranches]) -> Merge | None: ...
-# None: not a merge; reads GitHub for nothing
-# pr-merge only: G3 denies the other forms
-def guard(merge: Merge, root: Path, owner_get: OwnerGet) -> tuple[Decision, str]: ...
-
-
-# devctl/hook_protocols.py: Claude Code's protocol; the exit-code workaround is documented here
-WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
+class HookSettings:  # what G5, G7, G8 and the merge guard read from the repository
+    agent_identity: bool
+    protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
+    repository: str | None  # [github] repository
+    reviewer_app_slug: str | None  # with Agent identity on; else None
 
 
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
 def answer(
     harness: WiredHarness, decision: Decision, reason: str
 ) -> tuple[str, int]: ...  # stdout, exit code; never 2
+
+
+# devctl/hook.py
+def decide(
+    call: ToolCall,
+    root: Path | None,  # the repository that holds the call
+    settings: HookSettings | None,  # None: unreadable; G5, G7 and G8 give no decision
+    branches: Callable[[], LocalBranches],
+) -> tuple[Decision, str]: ...  # G1 to G5, G7 and G8; run_hook then runs guard on each pr-merge
+
+
+# devctl/merge_guard.py
+@dataclass(frozen=True)
+class Merge:  # a way to land a change on the default branch, also through devctl as
+    form: Literal["pr-merge", "admin", "push", "rest", "graphql"]  # G3 denies all but pr-merge
+    target: str | None = None  # pr-merge: the number, URL or branch; None: the branch's PR
+    repository: str | None = None  # pr-merge: the -R or --repo value
+    head: str | None = None  # pr-merge: the --match-head-commit value
+    command: tuple[str, ...] = ()  # pr-merge: the words, without --match-head-commit
+
+
+@dataclass(frozen=True)
+class LocalBranches:  # read from local git for a git push, a ref path or a bare gh pr merge
+    default: frozenset[str]  # origin/HEAD's branch; {"main", "master"} when that ref is missing
+    current: str | None  # None: a detached HEAD
+
+
+def find_merge(
+    words: Sequence[str], branches: Callable[[], LocalBranches]
+) -> Merge | None: ...  # None: not a merge; reads GitHub for nothing
+
+
+def guard(
+    merge: Merge,  # pr-merge only: G3 denies the other forms
+    settings: HookSettings | None,  # None: none were read, so every merge is denied
+    owner_get: OwnerGet,
+    branches: Callable[[], LocalBranches],
+    elapsed: Callable[[], float],  # seconds since the hook run started
+) -> str | None: ...  # the denial message; None: no decision
 ```
 
-`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push` or a ref path. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in. It reads CODEOWNERS from the PR's base branch, never its head, and applies the `diff` step's ledger rule to the PR's file statuses; it never reads an added ledger entry. It requires `--match-head-commit` set to the head commit it read, and its denial gives the exact command to retry. With Agent identity on, it also reads the PR's reviews and requires the Reviewer App's approval of that head commit; without Agent identity it reads no reviews, and while the settings are unreadable it denies every merge. It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
+`protected` comes from `devctl/codeowners.py`, the matcher the `diff` step also uses, so the hook, the merge guard and the step agree on the Protected set. The hook denies an `admin`, `push`, `rest` or `graphql` form under G3 and reads GitHub for none of them; it reads `LocalBranches` from local git only for a `git push`, a ref path, or a `gh pr merge` that names no pull request. The merge guard reads GitHub only for a `pr-merge`, and only through `OwnerGet`, doctor's reader: `gh api` with `GET` under the owner's sign-in; `merge_guard_github.py` holds those reads. It reads CODEOWNERS from the PR's base branch, never its head, and applies the `diff` step's ledger rule to the PR's file statuses; it never reads an added ledger entry. It requires `--match-head-commit` set to the head commit it read, and its denial gives the exact command to retry. With Agent identity on, it also reads the PR's reviews and requires the Reviewer App's approval of that head commit; without Agent identity it reads no reviews, and while the settings are unreadable it denies every merge. It denies before a read that could end past the hook run's 300-second budget, which every merge on a line shares. It catches its own errors and denies, so a merge that the running guard cannot check does not pass. A hook that fails before it decides is a separate case, which Spec 1 section 4 documents with the exit-code workaround.
 
 ### CODEOWNERS (plan 2 seeds it; plans 3 to 7 read or write it)
 
@@ -467,7 +489,7 @@ If review finds a PR too large, it splits at a task boundary.
 **Files:**
 
 - 5.1: this plan's document, `2026-10-21-kit-standards-and-guardrails.md`; the trial record `docs/trials/2026-10-21-hook-spike.md` and `docs/trials/AGENTS.md`; Spec 1's status line and sections 3, 4, 6, 10 and 11, where the result and plan 4's merge change them; this index; and the text that called plan 4 unmerged or untagged, in `AGENTS.md`, `ARCHITECTURE.md`, `README.md`, `docs/superpowers/AGENTS.md` and plan 4's two plan documents.
-- 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/devctl/`, then vendored with `sync`: `codeowners.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `cli.py`, `check/diff.py`, `doctor_local.py`, `doctor_rules.py`. Kit templates: `common/.claude/settings.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: `.github/CODEOWNERS`, edited in place, and `.claude/settings.json`, created by `sync`. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/claude/`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
+- 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/devctl/`, then vendored with `sync`: `codeowners.py`, `command_line.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `merge_guard_github.py`, `cli.py`, `check/diff.py`, `doctor_local.py`, `doctor_rules.py`. Kit templates: `common/.claude/settings.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: `.github/CODEOWNERS`, edited in place, and `.claude/settings.json`, created by `sync`. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/claude/`, `test_devctl_doctor_wiring.py`, `tests/test_kit_templates*.py`.
 - 5.3: devctl templates: `check/map.py`, `check/diff.py`, `check/evidence.py`, `check/stacks/python.py`, and `cli.py` and `doctor.py` for `--settings`. Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/AGENTS.md`, `python/AGENTS.md`, `common/docs/patterns/README.md`, the Python starter Patterns with their reference code and tests under `python/`, `{python,agnostic}/.rapid-ship/project.toml` for the new escalation kind, `common/.github/workflows/devctl-check.yml`, `kit.toml`. This repository: the root `AGENTS.md` and `.rapid-ship/project.toml`, edited in place, and the workflow through `sync`. Tests: `tests/devctl/test_devctl_map_*.py`, `test_devctl_diff_*.py`, `test_devctl_evidence_step.py`, `test_devctl_doctor*.py`, `test_devctl_ci_templates.py`, `tests/test_kit_contents.py`, `tests/test_kit_templates*.py`.
 - 5.4: devctl template `settings.py`. `rapid_ship/kit/migrations.py`, `rapid_ship/kit/sync.py`, `rapid_ship/cli.py`. Kit templates: every seeded TOML file, both CODEOWNERS templates and the CI workflow, for their comments. Tests: `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_migrations*.py`, `tests/test_kit_sync*.py`, and the seed-documentation test.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.

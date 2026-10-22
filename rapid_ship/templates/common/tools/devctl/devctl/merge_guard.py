@@ -1,20 +1,27 @@
-"""The merge guard's forms: find_merge names each way to land a change on the default branch.
+"""The merge guard, G9 (Spec 1 section 4), and find_merge, which names each way to land a change
+on the default branch.
 
-Spec 1 section 4, step 1 lists them: gh pr merge, which the merge guard checks, and the forms
-that G3 denies outright, gh pr merge --admin, a git push to the default branch, and gh api
-writes through REST or GraphQL. A gh command run through ./devctl as <role> gh counts as the
-gh command it runs. Local git is read only for a git push or a ref path.
+Step 1 lists those ways: gh pr merge, which guard checks, and the forms that G3 denies outright,
+gh pr merge --admin, a git push to the default branch, and gh api writes through REST or GraphQL.
+A gh command run through ./devctl as <role> gh counts as the gh command it runs. Local git is read
+only for a git push, a ref path, or a gh pr merge that names no pull request.
+
+guard reads GitHub only through OwnerGet, doctor's GET with the owner's gh sign-in, and only for
+gh pr merge. Once it has recognised a merge it denies every merge it cannot check, its own errors
+included, so a merge that the running guard cannot check does not pass.
 """
 
 from __future__ import annotations
 
 import re
+import shlex
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from devctl import process
+from devctl.codeowners import protected_changes
 from devctl.command_line import (
     REPOSITORY_OPTIONS,
     ApiCall,
@@ -24,6 +31,16 @@ from devctl.command_line import (
     parse_command,
     parse_push,
     read_arguments,
+)
+from devctl.doctor_items import OWNER_GET_TIMEOUT_SECONDS, OwnerGet, OwnerReadError
+from devctl.hook_protocols import HookSettings
+from devctl.merge_guard_github import (
+    Unchecked,
+    base_patterns,
+    changed_files,
+    check_state,
+    find_pull,
+    reviewer_approved,
 )
 
 MergeForm = Literal["pr-merge", "admin", "push", "rest", "graphql"]
@@ -53,6 +70,35 @@ _MUTATIONS = re.compile(
     r"\b(?:mergePullRequest|enablePullRequestAutoMerge|enqueuePullRequest|mergeBranch"
     r"|updateRefs?|createCommitOnBranch)\b"
 )
+
+# Claude Code lets a call through when it kills a hook at its timeout, 600 seconds by default, as
+# the hook spike recorded, so the guard denies before a read that could end past this budget,
+# which every merge on a line shares.
+GUARD_BUDGET_SECONDS = 300.0
+
+# The guard's four denials, exactly as Spec 1 section 4, step 5 words them.
+_CHECK_DENIED = (
+    "merge denied: devctl check on PR #{number} at {head} is {state}; wait for it to pass or fix "
+    "what it reports, then merge again"
+)
+_PROTECTED_DENIED = (
+    "merge denied: PR #{number} touches the Protected set ({paths}); the owner merges it in "
+    "GitHub's web interface"
+)
+_REVIEW_DENIED = (
+    "merge denied: PR #{number} has no Reviewer App approval of its head {head}; have the "
+    "Reviewer review that commit, then merge again"
+)
+_HEAD_DENIED = (
+    "merge denied: PR #{number} merges only at the checked head {head}; run {command} "
+    "--match-head-commit {head}"
+)
+# Every other denial, with why the guard cannot check the merge.
+_UNCHECKED = (
+    "merge denied: the merge guard cannot check this merge: {reason}; fix that, then merge again"
+)
+_NO_SETTINGS = "the hook cannot read .rapid-ship/project.toml or .github/CODEOWNERS"
+_OVER_BUDGET = f"its GitHub reads would pass the {GUARD_BUDGET_SECONDS:.0f}-second budget"
 
 
 @dataclass(frozen=True)
@@ -170,3 +216,75 @@ def _names_mutation(field: str) -> bool:
     """
     key, _, text = field.partition("=")
     return key == "query" and not text.startswith("@") and _MUTATIONS.search(text) is not None
+
+
+def cannot_check(reason: str) -> str:
+    """The denial of a merge that the guard cannot check, with the reason."""
+    return _UNCHECKED.format(reason=reason)
+
+
+def guard(
+    merge: Merge,
+    settings: HookSettings | None,
+    owner_get: OwnerGet,
+    branches: Callable[[], LocalBranches],
+    elapsed: Callable[[], float],
+) -> str | None:
+    """The merge guard's denial of a pr-merge, or None: no decision.
+
+    settings None means none were read, so the guard cannot tell whether Agent identity is on and
+    denies before any read. branches is called only for a merge that names no pull request, and
+    elapsed, the seconds since the hook run started, before each read.
+    """
+    if settings is None:
+        return cannot_check(_NO_SETTINGS)
+    try:
+        return _checked(merge, settings, _budgeted(owner_get, elapsed), branches)
+    except Unchecked as unchecked:
+        return cannot_check(str(unchecked))
+    except OwnerReadError as error:
+        return cannot_check(error.message)
+    except Exception as error:  # noqa: BLE001  # rs-exception: EX-12
+        message = " ".join(str(error).splitlines())
+        return cannot_check(f"the guard failed: {type(error).__name__}: {message}")
+
+
+def _budgeted(owner_get: OwnerGet, elapsed: Callable[[], float]) -> OwnerGet:
+    """owner_get, refused before a read that could end past GUARD_BUDGET_SECONDS."""
+
+    def read(path: str) -> object:
+        if elapsed() + OWNER_GET_TIMEOUT_SECONDS > GUARD_BUDGET_SECONDS:
+            raise Unchecked(_OVER_BUDGET)
+        return owner_get(path)
+
+    return read
+
+
+def _checked(
+    merge: Merge, settings: HookSettings, read: OwnerGet, branches: Callable[[], LocalBranches]
+) -> str | None:
+    """Read the PR, CODEOWNERS on its base, its files, its reviews with Agent identity on, and its
+    check runs, in that order, and deny with the first message that applies.
+
+    The Protected set comes first, because waiting on a check cannot fix a PR only the owner can
+    merge, so a Protected PR is denied before its reviews and check runs are read. The review
+    comes after the check, because fixing a failed check pushes a new head that needs a new
+    review, and before the head, because the retry that message names would be denied without it.
+    """
+    repository = merge.repository or settings.repository
+    pull = find_pull(read, merge.target, repository, lambda: branches().current)
+    patterns = base_patterns(read, pull)
+    protected = protected_changes(patterns, changed_files(read, pull))
+    if protected:
+        return _PROTECTED_DENIED.format(number=pull.number, paths=", ".join(protected))
+    slug = settings.reviewer_app_slug
+    approved = not settings.agent_identity or reviewer_approved(read, pull, slug)
+    state = check_state(read, pull)
+    if state != "success":
+        return _CHECK_DENIED.format(number=pull.number, head=pull.head, state=state)
+    if not approved:
+        return _REVIEW_DENIED.format(number=pull.number, head=pull.head)
+    if merge.head != pull.head:
+        command = shlex.join(merge.command)
+        return _HEAD_DENIED.format(number=pull.number, head=pull.head, command=command)
+    return None

@@ -67,6 +67,7 @@
 | `devctl/hook_protocols.py` | 5.2 | `Decision`, `ToolCall`, `HookSettings`, Claude Code's event and answer, the exit-code workaround |
 | `devctl/hook.py` | 5.2 | G1 to G5, G7 and G8, the hook's settings, `devctl hook` |
 | `devctl/merge_guard.py` | 5.2 | `find_merge` for G3, the merge guard (G9) |
+| `devctl/merge_guard_github.py` | 5.2 | The merge guard's GitHub reads: the PR, CODEOWNERS on its base, its files, reviews and check runs |
 | `common/.claude/settings.json` | 5.2 | The seeded Claude Code wiring |
 | `devctl/check/map_skills.py` | 5.3 | Map rule 7, moved from `check/map.py` so `map.py` stays under the cap |
 | `common/README.md`, `common/ARCHITECTURE.md` | 5.3 | The seeds that map rule 8 checks |

@@ -1,10 +1,13 @@
-"""devctl hook: G1 to G5, G7 and G8 on one normalised tool call (Spec 1 section 4).
+"""devctl hook: G1 to G5, G7 and G8, then the merge guard, on one normalised tool call (Spec 1
+section 4).
 
-decide applies them in the order of the simple commands, and within one command G1, G2, G3,
-G7 and G8; for an edit G4, then G5. The first deny wins, and a deny beats an ask. The hook only
-denies or asks: with no rule matched it gives no decision. G1 to G4 need no settings, so they
-apply when the settings are unreadable; G5, G7 and G8 then give no decision. hook_command reads
-the event and answers in the Harness's protocol, which hook_protocols.py keeps.
+decide applies the rules in the order of the simple commands, and within one command G1, G2, G3,
+G7 and G8; for an edit G4, then G5. The first deny wins, and a deny beats an ask. When decide
+gives no decision, run_hook runs the merge guard on each gh pr merge of the line, in order. The
+hook only denies or asks: with no rule matched it gives no decision. G1 to G4 need no settings,
+so they apply when the settings are unreadable; G5, G7 and G8 then give no decision, and the merge
+guard denies every merge. hook_command reads the event and answers in the Harness's protocol,
+which hook_protocols.py keeps.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ import argparse
 import functools
 import shlex
 import sys
+import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -27,7 +31,14 @@ from devctl.command_line import (
 )
 from devctl.doctor_items import OwnerGet, gh_get
 from devctl.hook_protocols import HOOK_COMMAND, Decision, HookSettings, ToolCall, answer, read_event
-from devctl.merge_guard import LocalBranches, MergeForm, find_merge, read_branches
+from devctl.merge_guard import (
+    LocalBranches,
+    MergeForm,
+    cannot_check,
+    find_merge,
+    guard,
+    read_branches,
+)
 from devctl.repo import RepoError
 from devctl.settings import SettingsError, load_project
 
@@ -100,19 +111,50 @@ def _fail(message: str) -> int:
     return 1
 
 
-def run_hook(call: ToolCall, owner_get: OwnerGet) -> tuple[Decision, str]:
+def run_hook(
+    call: ToolCall, owner_get: OwnerGet, clock: Callable[[], float] = time.monotonic
+) -> tuple[Decision, str]:
     """The answer to one tool call, judged in the repository that holds it.
 
     An edit belongs to the repository that holds its path, a linked worktree included, and a
     shell command to the one that holds cwd (Spec 1 section 4); each Claude Code edit writes one
     path. Outside every repository no settings are read. owner_get is the merge guard's only way
-    to read GitHub.
+    to read GitHub, and clock times the hook run, whose budget every merge on the line shares.
     """
+    started = clock()
     root = work_tree_root(call.edits[0] if call.edits else call.cwd)
     read = read_settings(root) if root is not None else None
     settings = read if isinstance(read, HookSettings) else None
     branches = functools.cache(functools.partial(read_branches, root or call.cwd))
-    return decide(call, root, settings, branches)
+    decision, reason = decide(call, root, settings, branches)
+    if decision is not None or call.shell is None:
+        return decision, reason
+    denial = _guard_merges(call.shell, read, owner_get, branches, lambda: clock() - started)
+    return ("deny", denial) if denial is not None else (None, "")
+
+
+def _guard_merges(
+    shell: str,
+    read: HookSettings | str | None,
+    owner_get: OwnerGet,
+    branches: Callable[[], LocalBranches],
+    elapsed: Callable[[], float],
+) -> str | None:
+    """The first merge guard denial among the line's gh pr merge commands, in order, or None.
+
+    read is what read_settings gave: when it gave a reason, the first merge is denied with it, so
+    the agent sees the file and the key to fix; None means no repository holds the call.
+    """
+    for words in simple_commands(shell):
+        merge = find_merge(words, branches)
+        if merge is None or merge.form != "pr-merge":
+            continue
+        if isinstance(read, str):
+            return cannot_check(read)
+        denial = guard(merge, read, owner_get, branches, elapsed)
+        if denial is not None:
+            return denial
+    return None
 
 
 def work_tree_root(path: Path) -> Path | None:

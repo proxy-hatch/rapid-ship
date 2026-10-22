@@ -23,7 +23,7 @@ from devctl.settings import ProjectSettings
 
 Status = Literal["ok", "missing", "unknown"]
 TOOL_TIMEOUT_SECONDS = 30.0
-_GH_TIMEOUT_SECONDS = 60.0
+OWNER_GET_TIMEOUT_SECONDS = 60.0  # one gh api GET; the merge guard budgets by it too
 _HTTP_STATUS = re.compile(r"\(HTTP (\d{3})\)")
 # Where the owner's own settings and temporary files live, for every tool doctor runs.
 _OWNER_VARIABLES = (
@@ -130,7 +130,7 @@ def gh_get(path: str) -> object:
         result = process.run_process(
             ["gh", "api", "--method", "GET", path],
             Path(tempfile.gettempdir()),
-            _GH_TIMEOUT_SECONDS,
+            OWNER_GET_TIMEOUT_SECONDS,
             env=owner_environment("gh"),
         )
     except OSError:  # gh is not installed, or cannot start
