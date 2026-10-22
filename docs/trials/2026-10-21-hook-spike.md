@@ -1,6 +1,6 @@
 # Hook spike (PRO-139)
 
-Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). The owner ran Steps 2 to 6 on 2026-10-21 from 22:02 to 22:18 and on 2026-10-22 from 19:45 to 20:18, in UTC+8. Step 7 filled Versions, Results, Events, Timing, Decisions and Limits on 2026-10-22 from the owner's results file, the kept event files and the headless output.
+Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). The owner ran Steps 2 to 5 on 2026-10-21 from 22:02 to 22:18 and on 2026-10-22 from 19:45 to 20:18, in UTC+8. At 20:18 the results file recorded "unsure" for each of Step 6's decisions; the owner made them later that day, after the runs ([Decisions](#decisions)). Step 7 filled Versions, Results, Events, Timing, Decisions and Limits on 2026-10-22 from the owner's results file, the kept event files and the headless output.
 
 ## Purpose
 
@@ -33,7 +33,7 @@ Conditions, from Steps 2 and 3:
 - Mods turned off for the spike: many, "including mcp and skills", in the owner's words. The record has no list of them.
 - User-level hooks, plugins and mods that stayed on, for each Harness:
   - Claude Code: two user-level `PreToolUse` hooks in the owner's `~/.claude/settings.json`, an iTerm2 status script and an inline shell command.
-  - Codex: `/hooks` listed two `PreToolUse` hooks, installed and active, and each `codex exec` output shows two `PreToolUse` hook runs for each shell call. The owner described the plugins as "quite a few".
+  - Codex: one `PreToolUse` hook besides the spike's. `/hooks` listed two `PreToolUse` hooks, the spike's and one other, both installed and active. Each `codex exec` output shows both running on each shell call: the spike's ends `Blocked` in `codex-headless-deny` and `Failed` in `codex-headless-ask`, and the other ends `Completed`. The owner described the plugins as "quite a few".
   - agy: none besides `spike`.
 - Permission mode or approval policy of each Harness's lead Session:
   - Claude Code: the owner gave none. Every lead and subagent event carries `permission_mode` `auto`, the `bypassPermissions` run carries `bypassPermissions`, and the headless runs carry `acceptEdits`.
@@ -406,7 +406,7 @@ Each result below is observed in the run it names. A result that is an inference
 
 ### How the runs went
 
-The owner ran Steps 2 to 6 through a guide script kept outside this repository. For each run, the guide set the mode, gave the prompt, kept the events when the owner said that the Session had finished, and wrote the owner's answers to a results file. Step 7 took each result from the event files and the headless output. It took the owner's answers only for what those files cannot show: whether a call ran, what the Session showed, and the prompts. Four points affect how to read the results.
+The owner ran Steps 2 to 5 through a guide script kept outside this repository, which also asked Step 6's questions. For each run, the guide set the mode, gave the prompt, kept the events when the owner said that the Session had finished, and wrote the owner's answers to a results file. Step 7 took each result from the event files and the headless output. It took the owner's answers only for what those files cannot show: whether a call ran, what the Session showed, and the prompts. Four points affect how to read the results.
 
 1. **Stray folders.** When the owner went on before a Session had finished, the guide kept that run too early. The run's later events stayed in `$SPIKE_DIR/events/`, and the guide moved them to `kept/_stray-<time>/` when the next run started. Step 7 maps each stray folder to its run by the events' start time, mode and Session:
 
@@ -458,15 +458,15 @@ The other Claude Code events all have `cwd` `/repo`. Their `Bash` events have `c
 
 ### Answers (Step 3)
 
-"Reason appeared" gives the owner's answer to the guide's question: to the agent, to the owner, or nowhere. A quoted Session message is the owner's copy of it, or the headless output.
+"Reason appeared" gives the owner's answer to the guide's question: to the agent, to the owner, or nowhere. Where the owner answered in free text, the cell says how it reads the answer. For a headless run it comes from the output. A quoted Session message is the owner's copy of it, or the headless output.
 
 | Harness | Session | Mode | Call ran | Session showed | Reason appeared | Ask prompt | Owner's answer | `end_ms` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Claude Code | lead | `deny` | no | nothing else, in the owner's notes | to the owner | n/a | no prompt | yes, exit 0, in `_stray-221502` |
-| Claude Code | lead | `ask` | yes | a prompt: "Hook PreToolUse:Bash requires confirmation for this command: spike: ask [settings]", with a line about `settings.json` | to the owner, in the prompt | yes | not recorded; the call ran | yes. A second `ask` event, from a later prompt in the same Session, is in `_stray-221622` |
+| Claude Code | lead | `ask` | yes | a prompt: "Hook PreToolUse:Bash requires confirmation for this command: spike: ask [settings]", with a line about `settings.json` | to the owner, in the prompt: the owner answered with the prompt's reason line | yes | not recorded; the call ran | yes. A second `ask` event, from a later prompt in the same Session, is in `_stray-221622` |
 | Claude Code | lead | `exit1` | invalid: no `exit1` event | the owner's answers describe the `ask` prompt | n/a | n/a | n/a | no event |
-| Claude Code | lead | `exit2` | no | Claude said that the hook blocked `git status` and "exited 2 with the message spike: exit 2", and did not retry | to the agent | n/a | no prompt | yes, exit 2, in `_stray-194519` |
-| Claude Code | lead | `sleep` | yes | nothing about the hook | nowhere | n/a | no prompt | no: the hook was ended before it finished, as the wiring's 5-second timeout explains. The owner's answer for the wait, 0 seconds, was not measured |
+| Claude Code | lead | `exit2` | no | Claude said that the hook blocked `git status` and "exited 2 with the message spike: exit 2", and did not retry | to the agent, from Claude's reply in the owner's notes; the owner answered "exit 2" | n/a | no prompt | yes, exit 2, in `_stray-194519` |
+| Claude Code | lead | `sleep` | yes | nothing about the hook | nowhere | n/a | no prompt | no: Claude Code ended the hook before it finished. That the wiring's 5-second timeout ended it is an inference. The owner's answer for the wait: 0 seconds |
 | Claude Code | subagent | `deny` | no | nothing else, in the owner's notes | to the agent | n/a | no prompt | yes. The subagent ran `git -C /repo status` |
 | Claude Code | subagent | `ask` | yes | a prompt, with the line about `settings.json` | to the owner | yes | yes | yes |
 | Claude Code | subagent | `exit1` | yes | nothing about the hook | nowhere | n/a | no prompt | yes, exit 1 |
@@ -694,7 +694,7 @@ From the run `claude-lead-none`. Plan 5 wires `Monitor` after this spike ([Decis
 
 ## Timing
 
-Claude Code's documented default `timeout` for a command hook is 600 seconds ([hooks reference](https://code.claude.com/docs/en/hooks), read 2026-10-21). The spike's wiring set 5 seconds, and its `sleep` runs show what a timeout does to the call (Answers).
+Claude Code's documented default `timeout` for a command hook is 600 seconds ([hooks reference](https://code.claude.com/docs/en/hooks), read 2026-10-21). The spike's wiring set 5 seconds. In both `sleep` runs the Harness ended the hook before it finished, and the call ran; Codex reported the timeout, and Claude Code showed nothing about the hook (Answers).
 
 The owner ran Step 5's block on 2026-10-22, in rapid-ship's main checkout at `0e1d6d0` (`v0.1.0`). The cold run printed `devctl 0.1.0`.
 
@@ -708,7 +708,7 @@ The 20 warm times, sorted: twelve of 0.10, six of 0.11, one of 0.12 and one of 0
 
 ## Decisions
 
-The owner made these decisions on 2026-10-22, from this record.
+The results file ends with "unsure" for each of the three decisions, which the guide recorded at 20:18 on 2026-10-22. The owner made the decisions below later that day, from the runs and their analysis, before Step 7 filled this record.
 
 ### G1 to G4 in the hook
 
@@ -726,7 +726,7 @@ Task 1 Step 9 of plan 5 compares the record with what Tasks 3 to 8 assume:
 - `Monitor`: Claude Code's `Monitor` tool fired `PreToolUse` with `tool_input.command`, a shell command, in a lead Session, a subagent and a headless Session. Without it in the wiring, an agent could bypass G1 to G3, G7, G8 and the merge guard through `Monitor`. Plan 5 therefore wires `Monitor` and reads its `command` as `Bash`'s.
 - `MultiEdit`: no event named it, and Claude Code's permissions page calls it legacy. Plan 5 keeps it in the wiring, which costs nothing and covers versions that still have it.
 - `"onFailure": "block"`: the spike's wiring left it unset, and no run exercised it. The seed leaves it unset, and Spec 1 section 11 holds it as an open question.
-- The rest held: the event fields, the command and paths that Task 4 expects, the deny and ask answers, exit 1 not blocking, a timed-out hook letting the call through, and the paths of an edit in a linked worktree.
+- The rest held: the event fields, the command and paths that Task 4 expects, the deny and ask answers, exit 1 not blocking, a hook ended before it finished letting the call through, and the paths of an edit in a linked worktree.
 
 ## Limits
 
@@ -735,7 +735,7 @@ Task 1 Step 9 of plan 5 compares the record with what Tasks 3 to 8 assume:
 - agy's lead and subagent Sessions did not run. The record has nothing on agy's interactive hooks, its subagents, its exit codes or its timeout, and nothing on agy's `invoke_subagent` or its `accept-edits` mode. agy's own soft-deny of a shell command hid the hook's answer in its headless `none` and `allow` runs.
 - Claude Code's lead `exit1` run is invalid. Exit 1 in Claude Code is observed only in a subagent.
 - In the interactive `ask` runs, the owner approved Claude Code's prompts, where the Procedure asked to decline the call under test. The spike shows that the prompt appears and that an approved call runs. It does not show a declined ask in an interactive Session. The headless runs show Claude Code denying an ask that nobody can answer.
-- Some answers are the owner's own words, quoted as given. The owner did not measure `claude-lead-sleep`'s wait and answered 0 seconds; the event's missing `end_ms` shows that Claude Code ended the hook.
+- Some answers are the owner's own words, quoted as given. For `claude-lead-sleep`'s wait the owner answered 0 seconds. The event's missing `end_ms` shows only that Claude Code ended the hook before its 10-second sleep finished, not when; that the 5-second timeout ended it is an inference.
 - The stand-in's exit 2 stood in for uv's exit 2. No real uv failure ran.
 - No run exercised `"onFailure": "block"`.
 - Codex's Step 3 Sessions ran in Codex worktrees, which `spike_reset` did not reach. The shell prompt does not depend on those files.
