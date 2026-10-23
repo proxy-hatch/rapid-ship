@@ -9,6 +9,7 @@ from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
 
 ALWAYS_TRUE = "is always true; assert on the behaviour instead"
+NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
 
 
 def change(workspace: Workspace, path: str, before: str, after: str) -> StepResult:
@@ -124,10 +125,7 @@ def test_agnostic_stack_lists_only_protected_paths(workspace: Workspace) -> None
     assert result == StepResult(
         "diff",
         "passed",
-        (
-            "no CODEOWNERS file; Protected paths are not listed",
-            "diff cap: 2 of 1,500 counted lines",
-        ),
+        (NO_CODEOWNERS, "diff cap: 2 of 1,500 counted lines"),
     )
 
 
@@ -142,10 +140,12 @@ def test_codeowners_that_is_not_utf8_blocks(workspace: Workspace) -> None:
 
 
 @pytest.mark.parametrize(
-    "codeowners", [None, "/docs/corrections/README.md @owner\n"], ids=["none", "codeowners"]
+    ("codeowners", "notes"),
+    [(None, (NO_CODEOWNERS,)), ("/docs/corrections/README.md @owner\n", ())],
+    ids=["none", "codeowners"],
 )
 def test_the_ledger_rule_lists_changed_and_removed_entries_only(
-    workspace: Workspace, codeowners: str | None
+    workspace: Workspace, codeowners: str | None, notes: tuple[str, ...]
 ) -> None:
     if codeowners is not None:
         workspace.write(".github/CODEOWNERS", codeowners)
@@ -160,9 +160,14 @@ def test_the_ledger_rule_lists_changed_and_removed_entries_only(
     result = DiffStep().run(workspace.context(base=base))
 
     # An added entry is never Protected, whatever its status; a renamed one is, by its old path.
-    assert result.status == "passed"
-    assert [detail for detail in result.details if detail.startswith("protected: ")] == [
-        "protected: docs/corrections/c1.md",
-        "protected: docs/corrections/c2.md",
-        "protected: docs/corrections/c4.md",
-    ]
+    assert result == StepResult(
+        "diff",
+        "passed",
+        (
+            *notes,
+            "protected: docs/corrections/c1.md",
+            "protected: docs/corrections/c2.md",
+            "protected: docs/corrections/c4.md",
+            "diff cap: 0 of 1,500 counted lines",
+        ),
+    )

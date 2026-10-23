@@ -106,7 +106,7 @@ sha256 = "b544f059ca94dd3ea635a50ef6bb5f8192cf82f13f19d31e5a5068b95f88f7bf"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "95c9b25ee27a1230989cc34c4ae17443d1915abd6e48160cf79688918f3911ca"
+sha256 = "2956b38ea0fbd5c730a44238ebbdb0dd47a6c7ea5e7b808c13895463e1369a8d"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
@@ -126,7 +126,7 @@ sha256 = "0cb4aed445d196bbc6e55a59dc57e87108be83990891253752b64a60cebc0ea5"
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
 kind = "managed"
-sha256 = "8de00baa292f0d27855441f99d9d45992f62a822d46f59f64df85362f692bd9d"
+sha256 = "261c81f352425ee41b0965816bf115edea395fa1de9c8e76e6e84e9e876e80ac"
 
 [[file]]
 path = "tools/devctl/devctl/check/map.py"

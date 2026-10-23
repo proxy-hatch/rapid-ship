@@ -8,19 +8,18 @@ from check_workspace import Workspace
 from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
 
-NO_CODEOWNERS = "no CODEOWNERS file; Protected paths are not listed"
+NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
 NO_BODY = " (pass --pr-body <file> to check a body locally)"
 OVER = (
     "the change adds and removes 1501 counted lines, over the 1,500-line diff cap; split it, or, "
     "once the owner accepts the overage, add 'Over the diff cap: <reason>' to the PR's Evidence "
     "section"
 )
+OVER_1600 = OVER.replace("1501", "1600") + NO_BODY
 EVIDENCE = "## Evidence\n\n- `uv run pytest`: 12 passed\n\n{line}\n\nNot covered: Windows.\n"
 MANAGED = "tools/devctl/devctl/vendored.py"
-LOCK = (
-    'kit_version = "0.2.0"\nstack = "python"\n\n[[file]]\n'
-    f'path = "{MANAGED}"\nkind = "managed"\nsha256 = "{"a" * 64}"\n'
-)
+LOCK_HEADER = 'kit_version = "0.2.0"\nstack = "python"\n'
+LOCK = f'{LOCK_HEADER}\n[[file]]\npath = "{MANAGED}"\nkind = "managed"\nsha256 = "{"a" * 64}"\n'
 # 2,000 bytes with a NUL in the first 8,000, which Git reads as binary, and 1,600 newlines.
 BINARY = b"\0" + b"\n" * 1600 + b"x" * 399
 
@@ -111,6 +110,26 @@ def test_without_a_readable_lock_kit_files_count(workspace: Workspace) -> None:
     workspace.write(MANAGED, lines(1501))
 
     assert DiffStep().run(workspace.context(base=base)).details[0] == OVER + NO_BODY
+
+
+@pytest.mark.parametrize(
+    ("base_lock", "result"),
+    [
+        (LOCK, StepResult("diff", "passed", (NO_CODEOWNERS, note(0)))),
+        ("not = [toml\n", StepResult("diff", "failed", (OVER_1600, NO_CODEOWNERS, note(1600)))),
+    ],
+    ids=["base-lock", "unreadable-base-lock"],
+)
+def test_a_managed_file_that_a_kit_sync_drops_counts_only_without_a_base_lock(
+    workspace: Workspace, base_lock: str, result: StepResult
+) -> None:
+    workspace.write(".rapid-ship/kit.lock", base_lock)
+    workspace.write(MANAGED, lines(1600))
+    base = workspace.commit()
+    (workspace.root / MANAGED).unlink()
+    workspace.write(".rapid-ship/kit.lock", LOCK_HEADER)  # the sync dropped MANAGED's entry
+
+    assert DiffStep().run(workspace.context(base=base)) == result
 
 
 def test_untracked_files_count(workspace: Workspace) -> None:
