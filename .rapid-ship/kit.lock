@@ -121,12 +121,17 @@ sha256 = "8de00baa292f0d27855441f99d9d45992f62a822d46f59f64df85362f692bd9d"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "df97d1daa1735fa530666e97351785ad8a36711efbf22b1e7ba25e6441f63c30"
+sha256 = "e83b572f48a790ec17e6a9e3120ad4a33db2a30712b2036ba2cddfec59d222d8"
+
+[[file]]
+path = "tools/devctl/devctl/check/map_skills.py"
+kind = "managed"
+sha256 = "b9fd395a9049f068072163f85a944e0c8d7c142ca6975a93540b132a53fc9ea2"
 
 [[file]]
 path = "tools/devctl/devctl/check/markdown.py"
 kind = "managed"
-sha256 = "75f3c9c5addc6159443c626f45deef4d6e2c4c0861402e1327df564e66f24b4c"
+sha256 = "ea57b583c4634098970fe94727a46fd530e8cc36202977276b44a3f33a0d0da3"
 
 [[file]]
 path = "tools/devctl/devctl/check/references.py"

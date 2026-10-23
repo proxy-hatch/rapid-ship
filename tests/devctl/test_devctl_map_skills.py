@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from check_workspace import Workspace, skill_text
-from devctl.check.map import MapStep, skill_errors
+from devctl.check.map import MapStep
+from devctl.check.map_skills import skill_errors
 
 
 def add_skill(workspace: Workspace, name: str, text: str) -> None:

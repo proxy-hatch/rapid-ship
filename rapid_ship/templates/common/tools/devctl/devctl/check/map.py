@@ -14,9 +14,14 @@ from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-import yaml
-
-from devctl.check.markdown import ListItem, front_matter, navigation_links, rules_items
+from devctl.check.map_skills import skill_alias_errors, skill_errors
+from devctl.check.markdown import (
+    ListItem,
+    front_matter_of,
+    navigation_links,
+    rules_items,
+    text_value,
+)
 from devctl.check.references import path_exists, resolve
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
@@ -25,7 +30,6 @@ from devctl.settings import ProjectSettings
 ROOT_GUIDE = "AGENTS.md"
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
-SKILLS = ".agents/skills"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
 _RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
 
@@ -201,79 +205,6 @@ def _guide_targets(root: Path, guide: str) -> list[str]:
     return [posixpath.normpath(posixpath.join(directory, path)) for path in paths if path]
 
 
-def skill_alias_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, alias half: each skill has a SKILL.md and a symlink in .claude/skills."""
-    present = set(files)
-    canonical = _skill_names(root, files, ".agents/skills")
-    aliases = _skill_names(root, files, ".claude/skills")
-    errors = [_canonical_error(root, name) for name in sorted(canonical)]
-    errors += [_alias_error(root, present, name) for name in sorted(canonical)]
-    errors += [
-        f".claude/skills/{name}: no matching .agents/skills/{name} in Git; "
-        "remove the alias or add the skill"
-        for name in sorted(aliases - canonical)
-    ]
-    errors += [
-        f"{path}: only skill links belong in .claude/skills; remove it"
-        for path in _stray_files(root, files)
-    ]
-    return [error for error in errors if error]
-
-
-def _skill_names(root: Path, files: Sequence[str], surface: str) -> set[str]:
-    names: set[str] = set()
-    for path in files:
-        if path.startswith(f"{surface}/"):
-            name = path[len(surface) + 1 :].split("/", 1)[0]
-            entry = root / surface / name
-            if entry.is_symlink() or entry.is_dir():  # files are not skills
-                names.add(name)
-    return names
-
-
-def _stray_files(root: Path, files: Sequence[str]) -> list[str]:
-    """Files directly under .claude/skills, such as a guide; rule 7 allows only skill links."""
-    names = {path.split("/")[2] for path in files if path.startswith(".claude/skills/")}
-    entries = {name: root / ".claude/skills" / name for name in names}
-    return sorted(
-        f".claude/skills/{name}"
-        for name, entry in entries.items()
-        if not entry.is_symlink() and not entry.is_dir()
-    )
-
-
-def _canonical_error(root: Path, name: str) -> str | None:
-    entry = root / ".agents/skills" / name
-    if entry.is_symlink() and (
-        entry.readlink().is_absolute() or not entry.resolve().is_relative_to(root.resolve())
-    ):
-        return f".agents/skills/{name}: make it a relative symlink inside the repository"
-    if not (entry / "SKILL.md").is_file():
-        return f".agents/skills/{name}: missing SKILL.md"
-    return None
-
-
-def _alias_error(root: Path, present: set[str], name: str) -> str | None:
-    relative = f".claude/skills/{name}"
-    alias, canonical = root / relative, root / ".agents/skills" / name
-    expected = f"../../.agents/skills/{name}"
-    if relative in present and alias.is_symlink():
-        resolved = alias.resolve()
-        inside = resolved.is_relative_to(root.resolve())
-        if not alias.readlink().is_absolute() and inside and resolved == canonical.resolve():
-            return None
-        return f"{relative}: make it a relative symlink to {expected}"
-    if (
-        alias.is_dir()
-        and not alias.is_symlink()
-        and any(p.startswith(f"{relative}/") for p in present)
-    ):
-        return (
-            f"{relative}: a copy is not an alias; replace it with a relative symlink to {expected}"
-        )
-    return f"{relative}: add a relative symlink to {expected} and track it in Git"
-
-
 def registered_verbs() -> frozenset[str]:
     """The devctl verbs, including the project's own from devctl_project.register."""
     from devctl.cli import build_parser  # Imported late: devctl.cli imports devctl.check.
@@ -282,24 +213,6 @@ def registered_verbs() -> frozenset[str]:
         if isinstance(action, argparse._SubParsersAction):
             return frozenset(action.choices)
     return frozenset()
-
-
-def _front_matter(root: Path, path: str, keys: str) -> dict[str, object] | str:
-    """The front matter of `path` as a mapping, or the message that says what is wrong."""
-    try:
-        data = front_matter((root / path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, yaml.YAMLError) as error:
-        return f"{path}: {' '.join(str(error).split())}"
-    if data is None:
-        return f"{path}: no front matter; start the file with --- and the keys {keys}"
-    if not isinstance(data, dict):
-        return f"{path}: front matter must be a mapping"
-    return data
-
-
-def _text(data: dict[str, object], key: str) -> str | None:
-    value = data.get(key)
-    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def _string_list(data: dict[str, object], key: str, *, allow_empty: bool) -> list[str] | None:
@@ -333,7 +246,7 @@ def _document_errors(
 ) -> list[str]:
     errors: list[str] = []
     for path in _documents(context.repo.root, files, directory):
-        data = _front_matter(context.repo.root, path, keys)
+        data = front_matter_of(context.repo.root, path, keys)
         errors.extend([data] if isinstance(data, str) else problems(context, path, data))
     return errors
 
@@ -346,7 +259,7 @@ def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
 
 def _feature_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
     problems: list[str] = []
-    if _text(data, "purpose") is None:
+    if text_value(data, "purpose") is None:
         problems.append(f"{path}: purpose is missing or empty")
     for key, allow_empty in (("entry_points", False), ("data", True)):
         items = _string_list(data, key, allow_empty=allow_empty)
@@ -358,7 +271,7 @@ def _feature_problems(context: CheckContext, path: str, data: dict[str, object])
             for item in items
             if not path_exists(context.repo.root, item)
         ]
-    if _text(data, "observe") is None:
+    if text_value(data, "observe") is None:
         problems.append(f"{path}: observe is missing or empty")
     if problem := _reproduce_problem(path, data):
         problems.append(problem)
@@ -366,7 +279,7 @@ def _feature_problems(context: CheckContext, path: str, data: dict[str, object])
 
 
 def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
-    command = _text(data, "reproduce")
+    command = text_value(data, "reproduce")
     if command is None:
         return f"{path}: reproduce is missing or empty"
     try:
@@ -391,7 +304,7 @@ def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
 
 def _pattern_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
     problems: list[str] = []
-    reference = _text(data, "reference")
+    reference = text_value(data, "reference")
     if reference is None:
         problems.append(f"{path}: reference is missing or empty")
     elif not path_exists(context.repo.root, reference):
@@ -423,21 +336,3 @@ def _rule_problem(context: CheckContext, guide: str, item: ListItem) -> str | No
     reference = ending.group("reference")
     reason = resolve(reference, context) if reference else None
     return f"{guide}:{item.line}: {reason}" if reason else None
-
-
-def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, front-matter half: each SKILL.md names its directory and has a description."""
-    errors: list[str] = []
-    for name in sorted(_skill_names(root, files, SKILLS)):
-        path = f"{SKILLS}/{name}/SKILL.md"
-        if not (root / path).is_file():
-            continue  # skill_alias_errors reports the missing SKILL.md
-        data = _front_matter(root, path, "name and description")
-        if isinstance(data, str):
-            errors.append(data)
-            continue
-        if data.get("name") != name:
-            errors.append(f"{path}: name must be {name}, the directory name")
-        if _text(data, "description") is None:
-            errors.append(f"{path}: description is missing or empty")
-    return errors
