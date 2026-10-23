@@ -88,6 +88,7 @@ def test_python_new_project_seeds() -> None:
         "src/demo_app/__init__.py",
         "tests/AGENTS.md",
         "tests/test_import.py",
+        *STARTER_PYTHON_FILES,
     )
     assert {kinds[p] for p in paths} == {"seeded"}
     assert text("python", ".gitignore") == "__pycache__/\n*.py[cod]\n.venv/\ndist/\n"
@@ -194,16 +195,29 @@ PYTHON_PROTECTED = (
     "/tox.ini",
     "/.importlinter",
 )
+# A new Python project's starter Patterns: CODEOWNERS lists each existing Pattern file.
+STARTER_PATTERNS = tuple(
+    f"/docs/patterns/python-{name}.md"
+    for name in ("error-handling", "configuration", "input-validation", "performance")
+)
+PYTHON_SET = (*PROTECTED[:9], *STARTER_PATTERNS, *PROTECTED[9:], *PYTHON_PROTECTED)
+# The new-project seeds that come with them: each Pattern's reference module and its tests.
+STARTER_MODULES = ("errors", "inputs", "settings", "profiling")
+STARTER_PYTHON_FILES = (
+    *(path.removeprefix("/") for path in STARTER_PATTERNS),
+    *(f"src/demo_app/{name}.py" for name in STARTER_MODULES),
+    *(f"tests/test_{name}.py" for name in STARTER_MODULES),
+)
 
 
-@pytest.mark.parametrize(("stack", "extra"), [("python", PYTHON_PROTECTED), ("agnostic", ())])
+@pytest.mark.parametrize(("stack", "expected"), [("python", PYTHON_SET), ("agnostic", PROTECTED)])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
-    stack: Stack, extra: tuple[str, ...]
+    stack: Stack, expected: tuple[str, ...]
 ) -> None:
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     assert active(lines) == ["* @octo"]
     protected = [line for line in lines if re.fullmatch(r"# /\S+ @octo", line)]
-    assert protected == [f"# {path} @octo" for path in (*PROTECTED, *extra)]
+    assert protected == [f"# {path} @octo" for path in expected]
 
 
 @pytest.mark.parametrize("stack", STACKS)
@@ -226,8 +240,10 @@ def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
 def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     python = text("python", ".github/CODEOWNERS").splitlines()
     agnostic = text("agnostic", ".github/CODEOWNERS").splitlines()
+    split = agnostic.index("# /.rapid-ship/ @octo") + 1
+    patterns = [f"# {path} @octo" for path in STARTER_PATTERNS]
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
-    assert python == [*agnostic, *added]
+    assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
@@ -269,7 +285,16 @@ def test_python_seed_has_the_spec_guardrails() -> None:
         "ANN401",
     }
     assert lint["mccabe"]["max-complexity"] == 10
-    assert lint["flake8-tidy-imports"] == {"ban-relative-imports": "all", "banned-api": {}}
+    tidy = lint["flake8-tidy-imports"]
+    assert tidy["ban-relative-imports"] == "all"
+    # The configuration Pattern's bans; its settings module is the one file exempt from them.
+    assert set(tidy["banned-api"]) == {"os.environ", "os.getenv"}
+    for entry in tidy["banned-api"].values():
+        assert "docs/patterns/python-configuration.md" in entry["msg"]
+    assert lint["per-file-ignores"] == {
+        "tests/**": ["S101"],
+        "src/demo_app/settings.py": ["TID251"],
+    }
     assert data["tool"]["ruff"]["extend-exclude"] == ["tools/devctl"]
     mypy = data["tool"]["mypy"]
     assert mypy["strict"] is True
@@ -291,7 +316,8 @@ def test_python_seed_has_the_spec_guardrails() -> None:
 
 
 def test_python_seeds_are_valid_python() -> None:
-    for path in ("src/demo_app/__init__.py", "tests/test_import.py"):
+    modules = [path for path in STARTER_PYTHON_FILES if path.endswith(".py")]
+    for path in ("src/demo_app/__init__.py", "tests/test_import.py", *modules):
         compile(text("python", path), path, "exec")
     assert 'importlib.import_module("demo_app")' in text("python", "tests/test_import.py")
 

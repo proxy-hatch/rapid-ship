@@ -33,6 +33,7 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]  # pytest asserts
+"src/{{package}}/settings.py" = ["TID251"]  # the one module that reads the environment
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -42,6 +43,8 @@ ban-relative-imports = "all"
 
 # Patterns add entries here, one per banned member.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.environ".msg = "read configuration through {{package}}.settings; see docs/patterns/python-configuration.md"
+"os.getenv".msg = "read configuration through {{package}}.settings; see docs/patterns/python-configuration.md"
 
 [tool.mypy]
 python_version = "3.12"
