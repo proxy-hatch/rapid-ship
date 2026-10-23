@@ -163,12 +163,14 @@ def _untracked_lines(path: Path) -> int:
     return data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0)
 
 
-def _managed(context: CheckContext, base: str) -> frozenset[str]:
-    """The paths that the Kit lock at base or the one in the work tree lists as managed.
+def _managed(context: CheckContext, base: str, changes: Sequence[Change]) -> frozenset[str]:
+    """The Kit-managed paths, which the cap leaves out.
 
-    A Kit sync that drops a managed file also drops its lock entry, so the base lock keeps the
-    removal out of the count. A lock that cannot be read lists no path: the count can only grow,
-    and the kit step reports the work tree's lock.
+    A path is managed when the work tree's Kit lock lists it as managed, or when the lock at base
+    does and the change deletes the file, as a Kit sync does with a file that the Kit dropped
+    and whose lock entry goes with it. The base lock alone would not do: a sync records a managed
+    file that the project edited as seeded, so that edit must count. A lock that cannot be read
+    lists no path: the count can only grow, and the kit step reports the work tree's lock.
     """
     repo, excluded = context.repo, context.project.excluded
     try:
@@ -176,9 +178,11 @@ def _managed(context: CheckContext, base: str) -> frozenset[str]:
     except KitLockError:
         head = frozenset()
     try:
-        return head | managed_paths_in(repo.git("show", f"{base}:{LOCK_PATH}"), excluded)
+        at_base = managed_paths_in(repo.git("show", f"{base}:{LOCK_PATH}"), excluded)
     except (RepoError, KitLockError):  # git show fails when base has no lock
         return head
+    deleted = {change.path for change in changes if change.status == "D"}
+    return head | (at_base & deleted)
 
 
 def counted_lines(context: CheckContext, base: str, changes: Sequence[Change]) -> int:
@@ -189,7 +193,7 @@ def counted_lines(context: CheckContext, base: str, changes: Sequence[Change]) -
     the Kit lock and each stack's lock file do not count.
     """
     repo = context.repo
-    managed = _managed(context, base)
+    managed = _managed(context, base, changes)
     total = 0
     diffed: set[str] = set()
     for record in repo.git("diff", "--numstat", "-z", "--no-renames", base).split("\0"):

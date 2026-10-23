@@ -20,6 +20,7 @@ EVIDENCE = "## Evidence\n\n- `uv run pytest`: 12 passed\n\n{line}\n\nNot covered
 MANAGED = "tools/devctl/devctl/vendored.py"
 LOCK_HEADER = 'kit_version = "0.2.0"\nstack = "python"\n'
 LOCK = f'{LOCK_HEADER}\n[[file]]\npath = "{MANAGED}"\nkind = "managed"\nsha256 = "{"a" * 64}"\n'
+SEEDED_LOCK = f'{LOCK_HEADER}\n[[file]]\npath = "{MANAGED}"\nkind = "seeded"\n'
 # 2,000 bytes with a NUL in the first 8,000, which Git reads as binary, and 1,600 newlines.
 BINARY = b"\0" + b"\n" * 1600 + b"x" * 399
 
@@ -130,6 +131,34 @@ def test_a_managed_file_that_a_kit_sync_drops_counts_only_without_a_base_lock(
     workspace.write(".rapid-ship/kit.lock", LOCK_HEADER)  # the sync dropped MANAGED's entry
 
     assert DiffStep().run(workspace.context(base=base)) == result
+
+
+@pytest.mark.parametrize("head_lock", [SEEDED_LOCK, LOCK_HEADER], ids=["seeded", "dropped"])
+def test_a_managed_file_that_the_change_edits_and_leaves_the_kit_counts(
+    workspace: Workspace, head_lock: str
+) -> None:
+    workspace.write(".rapid-ship/kit.lock", LOCK)
+    workspace.write(MANAGED, "")
+    base = workspace.commit()
+    workspace.write(MANAGED, lines(1600))  # the project's edit; sync then records it as seeded
+    workspace.write(".rapid-ship/kit.lock", head_lock)
+
+    assert DiffStep().run(workspace.context(base=base)) == StepResult(
+        "diff", "failed", (OVER_1600, NO_CODEOWNERS, note(1600))
+    )
+
+
+def test_a_managed_file_that_the_change_edits_and_the_head_lock_keeps_does_not_count(
+    workspace: Workspace,
+) -> None:
+    workspace.write(".rapid-ship/kit.lock", LOCK)
+    workspace.write(MANAGED, "")
+    base = workspace.commit()
+    workspace.write(MANAGED, lines(1600))  # a Kit upgrade rewrites the file and keeps it managed
+
+    assert DiffStep().run(workspace.context(base=base)) == StepResult(
+        "diff", "passed", (NO_CODEOWNERS, note(0))
+    )
 
 
 def test_untracked_files_count(workspace: Workspace) -> None:
