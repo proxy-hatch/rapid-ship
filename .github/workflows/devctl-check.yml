@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: devctl-check-${{ github.ref }}
+  # Each push run has its own commit's group, so a later push never replaces the queued run of an
+  # earlier commit. A pull request keeps one group per ref and cancels its older run.
+  group: devctl-check-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

@@ -26,7 +26,7 @@ template_sha256 = "43beb77bb4c6890df5b34b9671849bc81ac1c45bcf106cd62754faf6f1a01
 [[file]]
 path = ".github/workflows/devctl-check.yml"
 kind = "managed"
-sha256 = "fbeff37fd29f9343c791785df6090db6846d3c8043e75719c4a6444c573f9b01"
+sha256 = "968ec57a87b698cc61e727fbd01c5ea3f426be38c66642234ad779efb0ee6350"
 
 [[file]]
 path = ".rapid-ship/exceptions.toml"
