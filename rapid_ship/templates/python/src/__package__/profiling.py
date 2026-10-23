@@ -32,7 +32,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--rounds",
         type=int,
-        default=100_000,
+        default=5_000_000,
         help="how many times to run the workload (default: %(default)s)",
     )
     args = parser.parse_args(argv)

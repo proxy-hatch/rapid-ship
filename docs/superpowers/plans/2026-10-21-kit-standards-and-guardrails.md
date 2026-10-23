@@ -1131,8 +1131,8 @@ class Settings:
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings: ...  # None: os.environ
 
 
-# src/<package>/profiling.py: py-spy record -o profile.svg -- python -m <package>.profiling
-def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 100000
+# src/<package>/profiling.py: uvx py-spy record -o profile.svg -- .venv/bin/python -m <package>.profiling
+def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 5000000
 ```
 
 | Pattern file | `task` | `reference` | `enforced_by` |
@@ -1142,7 +1142,7 @@ def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 1
 | `python-input-validation.md` | `Validate input` | `src/{{package}}/inputs.py` | `type:tests/test_inputs.py`, `test:tests/test_inputs.py::test_an_unknown_value_is_rejected` |
 | `python-performance.md` | `Find slow code` | `src/{{package}}/profiling.py` | `test:tests/test_profiling.py::test_the_profiling_entry_point_runs_on_a_small_input` |
 
-Each file states the rule of Spec 1 section 4's starter table, when it applies and the bypass it bans, then `## Lessons` on what its reference does right. The performance Pattern documents `uvx py-spy record -o profile.svg -- python -m <package>.profiling` and how to read the flame graph; no check runs a profiler.
+Each file states the rule of Spec 1 section 4's starter table, when it applies and the bypass it bans, then `## Lessons` on what its reference does right. The performance Pattern documents `uvx py-spy record -o profile.svg -- .venv/bin/python -m <package>.profiling`, run after `uv sync`, and how to read the flame graph; no check runs a profiler.
 
 - Ruling: `pyproject.toml`'s `banned-api` gains `"os.environ".msg` and `"os.getenv".msg`, both pointing to `docs/patterns/python-configuration.md`, and `per-file-ignores` gains `"src/{{package}}/settings.py" = ["TID251"]  # the one module that reads the environment`. A per-file entry in the Protected `pyproject.toml` is the owner's setting, while an inline suppression would need an `exceptions.toml` entry, and the seed must hold none.
 - Ruling: `tests/test_inputs.py` is the `type:` fixture: `assert_type(parse_level("info"), Level)` sits in its test, which mypy checks under `files = ["src", "tests"]`; no `type: ignore` is needed.

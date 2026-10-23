@@ -15,7 +15,8 @@ The bypass this bans is passing the raw string inward and comparing it later. my
 
 ## Lessons
 
-- `Level` is a union of literals, and `LEVELS` comes from it through `get_args`, so the type and the allowed values are written once.
-- `parse_level` returns a `Level` from its loop over `LEVELS`. The comparison narrows the type without a `cast`, so mypy checks the return instead of trusting it.
+- `Level` is a union of literals, and `LEVELS` comes from it through `get_args`, so the allowed values are written once, in `Level`.
+- `get_args` returns `tuple[Any, ...]`, so mypy cannot check the annotation `tuple[Level, ...]` on `LEVELS`. That annotation is the one step mypy takes on trust, and it sits next to `Level`, where a reader can compare the two.
+- `parse_level` returns the item of `LEVELS` that matched, which is already a `Level`, so it needs no `cast`.
 - Its `UsageError` lists every allowed value, so the user can fix the input without reading the code.
 - `test_inputs.py` checks both sides: `assert_type` for mypy, and a rejected value for pytest.

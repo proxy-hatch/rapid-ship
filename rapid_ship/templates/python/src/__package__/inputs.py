@@ -5,13 +5,14 @@ from typing import Literal, get_args
 from {{package}}.errors import UsageError
 
 Level = Literal["debug", "info", "warning", "error"]
-LEVELS: tuple[Level, ...] = get_args(Level)  # the allowed values, written once in Level
+# The allowed values, taken from Level so they are written once. get_args returns
+# tuple[Any, ...], so mypy cannot check this annotation: it is the one unchecked step.
+LEVELS: tuple[Level, ...] = get_args(Level)
 
 
 def parse_level(text: str) -> Level:
     """The log level that `text` names, or a UsageError that lists every level."""
     for level in LEVELS:
-        # The comparison narrows `level` to Level, so the return needs no cast.
         if text == level:
-            return level
+            return level  # already a Level, by the annotation on LEVELS, so no cast
     raise UsageError(f"{text} is not a log level", f"use one of {', '.join(LEVELS)}")

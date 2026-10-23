@@ -32,11 +32,11 @@ Nothing installs py-spy into the project; `uvx` fetches it for each run. From th
 - A bar's width is its share of the samples: how often the function was running, or waiting for a function it called. Left to right is not time order.
 - Look for wide bars far from the root. Where a bar is wider than all the bars it called together, the difference is time spent in that function's own code.
 - Hover over a bar to see its file, line and sample count. Click a bar to zoom in, and use Search to highlight a function by name.
-- py-spy samples about 100 times a second. Raise `--rounds` until a run lasts a few seconds, so that the graph rests on hundreds of samples.
+- py-spy samples about 100 times a second, so a run must last a few seconds for the graph to rest on hundreds of samples. The default of 5,000,000 rounds suits the seed's workload. After you replace the workload, change `--rounds` until a run lasts a few seconds.
 
 ## Lessons
 
-- `profiling.py` is a module with `main(argv)`, so the test calls it in the same process with `--rounds 3`, and py-spy runs the same code with the default of 100,000 rounds.
+- `profiling.py` is a module with `main(argv)`, so the test calls it in the same process with `--rounds 3`, and py-spy runs the same code with the default of 5,000,000 rounds.
 - `--rounds` scales the run without a code change.
 - It starts no process and reads no environment, so each run profiles the same code in one process.
 - Its test checks that the entry point runs and returns 0, never how long it takes.

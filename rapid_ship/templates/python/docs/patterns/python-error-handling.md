@@ -10,7 +10,7 @@ enforced_by:
 
 Fail fast and gracefully: stop at the first error, report it with its cause and what to do next, and never hide, swallow or reword it.
 
-This applies wherever code finds a problem or catches an exception. When the user can fix the problem, such as a bad setting or an unknown input value, raise `UsageError(problem, next_step)` from `{{package}}.errors`. When an exception found the problem, raise it from that exception: `raise UsageError(...) from error`. Let every other exception propagate unchanged, because it is a bug and its traceback is the report. Catch `UsageError` only in the entry point, which writes its text to stderr and exits 1.
+This applies wherever code finds a problem or catches an exception. When the user can fix the problem, such as a bad setting or an unknown input value, raise `UsageError(problem, next_step)` from `{{package}}.errors`. When an exception found the problem, raise it from that exception: `raise UsageError(...) from error`. Let every other exception propagate unchanged, because it is a bug and its traceback is the report. Only the entry point handles a `UsageError`: it writes the error's text to stderr and exits 1. Other code catches a `UsageError` only to raise a new one from it that adds context.
 
 The bypass this bans is catching an error and carrying on. Ruff flags `except Exception:` and `except BaseException:` unless the handler re-raises or logs the traceback (BLE001), and a catch-all `except` whose body is only `pass` (S110). A narrow `except ValueError: pass`, a fallback value that masks a failure and an error raised without `from` are the same bypass, which review catches.
 
