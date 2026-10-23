@@ -93,7 +93,10 @@ def settings_item(root: Path) -> Item:
     if unknown:
         return Item("guardrails", "settings", "unknown", "; ".join(unknown))
     if patterns is None:
-        detail = f"no CODEOWNERS file; rapid-ship init seeds {CODEOWNERS_FILES[0]}"
+        detail = (
+            f"no CODEOWNERS file; restore {CODEOWNERS_FILES[0]} from git or write a new one "
+            "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+        )
         return Item("guardrails", "settings", "missing", detail)
     detail = (
         f"{PROJECT} and {EXCEPTIONS} are valid; CODEOWNERS lists {len(patterns)} Protected paths"

@@ -201,7 +201,7 @@ sha256 = "55f7d49fdc77eb5367a9f35b07d58e3a6afd01cd2f8c7eff501215f9274b1092"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "3fe2cd301bd76154380f0c94df1625e61c8918df1542b426f241009137c06cf1"
+sha256 = "698217c052414650a55886dc9424b8e3f709f18ba7da8ccd576a801acce1a3bd"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"

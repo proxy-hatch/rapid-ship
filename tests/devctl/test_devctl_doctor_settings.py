@@ -74,6 +74,34 @@ def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(
     ) in capsys.readouterr().out.splitlines()
 
 
+def test_invalid_exceptions_exit_2_and_name_the_file(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace)
+    in_workspace.write(".rapid-ship/exceptions.toml", 'exception = "none"\n')
+
+    assert main(["doctor", "--settings"]) == 2
+
+    assert capsys.readouterr().out.splitlines()[1] == (
+        "unknown  guardrails  settings: .rapid-ship/exceptions.toml exception: "
+        "expected a list of tables"
+    )
+
+
+def test_a_codeowners_that_is_not_utf8_exits_2_and_names_the_file(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace)
+    (in_workspace.root / ".github/CODEOWNERS").write_bytes(b"/api/ @owner \xff\n")
+
+    assert main(["doctor", "--settings"]) == 2
+
+    assert capsys.readouterr().out.splitlines()[1] == (
+        "unknown  guardrails  settings: .github/CODEOWNERS is not UTF-8: 'utf-8' codec can't "
+        "decode byte 0xff in position 13: invalid start byte"
+    )
+
+
 def test_a_missing_codeowners_is_missing(
     in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -81,7 +109,10 @@ def test_a_missing_codeowners_is_missing(
 
     assert main(["doctor", "--settings"]) == 1
 
-    assert capsys.readouterr().out.splitlines()[1].startswith("missing  guardrails  settings: ")
+    assert capsys.readouterr().out.splitlines()[1] == (
+        "missing  guardrails  settings: no CODEOWNERS file; restore .github/CODEOWNERS from git "
+        "or write a new one (rapid-ship sync seeds it only while the Kit lock does not list it)"
+    )
 
 
 def test_settings_and_skills_exclude_each_other(capsys: pytest.CaptureFixture[str]) -> None:
