@@ -4,6 +4,7 @@
 
 ## Commands
 
+- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.
 - `./devctl check` runs every check CI requires. Add `--tier fast` for the quick subset.
 - `./devctl doctor` reports missing tools, settings and GitHub configuration.
 - `./devctl --help` lists the project's own verbs.
@@ -12,6 +13,8 @@
 
 | Work | Start here |
 | --- | --- |
+| What the project does, and how to run and check it | [README](README.md) |
+| The system's parts and how data moves between them | [Architecture](ARCHITECTURE.md) |
 | What a feature does, where it starts and how to reproduce it | [Feature map](docs/features/README.md) |
 | The one supported way to do a recurring task | [Patterns](docs/patterns/README.md) |
 | Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |

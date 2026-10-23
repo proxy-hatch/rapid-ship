@@ -102,7 +102,7 @@ def test_old_git_stops_doctor_before_it_reads_the_repository(
 ) -> None:
     monkeypatch.chdir(tmp_path)  # not a work tree: reading it would raise RepoError
     fake_run.answer(["git", "--version"], result(0, "git version 2.30.9\n"))
-    assert doctor_command(argparse.Namespace(skills=False)) == 1
+    assert doctor_command(argparse.Namespace(skills=False, settings=False)) == 1
     out = capsys.readouterr().out
     assert "missing  toolchain  git: git 2.30.9 is older than 2.31" in out
 
@@ -150,7 +150,7 @@ def test_doctor_reads_the_apps_only_with_agent_identity_on(
     monkeypatch.setattr(doctor, "run_doctor", record)
     for settings in (on, off):
         monkeypatch.setattr(doctor, "load_project", lambda root, found=settings: found)
-        assert doctor.doctor_command(argparse.Namespace(skills=False)) == 0
+        assert doctor.doctor_command(argparse.Namespace(skills=False, settings=False)) == 0
     [with_apps, without_apps] = contexts
     assert with_apps.access is not None
     assert with_apps.access.repository == "o/r"

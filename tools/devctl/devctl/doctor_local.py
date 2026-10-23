@@ -1,4 +1,4 @@
-"""doctor's local items: the toolchain, guardrails and Kit files.
+"""doctor's local items: the toolchain, the settings files, guardrails and Kit files.
 
 Nothing here reads GitHub or changes the repository. A tool runs by the absolute path
 shutil.which found, from the temporary directory (git config, which reads the repository's
@@ -24,9 +24,11 @@ from devctl.check.stacks.python import (
     toml_strings,
     toml_table,
 )
+from devctl.codeowners import CODEOWNERS_FILES, protected_patterns
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
 from devctl.doctor_wiring import wiring_item
 from devctl.repo import Repo
+from devctl.settings import EXCEPTIONS, PROJECT, SettingsError, load_exceptions, load_project
 
 DEVCTL_DIRECTORY = "tools/devctl"
 KIT_SOURCE = "rapid_ship/templates/kit.toml"  # tracked only where the Kit's templates live
@@ -66,6 +68,37 @@ def git_item() -> Item:
         )
         return _toolchain("git", "missing", detail)
     return _toolchain("git", "ok", match[1])
+
+
+def settings_item(root: Path) -> Item:
+    """Whether the settings files load: .rapid-ship/project.toml and exceptions.toml by devctl's
+    loaders, and the CODEOWNERS file GitHub reads, where devctl hook finds the Protected set (Spec 1
+    section 6).
+
+    A file that cannot be read or holds an invalid key is unknown, with the message that names the
+    file and the key. No CODEOWNERS file is missing, because devctl hook then knows no Protected
+    path.
+    """
+    unknown: list[str] = []
+    for load in (load_project, load_exceptions):
+        try:
+            load(root)
+        except SettingsError as error:
+            unknown.append(" ".join(str(error).splitlines()))
+    try:
+        patterns = protected_patterns(root)
+    except OSError as error:  # its message names the file
+        unknown.append(" ".join(str(error).splitlines()))
+        patterns = []
+    if unknown:
+        return Item("guardrails", "settings", "unknown", "; ".join(unknown))
+    if patterns is None:
+        detail = f"no CODEOWNERS file; rapid-ship init seeds {CODEOWNERS_FILES[0]}"
+        return Item("guardrails", "settings", "missing", detail)
+    detail = (
+        f"{PROJECT} and {EXCEPTIONS} are valid; CODEOWNERS lists {len(patterns)} Protected paths"
+    )
+    return Item("guardrails", "settings", "ok", detail)
 
 
 def gitleaks_item() -> Item:
@@ -280,11 +313,12 @@ def _kit_item(ctx: DoctorContext) -> Item:
 
 
 def local_items(ctx: DoctorContext) -> list[Item]:
-    """Every item that needs no GitHub: the toolchain, guardrails and Kit files."""
+    """Every item that needs no GitHub: the toolchain, the settings, guardrails and Kit files."""
     tracked = Repo.discover(ctx.root).tracked_files()
     python = ctx.project.stack == "python"
     return [
         git_item(),
+        settings_item(ctx.root),
         _on_path("uv", "install uv; devctl check runs the project's tools through it"),
         _on_path("gh", "install gh; doctor reads GitHub with its login"),
         _gh_sign_in(),

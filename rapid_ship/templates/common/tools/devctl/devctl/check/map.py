@@ -1,6 +1,7 @@
 """The map step: guide links resolve, every maintained directory has a guide and every guide
-is reachable, feature files, Patterns and Rules name things that exist, and every skill has its
-discovery alias and front matter."""
+is reachable, feature files, Patterns and Rules name things that exist, every skill has its
+discovery alias and front matter, and README.md and ARCHITECTURE.md exist, are linked from the root
+guide and hold no broken link."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+import devctl
 from devctl.check.map_skills import skill_alias_errors, skill_errors
 from devctl.check.markdown import (
     ListItem,
@@ -28,6 +30,8 @@ from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
+ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")  # map rule 8
+GRACE_VERSION = "0.2.0"  # the Kit version in which map rules 5, 7 and 8's new parts only warn
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
@@ -54,8 +58,24 @@ class MapStep:
             *rule_errors(context, found),
             *skill_alias_errors(root, files),
             *skill_errors(root, files),
+            *root_document_errors(root, files),
         ]
-        return failed(self.name, *errors) if errors else passed(self.name)
+        late, notes = graced(root_link_errors(root, files))
+        errors += late
+        return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
+
+
+def graced(messages: list[str]) -> tuple[list[str], list[str]]:
+    """(errors, notes): a new rule's messages, which only warn while this devctl is GRACE_VERSION.
+
+    A project that already owns a file the new rule fails gets one Kit version to fix it (Spec 1
+    section 3). The version is read when the step runs, so a test can set it.
+    """
+    if devctl.__version__ == GRACE_VERSION:
+        return [], [
+            f"warning: {message}; this fails from the next Kit version" for message in messages
+        ]
+    return list(messages), []
 
 
 def guides(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
@@ -336,3 +356,37 @@ def _rule_problem(context: CheckContext, guide: str, item: ListItem) -> str | No
     reference = ending.group("reference")
     reason = resolve(reference, context) if reference else None
     return f"{guide}:{item.line}: {reason}" if reason else None
+
+
+def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
+    """The ROOT_DOCUMENTS that exist as files the checkout maintains."""
+    present = set(files)
+    return [name for name in ROOT_DOCUMENTS if name in present and (root / name).is_file()]
+
+
+def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 8: README.md and ARCHITECTURE.md exist at the repository root.
+
+    This part fails at once, because rapid-ship sync seeds a missing document.
+    """
+    found = _root_documents(root, files)
+    return [
+        f"{name}: missing at the repository root; rapid-ship init seeds it"
+        for name in ROOT_DOCUMENTS
+        if name not in found
+    ]
+
+
+def root_link_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 8: each local link in the root documents resolves, by rule 1, and the root guide
+    links both. A missing document is root_document_errors' report, and a missing root guide
+    reachability_errors'."""
+    errors = link_errors(root, files, _root_documents(root, files))
+    if (root / ROOT_GUIDE).is_file():
+        targets = set(_guide_targets(root, ROOT_GUIDE))
+        errors += [
+            f"{ROOT_GUIDE}: does not link {name}; add it to the Find the change table"
+            for name in ROOT_DOCUMENTS
+            if name not in targets
+        ]
+    return errors

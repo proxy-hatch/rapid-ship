@@ -6,6 +6,9 @@ the --skills items. doctor_items.py holds the types they share and the owner's o
 GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
 names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
 
+--settings is the quick read that each Session runs first unless it runs the full doctor (Spec 1
+section 6): git, the settings files and the Harness wiring, with no GitHub request.
+
 No item checks a Harness's sign-in (Spec 1 section 6).
 """
 
@@ -28,6 +31,7 @@ from devctl.doctor_local import KIT_SOURCE as KIT_SOURCE
 from devctl.doctor_local import devctl_exclusion_gaps as devctl_exclusion_gaps
 from devctl.doctor_local import git_item as git_item
 from devctl.doctor_local import local_items as local_items
+from devctl.doctor_local import settings_item as settings_item
 from devctl.doctor_rules import ADMIN_ROLE_ID as ADMIN_ROLE_ID
 from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID as GITHUB_ACTIONS_APP_ID
 from devctl.doctor_rules import PROTECTED_PATHS as PROTECTED_PATHS
@@ -39,6 +43,7 @@ from devctl.doctor_skills import probe_worktree as probe_worktree
 from devctl.doctor_skills import probed_harnesses as probed_harnesses
 from devctl.doctor_skills import repository_skills as repository_skills
 from devctl.doctor_skills import skills_items as skills_items
+from devctl.doctor_wiring import wiring_item
 from devctl.github.app import project_access
 from devctl.repo import Repo
 from devctl.settings import load_project
@@ -79,6 +84,12 @@ def doctor_command(args: argparse.Namespace) -> int:
         # Every later item needs git rev-parse --path-format=absolute.
         return _report([item])
     repo = Repo.discover(Path.cwd())  # cli.main maps RepoError and SettingsError to exit 2
+    if args.settings:
+        # No DoctorContext: building one runs load_project, which would stop doctor before
+        # settings_item reports an invalid file, and --settings never reads GitHub.
+        return _report(
+            [item, settings_item(repo.root), wiring_item(repo.root, repo.tracked_files())]
+        )
     project = load_project(repo.root)
     # doctor reads the Apps only while Agent identity is on (Spec 1 section 6).
     access = project_access(project) if project.agent_identity else None
@@ -92,10 +103,17 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
         description="Report each item as ok, missing or unknown. Exit 0 when every item is ok, "
         "1 when one is missing, 2 when one is unknown.",
     )
-    parser.add_argument(
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument(
         "--skills",
         action="store_true",
         help="also start one headless Claude Code Session when claude is on PATH, in a temporary "
         "worktree at HEAD, and compare the skills it loads; spends a little quota",
+    )
+    scope.add_argument(
+        "--settings",
+        action="store_true",
+        help="check only git, the settings files and the Claude Code wiring, and ask GitHub "
+        "nothing; each Session runs it first unless it runs the full doctor",
     )
     parser.set_defaults(handler=doctor_command)

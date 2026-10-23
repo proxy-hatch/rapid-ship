@@ -1,0 +1,92 @@
+"""Offline: doctor --settings on fixture repositories; gh_get is replaced by a reader that fails the
+test."""
+
+from __future__ import annotations
+
+import pytest
+
+from check_workspace import Workspace
+from devctl import doctor
+from devctl.cli import main
+from devctl.doctor import DoctorContext
+from rapid_ship.kit.templates import render_files
+
+VARIABLES = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
+INVALID_KEY = 'stack = "python"\n[escalation]\nrevision_rounds = 0\n'
+
+
+def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
+    """Commit the rendered seeds of .rapid-ship/, .claude/settings.json and .github/CODEOWNERS."""
+    wanted = {".claude/settings.json", *([".github/CODEOWNERS"] if codeowners else [])}
+    for template in render_files("python", VARIABLES, ()):
+        if template.path.startswith(".rapid-ship/") or template.path in wanted:
+            assert template.content is not None
+            workspace.write(template.path, template.content.decode())
+    workspace.commit("Add the Kit's settings")
+
+
+@pytest.fixture
+def in_workspace(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> Workspace:
+    """The workspace as the working directory, where doctor may not read GitHub or build the
+    full doctor's context."""
+
+    def no_github(path: str, jq: str | None = None) -> object:
+        pytest.fail(f"doctor --settings read GitHub: {path}")
+
+    def no_full_doctor(ctx: DoctorContext, *, skills: bool = False) -> int:
+        pytest.fail("doctor --settings ran the full doctor")
+
+    monkeypatch.setattr(doctor, "gh_get", no_github)
+    monkeypatch.setattr(doctor, "run_doctor", no_full_doctor)
+    monkeypatch.chdir(workspace.root)
+    return workspace
+
+
+def test_settings_reads_only_the_settings_and_asks_github_nothing(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace)
+
+    assert main(["doctor", "--settings"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(": ")[0] for line in lines[:-1]] == [
+        "ok  toolchain  git",
+        "ok  guardrails  settings",
+        "ok  guardrails  Harness wiring",
+    ]
+    assert lines[1].startswith("ok  guardrails  settings: ")
+    assert lines[2].startswith("ok  guardrails  Harness wiring: ")
+    assert lines[-1] == "doctor: 3 ok, 0 missing, 0 unknown"
+
+
+def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace)
+    in_workspace.write(".rapid-ship/project.toml", INVALID_KEY)
+
+    assert main(["doctor", "--settings"]) == 2
+
+    assert (
+        "unknown  guardrails  settings: .rapid-ship/project.toml [escalation] revision_rounds: "
+        "expected an integer of at least 1"
+    ) in capsys.readouterr().out.splitlines()
+
+
+def test_a_missing_codeowners_is_missing(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace, codeowners=False)
+
+    assert main(["doctor", "--settings"]) == 1
+
+    assert capsys.readouterr().out.splitlines()[1].startswith("missing  guardrails  settings: ")
+
+
+def test_settings_and_skills_exclude_each_other(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["doctor", "--settings", "--skills"])
+
+    assert raised.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err

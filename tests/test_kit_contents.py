@@ -36,7 +36,9 @@ SEEDED = {
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
+    "ARCHITECTURE.md",
     "CLAUDE.md",
+    "README.md",
     "docs/AGENTS.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
@@ -295,11 +297,17 @@ def test_python_seeds_are_valid_python() -> None:
 
 
 ROOT_GUIDE_LINKS = [
+    "README.md",
+    "ARCHITECTURE.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
     "docs/AGENTS.md",
     "tools/AGENTS.md",
 ]
+SETTINGS_FIRST = (
+    "- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full "
+    "`./devctl doctor`; it checks the settings files and asks GitHub nothing."
+)
 POINTERS = (
     "`GLOSSARY.md`",
     "`docs/adr/`",
@@ -307,6 +315,7 @@ POINTERS = (
     "`rs-ponytail`",
     "`./devctl check`",
     "`./devctl doctor`",
+    "`./devctl doctor --settings`",
 )
 
 
@@ -343,6 +352,9 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
         assert words in owned
     assert re.findall(r"\]\(([^)]+)\)", guide) == links
     assert all(pointer in guide for pointer in POINTERS)
+    # Spec 1 section 6: each Session that does not run the full doctor runs --settings first.
+    commands = guide.split("## Commands")[1].split("##")[0]
+    assert commands.strip().splitlines()[0] == SETTINGS_FIRST
 
 
 def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
@@ -353,6 +365,18 @@ def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
     assert [line for line in python if line not in rows] == text(
         "agnostic", "AGENTS.md"
     ).splitlines()
+
+
+def test_the_readme_and_architecture_seeds_follow_the_spec() -> None:
+    readme = text("agnostic", "README.md")
+    assert "./devctl check" in readme
+    assert "](AGENTS.md)" in readme
+    architecture = text("agnostic", "ARCHITECTURE.md")
+    assert "| Part | Where | What it does |" in architecture
+    assert "`docs/adr/`" in architecture
+    for seed in (readme, architecture):
+        assert "demo-app" in seed
+        assert "{{" not in seed
 
 
 def test_claude_md_imports_the_guide() -> None:

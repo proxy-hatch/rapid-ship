@@ -13,6 +13,7 @@ The settings hold the code owner, the escalation list and each App's ID and slug
 
 ## Commands
 
+- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
@@ -27,6 +28,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 
 | Work | Start here |
 | --- | --- |
+| What the project does, and how to run and check it | [README](README.md) |
 | The `rapid-ship` package, its file helpers and the engineering skill | [Source map](rapid_ship/AGENTS.md) |
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |

@@ -20,7 +20,7 @@ def errors(workspace: Workspace) -> list[str]:
 
 
 def test_a_project_authored_skill_passes(workspace: Workspace) -> None:
-    workspace.write("AGENTS.md", "# Root\n")
+    workspace.root_guide()
     add_skill(workspace, "rs-tdd", skill_text("rs-tdd"))  # as the Kit vendors it
     add_skill(workspace, "release-notes", skill_text("release-notes"))  # not in the lock
 

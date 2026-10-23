@@ -211,7 +211,7 @@ def test_every_rule_ends_with_a_resolving_marker(workspace: Workspace) -> None:
 
 
 def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Workspace) -> None:
-    workspace.write("AGENTS.md", "[Docs](docs/)\n\n## Rules\n\n- Forgot the marker.\n")
+    workspace.root_guide("[Docs](docs/)\n\n## Rules\n\n- Forgot the marker.\n")
     workspace.write("docs/AGENTS.md", "# Docs\n")
     workspace.write("docs/features/sign-in.md", "# Sign-in\n")
     workspace.write("docs/patterns/settings.md", "# Settings\n")

@@ -46,12 +46,22 @@ template_sha256 = "524929290528d091c83bb43406a2097926337a4ad13a8c1706ca1952dd55b
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "9e1bda87d50fc34279a97b4aab0556e5f530df6001492cc05743379a2f0eceaa"
+template_sha256 = "e137f7de15fa82a560b24ea5099b609e596e963987ffe16381652404dae7d4fb"
+
+[[file]]
+path = "ARCHITECTURE.md"
+kind = "seeded"
+template_sha256 = "0eeb0f63549459c52c2f53d778edefd8bb65459e39a935e86c4671d36c934954"
 
 [[file]]
 path = "CLAUDE.md"
 kind = "seeded"
 template_sha256 = "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+
+[[file]]
+path = "README.md"
+kind = "seeded"
+template_sha256 = "f035a7389d9b35d94f8d46b6ff0d356973613a7695124c6494e890356d8e18b8"
 
 [[file]]
 path = "devctl"
@@ -121,7 +131,7 @@ sha256 = "8de00baa292f0d27855441f99d9d45992f62a822d46f59f64df85362f692bd9d"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "e83b572f48a790ec17e6a9e3120ad4a33db2a30712b2036ba2cddfec59d222d8"
+sha256 = "2966137f3c96ae29cda675ab6c6e93a9a28ba2da1ce8b66d14fef1412f6a5097"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
@@ -176,7 +186,7 @@ sha256 = "e84b88a41e50d5d80c6d11d3f7f22f99454bb74fcacde0b0b5385596080665d6"
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
 kind = "managed"
-sha256 = "3d7f453b764ceb16dda325cae34c73e5130ef28b26727cd64cc40094d5187bed"
+sha256 = "c6563e700ef954fd20e699317fd306e95e51eae9b60fc68156d1369a6f7e7d1d"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
@@ -191,7 +201,7 @@ sha256 = "55f7d49fdc77eb5367a9f35b07d58e3a6afd01cd2f8c7eff501215f9274b1092"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "5bba939b1bbbada138ae5d38f2de400c51d9159c94111070d88c57ac2ef304be"
+sha256 = "3fe2cd301bd76154380f0c94df1625e61c8918df1542b426f241009137c06cf1"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"

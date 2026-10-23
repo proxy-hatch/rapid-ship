@@ -54,6 +54,14 @@ def adjusted(context: DoctorContext, **changes: object) -> DoctorContext:
     return dataclasses.replace(context, project=project)
 
 
+def rendered_agnostic_seed(path: str) -> str:
+    """The Kit's seed at path as init renders it for the agnostic stack."""
+    variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
+    [template] = [t for t in render_files("agnostic", variables, ()) if t.path == path]
+    assert template.content is not None
+    return template.content.decode()
+
+
 def seeded_pyproject_text() -> str:
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
     [template] = [t for t in render_files("python", variables, ()) if t.path == "pyproject.toml"]
@@ -200,6 +208,7 @@ class TestItems:
         items = local_items(ctx())
         assert [(i.area, i.name) for i in items] == [
             ("toolchain", "git"),
+            ("guardrails", "settings"),
             ("toolchain", "uv"),
             ("toolchain", "gh"),
             ("toolchain", "gh sign-in"),
@@ -366,9 +375,10 @@ class TestOutput:
         self, ctx: MakeContext, fake_run: FakeRun, capsys: pytest.CaptureFixture[str]
     ) -> None:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
-        # missing, and gitleaks (no version printed) is unknown. No .claude/settings.json is
-        # tracked, so the Harness wiring is missing. With no repository, the GitHub part is one
-        # missing item, printed after the local ones.
+        # missing, and gitleaks (no version printed) is unknown. No .rapid-ship/project.toml is
+        # written, so the settings are unknown. No .claude/settings.json is tracked, so the
+        # Harness wiring is missing. With no repository, the GitHub part is one missing item,
+        # printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
             ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
@@ -382,8 +392,8 @@ class TestOutput:
             lines[-2]
             == "missing  github  repository: repository is not set in .rapid-ship/project.toml"
         )
-        assert lines[-1] == "doctor: 4 ok, 6 missing, 1 unknown"
-        assert len(lines) == 12
+        assert lines[-1] == "doctor: 4 ok, 6 missing, 2 unknown"
+        assert len(lines) == 13
 
     def test_doctor_reads_the_project_and_reports_every_local_item_ok(
         self,
@@ -394,6 +404,8 @@ class TestOutput:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         repo_files.write(".rapid-ship/project.toml", 'stack = "agnostic"\n')
+        for path in (".rapid-ship/exceptions.toml", ".github/CODEOWNERS"):
+            repo_files.write(path, rendered_agnostic_seed(path))
         repo_files.workflow(job_name="devctl check")
         repo_files.write(".claude/settings.json", rendered_seed())
         repo_files.lock(unchanged=["devctl"], missing=[])
@@ -403,9 +415,9 @@ class TestOutput:
         fake_run.answer(["git", "config", "--get", "core.hooksPath"], result(0, ".githooks\n"))
         monkeypatch.chdir(repo_files.root)
         # The project names no repository, so GitHub's part is one missing item and the exit is 1.
-        assert doctor_command(argparse.Namespace(skills=False)) == 1
+        assert doctor_command(argparse.Namespace(skills=False, settings=False)) == 1
         lines = capsys.readouterr().out.splitlines()
-        assert lines[-1] == "doctor: 10 ok, 1 missing, 0 unknown"
+        assert lines[-1] == "doctor: 11 ok, 1 missing, 0 unknown"
         assert lines[-2].startswith("missing  github  repository: ")
         assert all(line.startswith("ok  ") for line in lines[:-2])
 
@@ -431,7 +443,7 @@ class TestOutput:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         fake_run.answer(["git", "--version"], result(0, "no version here\n"))
-        assert doctor_command(argparse.Namespace(skills=False)) == 2
+        assert doctor_command(argparse.Namespace(skills=False, settings=False)) == 2
         out = capsys.readouterr().out
         assert out.splitlines() == [
             "unknown  toolchain  git: git --version gave no readable version",
