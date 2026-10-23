@@ -229,19 +229,25 @@ def test_lessons_is_a_level_2_heading_outside_code(workspace: Workspace, text: s
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "message"),
     [
-        PATTERN.replace("---\nOne", "One"),
-        PATTERN.split("---\n", 2)[2],
-        "---\n- task\n---\n" + PATTERN.split("---\n", 2)[2],
+        (PATTERN.replace("---\nOne", "One"), "front matter is not closed with ---"),
+        (
+            PATTERN.split("---\n", 2)[2],
+            "no front matter; start the file with --- and the keys task, reference and enforced_by",
+        ),
+        ("---\n- task\n---\n" + PATTERN.split("---\n", 2)[2], "front matter must be a mapping"),
     ],
     ids=["front matter not closed", "no front matter", "front matter is a list"],
 )
-def test_a_front_matter_problem_is_left_to_pattern_errors(workspace: Workspace, text: str) -> None:
+def test_a_front_matter_problem_is_left_to_pattern_errors(
+    workspace: Workspace, text: str, message: str
+) -> None:
     assert lessons(workspace, text) == []
     context = workspace.context()
-    [reported] = pattern_errors(context, context.repo.files())
-    assert reported.startswith("docs/patterns/settings.md: ")
+    assert pattern_errors(context, context.repo.files()) == [
+        f"docs/patterns/settings.md: {message}"
+    ]
 
 
 def test_the_pattern_readme_is_not_a_pattern(workspace: Workspace) -> None:

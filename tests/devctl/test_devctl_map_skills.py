@@ -1,6 +1,6 @@
 """Offline: map rule 7's SKILL.md halves in fixture repositories: each SKILL.md names its
-directory, describes itself and is a regular file. A symlinked SKILL.md is the one the test
-simulates; it needs no Codex."""
+directory, describes itself and is a regular file. The symlinked SKILL.md is a real symlink;
+Codex's rejection of it is not run."""
 
 from __future__ import annotations
 

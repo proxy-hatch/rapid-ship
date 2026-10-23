@@ -133,6 +133,15 @@ def _local_path(target: str) -> str | None:
     return unquote(url.path)
 
 
+def _from_root(guide: str, path: str) -> str:
+    """`path`, a local link in `guide`, relative to the repository root.
+
+    GitHub resolves a link that starts with / against the repository root, as in a README.
+    """
+    directory = "" if path.startswith("/") else posixpath.dirname(guide)
+    return posixpath.normpath(posixpath.join(directory, path.lstrip("/")))
+
+
 def _link_error(
     root: Path,
     guide: str,
@@ -144,7 +153,7 @@ def _link_error(
     path = _local_path(target)
     if path is None:
         return None
-    dependency = Path(os.path.normpath((root / guide).parent / path))
+    dependency = Path(os.path.normpath(root / _from_root(guide, path)))
     if not dependency.exists():
         return f"{guide}:{line}: missing target {target!r}; update the navigation link"
     relative = dependency.relative_to(root).as_posix() if dependency.is_relative_to(root) else None
@@ -227,9 +236,8 @@ def _guide_targets(root: Path, guide: str) -> list[str]:
         links = _links(root, guide)
     except (OSError, ValueError):
         return []
-    directory = posixpath.dirname(guide)
     paths = (_local_path(target) for _, target in links)
-    return [posixpath.normpath(posixpath.join(directory, path)) for path in paths if path]
+    return [_from_root(guide, path) for path in paths if path]
 
 
 def registered_verbs() -> frozenset[str]:
@@ -273,8 +281,9 @@ def _document_errors(
 ) -> list[str]:
     """`problems(context, path, front matter, text)` for each document under `directory`.
 
-    A document whose front matter is unusable is reported as one error naming `keys`. With
-    `keys` None it is skipped, because another rule already reports it.
+    A document whose front matter is unusable is reported as one error; when it has none, the
+    message names `keys`. With `keys` None it is skipped, because another rule already reports
+    it.
     """
     root = context.repo.root
     errors: list[str] = []
@@ -408,11 +417,14 @@ def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
 def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
     """Map rule 8: README.md and ARCHITECTURE.md exist at the repository root.
 
-    This part fails at once, because rapid-ship sync seeds a missing document.
+    This part fails at once, because rapid-ship sync seeds a missing document when it upgrades a
+    project from a Kit without the seed. Once the lock lists a document, sync never writes it
+    again, so the message names git.
     """
     found = _root_documents(root, files)
     return [
-        f"{name}: missing at the repository root; rapid-ship init seeds it"
+        f"{name}: missing at the repository root; restore it from git or write a new one "
+        "(rapid-ship sync seeds it only while the Kit lock does not list it)"
         for name in ROOT_DOCUMENTS
         if name not in found
     ]

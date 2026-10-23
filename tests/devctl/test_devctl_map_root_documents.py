@@ -14,6 +14,10 @@ BACK = "Start at [AGENTS.md](AGENTS.md).\n"
 BROKEN = "ARCHITECTURE.md:1: missing target 'gone.md'; update the navigation link"
 UNLINKED = "AGENTS.md: does not link README.md; add it to the Find the change table"
 GRACE = "; this fails from the next Kit version"
+MISSING = (
+    "README.md: missing at the repository root; restore it from git or write a new one "
+    "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+)
 
 
 def run_map(workspace: Workspace, monkeypatch: pytest.MonkeyPatch, version: str) -> StepResult:
@@ -45,7 +49,7 @@ def test_rule_8_reports_a_missing_document_and_a_broken_link(workspace: Workspac
     workspace.write("ARCHITECTURE.md", "[Gone](gone.md)\n")
 
     assert rule_8(workspace) == (
-        ["README.md: missing at the repository root; rapid-ship init seeds it"],
+        [MISSING],
         [BROKEN],
     )
 
@@ -88,10 +92,7 @@ def test_a_missing_document_fails_at_once_in_kit_0_2_0(
 
     assert (result.status, result.details) == (
         "failed",
-        (
-            "README.md: missing at the repository root; rapid-ship init seeds it",
-            f"warning: {UNLINKED}{GRACE}",
-        ),
+        (MISSING, f"warning: {UNLINKED}{GRACE}"),
     )
 
 
@@ -104,6 +105,20 @@ def test_the_root_guide_may_link_a_document_by_any_local_form(workspace: Workspa
     workspace.write("ARCHITECTURE.md", BACK)
 
     assert rule_8(workspace) == ([], [])
+
+
+def test_a_link_that_starts_with_a_slash_resolves_against_the_repository_root(
+    workspace: Workspace,
+) -> None:
+    workspace.write("AGENTS.md", "[README](/README.md) [Architecture](/ARCHITECTURE.md)\n")
+    workspace.write("README.md", "[Guide](/AGENTS.md) ![Logo](/docs/logo.png)\n")
+    workspace.write("docs/logo.png", "png\n")
+    workspace.write("ARCHITECTURE.md", "[Gone](/gone.md)\n")
+
+    assert rule_8(workspace) == (
+        [],
+        ["ARCHITECTURE.md:1: missing target '/gone.md'; update the navigation link"],
+    )
 
 
 def test_without_a_root_guide_rule_8_leaves_the_report_to_rule_3(workspace: Workspace) -> None:

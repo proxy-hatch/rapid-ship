@@ -541,7 +541,7 @@ A file belongs to the stack whose directory contains it, the innermost one when 
 
 ### Map rules
 
-1. Every Markdown link in every AGENTS.md resolves to a tracked or non-ignored file.
+1. Every Markdown link in every AGENTS.md resolves to a tracked or non-ignored file. A link that starts with `/` resolves against the repository root, as GitHub resolves it.
 2. Every maintained directory has an AGENTS.md. Maintained directories are the top-level tracked directories and the immediate children of each source root, except hidden directories and those listed in `[map] unguided`. AGENTS.md files under a `[map] exclude` directory are template content: the map rules ignore them.
 3. Every AGENTS.md is reachable by links from the root AGENTS.md.
 4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names exists. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.

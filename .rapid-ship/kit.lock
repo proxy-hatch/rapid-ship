@@ -131,7 +131,7 @@ sha256 = "261c81f352425ee41b0965816bf115edea395fa1de9c8e76e6e84e9e876e80ac"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "5a1493aae00004c6f498a46713453aa415cab5e317f50eecb3a92300260de5ee"
+sha256 = "a38d1787d43cb1cfa06568c6a177d5c912e8041c6193275b410f07ecec691566"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
