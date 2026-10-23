@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from check_workspace import Workspace
-from devctl.check.evidence import EvidenceStep, removed_test_declarations
+from devctl.check.evidence import EvidenceStep, over_cap_reason, removed_test_declarations
 
 GOOD = """Fixes the parser.
 
@@ -126,3 +126,21 @@ def test_every_unreadable_declaration_is_reported(workspace: Workspace) -> None:
         "write '- `<path>::<test>`: <reason>'",
     )
     assert removed_test_declarations(body)[0] == {"tests/test_a.py::test_a": "gone"}
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        (
+            "## Evidence\n\n- `make`: ok\n\nOver the diff cap: a generated parser\n",
+            "a generated parser",
+        ),
+        ("## Evidence\n\n- `make`: ok\n\n## Notes\n\nOver the diff cap: a parser\n", None),
+        ("## Evidence\n\n~~~\nOver the diff cap: a parser\n~~~\n", None),
+        ("## Evidence\n\n- `make`: ok\n\nOver the diff cap:   \n", None),
+        ("Over the diff cap: a parser\n", None),
+    ],
+    ids=["in-evidence", "outside-evidence", "fenced", "no-reason", "no-evidence"],
+)
+def test_over_cap_reason_reads_the_evidence_section(body: str, reason: str | None) -> None:
+    assert over_cap_reason(body) == reason

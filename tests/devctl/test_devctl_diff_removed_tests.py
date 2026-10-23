@@ -10,8 +10,13 @@ from devctl.check.steps import StepResult
 from devctl.codeowners import glob_match
 
 EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
-# A passed or failed result ends with this note: these workspaces have no CODEOWNERS file.
+# A passed or failed result ends with this note, then the diff cap's: these workspaces have
+# no CODEOWNERS file.
 NO_CODEOWNERS = "no CODEOWNERS file; Protected paths are not listed"
+
+
+def cap(count: int) -> str:
+    return f"diff cap: {count} of 1,500 counted lines"
 
 
 def run(workspace: Workspace, base: str, body: str | None = None) -> StepResult:
@@ -102,10 +107,12 @@ def test_test_file_that_stops_parsing_fails(workspace: Workspace) -> None:
 
 
 @pytest.mark.parametrize(
-    ("base_has_mark", "head_has_mark"), [(True, True), (True, False), (False, True)]
+    # A mark at one end only changes the first line too, so the change counts 3 lines.
+    ("base_has_mark", "head_has_mark", "counted"),
+    [(True, True, 1), (True, False, 3), (False, True, 3)],
 )
 def test_a_byte_order_mark_does_not_hide_a_removed_test(
-    workspace: Workspace, base_has_mark: bool, head_has_mark: bool
+    workspace: Workspace, base_has_mark: bool, head_has_mark: bool, counted: int
 ) -> None:
     before = "def test_get(): pass\ndef test_delete(): pass\n"
     after = "def test_get(): pass\n"
@@ -120,6 +127,7 @@ def test_a_byte_order_mark_does_not_hide_a_removed_test(
         "removed behavioural test tests/test_api.py::test_delete: "
         "declare it under 'Removed tests:' in the PR's Evidence section",
         NO_CODEOWNERS,
+        cap(counted),
     )
 
 
@@ -173,6 +181,7 @@ def test_deleted_test_file_removes_its_tests(workspace: Workspace) -> None:
         "removed behavioural test tests/test_api.py::TestApi::test_get: "
         "declare it under 'Removed tests:' in the PR's Evidence section",
         NO_CODEOWNERS,
+        cap(2),
     )
 
 
@@ -181,7 +190,7 @@ def test_base_that_did_not_parse_holds_no_tests(workspace: Workspace) -> None:
     base = workspace.commit()
     workspace.write("tests/test_api.py", "def test_delete(): pass\n")
 
-    assert run(workspace, base, EVIDENCE) == StepResult("diff", "passed", (NO_CODEOWNERS,))
+    assert run(workspace, base, EVIDENCE) == StepResult("diff", "passed", (NO_CODEOWNERS, cap(2)))
 
 
 def test_head_that_is_not_utf8_cannot_parse(workspace: Workspace) -> None:
@@ -192,7 +201,7 @@ def test_head_that_is_not_utf8_cannot_parse(workspace: Workspace) -> None:
     result = run(workspace, base, EVIDENCE)
 
     assert result.status == "failed"
-    assert result.details[1:] == (NO_CODEOWNERS,)
+    assert result.details[1:] == (NO_CODEOWNERS, cap(2))
     assert result.details[0].startswith("tests/test_api.py: cannot parse the tests at head")
 
 
@@ -203,7 +212,7 @@ def test_agnostic_stack_does_not_read_tests(workspace: Workspace) -> None:
 
     context = workspace.context(base=base, stack="agnostic")
 
-    assert DiffStep().run(context) == StepResult("diff", "passed", (NO_CODEOWNERS,))
+    assert DiffStep().run(context) == StepResult("diff", "passed", (NO_CODEOWNERS, cap(2)))
 
 
 def test_unknown_base_is_blocked(workspace: Workspace) -> None:

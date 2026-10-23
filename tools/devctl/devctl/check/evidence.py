@@ -1,8 +1,9 @@
 """The evidence step: a pull request says what was run, what it showed and what it did not.
 
 The pull request body needs an `## Evidence` section with a command and its result, and a
-`Not covered:` line. The section may also list removed tests under `Removed tests:`; the diff
-step reads those declarations through `removed_test_declarations`.
+`Not covered:` line. The section may also list removed tests under `Removed tests:`, and may
+hold a line starting `Over the diff cap:` with the reason for an overage the owner accepted. The
+diff step reads both through `removed_test_declarations` and `over_cap_reason`.
 
     ## Evidence
 
@@ -11,6 +12,8 @@ step reads those declarations through `removed_test_declarations`.
 
     Removed tests:
     - `tests/test_flags.py::test_legacy_flag`: the flag was deleted in this PR
+
+    Over the diff cap: a generated parser, which the owner accepted
 
     Not covered: behaviour on Windows.
 
@@ -32,6 +35,7 @@ _ITEM = re.compile(r"^\s*[-*+]\s")
 
 _REMOVED_TESTS = "Removed tests:"
 _NOT_COVERED = "Not covered:"
+_OVER_CAP = "Over the diff cap:"
 
 _NO_SECTION = "add an '## Evidence' section with a command, its result and a 'Not covered:' line"
 _NO_COMMAND = "Evidence: list a command you ran with its result, as '- `<command>`: <result>'"
@@ -79,6 +83,22 @@ def removed_test_declarations(body: str) -> tuple[dict[str, str], list[str]]:
         else:
             unreadable.append(item)
     return declared, unreadable
+
+
+def over_cap_reason(body: str) -> str | None:
+    """The reason on the first line of the Evidence section that starts `Over the diff cap:`
+    and gives one; None when no such line does.
+
+    Fenced code is not read.
+    """
+    text = evidence_section(body)
+    if text is None:
+        return None
+    for line in without_fences(text).splitlines():
+        stripped = line.strip()
+        if stripped.startswith(_OVER_CAP) and (reason := stripped.removeprefix(_OVER_CAP).strip()):
+            return reason
+    return None
 
 
 def _is_transcript(block: Sequence[str]) -> bool:

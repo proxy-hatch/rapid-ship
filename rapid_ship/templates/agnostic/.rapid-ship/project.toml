@@ -17,6 +17,7 @@ reviewer_app_slug = ""
 every_pr = true
 kinds = [
   "a pull request that removes a behavioural test",
+  "a pull request that declares Over the diff cap:",
 ]
 revision_rounds = 3    # a PR that reached this many Revisions also goes to the owner
 

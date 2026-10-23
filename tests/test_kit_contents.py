@@ -109,7 +109,10 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
         },
         "escalation": {
             "every_pr": True,
-            "kinds": ["a pull request that removes a behavioural test"],
+            "kinds": [
+                "a pull request that removes a behavioural test",
+                "a pull request that declares Over the diff cap:",
+            ],
             "revision_rounds": 3,
         },
         "kit": {"optional": [], "exclude": []},

@@ -23,7 +23,10 @@ from rapid_ship.kit.templates import KitError, render_files
 ROOT = Path(__file__).resolve().parents[2]
 VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "repository": ""}
 LOADERS = {PROJECT: load_project, EXCEPTIONS: load_exceptions}
-SEEDED_KIND = "a pull request that removes a behavioural test"
+SEEDED_KINDS = (
+    "a pull request that removes a behavioural test",
+    "a pull request that declares Over the diff cap:",
+)
 APPS = (
     '[github]\nrepository = "o/r"\n'
     'worker_app_id = 101\nworker_app_slug = "o-rs-worker"\n'
@@ -51,7 +54,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
         code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
         reviewer_app=None,
-        escalation=Escalation(every_pr=True, kinds=(SEEDED_KIND,), revision_rounds=3),
+        escalation=Escalation(every_pr=True, kinds=SEEDED_KINDS, revision_rounds=3),
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),

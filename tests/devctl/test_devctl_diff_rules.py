@@ -96,7 +96,10 @@ def test_protected_paths_are_listed_without_failing(workspace: Workspace) -> Non
     result = change(workspace, ".github/workflows/ci.yml", "on: push\n", "on: [push]\n")
 
     assert result.status == "passed"
-    assert result.details == ("protected: .github/workflows/ci.yml",)
+    assert result.details == (
+        "protected: .github/workflows/ci.yml",
+        "diff cap: 2 of 1,500 counted lines",
+    )
 
 
 def test_added_copy_of_an_existing_tautology_is_reported_at_the_later_line(
@@ -119,7 +122,12 @@ def test_agnostic_stack_lists_only_protected_paths(workspace: Workspace) -> None
     result = DiffStep().run(workspace.context(base=base, stack="agnostic"))
 
     assert result == StepResult(
-        "diff", "passed", ("no CODEOWNERS file; Protected paths are not listed",)
+        "diff",
+        "passed",
+        (
+            "no CODEOWNERS file; Protected paths are not listed",
+            "diff cap: 2 of 1,500 counted lines",
+        ),
     )
 
 
@@ -131,3 +139,30 @@ def test_codeowners_that_is_not_utf8_blocks(workspace: Workspace) -> None:
 
     assert result.status == "blocked"
     assert result.details[0].startswith(".github/CODEOWNERS is not UTF-8")
+
+
+@pytest.mark.parametrize(
+    "codeowners", [None, "/docs/corrections/README.md @owner\n"], ids=["none", "codeowners"]
+)
+def test_the_ledger_rule_lists_changed_and_removed_entries_only(
+    workspace: Workspace, codeowners: str | None
+) -> None:
+    if codeowners is not None:
+        workspace.write(".github/CODEOWNERS", codeowners)
+    for name in ("c1", "c2", "c4"):
+        workspace.write(f"docs/corrections/{name}.md", "status: open\n")
+    base = workspace.commit()
+    workspace.write("docs/corrections/c1.md", "status: implemented\n")
+    (workspace.root / "docs/corrections/c2.md").unlink()
+    workspace.write("docs/corrections/c3.md", "status: implemented\n")
+    workspace.git("mv", "docs/corrections/c4.md", "docs/corrections/c5.md")
+
+    result = DiffStep().run(workspace.context(base=base))
+
+    # An added entry is never Protected, whatever its status; a renamed one is, by its old path.
+    assert result.status == "passed"
+    assert [detail for detail in result.details if detail.startswith("protected: ")] == [
+        "protected: docs/corrections/c1.md",
+        "protected: docs/corrections/c2.md",
+        "protected: docs/corrections/c4.md",
+    ]

@@ -1,16 +1,23 @@
-"""The diff step: what a change does to the tests, compared with its base.
+"""The diff step: what a change does to the tests, the Protected set and its size, compared
+with its base.
 
 The base is the PR base in CI, or the merge base with the default branch locally. The head is
 the work tree, with untracked files that Git does not ignore.
 
-A test is removed when it is present at the base and absent everywhere at the head. A test's
-identity is its name within its file (`test_x` or `TestA::test_x`), so a test moved to another
-file is not removed. Each removal must be declared under `Removed tests:` in the PR's Evidence
-section, and is classed unit when its path matches a `[tests] unit` glob, else behavioural.
+On the Python stack, the step reads the tests. A test is removed when it is present at the base
+and absent everywhere at the head. A test's identity is its name within its file (`test_x` or
+`TestA::test_x`), so a test moved to another file is not removed. Each removal must be declared
+under `Removed tests:` in the PR's Evidence section, and is classed unit when its path matches a
+`[tests] unit` glob, else behavioural.
 
 A change also fails when it adds an assertion that cannot fail, or a new autouse fixture in a
-conftest.py without an exception marker. It lists the Protected paths it touches and never fails
-on them: CODEOWNERS enforces their approval.
+conftest.py without an exception marker.
+
+On every stack, the step lists the Protected paths the change touches, with each Corrections
+ledger entry it modifies or removes, and never fails on them: the merge guard enforces their
+approval (Spec 1 section 5, item 4). A change fails when it adds and removes more than
+DIFF_CAP counted lines, unless the PR's Evidence section declares the overage on a line
+starting `Over the diff cap:` with a reason. Every run notes the count.
 """
 
 from __future__ import annotations
@@ -21,8 +28,9 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
-from devctl.check.evidence import removed_test_declarations
+from devctl.check.evidence import over_cap_reason, removed_test_declarations
 from devctl.check.exceptions import MARKER
+from devctl.check.kit import LOCK_PATH, KitLockError, managed_paths
 from devctl.check.stacks.python import (
     autouse_fixtures,
     comments,
@@ -39,8 +47,20 @@ from devctl.check.steps import (
     not_applicable,
     passed,
 )
-from devctl.codeowners import codeowners_match, glob_match, protected_patterns
+from devctl.codeowners import (
+    FileChange,
+    FileStatus,
+    glob_match,
+    protected_changes,
+    protected_patterns,
+)
 from devctl.repo import Repo, RepoError
+
+DIFF_CAP = 1500
+LOCK_FILES = frozenset({"uv.lock", "package-lock.json"})  # each stack's lock, at any depth
+
+_UNCOUNTED = (".md", ".txt", ".log")  # documentation and logs
+_BINARY_PROBE = 8000  # Git reads a file with a NUL byte in its first 8,000 bytes as binary
 
 # What reading and parsing a test file raises for text that is not valid Python: bad syntax,
 # a null byte, or bytes that are not UTF-8.
@@ -55,6 +75,13 @@ _AUTOUSE = (
 )
 
 _NO_CODEOWNERS = "no CODEOWNERS file; Protected paths are not listed"
+_OVER_CAP = (
+    "the change adds and removes {} counted lines, over the {:,}-line diff cap; split it, or, "
+    "once the owner accepts the overage, add 'Over the diff cap: <reason>' to the PR's "
+    "Evidence section"
+)
+
+_STATUS: dict[str, FileStatus] = {"A": "added", "M": "modified", "D": "removed"}
 
 
 @dataclass(frozen=True)
@@ -105,14 +132,80 @@ def removed_tests(identities: Mapping[str, tuple[list[str], list[str]]]) -> list
 
 
 def _protected(root: Path, changes: Sequence[Change]) -> list[str]:
+    """A note for each Protected path and ledger entry the changes touch, in path order.
+
+    The ledger rule applies without a CODEOWNERS file too. --no-renames lists a rename as a
+    removal and an addition, so a renamed ledger entry is listed by its old path.
+    """
     patterns = protected_patterns(root)
-    if patterns is None:
-        return [_NO_CODEOWNERS]
-    return sorted(
-        f"protected: {change.path}"
-        for change in changes
-        if any(codeowners_match(pattern, change.path) for pattern in patterns)
+    files = [FileChange(change.path, _STATUS[change.status]) for change in changes]
+    listed = [f"protected: {path}" for path in protected_changes(patterns or [], files)]
+    return listed if patterns is not None else [_NO_CODEOWNERS, *listed]
+
+
+def _counted(path: str, managed: frozenset[str]) -> bool:
+    """Whether path's lines count toward the diff cap."""
+    return not (
+        path.endswith(_UNCOUNTED)
+        or path in managed
+        or path == LOCK_PATH
+        or PurePosixPath(path).name in LOCK_FILES
     )
+
+
+def _untracked_lines(path: Path) -> int:
+    """An untracked file's lines as Git counts them: 0 when it is binary or not a regular file."""
+    if path.is_symlink() or not path.is_file():
+        return 0
+    data = path.read_bytes()
+    if b"\0" in data[:_BINARY_PROBE]:
+        return 0
+    return data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0)
+
+
+def counted_lines(context: CheckContext, base: str) -> int:
+    """The lines the change adds and removes from base to the work tree, as the cap counts them.
+
+    Untracked files that Git does not ignore count in full. Documentation, logs, binary files,
+    Kit-managed files, the Kit lock and each stack's lock file do not count. Without a readable
+    Kit lock, no file counts as managed: the count can only grow, and the kit step reports the
+    lock.
+    """
+    repo = context.repo
+    try:
+        managed = managed_paths(repo.root, context.project.excluded)
+    except KitLockError:
+        managed = frozenset[str]()
+    total = 0
+    known: set[str] = set()
+    for record in repo.git("diff", "--numstat", "-z", "--no-renames", base).split("\0"):
+        if not record:
+            continue
+        added, removed, path = record.split("\t", 2)
+        known.add(path)
+        if added != "-" and _counted(path, managed):  # "-" marks a binary file
+            total += int(added) + int(removed)
+    untracked = repo.git("ls-files", "--others", "--exclude-standard", "-z").split("\0")
+    return total + sum(
+        _untracked_lines(repo.root / path)
+        for path in untracked
+        if path and path not in known and _counted(path, managed)
+    )
+
+
+def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
+    """A problem when the count is over the cap and no overage is declared, and the note.
+
+    Whether a declared overage goes to the owner is the escalation list's business, not this
+    step's (Spec 1 section 5).
+    """
+    note = f"diff cap: {counted} of {DIFF_CAP:,} counted lines"
+    if counted <= DIFF_CAP:
+        return [], note
+    reason = None if body is None else over_cap_reason(body)
+    if reason is not None:
+        return [], f"diff cap: {counted} counted lines, over {DIFF_CAP:,}, declared: {reason}"
+    return [_OVER_CAP.format(counted, DIFF_CAP) + (_NO_BODY if body is None else "")], note
 
 
 def _base_tests(repo: Repo, base: str, path: str) -> list[str] | None:
@@ -259,6 +352,10 @@ class DiffStep:
             if context.project.stack == "python":
                 problems, notes = _python_rules(context, base, changes)
             notes += _protected(context.repo.root, changes)
+            counted = counted_lines(context, base)
         except (RepoError, OSError) as error:
             return blocked(self.name, str(error))
+        over, note = _diff_cap(counted, context.pr_body)
+        problems += over
+        notes.append(note)  # last, so a Worker sees the count after the Protected notes
         return failed(self.name, *problems, *notes) if problems else passed(self.name, *notes)
