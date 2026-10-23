@@ -1,5 +1,5 @@
-"""Map rule 7: each skill directory under .agents/skills has a SKILL.md with its name and a
-description, and a relative symlink in .claude/skills that points to it.
+"""Map rule 7: each skill directory under .agents/skills has a SKILL.md, a regular file, with
+its name and a description, and a relative symlink in .claude/skills that points to it.
 
 It lives apart from map.py, which runs it, so map.py stays under the file-size cap.
 """
@@ -103,3 +103,17 @@ def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
         if text_value(data, "description") is None:
             errors.append(f"{path}: description is missing or empty")
     return errors
+
+
+def skill_file_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 7, file half: each SKILL.md is a regular file, because Codex rejects a symlink.
+
+    This part only warns for one Kit version (`graced` in map.py). It judges the last path
+    component only; a skill directory that is itself a symlink is the alias half's concern.
+    """
+    paths = (f"{SKILLS}/{name}/SKILL.md" for name in sorted(_skill_names(root, files, SKILLS)))
+    return [
+        f"{path}: is a symlink; make it a regular file, because Codex rejects a symlinked SKILL.md"
+        for path in paths
+        if (root / path).is_symlink()
+    ]

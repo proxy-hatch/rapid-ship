@@ -1,7 +1,7 @@
 """The map step: guide links resolve, every maintained directory has a guide and every guide
 is reachable, feature files, Patterns and Rules name things that exist, every Pattern has a task
-and Lessons, every skill has its discovery alias and front matter, and README.md and
-ARCHITECTURE.md exist, are linked from the root guide and hold no broken link."""
+and Lessons, every skill has its discovery alias, front matter and a regular SKILL.md, and
+README.md and ARCHITECTURE.md exist, are linked from the root guide and hold no broken link."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
 import devctl
-from devctl.check.map_skills import skill_alias_errors, skill_errors
+from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
 from devctl.check.markdown import (
     ListItem,
     front_matter_of,
@@ -62,7 +62,11 @@ class MapStep:
             *root_document_errors(root, files),
         ]
         late, notes = graced(
-            [*root_link_errors(root, files), *pattern_lesson_errors(context, files)]
+            [
+                *root_link_errors(root, files),
+                *pattern_lesson_errors(context, files),
+                *skill_file_errors(root, files),
+            ]
         )
         errors += late
         return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
