@@ -190,7 +190,7 @@ def fake_harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeHarness
     return FakeHarness(directory)
 
 
-def no_owner_reads(path: str) -> object:
+def no_owner_reads(path: str, jq: str | None = None) -> object:
     raise OwnerReadError(None, "no owner reads in this test")
 
 

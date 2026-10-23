@@ -1,12 +1,13 @@
 """The packaged Kit's templates match spec 1, section 4 (offline)."""
 
+import json
 import re
 import tomllib
 from pathlib import Path
 
 import pytest
 
-from devctl.check.diff import codeowners_match
+from devctl.codeowners import codeowners_match
 from devctl.process import run_process
 from devctl.settings import load_project
 from rapid_ship.kit.templates import (
@@ -17,6 +18,7 @@ from rapid_ship.kit.templates import (
     packaged_templates,
     render_files,
 )
+from test_devctl_doctor_wiring import SEED as CLAUDE_WIRING
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -29,6 +31,7 @@ CODE_OWNER_COMMENT = (
     '"@login" or "@organisation/team".'
 )
 SEEDED = {
+    ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
@@ -65,6 +68,13 @@ def test_every_manifest_path_exists_in_a_layer() -> None:
 def test_the_spec_seeded_files_are_seeded(stack: Stack) -> None:
     kinds = {path: t.kind for path, t in rendered(stack).items()}
     assert {path for path in SEEDED if kinds.get(path) == "seeded"} == SEEDED
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_claude_code_wiring_seed_is_spec_1s(stack: Stack) -> None:
+    # Spec 1 section 4's wiring, with no timeout: the merge guard's 300-second budget relies on
+    # Claude Code's default of 600 seconds.
+    assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
 
 
 def test_python_new_project_seeds() -> None:
@@ -216,6 +226,11 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     agnostic = text("agnostic", ".github/CODEOWNERS").splitlines()
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
     assert python == [*agnostic, *added]
+
+
+@pytest.mark.parametrize("stack", ["python", "agnostic"])
+def test_codeowners_has_no_placeholder_for_harness_settings(stack: Stack) -> None:
+    assert "Harness settings" not in text(stack, ".github/CODEOWNERS")
 
 
 def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup() -> None:

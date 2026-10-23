@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from check_workspace import Workspace
-from devctl.check.diff import DiffStep, codeowners_match, protected_patterns
+from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
 
 ALWAYS_TRUE = "is always true; assert on the behaviour instead"
@@ -99,26 +99,6 @@ def test_protected_paths_are_listed_without_failing(workspace: Workspace) -> Non
     assert result.details == ("protected: .github/workflows/ci.yml",)
 
 
-@pytest.mark.parametrize(
-    ("pattern", "path", "matches"),
-    [
-        (".github/", ".github/workflows/ci.yml", True),
-        (".github/", "docs/.github/x", True),
-        ("/pyproject.toml", "pyproject.toml", True),
-        ("/pyproject.toml", "sub/pyproject.toml", False),
-        # The seeded Python set lists Ruff's settings at any depth, the way Ruff reads them.
-        ("/**/ruff.toml", "ruff.toml", True),
-        ("/**/ruff.toml", "src/app/ruff.toml", True),
-        ("/**/ruff.toml", "src/app/ruff.toml.orig", False),
-        ("docs/patterns/", "docs/patterns/settings.md", True),
-        ("*.toml", "a/b.toml", True),
-        ("tools/devctl/", "tools/devctl", False),
-    ],
-)
-def test_codeowners_patterns(pattern: str, path: str, matches: bool) -> None:
-    assert codeowners_match(pattern, path) is matches
-
-
 def test_added_copy_of_an_existing_tautology_is_reported_at_the_later_line(
     workspace: Workspace,
 ) -> None:
@@ -141,16 +121,6 @@ def test_agnostic_stack_lists_only_protected_paths(workspace: Workspace) -> None
     assert result == StepResult(
         "diff", "passed", ("no CODEOWNERS file; Protected paths are not listed",)
     )
-
-
-def test_protected_patterns_come_from_the_file_github_reads_first(workspace: Workspace) -> None:
-    workspace.write("docs/CODEOWNERS", "/docs/ @docs-owner\n")
-    workspace.write(
-        "CODEOWNERS",
-        "# Owners: see the handbook.\n* @owner\n/api/ dev@example.com @team/api\n#/db/ @owner\n",
-    )
-
-    assert protected_patterns(workspace.root) == ["/api/", "/db/"]
 
 
 def test_codeowners_that_is_not_utf8_blocks(workspace: Workspace) -> None:

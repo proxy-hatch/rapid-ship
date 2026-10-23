@@ -303,15 +303,19 @@ class Remote:
 class RecordedOwner:
     """The owner's gh GET, recorded: an owner_get that serves responses by exact path.
 
-    A path that nobody served is GitHub's 404. paths keeps every path asked for, in order.
+    A path that nobody served is GitHub's 404. paths keeps every path asked for, in order, and
+    filters the jq filter of each path read with one; the response is served whole either way.
     """
 
     def __init__(self, served: Mapping[str, object]) -> None:
         self._served: dict[str, object] = dict(served)
         self.paths: list[str] = []
+        self.filters: dict[str, str] = {}
 
-    def __call__(self, path: str) -> object:
+    def __call__(self, path: str, jq: str | None = None) -> object:
         self.paths.append(path)
+        if jq is not None:
+            self.filters[path] = jq
         found = self._served.get(path, OwnerReadError(404, "Not Found"))
         if isinstance(found, OwnerReadError):
             raise found

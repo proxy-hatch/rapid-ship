@@ -103,7 +103,8 @@ def _ruleset_item(ctx: DoctorContext, repository: str, repo: Mapping[str, object
     return _github(name, "ok", f"an active ruleset on {default} has every setting rs-setup applies")
 
 
-def _decoded(contents: Mapping[str, object]) -> str:
+def decoded_contents(contents: Mapping[str, object]) -> str:
+    """The text of a CODEOWNERS file the Contents API returned. Raises GitHubError."""
     content = contents.get("content")
     if contents.get("encoding") != "base64" or not isinstance(content, str):
         raise GitHubError(None, "the CODEOWNERS contents are not base64 text")
@@ -125,7 +126,7 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
     # GitHub reads CODEOWNERS from the base branch, so that is the file doctor reads.
     path = f"repos/{repository}/contents/.github/CODEOWNERS?ref={quote(default, safe='/')}"
     try:
-        text = _decoded(json_object(ctx.owner_get(path), "the CODEOWNERS contents"))
+        text = decoded_contents(json_object(ctx.owner_get(path), "the CODEOWNERS contents"))
     except OwnerReadError as error:
         if error.status == 404:
             return _github(name, "missing", f".github/CODEOWNERS is not on {default}")

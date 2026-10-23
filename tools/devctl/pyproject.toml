@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devctl"
-version = "0.1.0"
+version = "0.2.0"
 description = "This repository's developer CLI, vendored by rapid-ship"
 requires-python = ">=3.12"
 dependencies = [

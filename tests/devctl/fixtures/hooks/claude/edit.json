@@ -1,0 +1,20 @@
+{
+  "session_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "scratchpad_dir": "<redacted>",
+  "prompt_id": "<redacted>",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "max"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/repo/spike.txt",
+    "old_string": "x",
+    "new_string": "y",
+    "replace_all": false
+  },
+  "tool_use_id": "<redacted>"
+}

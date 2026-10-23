@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rapid-ship"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local tools for building software with coding agents and GitHub"
 readme = "README.md"
 requires-python = ">=3.12"

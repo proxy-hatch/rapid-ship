@@ -4,7 +4,7 @@ rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI ca
 
 Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 and its follow-ups are merged in PRs #31 to #33, and the owner tagged `v0.1.0`: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
-- Plan 5, Kit standards and Harness guardrails, among them the merge guard and the Python starter Patterns. It starts with a spike on whether the Codex and agy hooks fire (backlog item PRO-139).
+- The rest of plan 5, Kit standards and Harness guardrails: the README.md and ARCHITECTURE.md seeds, `doctor --settings`, the Python starter Patterns, the diff cap, documented settings and `sync`'s migrations. Its hook spike (PRO-139) is recorded, and `devctl hook claude pre-tool` is built, with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring.
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
 - [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.

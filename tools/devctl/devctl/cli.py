@@ -10,7 +10,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import devctl_project
-from devctl import __version__, doctor, identity
+from devctl import __version__, doctor, hook, identity
 from devctl.check import ChangeError, exit_code, resolve_change, run_check
 from devctl.check.steps import CheckContext, Status, StepResult
 from devctl.repo import Repo, RepoError
@@ -78,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     check.set_defaults(handler=check_command)
     doctor.register(commands)
     identity.register(commands)
+    hook.register(commands)
     devctl_project.register(commands)
     return parser
 

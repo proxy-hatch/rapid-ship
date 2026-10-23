@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 4 are built and merged, plan 4 and its follow-ups in PRs #31 to #33, and the first release, `v0.1.0`, is tagged. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 4 are built and merged, plan 4 and its follow-ups in PRs #31 to #33, and the first release, `v0.1.0`, is tagged. Of plan 5, the hook spike is recorded, and `devctl hook`, with the merge guard and its Claude Code wiring, is built. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -8,16 +8,16 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | --- | --- | --- |
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py`, `app_import.py`, `app_flow.py`, `app_keychain.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: finds or creates the Worker and Reviewer Apps of the repository's owner, a person or an organisation, for Agent identity; `app --import-key` stores a developer's own key for an App that exists |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
-| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push` |
+| devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push`; `devctl hook`, the Harness guardrails with the merge guard, which Claude Code runs before each shell command and file edit |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
-| Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
+| Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `.claude/settings.json`, `AGENTS.md`, `CLAUDE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
 | File helpers | `rapid_ship/files.py` | Atomic replacement, create-only writes and safe paths for the Kit writers |
 | Distribution smoke | `scripts/smoke_distribution.py` | Checks the built wheel and runs its `rapid-ship` in scratch repositories |
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 7's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Plans 5 to 7 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. The rest of plan 5, plans 6 and 7 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -46,7 +46,7 @@ The `project.toml` seeds hold the settings of the re-scope: `[github]` with the 
 
 ## devctl and `devctl check`
 
-The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. devctl has `--version`, `check`, `doctor` and `as`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
+The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so devctl has its own `pyproject.toml`, `uv.lock` and environment, apart from the project's. It depends only on PyYAML and PyJWT with its crypto extra. devctl has `--version`, `check`, `doctor`, `as` and `hook`, plus any verbs the project registers in `tools/devctl/devctl_project/`; this repository registers none.
 
 `./devctl check [--tier fast|full] [--json] [--base REV] [--pr-body PATH]` runs the steps below in order and prints one line per step: passed, failed, blocked or not applicable. It exits 0 when every applicable step passed, 1 when a step failed and 2 when a step could not run. A blocked step never counts as passed, and 2 outranks 1. The default tier is `full`.
 
@@ -80,15 +80,15 @@ The `diff` and `evidence` steps need a change. In CI the base is the PR's base a
 
 - The pre-commit hook, `.githooks/pre-commit`, runs `./devctl check --tier fast`. `git config core.hooksPath .githooks` enables it, and `git commit --no-verify` skips it once.
 - CI runs `./devctl check --tier full` in `.github/workflows/devctl-check.yml`, a managed Kit file. It runs on each PR, including body edits, on pushes to `main` or `master`, nightly and on demand. It has `contents: read` only, installs gitleaks 8.30.1 checked against its SHA-256, and its job is named `devctl check`, which Spec 1's ruleset requires.
-- `.github/CODEOWNERS` is seeded. In Walk its one active line, `* @proxy-hatch`, assigns every path to the owner. Below it, commented out for Flight, is the Protected set: `.github/`, `.githooks/`, devctl, the skills, `.claude/`, every AGENTS.md and CLAUDE.md, `.rapid-ship/`, and the settings files of the check tools. `.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land. The `diff` step reads these lines, commented or not.
+- `.github/CODEOWNERS` is seeded. In Walk its one active line, `* @proxy-hatch`, assigns every path to the owner. Below it, commented out for Flight, is the Protected set: `.github/`, `.githooks/`, devctl, the skills, `.claude/`, every AGENTS.md and CLAUDE.md, `.rapid-ship/`, and the settings files of the check tools. `.claude/` already covers the Claude Code wiring; Codex's and agy's wiring files join the set when they land. The `diff` step, `devctl hook` and the merge guard read these lines, commented or not, through `devctl/codeowners.py`.
 
 `.github/workflows/docs.yml` is this repository's own: it builds the documentation site and deploys `main` to GitHub Pages.
 
 ## `devctl doctor` and Agent identity
 
-`./devctl doctor [--skills]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_skills.py` for `--skills`, `harness.py` for its headless Claude Code Session, and `doctor_items.py` for the types they share. No item checks a Harness's sign-in.
+`./devctl doctor [--skills]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_wiring.py` for the Harness wiring item, `doctor_skills.py` for `--skills`, `harness.py` for its headless Claude Code Session, and `doctor_items.py` for the types they share. No item checks a Harness's sign-in.
 
-- **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
+- **Local items:** git 2.31 or later, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Claude Code wiring in `.claude/settings.json`, the Python guardrail settings, `tools/devctl` left out of the project's own tools, and the Kit files against the lock.
 - **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr` and `[github] code_owner`, branch deletion after merge and fork-PR workflow approval. While `code_owner` is unset, the CODEOWNERS item is missing and names the key. A GitHub Free private repository has no rulesets, and the item says so.
 - **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each key in its Keychain item, `rapid-ship/<role>-app/<App ID>`, proved by minting a token that is dropped unprinted.
 - **`--skills`:** when `claude` is on `PATH`, a detached worktree at `HEAD` in a temporary directory, one headless Claude Code Session on its cheapest model, and a comparison of the skills it lists with the ones committed at `HEAD`. The worktree is removed whatever the Session did. doctor probes Claude Code alone until the Kit integrates another Harness.
@@ -101,9 +101,49 @@ Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews
 
 `./devctl as worker push` pushes the current branch, never forcing, and `./devctl as {worker,reviewer} gh` runs `gh pr`, `gh issue` or `gh api` as that App. Each run mints one installation token in `devctl/github/app.py`, holds it in memory and gives it only to that `gh`, as `GH_TOKEN`, or to that `git push`, through `devctl/github/askpass.py` with every credential helper and repository hook switched off. No key or token is written to disk, put on a command line or printed.
 
+## `devctl hook` and the merge guard
+
+`devctl hook claude pre-tool` holds the Harness guardrails ([Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) section 4). The seeded `.claude/settings.json` has Claude Code run it before each `Bash`, `Edit`, `Write`, `MultiEdit`, `NotebookEdit` and `Monitor` call; `Monitor` runs a shell command too. The hook reads Claude Code's `PreToolUse` event on stdin and answers with a deny, an ask or no decision, always with exit 0. It never allows a call. It never exits 2, which Claude Code reads as block: an internal error exits 1 with one stderr line, and the call goes through.
+
+| Rule | Decision |
+| --- | --- |
+| G1 | Deny `--no-verify` in a git command, and `git commit -n` |
+| G2 | Deny a force push: `--force`, `-f`, `--force-with-lease`, `--force-if-includes` or a `+` refspec |
+| G3 | Deny the other ways to land a change on the default branch: `gh pr merge --admin`, a `git push` to it, and the `gh api` merges, ref writes and file commits, REST or GraphQL, that Spec 1 lists |
+| G4 | Deny an edit of `.rapid-ship/kit.lock` |
+| G5 | Ask the owner before an edit of a Protected path |
+| G7 | With Agent identity on, deny `git push`, and name `./devctl as worker push` |
+| G8 | With Agent identity on, deny a `gh pr`, `gh issue` or `gh api` write made as the owner, and name `./devctl as <role> gh` |
+| G9, the merge guard | Deny `gh pr merge` until it has checked the pull request on GitHub (below) |
+
+The modules are in `tools/devctl/devctl/`:
+
+- `hook.py` runs the command. `decide` applies G1 to G5, G7 and G8, and `run_hook` then runs the merge guard on each `gh pr merge` of the command line.
+- `hook_protocols.py` holds the types the rules share, `WIRED_TOOLS` and Claude Code's event and answer. It documents the exit-code workaround.
+- `command_line.py` splits a command line as the shell does, so a command after `;`, `&&`, `|`, `&` or a newline, or inside `$( … )` or backticks, is checked too. It parses `git push`, `gh api`, and the `gh pr` and `gh issue` subcommands.
+- `merge_guard.py` holds `find_merge`, which names each way to land a change on the default branch for G3 and the guard, and `guard`. `merge_guard_github.py` holds the guard's GitHub reads.
+- `codeowners.py` reads the Protected set from the first of `.github/CODEOWNERS`, `CODEOWNERS` and `docs/CODEOWNERS`, and applies the Corrections ledger rule. The hook, the guard and the `diff` step share it.
+
+The hook judges an edit in the repository that holds the edited path, a linked worktree included, and a shell command in the one that holds the event's `cwd`. It reads that repository's `.rapid-ship/project.toml` and CODEOWNERS on each call. When either cannot be read, or `project.toml` is invalid, G1 to G4 still apply, G5, G7 and G8 give no decision, and the guard denies every merge. A missing CODEOWNERS is an empty Protected set.
+
+The merge guard checks `gh pr merge`, run directly or through `./devctl as <role> gh`, once no other rule has denied the command line. With Agent identity on, G8 denies a direct `gh pr merge`, so an agent merges through `./devctl as worker gh pr merge`. The guard reads GitHub with the owner's `gh` sign-in, always as `GET`: the pull request, CODEOWNERS on its base branch, its files, its reviews while Agent identity is on, and the `devctl check` runs on its head commit. It takes the repository from a PR URL, else from `-R`, else from `[github] repository`. It denies with the first of these that applies:
+
+1. The pull request touches the Protected set. The owner merges it in GitHub's web interface.
+2. `devctl check` has not passed on the head commit.
+3. With Agent identity on, the Reviewer App has not approved the head commit.
+4. The command does not carry `--match-head-commit` with the head the guard checked. The message gives the exact command to retry.
+
+It also denies a merge it cannot check, its own errors included. It denies rather than start a read that could end more than 300 seconds after the hook started, because Claude Code lets a call through when it kills a hook at its timeout. The seed sets no `timeout`, so that timeout is Claude Code's default of 600 seconds.
+
+`doctor_wiring.py` is doctor's Harness wiring item. It reads only `.claude/settings.json`. The item is ok when the file is tracked, is valid JSON, does not set `disableAllHooks` and runs `devctl hook claude pre-tool` for each tool in `WIRED_TOOLS`. A hook counts only when the words Claude Code passes, in exec or shell form, are `devctl` or a path that ends in `/devctl`, then `hook`, `claude` and `pre-tool`. In shell form, that first word holds only path characters, `$NAME` and `${NAME}`, so `false&&` or `X=` glued before the path does not count. A hook that runs in the background, has an `if` condition or sets a `timeout` below 360 seconds does not count.
+
+These guardrails stop habits and mistakes; a misbehaving agent can bypass them. [Spec 1 section 4](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md#harness-guardrails) lists what the hook and the guard do not see. They run only in a Claude Code Session started in a checkout that holds the wiring, because Claude Code reads its hooks when a Session starts.
+
 ## Dog-fooding
 
 This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy. Its `.rapid-ship/project.toml` records the Worker App, `proxy-hatch-rs-worker` (ID 5376519), and the Reviewer App, `proxy-hatch-rs-reviewer` (ID 5376520), under `[github]`, so Agent identity is on here. The owner stored the two keys on 2026-10-19 under the old item names, `rapid-ship/worker-app` and `rapid-ship/reviewer-app`, and devctl reads only the new names. Until the owner runs `uv run rapid-ship app` once, which re-stores both keys, `./devctl as` and doctor's key items report each item missing.
+
+`sync --in-place` wrote this repository's `.claude/settings.json`, so a Claude Code Session started in a checkout that holds it runs `devctl hook`. Agent identity is on here, so G7 and G8 deny an agent's `git push` and `gh` writes made as the owner. G5 asks the owner before each edit of a Protected path, such as an `AGENTS.md` file. A Session started before the file existed runs no hook.
 
 To change devctl, the hook or the CI workflow:
 
@@ -115,9 +155,9 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans, which are not started:
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines three more plans. Plan 5 is partly built, and plans 6 and 7 are not started:
 
-- **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** first a spike on whether the Codex and agy hooks fire, including inside subagents (backlog item PRO-139). Then `devctl hook` and its wiring for Claude Code alone, with the merge guard, which denies an agent's `gh pr merge` until `devctl check` passes on the PR's head commit, whenever the PR touches the Protected set, and, with Agent identity on, until the Reviewer App has approved that head commit. The spike's report decides whether follow-ups wire Codex and agy. Then the README.md and ARCHITECTURE.md seeds; `devctl doctor --settings`; the Pattern `task` key and `## Lessons` section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap; the Corrections ledger rule; documented and validated settings; and `sync`'s migrations.
+- **[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails):** its hook spike (backlog item PRO-139) is recorded, and `devctl hook`, with the merge guard and its Claude Code wiring, is built ([above](#devctl-hook-and-the-merge-guard)). Its [live trial](docs/trials/2026-10-23-harness-guardrails.md) in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142), and agy waits for its interactive runs (PRO-143). Still to build: the README.md and ARCHITECTURE.md seeds; `devctl doctor --settings`; the Pattern `task` key and `## Lessons` section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap; the Corrections ledger rule in the `diff` step; one CI concurrency group for each push run; documented and validated settings; and `sync`'s migrations.
 - **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
 
