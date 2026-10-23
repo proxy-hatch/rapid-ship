@@ -81,7 +81,7 @@ template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245
 [[file]]
 path = "docs/patterns/README.md"
 kind = "seeded"
-template_sha256 = "fa8007b19499075d35a3daf08c95eaf10ad5980c70c87f2c63a89eae445f6897"
+template_sha256 = "fbda2c2ee348abbeba8a01b8779318879444b7637eee092f532a90128b03bded"
 
 [[file]]
 path = "tools/AGENTS.md"
@@ -131,7 +131,7 @@ sha256 = "8de00baa292f0d27855441f99d9d45992f62a822d46f59f64df85362f692bd9d"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "2966137f3c96ae29cda675ab6c6e93a9a28ba2da1ce8b66d14fef1412f6a5097"
+sha256 = "7d977ad3ebbb8119e5448624dd6838898f328d05b626751bab58e0f067c32077"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"

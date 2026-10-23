@@ -1,15 +1,18 @@
-"""Map rules 4-6: feature files, Pattern files and Rules bullets."""
+"""Offline: map rules 4-6 in fixture repositories: feature files, Pattern files and Rules
+bullets."""
 
 from __future__ import annotations
 
 import pytest
 
+import devctl
 from check_workspace import Workspace
 from devctl.check.map import (
     MapStep,
     feature_errors,
     guides,
     pattern_errors,
+    pattern_lesson_errors,
     registered_verbs,
     rule_errors,
 )
@@ -157,6 +160,121 @@ def test_pattern_reference_and_enforcement(workspace: Workspace) -> None:
         "docs/patterns/broken.md: check:nope: no devctl check step is named nope",
         "docs/patterns/empty.md: enforced_by is missing or empty",
     ]
+
+
+PATTERN = """---
+task: Read configuration
+reference: src/app/settings.py
+enforced_by:
+  - check:map
+---
+One typed settings module reads configuration.
+
+## Lessons
+
+It validates every value where it enters.
+"""
+
+
+def lessons(workspace: Workspace, text: str) -> list[str]:
+    workspace.write("src/app/settings.py", "")
+    workspace.write("docs/patterns/settings.md", text)
+    context = workspace.context()
+    return pattern_lesson_errors(context, context.repo.files())
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (PATTERN.replace("task: Read configuration\n", ""), "task is missing or empty"),
+        (PATTERN.replace("task: Read configuration", 'task: ""'), "task is missing or empty"),
+        (PATTERN.split("## Lessons")[0], "## Lessons is missing or empty"),
+        (
+            PATTERN.replace("It validates every value where it enters.\n", ""),
+            "## Lessons is missing or empty",
+        ),
+    ],
+    ids=["no task", "empty task", "no Lessons", "empty Lessons"],
+)
+def test_a_pattern_needs_a_task_and_lessons(workspace: Workspace, text: str, message: str) -> None:
+    assert lessons(workspace, text) == [f"docs/patterns/settings.md: {message}"]
+
+
+def test_a_complete_pattern_passes(workspace: Workspace) -> None:
+    assert lessons(workspace, PATTERN) == []
+
+
+def test_a_pattern_without_either_reports_both(workspace: Workspace) -> None:
+    text = PATTERN.replace("task: Read configuration\n", "").split("## Lessons")[0]
+
+    assert lessons(workspace, text) == [
+        "docs/patterns/settings.md: task is missing or empty",
+        "docs/patterns/settings.md: ## Lessons is missing or empty",
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        PATTERN.replace(
+            "## Lessons\n\nIt validates every value where it enters.\n", "### Lessons\n"
+        ),
+        PATTERN.replace("## Lessons", "```\n## Lessons\n```\n"),
+        PATTERN.replace("## Lessons", "## Lesson"),
+    ],
+    ids=["a level-3 heading", "a heading in a code fence", "another title"],
+)
+def test_lessons_is_a_level_2_heading_outside_code(workspace: Workspace, text: str) -> None:
+    assert lessons(workspace, text) == ["docs/patterns/settings.md: ## Lessons is missing or empty"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        PATTERN.replace("---\nOne", "One"),
+        PATTERN.split("---\n", 2)[2],
+        "---\n- task\n---\n" + PATTERN.split("---\n", 2)[2],
+    ],
+    ids=["front matter not closed", "no front matter", "front matter is a list"],
+)
+def test_a_front_matter_problem_is_left_to_pattern_errors(workspace: Workspace, text: str) -> None:
+    assert lessons(workspace, text) == []
+    context = workspace.context()
+    [reported] = pattern_errors(context, context.repo.files())
+    assert reported.startswith("docs/patterns/settings.md: ")
+
+
+def test_the_pattern_readme_is_not_a_pattern(workspace: Workspace) -> None:
+    workspace.write("docs/patterns/README.md", "# Patterns\n")
+
+    context = workspace.context()
+    assert pattern_lesson_errors(context, context.repo.files()) == []
+
+
+def test_a_pattern_without_task_or_lessons_warns_in_kit_0_2_0_and_fails_after(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace.root_guide("[Docs](docs/)\n")
+    workspace.write("docs/AGENTS.md", "# Docs\n")
+    incomplete = PATTERN.split("## Lessons")[0].replace("task: Read configuration\n", "")
+    workspace.write(
+        "docs/patterns/settings.md", incomplete.replace("src/app/settings.py", "README.md")
+    )
+    messages = [
+        "docs/patterns/settings.md: task is missing or empty",
+        "docs/patterns/settings.md: ## Lessons is missing or empty",
+    ]
+
+    monkeypatch.setattr(devctl, "__version__", "0.2.0")
+    warned = MapStep().run(workspace.context(source_roots=()))
+    monkeypatch.setattr(devctl, "__version__", "0.3.0")
+    failed = MapStep().run(workspace.context(source_roots=()))
+
+    assert (warned.status, warned.details) == (
+        "passed",
+        tuple(f"warning: {message}; this fails from the next Kit version" for message in messages),
+    )
+    assert (failed.status, failed.details) == ("failed", tuple(messages))
 
 
 GUIDE = """# Root

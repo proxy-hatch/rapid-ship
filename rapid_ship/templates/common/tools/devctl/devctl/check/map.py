@@ -1,7 +1,7 @@
 """The map step: guide links resolve, every maintained directory has a guide and every guide
-is reachable, feature files, Patterns and Rules name things that exist, every skill has its
-discovery alias and front matter, and README.md and ARCHITECTURE.md exist, are linked from the root
-guide and hold no broken link."""
+is reachable, feature files, Patterns and Rules name things that exist, every Pattern has a task
+and Lessons, every skill has its discovery alias and front matter, and README.md and
+ARCHITECTURE.md exist, are linked from the root guide and hold no broken link."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from devctl.check.markdown import (
     front_matter_of,
     navigation_links,
     rules_items,
+    section,
     text_value,
 )
 from devctl.check.references import path_exists, resolve
@@ -60,7 +61,9 @@ class MapStep:
             *skill_errors(root, files),
             *root_document_errors(root, files),
         ]
-        late, notes = graced(root_link_errors(root, files))
+        late, notes = graced(
+            [*root_link_errors(root, files), *pattern_lesson_errors(context, files)]
+        )
         errors += late
         return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
 
@@ -261,13 +264,22 @@ def _document_errors(
     context: CheckContext,
     files: Sequence[str],
     directory: str,
-    keys: str,
-    problems: Callable[[CheckContext, str, dict[str, object]], list[str]],
+    keys: str | None,
+    problems: Callable[[CheckContext, str, dict[str, object], str], list[str]],
 ) -> list[str]:
+    """`problems(context, path, front matter, text)` for each document under `directory`.
+
+    A document whose front matter is unusable is reported as one error naming `keys`. With
+    `keys` None it is skipped, because another rule already reports it.
+    """
+    root = context.repo.root
     errors: list[str] = []
-    for path in _documents(context.repo.root, files, directory):
-        data = front_matter_of(context.repo.root, path, keys)
-        errors.extend([data] if isinstance(data, str) else problems(context, path, data))
+    for path in _documents(root, files, directory):
+        data = front_matter_of(root, path, keys or "")
+        if isinstance(data, dict):
+            errors += problems(context, path, data, (root / path).read_text(encoding="utf-8"))
+        elif keys is not None:
+            errors.append(data)
     return errors
 
 
@@ -277,7 +289,9 @@ def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
     return _document_errors(context, files, FEATURES, keys, _feature_problems)
 
 
-def _feature_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+def _feature_problems(
+    context: CheckContext, path: str, data: dict[str, object], _text: str
+) -> list[str]:
     problems: list[str] = []
     if text_value(data, "purpose") is None:
         problems.append(f"{path}: purpose is missing or empty")
@@ -318,11 +332,13 @@ def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
 def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
     """Map rule 5: each Pattern file has a reference that exists and enforcement that resolves."""
     return _document_errors(
-        context, files, PATTERNS, "reference and enforced_by", _pattern_problems
+        context, files, PATTERNS, "task, reference and enforced_by", _pattern_problems
     )
 
 
-def _pattern_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+def _pattern_problems(
+    context: CheckContext, path: str, data: dict[str, object], _text: str
+) -> list[str]:
     problems: list[str] = []
     reference = text_value(data, "reference")
     if reference is None:
@@ -335,6 +351,27 @@ def _pattern_problems(context: CheckContext, path: str, data: dict[str, object])
         return problems
     reasons = (resolve(item, context) for item in enforced)
     return problems + [f"{path}: {reason}" for reason in reasons if reason is not None]
+
+
+def pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
+    """Map rule 5's task and Lessons: each Pattern file has a task and a non-empty ## Lessons.
+
+    This part only warns for one Kit version (`graced`). A file whose front matter is unusable
+    is left to `pattern_errors`, which reports it.
+    """
+    return _document_errors(context, files, PATTERNS, None, _lesson_problems)
+
+
+def _lesson_problems(
+    context: CheckContext, path: str, data: dict[str, object], text: str
+) -> list[str]:
+    problems: list[str] = []
+    if text_value(data, "task") is None:
+        problems.append(f"{path}: task is missing or empty")
+    lessons = section(text, "Lessons", 2)
+    if lessons is None or not lessons.strip():
+        problems.append(f"{path}: ## Lessons is missing or empty")
+    return problems
 
 
 def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]:

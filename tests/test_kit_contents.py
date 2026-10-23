@@ -391,8 +391,10 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
+        "`task`",
         "`reference`",
         "`enforced_by`",
+        "## Lessons",
         "`check:",
         "`test:",
         "`ruff:",
