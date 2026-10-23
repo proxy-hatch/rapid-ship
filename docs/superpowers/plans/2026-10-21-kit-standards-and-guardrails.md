@@ -1408,3 +1408,5 @@ Each PR's last task fills its row with the command, its exit code and the summar
 | 5.4 | | | | | |
 
 Row 5.2's checks first ran on 2026-10-23 on `03de0bf` with the trial record's changes, against a draft body written before the trial. They ran again the same day on `5129a95` with the review fixes to the trial record, before the row was filled in, against a draft body whose Evidence section lists the five checks and the trial record. The row gives the second run's results.
+
+PR 5.3's `diff` step, run against `plan5-guardrails` (`ef017f6`), counts more lines than the cap: 1,618 at `981114f`, where the whole-branch review ran, and 1,780 at `f493308`, after the review's fixes. Of the 1,780, devctl's tests hold 748, the devctl template 646, the Python skeleton template 222, the other tests 144 and the remaining files 20. Task 14 Step 6 applies: the PR body declares `Over the diff cap: <reason>` only after the owner accepts the overage; otherwise the PR is split at a task boundary. Row 5.3 is filled in after that decision.
