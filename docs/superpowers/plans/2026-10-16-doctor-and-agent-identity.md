@@ -6866,7 +6866,7 @@ The owner ran Steps 1 to 11a on 2026-10-21 in `proxy-hatch/rs-trial` and `proxy-
 - The owner's GitHub plan. The rerun's `gh api user --jq .plan.name` printed an empty line, exit 0. Step 6's 403 matches GitHub Free.
 - Step 2: `git -C "$PLAN4" rev-parse HEAD` and the fast check's exit code. The rerun recorded the versions it ran with, not those of the first pass.
 - Step 3: the Apps existed from 2026-10-19. Not recorded: whether Step 3's command ran, and its output, whether GitHub accepted the manifest without `hook_attributes`, whether each App's settings page shows no webhook, and whether `security` showed a dialog while storing each key.
-- Step 6: the output and exit code of `rapid-ship app --repository`. Whether the install URL adds a repository to the existing installation is answered by plan 5's [guardrails trial](../../trials/2026-10-23-harness-guardrails.md) of 2026-10-23: both Apps were installed on all repositories, so installing on a new repository changes nothing.
+- Step 6: the output and exit code of `rapid-ship app --repository`, and whether the install URL added `rs-trial-private` to the existing installation. Plan 5's [guardrails trial](../../trials/2026-10-23-harness-guardrails.md) did not exercise this. On 2026-10-23 both installations showed "Repository access: All repositories", so its install URLs changed nothing; only that run's summary records this. It does not show how the installations were set on 2026-10-21.
 - Step 7: both calls' output and exit codes.
 - Step 9: doctor's exit code, and whether GitHub's web interface names `actor_id` 5 as the admin role.
 - Step 10: the output and exit codes after the owner's review: the merge refused while the thread was open, and the Worker App's merge.

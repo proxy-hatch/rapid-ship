@@ -22,7 +22,8 @@ The expected messages are copied from `hook.py`, `merge_guard.py` and `merge_gua
 The run kept its files in `$TRIAL_DIR`, outside every repository. They hold local paths and Session IDs, so they are not published. This record quotes them scrubbed: a call shows `<TRIAL_DIR>` in place of the trial directory's path.
 
 - `versions.txt`: the versions and the revision under test.
-- `step3.log`, `step5.log`, `step6-app.log`, `step6.log` and `step7.log`: each scripted command with its output and exit code. `hook-times.txt` holds Step 7's 20 times.
+- `step3.log`, `step5.log`, `step6-app.log`, `step6.log` and `step7.log`: the scripted steps' output. `step6-app.log` and most lines of `step3.log` and `step5.log` show each command with its output and exit code, but some outputs there appear without their commands. `step3.log` shows the Kit's pull request only as `$ gh pr create (Kit)` and its URL, with no arguments and no exit code. `step6.log` and `step7.log` hold outputs, most of them without their commands. `hook-times.txt` holds Step 7's 20 times.
+- `step4-lead.txt`, `step4-subagent.txt`, `step5-rows2-5.txt`, `step6-lead1.txt`, `step6-subagent.txt` and `step6-lead2.txt`: the prompt that each of those Sessions got. No file holds the prompt of `step5-row1`.
 - `sessions/<name>.jsonl`: each headless Session's stream-json transcript. For each Session but `step4-lead`, `sessions/<name>.calls.md` lists its tool calls with their results. The Sessions are `step4-lead`, `step4-subagent`, `step5-row1`, `step5-rows2-5`, `step6-lead1`, `step6-subagent` and `step6-lead2`.
 - `RESULTS.md`: the forked Session's summary of the run.
 
@@ -507,16 +508,18 @@ The run departed from the procedure in how it ran:
    - Nobody ran `/hooks`, `/status`, `/permissions` or `/plugin`. Each Session's init event records the conditions instead.
 2. Each prompt ran in a Session of its own. Step 4's subagent prompt went to a second Session, not to the lead's. Step 5 ran in two Sessions, row 1 and rows 2 to 5. Step 6 ran in three: lead rows 1 to 6, the subagent prompt, and lead rows 7 to 13.
 3. Step 5's row 1 Session first waited on a file, so that the merge ran while A's check was pending (Step 5).
-4. The Kit came from `git+https://github.com/proxy-hatch/rapid-ship@03de0bf`, not from the worktree: Step 3's `uvx --refresh --from`, and Step 6's `uvx --from` in place of `uv run rapid-ship app` in the worktree. The vendored devctl matched that revision's template.
-5. The owner's pull requests #1 and #5, the Kit and the Apps, were merged with `gh pr merge --squash`, run as the owner from the script. Step 3's block does so for #1; Step 6 asked for #5 to be merged in GitHub's web interface.
-6. Step 6's install changed nothing, because both Apps were already installed on all repositories. The procedure installs each App on the scratch repository only.
+4. Step 5's rows 2 to 5 went to one Session as one numbered prompt, `step5-rows2-5.txt`, after all three checks had completed. The procedure gives each row its own prompt when that row's condition holds. The combined prompt follows Step 6's first lead prompt with two additions: it asks for each command `exactly as written, once`, and it forbids a retry after a denial `except where a command says so`. Its row 5 is `Run the command that the denial of command 4 names, exactly as written, once.`
+5. The Kit came from `git+https://github.com/proxy-hatch/rapid-ship@03de0bf`, not from the worktree: Step 3's `uvx --refresh --from`, and Step 6's `uvx --from` in place of `uv run rapid-ship app` in the worktree. The vendored devctl matched that revision's template.
+6. The owner's pull requests #1 and #5, the Kit and the Apps, were merged with `gh pr merge --squash`, run as the owner from the script. Step 3's block does so for #1; Step 6 asked for #5 to be merged in GitHub's web interface.
+7. Step 6's install changed nothing, because both Apps were already installed on all repositories. The procedure installs each App on the scratch repository only.
+8. Step 6's script ran a step that no procedure step names. In `step6.log`, right after D's branch was prepared (`c9bcaf2 Add notes-d.txt`), it printed `proxy-hatch/rs-guardrail-trial`, then `worker token exit 0`. The log does not record the command. Its place in the log and its label suggest that the script used the Worker App before the agent's first `./devctl as worker push`, lead row 3; the log alone does not show the command or the App it used.
 
 ## Limits
 
 - The trial covers Claude Code alone, because plan 5 wires no other Harness. The follow-ups that wire Codex (PRO-142) and agy (PRO-143) repeat it there.
 - Every Session was headless; no interactive Session ran. This trial therefore observed no ask prompt: G5's ask came back as a denial. The hook spike observed the interactive prompt with a stand-in hook, and no run has observed the owner declining it.
 - One run: each case ran once, on one machine, with one version of Claude Code, 2.1.304, and one model, `claude-sonnet-5-5`.
-- Some results rest on the run's summary alone ([The run's files](#the-runs-files)): the Sessions' command-line flags, Step 4's checks after both Sessions, and what Step 6's install pages showed.
+- Some results rest on the run's summary alone; [The run's files](#the-runs-files) lists them.
 - Both Apps were installed on all repositories, so the trial did not install an App on one repository through a printed URL.
 - No row exercises the guard's other denials: a merge it cannot check, unreadable settings, or a read that would pass its 300-second budget. Task 5's unit tests cover them with a fake GitHub reader.
 - Step 7 times a call that gets no decision and reads nothing from GitHub. A `gh pr merge` also pays the guard's GitHub reads: four or more, and five or more with Agent identity on.
