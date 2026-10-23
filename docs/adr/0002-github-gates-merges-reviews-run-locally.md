@@ -4,7 +4,7 @@ status: accepted
 
 # GitHub gates merges; Agent identity is optional
 
-Checks run in the project's CI on GitHub. Where GitHub offers rulesets, on public repositories and on private ones with a paid plan, the ruleset decides what merges, and with Agent identity CODEOWNERS also decides whose approval a merge needs. The merge guard, a rule of `devctl hook` that is on in every setup in each Harness wired to it, also denies an agent's merge when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. A GitHub Free private repository has no rulesets, so there the merge guard is the enforcement.
+Checks run in the project's CI on GitHub. Where GitHub offers rulesets, on public repositories and on private ones with a paid plan, the ruleset decides what merges, and with Agent identity CODEOWNERS also decides whose approval a merge needs. The merge guard, a rule of `devctl hook` that is on in every setup in each Harness wired to it, also denies an agent's merge when `devctl check` has not passed on the pull request's head commit, or when the pull request touches the Protected set, which it reads from CODEOWNERS on the pull request's base branch, never its head. With Agent identity on, it also denies the merge until the Reviewer App has approved that head commit. A GitHub Free private repository has no rulesets, so there the merge guard is the enforcement.
 
 rapid-ship therefore keeps no local evidence store, policy store or merge broker. Reviews run wherever the Lead's Harness runs them: a subagent or a headless Session following `rs-review`, or the Lead itself. rapid-ship ships the review skill, not a review runner.
 
@@ -13,14 +13,14 @@ Agent identity is an optional feature. `rapid-ship app` creates two GitHub Apps:
 GitHub never lets a pull request's author approve or request changes on it, on any plan. Agent identity therefore buys four things:
 
 1. The owner can formally approve agent pull requests, so merges need no admin bypass. In a team, teammates' approvals cover this without it.
-2. The Reviewer's verdicts are real GitHub reviews, so Revisions can be counted.
+2. The Reviewer's verdicts are real GitHub reviews, so Revisions can be counted and the merge guard can require the Reviewer App's approval before an agent merges.
 3. Agent pull requests can be told apart from the owner's, which every per-agent-PR metric needs.
 4. CODEOWNERS binds the Lead in Flight while the Lead acts through `devctl as`, because an App cannot use the owner's bypass.
 
 Without Agent identity, agents act as the owner and these four are lost:
 
 1. The owner cannot approve an agent's pull request, so a solo owner merges it through the admin bypass.
-2. The Reviewer's verdicts are comments from the owner's account, not reviews.
+2. The Reviewer's verdicts are comments from the owner's account, not reviews, so the merge guard cannot require the Reviewer's approval before an agent merges.
 3. Revisions and the other per-agent-PR metrics report "unknown: needs Agent identity". Metrics over all pull requests still work: Reverts, red default-branch CI after a merge, and pull requests closed unmerged.
 4. In Flight, the ruleset must drop its review requirement so that the Lead can merge without a person's approval. CODEOWNERS then binds no one, and the merge guard holds the Protected set: it denies an agent's merge of a Protected-set pull request, which the owner merges in GitHub's web interface. `rs-lead` explains this, and the owner decides. On 2026-10-21 the owner changed this: the ruleset keeps code-owner review in every setup, because at an approval count of 0 the Lead can still merge a pull request outside the Protected set, and code-owner review also makes GitHub refuse an agent's merge of a Protected-set pull request unless the agent uses the admin bypass; the cost is that the owner merges a Protected-set pull request their account opened through the admin bypass ([Spec 1](../superpowers/specs/2026-10-14-kit-and-setup-design.md), section 11).
 

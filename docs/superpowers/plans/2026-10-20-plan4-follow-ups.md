@@ -10,7 +10,7 @@
 
 **Spec:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`rapid-ship app`), 4 (settings files), 6 (doctor, Agent identity) and 11 (answered on 2026-10-19). The [plan index](2026-10-14-kit-and-setup.md) lists these follow-ups under "Plan 4 follow-ups, before #31 to #33 merge".
 
-**Status:** built in PRs #31 to #33, which are not merged yet: Tasks 1, 2 and 8 on #31, Tasks 3 and 9 on #32, Tasks 4 to 7 and 10 on #33, and Tasks 11 and 12 on all three. The [owner steps](#owner-steps-after-the-merge-up) are pending.
+**Status:** built and merged in PRs #31 to #33: Tasks 1, 2 and 8 on #31, Tasks 3 and 9 on #32, Tasks 4 to 7 and 10 on #33, and Tasks 11 and 12 on all three. The [owner steps](#owner-steps-after-the-merge-up) are pending.
 
 ## Global Constraints
 
