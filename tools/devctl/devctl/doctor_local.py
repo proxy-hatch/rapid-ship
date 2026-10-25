@@ -258,12 +258,14 @@ def _vulture_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 
 def _deptry_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
-    # deptry joins its patterns as ^(a|b) and tests each path relative to the root, without ./.
+    # deptry joins its patterns as ^(a|b) and tests each directory and file it reaches, relative to
+    # the root and without ./. A match skips that path and everything beneath it.
     deptry = toml_table(pyproject, "tool", "deptry")
     excluded = toml_strings(deptry["exclude"]) if "exclude" in deptry else list(DEPTRY_EXCLUDE)
+    probes = (DEVCTL_DIRECTORY, f"{DEVCTL_DIRECTORY}/devctl/cli.py")
     for pattern in [*excluded, *toml_strings(deptry.get("extend_exclude"))]:
         try:
-            if re.match(pattern, DEVCTL_DIRECTORY):
+            if any(re.match(pattern, probe) for probe in probes):
                 return []
         except re.error:
             continue

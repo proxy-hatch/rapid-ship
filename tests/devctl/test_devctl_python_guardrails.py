@@ -77,6 +77,9 @@ DEPTRY_GAP = "deptry: no exclude or extend_exclude pattern matches tools/devctl"
         ("deptry", None, [DEPTRY_GAP]),
         ("deptry", {"extend_exclude": ["tools"]}, []),
         ("deptry", {"extend_exclude": [".*devctl"]}, []),
+        # deptry also tests each path beneath tools/devctl.
+        ("deptry", {"extend_exclude": ["tools/devctl/"]}, []),
+        ("deptry", {"extend_exclude": ["tools/devctl/.*"]}, []),
         # deptry matches each pattern from the start of the path.
         ("deptry", {"extend_exclude": ["devctl"]}, [DEPTRY_GAP]),
     ],
