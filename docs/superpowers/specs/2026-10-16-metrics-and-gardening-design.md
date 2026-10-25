@@ -1,6 +1,6 @@
 # Spec 3: Metrics and gardening
 
-**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row, and so that `metrics.toml` follows Spec 1's rule for settings comments.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
+**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row, so that `metrics.toml` follows Spec 1's rule for settings comments, and so that `sync` proposes no migration (Spec 1 section 3).** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
 
 ## 1. Scope and outcome
 
@@ -278,7 +278,7 @@ The seeded `gate.toml` of plans 1 to 3 recorded 1.0 Revisions per PR, 1 Rollback
 | `mode`, `flight_lease_until` and `owner_approves_behavioural_test_removal` | Gone. The escalation list, `[escalation]` in `project.toml`, sets the Mode and names behavioural-test removals; there is no lease |
 | `[thresholds.promotion]` and `[thresholds.demotion]` | Replaced by `window` and `[thresholds]` in `metrics.toml` |
 
-Spec 1's plan 4 stops seeding and reading `gate.toml`; this spec seeds `metrics.toml`. In an existing project, `rapid-ship sync` adds `metrics.toml` with the defaults, because it is a new seeded file. `gate.toml` belongs to the project and nothing reads it any more, so `sync` leaves it in place: a migration changes only what a seeded file must contain (Spec 1, section 3), and nothing requires `gate.toml` to go. Until the owner deletes it, `devctl metrics` notes the old file, and the owner can carry any of its values into `metrics.toml`.
+Spec 1's plan 4 stops seeding and reading `gate.toml`; this spec seeds `metrics.toml`. In an existing project, `rapid-ship sync` adds `metrics.toml` with the defaults, because it is a new seeded file. `gate.toml` belongs to the project and nothing reads it any more, so `sync` leaves it in place: `sync` never changes a seeded file (Spec 1, section 3), and nothing requires `gate.toml` to go. Until the owner deletes it, `devctl metrics` notes the old file, and the owner can carry any of its values into `metrics.toml`.
 
 ## 7. Project-defined metrics
 
@@ -594,7 +594,7 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 | `tools/devctl/devctl_project/__init__.py` | seeded | New projects get a `metrics()` stub |
 | `docs/AGENTS.md` | seeded | Points to `docs/corrections/` |
 
-Every path above is in the Protected set by its path: through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md, and `docs/corrections/README.md` through its own line, `/docs/corrections/README.md`, which this spec's plan adds to the seeded CODEOWNERS (Spec 1). In an existing project, `rapid-ship sync` proposes that CODEOWNERS line as a migration in its own PR (Spec 1, section 3). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer (Spec 1). It leaves `gate.toml` in place (section 6).
+Every path above is in the Protected set by its path: through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md, and `docs/corrections/README.md` through its own line, `/docs/corrections/README.md`, which this spec's plan adds to the seeded CODEOWNERS (Spec 1). In an existing project, `rapid-ship sync` lists CODEOWNERS among the seeded files whose template changed, so the owner can add that line (Spec 1, section 3). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer (Spec 1). It leaves `gate.toml` in place (section 6).
 
 A plan for this spec can build it in six independent slices: `metrics.toml` with the basic metrics; project-defined metrics; the Action; the ledger with its map rule and Protected rule; `rs-garden`; `rs-preflight`.
 

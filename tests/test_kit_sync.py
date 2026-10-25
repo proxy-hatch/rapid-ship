@@ -28,7 +28,7 @@ class PullRequests:
 
     def __call__(self, root: Path, branch: str, base: str, title: str, body: str) -> str:
         self.calls.append((branch, base, title, body))
-        return f"https://github.com/octo/demo-app/pull/{len(self.calls)}"  # a number per call
+        return "https://github.com/octo/demo-app/pull/1"
 
 
 def sync(

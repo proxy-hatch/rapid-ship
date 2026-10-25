@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import pytest
 
-import devctl
 from check_workspace import Workspace
 from devctl.check.map import (
     MapStep,
@@ -257,30 +256,23 @@ def test_the_pattern_readme_is_not_a_pattern(workspace: Workspace) -> None:
     assert pattern_lesson_errors(context, context.repo.files()) == []
 
 
-def test_a_pattern_without_task_or_lessons_warns_in_kit_0_2_0_and_fails_after(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_pattern_without_task_or_lessons_fails_the_map_step(workspace: Workspace) -> None:
     workspace.root_guide("[Docs](docs/)\n")
     workspace.write("docs/AGENTS.md", "# Docs\n")
     incomplete = PATTERN.split("## Lessons")[0].replace("task: Read configuration\n", "")
     workspace.write(
         "docs/patterns/settings.md", incomplete.replace("src/app/settings.py", "README.md")
     )
-    messages = [
-        "docs/patterns/settings.md: task is missing or empty",
-        "docs/patterns/settings.md: ## Lessons is missing or empty",
-    ]
 
-    monkeypatch.setattr(devctl, "__version__", "0.2.0")
-    warned = MapStep().run(workspace.context(source_roots=()))
-    monkeypatch.setattr(devctl, "__version__", "0.3.0")
-    failed = MapStep().run(workspace.context(source_roots=()))
+    result = MapStep().run(workspace.context(source_roots=()))
 
-    assert (warned.status, warned.details) == (
-        "passed",
-        tuple(f"warning: {message}; this fails from the next Kit version" for message in messages),
+    assert (result.status, result.details) == (
+        "failed",
+        (
+            "docs/patterns/settings.md: task is missing or empty",
+            "docs/patterns/settings.md: ## Lessons is missing or empty",
+        ),
     )
-    assert (failed.status, failed.details) == ("failed", tuple(messages))
 
 
 GUIDE = """# Root

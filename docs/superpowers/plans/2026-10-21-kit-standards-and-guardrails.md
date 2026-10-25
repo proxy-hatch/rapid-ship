@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Run the hook spike first. Then give every Kit project `devctl hook` with G1 to G5, G7, G8 and the merge guard, wired for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8 and `./devctl doctor --settings`; the Pattern `task` key and Lessons section with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap and the ledger rule; one CI concurrency group for each push run; documented, validated settings; `sync`'s migrations; and the `dead-code` check step for Python, which fails on code and declared dependencies that nothing uses, and on imports that the declared dependencies do not cover.
+**Goal:** Run the hook spike first. Then give every Kit project `devctl hook` with G1 to G5, G7, G8 and the merge guard, wired for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8 and `./devctl doctor --settings`; the Pattern `task` key and Lessons section with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap and the ledger rule; one CI concurrency group for each push run; documented, validated settings; and the `dead-code` check step for Python, which fails on code and declared dependencies that nothing uses, and on imports that the declared dependencies do not cover. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4), so this plan builds no `sync` migrations and no warning period (Tasks 16 and 17).
 
-**Architecture:** Five stacked PRs, 5.1 to 5.5, each reviewed and squash-merged on its own. devctl changes only in its template under `rapid_ship/templates/common/tools/devctl/devctl/`, and `uv run rapid-ship sync --in-place` vendors it. `devctl hook claude pre-tool` turns Claude Code's PreToolUse event into a `ToolCall` (`hook_protocols.py`), splits the command line and parses the git and gh forms (`command_line.py`), applies the rules (`hook.py`) and, for `gh pr merge` alone, the merge guard (`merge_guard.py`), which reads GitHub through doctor's `OwnerGet`. The Protected-set reader and the ledger rule live in `codeowners.py`, which the hook, the guard and the `diff` step share. `rapid_ship/kit/migrations.py` holds the migrations that `sync` proposes. PR 5.5's `check/stacks/python_dead_code.py` runs vulture and deptry, and reads the allowlist items in `pyproject.toml` for the exceptions step.
+**Architecture:** Five stacked PRs, 5.1 to 5.5, each reviewed and squash-merged on its own. devctl changes only in its template under `rapid_ship/templates/common/tools/devctl/devctl/`, and `uv run rapid-ship sync --in-place` vendors it. `devctl hook claude pre-tool` turns Claude Code's PreToolUse event into a `ToolCall` (`hook_protocols.py`), splits the command line and parses the git and gh forms (`command_line.py`), applies the rules (`hook.py`) and, for `gh pr merge` alone, the merge guard (`merge_guard.py`), which reads GitHub through doctor's `OwnerGet`. The Protected-set reader and the ledger rule live in `codeowners.py`, which the hook, the guard and the `diff` step share. PR 5.5's `check/stacks/python_dead_code.py` runs vulture and deptry, and reads the allowlist items in `pyproject.toml` for the exceptions step.
 
 **Tech Stack:** Python 3.12+ standard library (`shlex`, `json`, `base64`, `difflib`, `tomllib`), PyYAML, git 2.31+, gh, uv, pytest, Ruff, mypy, import-linter, zizmor 1.30.1, Claude Code hooks (2.1.304 in the hook spike), Docusaurus for the docs site. From PR 5.5, vulture 2.16 and deptry 0.25.1, as dev dependencies.
 
-**Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (migrations), 4 (Kit contents, settings files, Patterns, Harness guardrails, the merge guard, the Protected set, CI), 5 (map rules, diff policy, dead code, exceptions), 6 (`doctor --settings`, `devctl hook`), 10 (plan 5's tests and trials) and 11 (open questions). Plan 5 of 7 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Shared interfaces and "Plan 5: Kit standards and Harness guardrails" outline bind this plan.
+**Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (Kit changes to seeded content), 4 (Kit contents, settings files, Patterns, Harness guardrails, the merge guard, the Protected set, CI), 5 (map rules, diff policy, dead code, exceptions), 6 (`doctor --settings`, `devctl hook`), 10 (plan 5's tests and trials) and 11 (open questions). Plan 5 of 7 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Shared interfaces and "Plan 5: Kit standards and Harness guardrails" outline bind this plan.
 
 **Status:** planned on 2026-10-21. Plan 4 and its follow-ups are merged (#31 to #33), and `v0.1.0` is tagged at `0e1d6d0`. This document lands in PR 5.1. The hook spike is recorded on 2026-10-22, and Task 1 Step 9 revised Global Constraints, Review Focus and Tasks 4 and 6 to wire Claude Code's `Monitor` tool. PR 5.5 was added on 2026-10-25 for the owner's decisions of that day on the `dead-code` step, which its introduction lists.
 
@@ -76,7 +76,6 @@
 | `devctl/check/map_skills.py` | 5.3 | Map rule 7, moved from `check/map.py` so `map.py` stays under the cap |
 | `common/README.md`, `common/ARCHITECTURE.md` | 5.3 | The seeds that map rule 8 checks |
 | `python/docs/patterns/python-*.md`, `python/src/__package__/{errors,inputs,settings,profiling}.py`, `python/tests/test_{errors,inputs,settings,profiling}.py` | 5.3 | The Python starter Patterns and the performance Pattern, with reference code and tests |
-| `rapid_ship/kit/migrations.py` | 5.4 | `Migration`, `MIGRATIONS`, the pending edits and their PR body |
 | `devctl/check/stacks/python_dead_code.py` | 5.5 | The `dead-code` step for Python, its floor settings, and the allowlist items that `pyproject.toml` holds |
 
 ---
@@ -131,7 +130,7 @@ def patterns_in(text: str) -> list[str]: ...  # owned lines, commented or not; n
 def protected_patterns(root: Path) -> list[str] | None: ...  # None: no file; OSError: unreadable
 ```
 
-- [ ] **Step 1: start Kit version 0.2.0.** Set `0.2.0` in both `pyproject.toml` files and in `__version__`, run `uv lock` and `uv lock --project rapid_ship/templates/common/tools/devctl`, sync, then `uv run pytest tests/test_kit_contents.py -q`; expected PASS. Commit `chore: start Kit version 0.2.0`. Ruling: 0.2.0, because plan 5 is the first Kit change after the `v0.1.0` tag and its migration IDs and the warning period of Task 9 name the version.
+- [ ] **Step 1: start Kit version 0.2.0.** Set `0.2.0` in both `pyproject.toml` files and in `__version__`, run `uv lock` and `uv lock --project rapid_ship/templates/common/tools/devctl`, sync, then `uv run pytest tests/test_kit_contents.py -q`; expected PASS. Commit `chore: start Kit version 0.2.0`. Ruling: 0.2.0, because plan 5 is the first Kit change after the `v0.1.0` tag and its migration IDs and the warning period of Task 9 name the version (the owner's decision of 2026-10-25 removed both; Task 16).
 - [ ] **Step 2: write the failing test.** Move the `codeowners_match` table and the first-file test from `test_devctl_diff_rules.py` into `test_devctl_codeowners.py`, importing from `devctl.codeowners`, and add:
 
 ```python
@@ -1012,6 +1011,7 @@ def settings_item(root: Path) -> Item: ...  # area "guardrails", name "settings"
 
 - Ruling: map rule 7's functions (`skill_alias_errors`, `skill_errors` and their helpers, `map.py:204-274` and `:428-443`) move unchanged to `check/map_skills.py` first, with `SKILLS`, so `map.py` stays under 500 lines with rules 5 and 8 added. `skill_errors` also calls `_front_matter` and `_text` (`map.py:287-302`), which rules 4 and 5 keep using, so those two move first to `check/markdown.py` as public `front_matter_of` and `text_value`. `map.py` imports `map_skills.py`, and `map_skills.py` imports them from `markdown.py` and nothing from `map.py`, so no import cycle forms.
 - Ruling: `graced` turns its messages into notes `warning: <message>; this fails from the next Kit version` while `devctl.__version__ == GRACE_VERSION`, read at run time, and into errors otherwise. It covers rule 8's links (`root_link_errors`: the root guide's links to both documents, and the local links inside them), rule 5's `task` and Lessons (Task 10) and rule 7's regular `SKILL.md` (Task 12), because each fails on files an existing project already owns (Spec 1 section 3: "devctl warns for that version before it fails"). For the root guide's links the warning period goes with Task 16's migration `0.2.0-root-guide-links`, which proposes the two rows. `root_document_errors` fails at once, because `sync` creates a missing seed. The diff cap and the ledger rule judge new changes only, so they fail at once.
+- Ruling of 2026-10-25: the owner's decision that the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4), replaced this ruling. PR 5.4 removed `graced`, `GRACE_VERSION` and the migration `0.2.0-root-guide-links`, so rule 8's links fail at once, as do rule 5's `task` and Lessons and rule 7's regular `SKILL.md`; the tests below that set `devctl.__version__` assert that failure instead (Task 16).
 - Ruling: `doctor --settings` builds no `DoctorContext`: it prints the git item, `settings_item(root)` and Task 6's `wiring_item(root, tracked)`, then exits by `doctor_exit_code`, and makes no GitHub request, because Spec 1 section 4 relies on the doctor run at each Session's start to report missing wiring, and section 6 has most Sessions run `--settings`. The full doctor keeps `load_project` first, so it exits 2 on an invalid `project.toml` before any item. `settings_item` loads `.rapid-ship/project.toml` and `.rapid-ship/exceptions.toml` with devctl's loaders and reads CODEOWNERS with `protected_patterns`, which takes the first of its three names. An invalid or unreadable file is unknown (exit 2), with the `SettingsError` message that names the file and the key; no CODEOWNERS file, a `None` from `protected_patterns`, is missing (exit 1). The full doctor adds `settings_item` right after git, where Spec 1 section 6 reads the settings. `--settings` and `--skills` are an argparse mutually exclusive group, because `--settings` stays a quick local read.
 - Seeds, with `{{project_name}}` as their only variable, because an empty `{{owner}}` or `{{repository}}` is a `KitError` outside TOML and CODEOWNERS. README.md: what the project does and for whom, how to run it, how to check a change (`./devctl check`), and a link to `AGENTS.md`. ARCHITECTURE.md: purpose and context, a table of the main parts (Part, Where, What it does), how data moves between them, the ADRs in `docs/adr/` as a code span (a new project has no `docs/adr/`, so a link would fail rule 8), and how to work on the code, linking `AGENTS.md`.
 - Both root guide templates: a first Commands bullet, ``Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.``, and two first rows in Find the change, ``| What the project does, and how to run and check it | [README](README.md) |`` and ``| The system's parts and how data moves between them | [Architecture](ARCHITECTURE.md) |``. This repository's root guide gains the README row and the same command line.
@@ -1054,8 +1054,8 @@ def root_guide(self, text: str = "# Root\n") -> None:
 - Modify: `rapid_ship/templates/common/docs/patterns/README.md`, `devctl/check/map.py` (`_pattern_problems`, `_document_errors`), `tests/devctl/test_devctl_map_documents.py`, `tests/test_kit_contents.py:347-365`
 
 **Interfaces:**
-- Consumes: `graced` (Task 9); `markdown.section(text, title, level)`.
-- Produces: `pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]` in `map.py`, whose messages `MapStep.run` passes through `graced`. `_document_errors` passes the file's text to its callback as a fourth argument. Ruling: `pattern_lesson_errors` skips a file for which `front_matter_of` (Task 9) gives a message, because `pattern_errors` already reports that file: the file cannot be read, or its front matter is missing, not closed, not YAML or not a mapping.
+- Consumes: `graced` (Task 9, removed in Task 16); `markdown.section(text, title, level)`.
+- Produces: `pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]` in `map.py`, whose messages `MapStep.run` passes through `graced`. Ruling of 2026-10-25: the owner's decision that the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4), made these messages errors in PR 5.4 (Task 16). `_document_errors` passes the file's text to its callback as a fourth argument. Ruling: `pattern_lesson_errors` skips a file for which `front_matter_of` (Task 9) gives a message, because `pattern_errors` already reports that file: the file cannot be read, or its front matter is missing, not closed, not YAML or not a mapping.
 
 The seed's front-matter example gains `task: Read configuration` first, with the bullet ``- `task` is the recurring task in a few words.``, and its last paragraph becomes Spec 1's: the text states the rule, when it applies and the bypass it bans, and a non-empty `## Lessons` section explains what the reference does right.
 
@@ -1200,7 +1200,7 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
 - Modify: `devctl/check/map_skills.py`, `devctl/check/map.py` (`MapStep.run`), `tests/devctl/test_devctl_map_skills.py`
 
 **Interfaces:**
-- Produces: `skill_file_errors(root: Path, files: Sequence[str]) -> list[str]`, whose messages `MapStep.run` passes through `graced`.
+- Produces: `skill_file_errors(root: Path, files: Sequence[str]) -> list[str]`, whose messages `MapStep.run` passes through `graced`. Ruling of 2026-10-25: the owner's decision that the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4), made these messages errors in PR 5.4 (Task 16).
 
 - [ ] **Step 1: write the failing test** `test_a_symlinked_skill_md_warns_in_kit_0_2_0_and_fails_after`: a skill whose `SKILL.md` is a symlink to `real.md` in its directory gives `.agents/skills/demo/SKILL.md: is a symlink; make it a regular file, because Codex rejects a symlinked SKILL.md`, as a note under `0.2.0` and as an error under `0.3.0`; a regular `SKILL.md` gives `[]`.
 - [ ] **Step 2: run**; expected FAIL with `ImportError`.
@@ -1270,10 +1270,10 @@ assert workflow["concurrency"] == {
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_ci_templates.py -q`; expected FAIL.
 - [ ] **Step 3: implement**, sync, then run `./devctl check --tier full` and confirm its `workflows` step, zizmor 1.30.1, passes.
 - [ ] **Step 4: commit** `ci: give each push run its own concurrency group`.
-- [ ] **Step 5: documents.** Describe Tasks 9 to 14 in the files above, including the warning period of `GRACE_VERSION`. Spec 1 section 4's ARCHITECTURE.md bullet names the ADRs in `docs/adr/` as a code span, as Task 9's seed does, in place of "links to the ADRs". Spec 1 section 6's doctor row and the index's Conventions write `doctor [--skills | --settings]`. The index's Layout gains `check/map_skills.py`, and its CODEOWNERS section the Python seed's commented starter Pattern lines right after `/.rapid-ship/` (Task 11). Commit `docs: describe plan 5's standards`.
+- [ ] **Step 5: documents.** Describe Tasks 9 to 14 in the files above, including the warning period of `GRACE_VERSION` (the owner's decision of 2026-10-25 removed it, and Task 16 updated these documents). Spec 1 section 4's ARCHITECTURE.md bullet names the ADRs in `docs/adr/` as a code span, as Task 9's seed does, in place of "links to the ADRs". Spec 1 section 6's doctor row and the index's Conventions write `doctor [--skills | --settings]`. The index's Layout gains `check/map_skills.py`, and its CODEOWNERS section the Python seed's commented starter Pattern lines right after `/.rapid-ship/` (Task 11). Commit `docs: describe plan 5's standards`.
 - [ ] **Step 6: verify.** Run the five checks with `--base plan5-guardrails`, and record them in the Verification record. When `diff` counts more than 1,500 lines, the PR body declares `Over the diff cap: <reason>` only after the owner accepts the overage; otherwise split the PR at a task boundary. Commit `docs: record PR 5.3's verification`.
 
-## PR 5.4: settings and migrations (`plan5-settings-migrations`, on `plan5-standards`)
+## PR 5.4: settings, and no backward compatibility before GA (`plan5-settings-migrations`, on `plan5-standards`)
 
 ### Task 15: Documented seeds and the loaders' checks
 
@@ -1322,79 +1322,24 @@ NEW_ROWS = [
 - [ ] **Step 4: run** `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_seed_keys.py` and `tests/test_kit_contents.py`; expected PASS. Status, fast check.
 - [ ] **Step 5: commit** `feat: document every seeded key and name what each settings key accepts`.
 
-### Task 16: `sync`'s migrations, documents, and PR 5.4's verification
+### Task 16: No backward compatibility before GA, documents, and PR 5.4's verification
+
+The owner's decision of 2026-10-25: rapid-ship has no consumers yet, and it is GA when its documentation is released, in plan 7's PR 7.4. Before GA the Kit keeps no backward compatibility: the project updates its own seeded files, and a check that requires the new content fails at once; the policy for after GA is designed then (Spec 1 section 3). This task first built `sync`'s migrations, which proposed deleting each table devctl refuses and adding the root guide's README.md and ARCHITECTURE.md rows, on a branch and PR of their own. The decision removed them before PR 5.4 merged, with the warning period of Tasks 9, 10 and 12. devctl still refuses the removed tables and says to delete them, because that is validation, not an upgrade path.
 
 **Files:**
-- Create: `rapid_ship/kit/migrations.py`, `tests/test_kit_migrations.py`
-- Modify: `rapid_ship/kit/sync.py` (`SyncResult`, `sync_repository`), `rapid_ship/cli.py` (`_sync`), `tests/test_kit_sync.py`; `ARCHITECTURE.md`, `rapid_ship/kit/AGENTS.md`, `rapid_ship/AGENTS.md`, the root `AGENTS.md`, `README.md`, Spec 1's section 4 example and status line, the plan index (plan 5 built), and this plan's Verification record
+- Delete: `rapid_ship/kit/migrations.py`, `tests/test_kit_migrations.py`
+- Modify: `devctl/check/map.py` (`MapStep.run`, without `GRACE_VERSION` and `graced`), `devctl/check/map_skills.py`, `tests/devctl/test_devctl_map_documents.py`, `tests/devctl/test_devctl_map_root_documents.py`, `tests/devctl/test_devctl_map_skills.py`; `ARCHITECTURE.md`, `README.md`, the root `AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, Spec 1's section 4 example, status line and sections 3, 5 and 10, the rapid-ship design, Spec 3, the plan index (plan 5 built), and this plan's Verification record
+- Unchanged from `main`: `rapid_ship/kit/sync.py`, `rapid_ship/kit/pull_request.py`, `rapid_ship/cli.py`, `tests/test_kit_sync.py`, `rapid_ship/AGENTS.md` and `rapid_ship/kit/AGENTS.md`
 
-**Interfaces:**
-- Consumes: the index's `Migration`, unchanged.
-- Produces:
+- Ruling: `MapStep.run` reports rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links as errors in every Kit version, each after the other errors of its rule.
+- Ruling: `sync` does what it did before this task, and never edits a seeded file.
 
-```python
-# rapid_ship/kit/migrations.py
-MIGRATIONS: tuple[Migration, ...]
-
-
-@dataclass(frozen=True)
-class Pending:
-    migration: Migration
-    before: str
-    after: str
-
-
-def pending(root: Path, excluded: Sequence[str]) -> list[Pending]: ...
-def migration_body(found: Sequence[Pending], version: str) -> str: ...
-
-
-# rapid_ship/kit/sync.py: SyncResult gains
-#     migrations: list[Pending]
-#     migration_branch: str | None
-#     migration_pull_request: str | None
-```
-
-- `MIGRATIONS` holds one migration per table that plan 4 dropped and devctl refuses: `0.2.0-remove-agents`, `0.2.0-remove-dispatch`, `0.2.0-remove-linear`, `0.2.0-remove-release` and `0.2.0-remove-roster`, each on `.rapid-ship/project.toml`. `applies` finds the table's header, `[<name>]` or `[<name>.<sub>]`, outside a comment; `edit` deletes each such header and its lines up to the next header or the end of the file, with the blank lines that end it, and keeps comments above the header. Ruling: `[roster]` too, because devctl refuses it like the others.
-- `MIGRATIONS` also holds `0.2.0-root-guide-links` on `AGENTS.md`, because map rule 8 (Task 9) changes what the seeded root guide must contain, and Spec 1 section 3 then requires a migration beside the warning period. `applies` when the text has a `## Find the change` table and no Markdown link to `README.md` or to `ARCHITECTURE.md`; `edit` inserts Task 9's row for each missing link right below the table's separator line, README's first. Ruling: a guide without that table is left to the owner, whom map rule 8's message tells what to add.
-- `pending` applies the migrations in order to each file that exists and is not under `[kit] exclude`, and returns one `Pending` per migration that applies.
-- Ruling: `sync` checks the migrations on every run, before its "nothing changed" return, because a project already at the current templates can still hold an old table.
-- Without `--in-place`, after the sync branch and its PR, when migrations apply: create `rapid-ship/kit-migrate-<version>` at the sync branch's commit, or at `HEAD` when no template changed, refusing an existing branch; write the edits; commit `chore: migrate seeded files for rapid-ship Kit <version>`; open the PR `Migrate seeded files for rapid-ship Kit <version>` against the sync branch, or the starting branch when there is none; and stay on the migration branch, as `sync` stays on its own. On a failure it restores the files, goes back to the branch it started from and deletes the migration branch, as `_stopped` does. Ruling: these names and that base, because Spec 1 bases the branch on the sync branch.
-- `migration_body` lists ``- `<path>`: <explanation>`` for each, says the files are Protected and the owner merges, and ends with `## Evidence`, the line ``- `rapid-ship sync`: <n> migrations for Kit <version>`` and `Not covered: sync did not run ./devctl check; CI runs it on this pull request.`, as `pull_request_body` does, because the `evidence` step needs a command with its result.
-- With `--in-place`, `_sync` prints `migration <id>: <path>: <explanation>` and a unified diff of the edit for each, writes none, and exits 1. Ruling: exit 1, because the project still holds content devctl refuses and the owner must act.
-
-- [ ] **Step 1: write the failing tests.** `tests/test_kit_migrations.py`, docstring `Offline: sync's migrations against fixture repositories and a recording PR opener.`:
-
-`OLD_SEED` is the text of `git show 247f9db:rapid_ship/templates/python/.rapid-ship/project.toml`, plan 3's seed with live `[linear]`, `[dispatch]` and `[release]` tables, rendered for `octo/demo-app` and written into the test as a string.
-
-```python
-def test_plan_3s_seed_loads_after_its_migrations(tmp_path: Path) -> None:
-    (tmp_path / ".rapid-ship").mkdir()
-    (tmp_path / ".rapid-ship" / "project.toml").write_text(OLD_SEED)
-    found = pending(tmp_path, ())
-    assert [item.migration.id for item in found] == [
-        "0.2.0-remove-dispatch",
-        "0.2.0-remove-linear",
-        "0.2.0-remove-release",
-    ]
-    text = found[-1].after
-    assert all(not item.migration.applies(text) for item in found)
-    assert "[tests]" in text
-    assert "[linear]" not in text
-
-
-def test_each_migration_id_is_unique_and_names_the_kit_version() -> None:
-    ids = [migration.id for migration in MIGRATIONS]
-    assert len(ids) == len(set(ids))
-    assert all(identifier.startswith("0.2.0-") for identifier in ids)
-```
-
-  Also: the edited text loads with `devctl.settings.load_project` (devctl is importable in tests); `test_an_excluded_path_is_never_migrated`; `test_in_place_lists_each_migration_and_writes_none` (the file's bytes are unchanged and `result.migrations` lists three); `test_sync_proposes_the_migrations_on_a_second_branch_and_pr` with `PullRequests` from `test_kit_sync.py` (two calls: the sync PR, then `("rapid-ship/kit-migrate-9.9.9", "rapid-ship/kit-sync-9.9.9", "Migrate seeded files for rapid-ship Kit 9.9.9", body)`, where the body names each edit and its `## Evidence` section holds ``- `rapid-ship sync`: <n> migrations for Kit 9.9.9``, with that fixture's count, before its `Not covered:` line, and HEAD is then on `rapid-ship/kit-migrate-9.9.9`); `test_the_root_guide_migration_adds_the_missing_rows` (the root guide that `v0.1.0` seeds, from `git show v0.1.0:rapid_ship/templates/common/AGENTS.md` rendered for `demo-app` and written into the test, gets both rows right below the separator, after which `applies` is False; a guide that links both, or has no Find the change table, is left alone); `test_migrations_run_when_the_kit_is_otherwise_current` (one call, based on `main`); and `test_rapid_ship_sync_in_place_exits_1_and_lists_each_migration` through `rapid_ship.cli.main`.
-- [ ] **Step 2: run** `uv run pytest tests/test_kit_migrations.py -q`; expected FAIL with `ModuleNotFoundError: No module named 'rapid_ship.kit.migrations'`.
-- [ ] **Step 3: implement.** `sync.py` stays under 500 lines because the branch work for migrations lives in a helper beside `_start_branch`; `migrations.py` imports nothing from `sync.py`.
-- [ ] **Step 4: run** `tests/test_kit_migrations.py` and `tests/test_kit_sync*.py`; expected PASS. `uv run rapid-ship sync --in-place` in this repository lists no migration. Status, fast check.
-- [ ] **Step 5: commit** `feat: propose migrations of seeded settings from rapid-ship sync`.
-- [ ] **Step 6: documents.** Describe the migrations and plan 5 as built in the files above, add Task 15's `repository` and `source_roots` comments to Spec 1 section 4's `project.toml` example, the `repository` comment on the line above the key as in the seed, and move plan 5's row to Built; commit `docs: record plan 5 as built`.
-- [ ] **Step 7: verify.** Run the five checks with `--base plan5-standards`, record them in the Verification record, and handle the diff cap as Task 14 Step 6 says. Commit `docs: record PR 5.4's verification`.
+- [ ] **Step 1: remove the migrations.** Delete `migrations.py` and `tests/test_kit_migrations.py`, and restore `sync.py`, `pull_request.py`, `cli.py`, `tests/test_kit_sync.py` and the guides that described them to `main`'s. Run `tests/test_kit_sync*.py` and `tests/test_kit_cli.py`; expected PASS. Commit `refactor: drop sync's migrations before GA`.
+- [ ] **Step 2: write the failing tests.** Each test that ran `MapStep` as Kit `0.2.0` and `0.3.0` asserts instead that the step fails in the current version: `test_a_pattern_without_task_or_lessons_fails_the_map_step`, `test_a_symlinked_skill_md_fails_the_map_step`, `test_a_broken_link_in_architecture_md_fails_the_map_step`, `test_a_root_guide_without_the_links_fails_the_map_step`, and `test_a_missing_document_fails_the_map_step`, whose details are the missing-document message and then the unlinked one.
+- [ ] **Step 3: run** `uv run pytest tests/devctl/test_devctl_map_*.py -q`; expected FAIL, because the step passes with `warning:` notes.
+- [ ] **Step 4: implement**; sync; run the map tests, expected PASS; status and the fast check. Commit `refactor: fail new map rules at once before GA`.
+- [ ] **Step 5: documents.** Describe plan 5 as built and the owner's decision in the files above, add Task 15's `repository` and `source_roots` comments to Spec 1 section 4's `project.toml` example, the `repository` comment on the line above the key as in the seed, and move plan 5's row to Built. Declare each test that this PR removes or renames against `main` under `Removed tests:` in its body.
+- [ ] **Step 6: verify.** Run the five checks with `--base main`, record them in the Verification record, and handle the diff cap as Task 14 Step 6 says. Commit `docs: record PR 5.4's verification`.
 
 ## PR 5.5: the dead-code step (`plan5-dead-code`, on `plan5-settings-migrations`)
 
@@ -1644,13 +1589,13 @@ Each PR's last task fills its row with the command, its exit code and the summar
 | 5.1 | exit 0 at 738c845: `1320 passed in 217.00s (0:03:36)` | exit 0 at 738c845: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 738c845: `36 managed files unchanged.` | exit 0 at 738c845, with `--base main` and the draft body `pr-5.1-body.md`: every step passed; the diff step listed the Protected paths `AGENTS.md`, `docs/superpowers/AGENTS.md` and `docs/trials/AGENTS.md` | exit 0 at 738c845: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 | 5.2 | exit 0: `1735 passed in 236.36s (0:03:56)` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0: `43 managed files unchanged.` | exit 0, with `--base origin/plan5-hook-spike` (`d18217b`) and the draft body `plan5-2.md`: every step passed, `tests` and `evidence` included; the diff step listed 26 Protected paths, among them the vendored devctl, the AGENTS.md files, `.claude/settings.json`, `.github/CODEOWNERS`, `.rapid-ship/` and `pyproject.toml` | exit 0: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 | 5.3 | at 5073ca8: `1806 passed in 272.02s (0:04:32)`, no failure; the exit code was not captured, and the full check's `tests` step passed | exit 0 at 5073ca8: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 5073ca8: `44 managed files unchanged.` | exit 0 at 5073ca8, with `--base origin/plan5-guardrails` (`ef017f6`) and the body `plan5-3.md`: every step passed, `tests`, `diff` and `evidence` included; the diff step listed 18 Protected paths and the note `diff cap: 1813 counted lines, over 1,500, declared: ...` | exit 0 at 5073ca8: `[SUCCESS] Generated static files in "build".` |
-| 5.4 | exit 0 at 38d55b8: `1852 passed in 306.54s (0:05:06)` | exit 0 at 38d55b8: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 38d55b8: `44 managed files unchanged.` | exit 0 at 38d55b8, with `--base origin/plan5-standards` (`5dfbab5`) and the final body `pr-5.4-body.md`: every step passed, `tests`, `diff` and `evidence` included; the diff step listed 11 Protected paths, among them `.github/CODEOWNERS`, the CI workflow, `.rapid-ship/`, the vendored `settings.py` and five AGENTS.md files, and the note `diff cap: 1492 of 1,500 counted lines` | exit 0 at 38d55b8: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
+| 5.4 | exit 0 at afa3cea: `1817 passed in 220.01s (0:03:40)` | exit 0 at afa3cea: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at afa3cea: `44 managed files unchanged.` | exit 0 at afa3cea, with `--base origin/main` (`b755c73`, #38's squash) and the body `pr-5.4-body.md`: every step passed, `tests`, `diff` and `evidence` included; the diff step noted the six removed tests as declared, listed 13 Protected paths, among them the CI workflow, `.rapid-ship/`, the vendored `check/map.py`, `check/map_skills.py` and `settings.py`, and six AGENTS.md files, and noted `diff cap: 480 of 1,500 counted lines` | exit 0 at afa3cea: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 | 5.5 | exit 0 at 8e5191b: `1906 passed in 236.98s (0:03:56)` | exit 0 at 8e5191b: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 8e5191b: `45 managed files unchanged.` | exit 0 at 8e5191b, with `--base origin/plan5-settings-migrations` (`4331edb`) and the final body `pr-5.5-body.md`, whose Evidence declares one renamed test under `Removed tests:`: every step passed, `dead-code`, `tests`, `diff` and `evidence` included; the diff step listed 17 Protected paths, among them `pyproject.toml`, `.rapid-ship/exceptions.toml`, the vendored devctl and six AGENTS.md files, and the note `diff cap: 1491 of 1,500 counted lines` | exit 0 at 8e5191b: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 
 Row 5.2's checks first ran on 2026-10-23 on `03de0bf` with the trial record's changes, against a draft body written before the trial. They ran again the same day on `5129a95` with the review fixes to the trial record, before the row was filled in, against a draft body whose Evidence section lists the five checks and the trial record. The row gives the second run's results.
 
 PR 5.3's `diff` step, run against `plan5-guardrails` (`ef017f6`), counts more lines than the cap: 1,618 at `981114f`, where the whole-branch review ran, and 1,780 at `f493308`, after the review's fixes. Of the 1,780, devctl's tests hold 748, the devctl template 646, the Python skeleton template 222, the other tests 144 and the remaining files 20. Task 14 Step 6 applies: the PR body declares `Over the diff cap: <reason>` only after the owner accepts the overage; otherwise the PR is split at a task boundary. The owner accepted the overage on 2026-10-23, so PR 5.3's body declares it; at 646b7ed, after the last review fix, the step counts 1,813.
 
-PR 5.4's `diff` step, run against `origin/plan5-standards` (`5dfbab5`) at 38d55b8, after the whole-branch review's fixes, counts 1,492 lines, under the cap, so its body declares no overage. The full check read the final `pr-5.4-body.md`, whose Evidence names 38d55b8 and these results. `uv run rapid-ship sync --in-place`, run at 38d55b8, printed `Kit is current; nothing to sync.`, exited 0 and listed no migration. The row's first run, at a795579 before the review fixes, counted 1,214 lines and read an earlier draft of the body.
+PR 5.4's base is `main` since #38 merged as `b755c73`. The checks used `--base origin/main`, because this worktree's local `main` branch is behind GitHub's. At afa3cea, after the owner's decision of 2026-10-25 removed `sync`'s migrations and the warning period, the `diff` step counts 480 lines, under the cap, so the body declares no overage. The body's `Removed tests:` section declares the five map tests that Task 16 renamed and the root-guide test in `tests/test_kit_contents.py` that the comment-rule commit renamed; the step reports no other removed test against `main`. At afa3cea the full check read `pr-5.4-body.md` with its final Summary, which describes the PR without migrations, and its final `Removed tests:`, while its Evidence still named e25dcab. The Evidence now names afa3cea and these results, and the full check ran again against that final body on the commit that records this row. `uv run rapid-ship sync --in-place`, run at afa3cea, printed `Kit is current; nothing to sync.` and exited 0. Earlier runs read earlier drafts of the body: one at e25dcab passed the same checks with the same diff count, and one at 38d55b8 against `origin/plan5-standards` (`5dfbab5`) preceded the owner's decision and counted 1,492 lines.
 
 PR 5.5's `diff` step, run against `origin/plan5-settings-migrations` (`4331edb`) at 73b0c84, after the whole-branch review's fixes, counts 1,491 lines, under the cap, so its body declares no overage. 9 lines of headroom remain. The step reads the rename of `test_the_python_root_guide_adds_its_rows_and_lint_enforced_rules` as a removed test, so the body declares it under `Removed tests:`. The first full run at 73b0c84, before that declaration, failed only the diff step, on that test. At 73b0c84, `uv run rapid-ship sync --in-place` printed `Kit is current; nothing to sync.` and exited 0, and the step's two commands, `uv run --locked vulture --min-confidence 0` and `uv run --locked deptry .`, each exited 0. The row's first run, at bbc212e against `711aa24`, counted 1,142 lines. At b02eb55, after four review-fix commits, the merge of #39 and the trim of the seed's comments, the count against `4331edb` was 1,473. Task 17 Step 7's first full check, at c438514 and without `--base`, compared the branch with `main`: its `dead-code` step was not applicable with the two warnings, its `tests` step passed, and only the diff cap failed, at 4,260 counted lines for PRs 5.2 to 5.5 together.
