@@ -81,7 +81,7 @@ Every rule sits on one of four rungs. A rule goes on the rung that fits its purp
 | Rung | What it is | Example |
 | --- | --- | --- |
 | 1. Safe interfaces | One supported way to do a recurring task, with the bypass banned | Configuration is read only through `settings`; `os.environ` is banned elsewhere |
-| 2. Automated checks | `devctl check`, required in CI | Lint, types, static analysis, tests, import contracts, the diff policy |
+| 2. Automated checks | `devctl check`, required in CI | Lint, types, static analysis, dead code, tests, import contracts, the diff policy |
 | 3. Judgement | Skills, advisory Rules and the Reviewer | "Prefer deep modules with small interfaces" |
 | 4. The owner | Human approval | Changes to CI, guardrails, skills or settings |
 

@@ -1,6 +1,6 @@
 # Architecture
 
-rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 4 are built and merged, plan 4 and its follow-ups in PRs #31 to #33, and the first release, `v0.1.0`, is tagged. Plan 5 is built in PRs 5.1 to 5.4: the hook spike's record; `devctl hook` with the merge guard and its Claude Code wiring; the standards, such as the README.md and ARCHITECTURE.md seeds, `doctor --settings`, the Python starter Patterns, the diff cap and the ledger rule; and documented settings with `sync`'s migrations. This page describes what the repository holds today, how the parts fit together and how to work on them.
+rapid-ship is being rebuilt as a Kit that projects vendor into their repositories; the [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes it. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) builds the Kit and Setup in seven plans, listed in its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md). Plans 1 to 4 are built and merged, plan 4 and its follow-ups in PRs #31 to #33, and the first release, `v0.1.0`, is tagged. Of plan 5, PRs 5.1 to 5.4 are built: the hook spike's record; `devctl hook` with the merge guard and its Claude Code wiring; the standards, such as the README.md and ARCHITECTURE.md seeds, `doctor --settings`, the Python starter Patterns, the diff cap and the ledger rule; and documented settings with `sync`'s migrations. Its PR 5.5, the `dead-code` check step for Python, is planned. This page describes what the repository holds today, how the parts fit together and how to work on them.
 
 ## What exists today
 
@@ -17,7 +17,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Engineering skill | `rapid_ship/skills/rapid-ship-engineering/`, linked from `.agents/skills/` and `.claude/skills/` | Guides agents working on this repository until plan 7's Kit skills replace it |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Plans 6 and 7 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Plan 5's PR 5.5, plans 6 and 7 of Spec 1, Spec 2 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -167,7 +167,7 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142), and agy waits for its interactive runs (PRO-143).
+[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built through PR 5.4. Its PR 5.5, planned, adds the `dead-code` check step for Python: vulture and deptry fail it on code and declared dependencies that nothing uses, and on imports that the declared dependencies do not cover (Spec 1 section 5). It merges before `v0.2.0` is tagged. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142), and agy waits for its interactive runs (PRO-143).
 
 Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines two more plans, not started:
 

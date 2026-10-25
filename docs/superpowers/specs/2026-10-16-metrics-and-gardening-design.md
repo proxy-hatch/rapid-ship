@@ -1,6 +1,6 @@
 # Spec 3: Metrics and gardening
 
-**Status: revised on 2026-10-19 with the owner's decisions from the second review.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
+**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
 
 ## 1. Scope and outcome
 
@@ -494,9 +494,9 @@ A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md
 | A recurring task done more than one way, with no Pattern | Proposed task for a Pattern |
 | An exception whose removal condition now holds | Proposed task |
 | A settings entry that matches nothing, such as a `[map] unguided` directory, a `[kit] exclude` path or a CODEOWNERS path | Proposed task |
-| Dead code: a module, function or check step that nothing reaches | Proposed task |
+| Dead code that Spec 1's `dead-code` step cannot see: code that only tests reach; a module that nothing imports, which vulture reports only through its unused definitions; a definition kept alive only by a use of the same name elsewhere, or by a bare reference in a test; a check step, setting or branch that nothing reaches at run time; a dev dependency that nothing uses any more, which deptry never checks; and the dead-code entries that `rs-setup` marked at Setup | Proposed task |
 
-`devctl check` already fails on broken AGENTS.md links, exception entries that match no suppression, and Pattern references that do not resolve. CI keeps those at zero on the default branch, so the audit does not repeat them.
+`devctl check` already fails on broken AGENTS.md links, exception entries that match no suppression, Pattern references that do not resolve, and code or declared dependencies that nothing uses. CI keeps those at zero on the default branch, so the audit does not repeat them.
 
 ### The base rule and the starter Patterns
 
@@ -629,7 +629,7 @@ From Spec 2:
 
 ## 15. What changed
 
-The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them round 2c, settled what this spec states. The open questions are in section 17.
+The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them round 2c, settled what this spec states. The open questions are in section 17. The owner's decision of 2026-10-25 added Spec 1's `dead-code` check step, so the audit's dead-code row covers only what that step cannot see.
 
 ## 16. Testing
 
@@ -660,7 +660,7 @@ The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them rou
 
 - `devctl metrics` against a scratch repository on GitHub that has: a PR reverted with the Revert button and one with `git revert`, a PR partly reverted by restoring one file and another by undoing one section, a red merge, two quick merges whose push runs both complete, a PR closed unmerged, and a dismissed review that requested changes. The trial confirms the GitHub behaviour this spec relies on, including what the `review_dismissed` event records and the Revert button's body line. It records each partial revert that the content check missed or invented, including sections undone with small edits, and tunes the similarity threshold from that. It runs with and without Agent identity.
 - The Action on the same repository: its permissions suffice, it opens the issue, replaces the body and comments only on a change.
-- `rs-garden` on a scratch repository with prepared PRs: a blocking finding that was fixed, a nit that was skipped, a request from the owner, two Corrections in one category, a severe first Correction, an incident record, returned by a project's incident metric, that names its cause PR, another incident record dated after the last pass but before the window's span, which the pass reaches only by widening the window, a swallowed exception, a stale README command, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
+- `rs-garden` on a scratch repository with prepared PRs: a blocking finding that was fixed, a nit that was skipped, a request from the owner, two Corrections in one category, a severe first Correction, an incident record, returned by a project's incident metric, that names its cause PR, another incident record dated after the last pass but before the window's span, which the pass reaches only by widening the window, a swallowed exception, a stale README command, a function that only a test calls, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
 - One unattended, scheduled `rs-garden` pass, which confirms what the Harness must allow in advance.
 - `rs-preflight` on hello-rapid-ship with and without Agent identity, and on a scratch service that records GitHub deployments. The trial records the review, the settings PR, the tasks it proposed and the outside steps it guided. A model writes the review, so the trial records a result, not a pass or fail.
 
