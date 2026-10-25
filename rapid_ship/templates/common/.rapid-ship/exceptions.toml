@@ -3,8 +3,8 @@
 # Every key is required and holds non-empty text.
 #
 # [[exception]]
-# id = "EX-1"                # EX-<n>, n from 1, each ID once; a suppression's marker names it
-# path = "src/app/run.py"    # the file that holds the suppression, from the repository root
-# rule = "S603"              # the rule it switches off, or "file-size" for a file over the cap
-# reason = "Runs the project's own build tool with fixed arguments"   # why the code needs it
-# remove_when = "The build tool has a Python API"   # the condition that ends the exception
+# id = "EX-1"                # EX-<n>, n from 1, each ID once
+# path = "src/app/run.py"    # from the repository root
+# rule = "S603"              # or "file-size" for a file over the cap
+# reason = "Runs the project's own build tool with fixed arguments"
+# remove_when = "The build tool has a Python API"

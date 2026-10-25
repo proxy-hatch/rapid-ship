@@ -6,30 +6,23 @@
 * @{{owner}}
 #
 # Flight: replace the Walk line with the Protected set below, uncommented.
-# Lines that start with ## stay comments in Flight.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
 # The set ends with the settings files of the check tools, because a
 # settings file can switch its check off.
-## CI, hooks and devctl.
 # /.github/ @{{owner}}
 # /.githooks/ @{{owner}}
 # /devctl @{{owner}}
 # /tools/devctl/ @{{owner}}
-## Skills and the Harness guardrail wiring.
 # /.agents/skills/ @{{owner}}
 # /.claude/ @{{owner}}
-## Agent instructions.
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
-## rapid-ship settings.
 # /.rapid-ship/ @{{owner}}
-## The starter Patterns.
 # /docs/patterns/python-error-handling.md @{{owner}}
 # /docs/patterns/python-configuration.md @{{owner}}
 # /docs/patterns/python-input-validation.md @{{owner}}
 # /docs/patterns/python-performance.md @{{owner}}
-## The check tools' settings files; each can switch its check off.
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}
 # /zizmor.yml @{{owner}}

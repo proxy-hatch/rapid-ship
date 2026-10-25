@@ -21,17 +21,17 @@ sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
 [[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
-template_sha256 = "68bee83d14a50365c4c269b50ce222092494bcbdc163a79d9c1127f6d2e16426"
+template_sha256 = "43beb77bb4c6890df5b34b9671849bc81ac1c45bcf106cd62754faf6f1a01a7f"
 
 [[file]]
 path = ".github/workflows/devctl-check.yml"
 kind = "managed"
-sha256 = "708c7f22153094a246bce52bcc4257dbefdb95ab3493a8d403765ede1c7ef66b"
+sha256 = "02181d8df89e9d8a8384e66ecc76a76e1c97206df97fb6cf842bff1ff841c3ee"
 
 [[file]]
 path = ".rapid-ship/exceptions.toml"
 kind = "seeded"
-template_sha256 = "1950cf85bba9587294e0a3d0e053bed508c7576da62b58af1c2de0e5ef786c2c"
+template_sha256 = "3093a6b802e90b44e3c4cba35c06c9357646e8bfe0052bf6a299d228bdbc3339"
 
 [[file]]
 path = ".rapid-ship/gate.toml"
@@ -41,7 +41,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "437dd04f182dd8db0420582f967589551225f796b0967616498aa8b83638d800"
+template_sha256 = "cce5b5760254cb218a4fe07769c5146dbeaebc94ca4da93be33822b6a5fe0a5e"
 
 [[file]]
 path = "AGENTS.md"

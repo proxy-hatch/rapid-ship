@@ -246,8 +246,7 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     split = agnostic.index("# /.rapid-ship/ @octo") + 1
     patterns = [f"# {path} @octo" for path in STARTER_PATTERNS]
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
-    heading = "## The starter Patterns."
-    assert python == [*agnostic[:split], heading, *patterns, *agnostic[split:], *added]
+    assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
@@ -338,7 +337,7 @@ SETTINGS_FIRST = (
     "- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full "
     "`./devctl doctor`; it checks the settings files and asks GitHub nothing."
 )
-# The owner's comment rule of 2026-10-25, one Rule per bullet, in Spec 1 section 4's order.
+# Rules 2 to 13 of Spec 1 section 4, which carry the owner's comment rule of 2026-10-25.
 COMMENT_RULES = (
     "Prefer clear names, types, and simple control flow.",
     "Add comments only when they convey a contract, rationale, invariant, or external constraint "

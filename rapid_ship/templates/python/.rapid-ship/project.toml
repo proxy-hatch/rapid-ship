@@ -1,5 +1,5 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
-stack = "python"     # python or agnostic: the stack whose checks devctl runs
+stack = "python"     # python or agnostic
 
 [github]
 # The GitHub repository, written "owner/name".
@@ -7,7 +7,7 @@ repository = "{{repository}}"
 # The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".
 code_owner = "{{code_owner}}"
 # Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
-# Record both Apps or neither. An ID is a whole number; a slug is lowercase letters, digits and -.
+# Record both Apps or neither.
 worker_app_id = 0
 worker_app_slug = ""
 reviewer_app_id = 0
@@ -15,8 +15,7 @@ reviewer_app_slug = ""
 
 [escalation]
 # The kinds of pull request the Lead brings to the owner instead of merging them on its own.
-# The Protected set is always on the list. true is Walk: every pull request.
-# false leaves the Protected set and the kinds below: Flight, or anything between.
+# true is Walk. false leaves the Protected set and the kinds below: Flight, or anything between.
 every_pr = true
 kinds = [              # plain text for the Lead
   "a pull request that removes a behavioural test",
@@ -31,7 +30,7 @@ exclude = []           # Kit files or directories the project owns instead
 [map]
 # Source directories: each child directory needs a guide, and file-size caps their source files at 500 lines.
 source_roots = ["src/{{package}}"]
-unguided = []          # maintained directories that need no guide
+unguided = []
 exclude = []           # directories whose AGENTS.md files are template content
 
 [tests]
