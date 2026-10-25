@@ -26,6 +26,11 @@ _SEPARATOR = re.compile(r"[ \t]*\|?(?:[ \t]*:?-+:?[ \t]*\|)+(?:[ \t]*:?-+:?[ \t]
 # Fenced code and inline code spans, as devctl's check/markdown.py finds them.
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _CODE_SPAN = re.compile(r"(?<![\\`])(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)")
+# A single-line reference definition, and a full, collapsed or shortcut reference, as devctl's
+# check/markdown.py reads them.
+_LABEL = r"\[((?:\\.|[^\]\\\n])*)\]"
+_DEFINITION = re.compile(rf"^ {{0,3}}{_LABEL}:[ \t]*(.*)$", re.MULTILINE)
+_REFERENCE = re.compile(rf"(?<!\\){_LABEL}(?!\()(?:{_LABEL})?")
 # Task 9's Find the change rows, which map rule 8 requires: the target each links, and the row.
 ROOT_ROWS = (
     ("README.md", "| What the project does, and how to run and check it | [README](README.md) |"),
@@ -104,7 +109,9 @@ def _without_table(name: str) -> Callable[[str], str]:
 
 
 def _blank(text: str) -> str:
-    return re.sub(r"[^\n]", " ", text)
+    """Spaces for every character but the line breaks that str.splitlines finds, so the blanked
+    text has the same lines as text."""
+    return re.sub(r"[^\n\r\v\f\x1c-\x1e\x85\u2028\u2029]", " ", text)
 
 
 def _without_code(text: str) -> str:
@@ -124,17 +131,29 @@ def _without_code(text: str) -> str:
     return _CODE_SPAN.sub(lambda match: _blank(match.group()), "".join(lines))
 
 
+def _label_key(label: str) -> str:
+    return " ".join(label.split()).casefold()
+
+
 def _links(text: str, name: str) -> bool:
-    """Whether text links the root file name outside code, inline or by reference."""
+    """Whether text links the root file name outside code, as map rule 8 reads links: inline, or
+    through the first definition of a label that a full, collapsed or shortcut reference uses."""
+    text = _without_code(text)
     target = rf"<?(?:\./|/)?{re.escape(name)}(?:#[^\s)>]*)?>?"
-    inline = rf"\]\([ \t]*{target}(?:[ \t]+[^)\n]*)?\)"
-    definition = rf"^[ \t]{{0,3}}\[[^\]\n]+\]:[ \t]*{target}(?:[ \t]|$)"
-    found = re.search(f"{inline}|{definition}", _without_code(text), flags=re.MULTILINE)
-    return found is not None
+    if re.search(rf"\]\([ \t]*{target}(?:[ \t]+[^)\n]*)?\)", text):
+        return True
+    definitions: dict[str, str] = {}
+    for match in _DEFINITION.finditer(text):
+        definitions.setdefault(_label_key(match.group(1)), match.group(2))
+    uses = _REFERENCE.finditer(_DEFINITION.sub("", text))
+    destinations = (definitions.get(_label_key(use.group(2) or use.group(1)), "") for use in uses)
+    return any(re.match(rf"{target}(?:\s|$)", destination) for destination in destinations)
 
 
-def _separator(lines: Sequence[str]) -> int | None:
-    """The index of the Find the change table's separator line, or None without the table."""
+def _separator(text: str) -> int | None:
+    """The index, in text.splitlines(), of the Find the change table's separator line; None
+    without the table. A heading or line in fenced code or a code span does not count."""
+    lines = _without_code(text).splitlines()
     heading = next(
         (i for i, line in enumerate(lines) if line.rstrip() == "## Find the change"), None
     )
@@ -143,20 +162,20 @@ def _separator(lines: Sequence[str]) -> int | None:
     for index in range(heading + 1, len(lines)):
         if lines[index].startswith("#"):
             return None
-        if _SEPARATOR.fullmatch(lines[index].rstrip("\r\n")):
+        if _SEPARATOR.fullmatch(lines[index]):
             return index
     return None
 
 
 def _lacks_root_links(text: str) -> bool:
-    has_table = _separator(text.splitlines()) is not None
+    has_table = _separator(text) is not None
     return has_table and not all(_links(text, name) for name, _ in ROOT_ROWS)
 
 
 def _add_root_links(text: str) -> str:
     """Insert Task 9's row for each root document the guide does not link, below the separator."""
     lines = text.splitlines(keepends=True)
-    separator = _separator(lines)
+    separator = _separator(text)
     if separator is None:
         return text
     if not lines[separator].endswith("\n"):

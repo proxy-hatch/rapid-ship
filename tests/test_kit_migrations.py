@@ -10,7 +10,7 @@ from test_kit_sync import PullRequests
 from devctl.check.map import root_link_errors
 from devctl.settings import REMOVED_TABLES, SettingsError, load_project
 from rapid_ship.cli import main
-from rapid_ship.kit.migrations import MIGRATIONS, migration_body, pending
+from rapid_ship.kit.migrations import MIGRATIONS, ROOT_ROWS, migration_body, pending
 from rapid_ship.kit.pull_request import push_and_open_pull_request
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import KitError, KitRefusal, installed_version, packaged_templates
@@ -244,6 +244,8 @@ def test_the_root_guide_migration_adds_the_missing_rows(tmp_path: Path) -> None:
         ("| Run it | [README](README.md) |\n", True),
         ("| Run it | [README](./README.md#checks) |\n", True),
         ("| Run it | [README][readme] |\n\n[readme]: README.md\n", True),
+        ("| Run it | [readme] |\n\n[readme]: README.md\n", True),
+        ("| Run it | README |\n\n[readme]: README.md\n", False),
         ("| Run it | `[README](README.md)` |\n", False),
         ("\n```markdown\n| Run it | [README](README.md) |\n```\n", False),
         ("\n~~~\n[readme]: README.md\n~~~\n", False),
@@ -252,6 +254,8 @@ def test_the_root_guide_migration_adds_the_missing_rows(tmp_path: Path) -> None:
         "inline",
         "relative-with-fragment",
         "reference",
+        "shortcut-reference",
+        "unused-definition",
         "code-span",
         "fenced",
         "fenced-definition",
@@ -273,6 +277,27 @@ def test_the_root_guide_migration_reads_links_as_map_rule_8_does(
     unlinked = "AGENTS.md: does not link README.md; add it to the Find the change table"
     assert errors == ([] if linked else [unlinked])
     assert ROOT_GUIDE_LINKS.applies(guide) is not linked
+
+
+@pytest.mark.parametrize(
+    "fenced",
+    ["```markdown\n| Work | Start here |\n| --- | --- |\n```\n", "~~~sh\n# a comment\n~~~\n"],
+    ids=["example-table", "comment-line"],
+)
+def test_the_root_guide_migration_skips_fenced_code(tmp_path: Path, fenced: str) -> None:
+    table = "| Work | Start here |\n| --- | --- |\n"
+    guide = f"# demo-app\n\n## Find the change\n\n{fenced}\n{table}| Tools | [Tools](tools/) |\n"
+    write(tmp_path, "AGENTS.md", guide)
+    write(tmp_path, "README.md", "# demo-app\n")
+    write(tmp_path, "ARCHITECTURE.md", "# Architecture\n")
+
+    [found] = pending(tmp_path, ())
+    write(tmp_path, "AGENTS.md", found.after)
+
+    rows = "".join(f"{row}\n" for _, row in ROOT_ROWS)
+    assert found.after == guide.replace(f"{table}| Tools", f"{table}{rows}| Tools")
+    assert root_link_errors(tmp_path, ["AGENTS.md", "README.md", "ARCHITECTURE.md"]) == []
+    assert not found.migration.applies(found.after)
 
 
 def test_the_migration_body_lists_each_edit_and_its_evidence(tmp_path: Path) -> None:
