@@ -239,6 +239,8 @@ TOOL_LINES = (
     "# page\fbreak\n"
     f"def g(tag: str = '{NOQA}') -> str: ...\n"
     "def h() -> None: ...\n"
+    "import os, \\\n"
+    "    yaml; TAG = '# deptry: ignore'\n"
 )
 
 
@@ -246,7 +248,8 @@ def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
     # Each tool searches a line's whole text, a string included, and acts on its first match,
     # but only on the first line of what it reports: lines 11 and 17 hide nothing. Line 19 hides
     # X, and no comment fits there. vulture numbers lines as str.splitlines does, so after line
-    # 21's form feed it reads line 22's text as line 23's.
+    # 21's form feed it reads line 22's text as line 23's. deptry reads line 25 for yaml, the
+    # second name of line 24's import.
     (tmp_path / "run.py").write_text(TOOL_LINES)
 
     lines = scan(tmp_path, ["run.py"], frozenset(), "python")
@@ -262,6 +265,7 @@ def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
         14: ["deptry"],
         19: ["noqa"],
         23: ["noqa"],
+        25: ["deptry"],
     }
 
 

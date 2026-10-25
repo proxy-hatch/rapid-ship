@@ -309,8 +309,9 @@ def tool_line_rules(source: str, recorded: Mapping[int, Sequence[str]]) -> dict[
     """The rules that vulture or deptry reads on a line of `source`, beyond its `recorded` rules.
 
     Ruff and mypy read only comments. vulture and deptry search a line's whole text, strings
-    included, but only on the first line of what they report: a node's for vulture, and an import
-    statement's or import_module call's for deptry. A string's later lines therefore hide nothing.
+    included, but only on the line where what they report starts: a node's first line for vulture,
+    and for deptry an import's or import_module call's first line, or a plain import's name's own.
+    A string's later lines therefore hide nothing.
     vulture numbers lines as str.splitlines does, which also splits at a form feed or U+2028, so
     the text it reads for a line can be another line's. vulture's rule is `noqa` or the codes it
     acts on, deptry's `deptry` or `deptry:<codes>`. A reading that the line's recorded rules
@@ -372,9 +373,11 @@ def _starts(tree: ast.Module) -> frozenset[int]:
 
 
 def _import_lines(tree: ast.Module) -> frozenset[int]:
-    """The first line of each import and import_module call, where deptry reads its comment."""
-    nodes = ast.walk(tree)
-    return frozenset(n.lineno for n in nodes if isinstance(n, ast.stmt | ast.expr) and _imports(n))
+    """Where deptry reads its comment: an import's or import_module call's first line, and the
+    own line of each name in a plain import."""
+    nodes = [n for n in ast.walk(tree) if isinstance(n, ast.stmt | ast.expr) and _imports(n)]
+    names = [a.lineno for n in nodes if isinstance(n, ast.Import) for a in n.names]
+    return frozenset([*(n.lineno for n in nodes), *names])
 
 
 def _imports(node: ast.stmt | ast.expr) -> bool:

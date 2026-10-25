@@ -166,7 +166,7 @@ sha256 = "e7e799f8a7c79717dfde4436383e78dc249e457ecec156fe51734cfb024b5f28"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python_dead_code.py"
 kind = "managed"
-sha256 = "e4914b2dce47611b1910011fbe131b4c9fc844698604ffe1abb657e7cc08551c"
+sha256 = "5cdf9c4ffcc7bdec8cb5db4ef0bd53ddcbf94d45a5d128f25ecc294d3346a307"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
