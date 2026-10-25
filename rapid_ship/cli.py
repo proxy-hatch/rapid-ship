@@ -42,9 +42,9 @@ class _Version(argparse.Action):
     def __call__(
         self,
         parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
+        namespace: argparse.Namespace,  # noqa: V107  # rs-exception: EX-15
         values: object,
-        option_string: str | None = None,
+        option_string: str | None = None,  # noqa: V107  # rs-exception: EX-16
     ) -> None:
         sys.stdout.write(f"rapid-ship {installed_version()}\n")
         parser.exit()

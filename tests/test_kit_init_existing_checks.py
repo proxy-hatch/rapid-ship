@@ -12,7 +12,7 @@ from rapid_ship.cli import main
 from rapid_ship.kit.init import init_repository
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True)  # noqa: V103  # rs-exception: EX-25
 def default_hooks_directory(
     git_repo: Path, run_git: Callable[..., str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

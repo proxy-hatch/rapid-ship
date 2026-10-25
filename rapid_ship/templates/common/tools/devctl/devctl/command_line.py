@@ -82,8 +82,10 @@ def _words(scanned: str) -> list[tuple[str, ...]]:
     """The simple commands of text the scanner has read, split by shlex."""
     lexer = shlex.shlex(_DESCRIPTOR.sub("", scanned), posix=True, punctuation_chars=_PUNCTUATION)
     lexer.whitespace = lexer.whitespace.replace("\n", "")  # a newline separates commands
-    lexer.whitespace_split = True  # keeps HEAD:refs/heads/main, +task and {owner} whole
-    lexer.commenters = ""  # the scanner removed the comments
+    # shlex reads both attributes. whitespace_split keeps HEAD:refs/heads/main, +task and {owner}
+    # whole, and commenters is empty because the scanner removed the comments.
+    lexer.whitespace_split = True  # noqa: V101  # rs-exception: EX-17
+    lexer.commenters = ""  # noqa: V101  # rs-exception: EX-18
     return [
         tuple(word.replace(_QUOTED, "").replace(_MARK, SUBSTITUTED) for word in words)
         for words in _split(lexer)

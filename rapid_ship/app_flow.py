@@ -129,7 +129,7 @@ def app_manifest(role: str, owner_login: str, redirect_url: str) -> dict[str, ob
 class _FlowServer(ThreadingHTTPServer):
     """The manifest flow's local server: GET /start serves the form, GET /callback takes a code."""
 
-    daemon_threads = True
+    daemon_threads = True  # noqa: V107  # rs-exception: EX-13
 
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), _FlowHandler)
@@ -161,7 +161,7 @@ class _FlowServer(ThreadingHTTPServer):
                 self.codes.put_nowait(codes[0])
         return taken
 
-    def handle_error(self, request: object, client_address: object) -> None:
+    def handle_error(self, request: object, client_address: object) -> None:  # noqa: V105, V107  # rs-exception: EX-14
         """Silent: a browser that drops its connection must not print a traceback."""
 
 

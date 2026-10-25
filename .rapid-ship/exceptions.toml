@@ -78,3 +78,122 @@ path = "rapid_ship/templates/common/tools/devctl/devctl/merge_guard.py"
 rule = "BLE001"
 reason = "Once the merge guard has recognised a merge, any error while it checks must deny that merge, never let it through (Spec 1 section 4)"
 remove_when = "The guard's reads and parsers raise only OwnerReadError, GitHubError and ValueError, so a narrow except covers them"
+
+[[exception]]
+id = "EX-13"
+path = "rapid_ship/app_flow.py"
+rule = "V107"
+reason = "socketserver reads daemon_threads on the flow server's class, so each request thread is a daemon; no code here reads it"
+remove_when = "The flow server no longer sets daemon_threads"
+
+[[exception]]
+id = "EX-14"
+path = "rapid_ship/app_flow.py"
+rule = "V105,V107"
+reason = "socketserver calls handle_error by name, with client_address; the override keeps the base class's signature and stays silent"
+remove_when = "The flow server no longer overrides handle_error"
+
+[[exception]]
+id = "EX-15"
+path = "rapid_ship/cli.py"
+rule = "V107"
+reason = "argparse calls Action.__call__ with namespace; the version action keeps that signature and does not read it"
+remove_when = "The version action reads namespace, or argparse's own version action replaces it"
+
+[[exception]]
+id = "EX-16"
+path = "rapid_ship/cli.py"
+rule = "V107"
+reason = "argparse calls Action.__call__ with option_string; the version action keeps that signature and does not read it"
+remove_when = "The version action reads option_string, or argparse's own version action replaces it"
+
+[[exception]]
+id = "EX-17"
+path = "rapid_ship/templates/common/tools/devctl/devctl/command_line.py"
+rule = "V101"
+reason = "shlex.shlex reads whitespace_split while it splits a command line; no code here reads it"
+remove_when = "_words no longer sets whitespace_split, or vulture counts an attribute that a library reads as used"
+
+[[exception]]
+id = "EX-18"
+path = "rapid_ship/templates/common/tools/devctl/devctl/command_line.py"
+rule = "V101"
+reason = "shlex.shlex reads commenters while it splits a command line; no code here reads it"
+remove_when = "_words no longer sets commenters, or vulture counts an attribute that a library reads as used"
+
+[[exception]]
+id = "EX-19"
+path = "tests/devctl/github_fixtures.py"
+rule = "V103"
+reason = "pytest calls the isolated_home fixture by name for each fixture that requests it"
+remove_when = "No fixture requests isolated_home"
+
+[[exception]]
+id = "EX-20"
+path = "tests/devctl/github_fixtures.py"
+rule = "V107"
+reason = "remote requests isolated_home for its effect, HOME in tmp_path, and a fixture cannot use pytest.mark.usefixtures"
+remove_when = "remote reads its isolated_home value, or no longer needs it"
+
+[[exception]]
+id = "EX-21"
+path = "tests/devctl/github_fixtures.py"
+rule = "V107"
+reason = "ctx requests isolated_home for its effect, HOME in tmp_path, and a fixture cannot use pytest.mark.usefixtures"
+remove_when = "ctx reads its isolated_home value, or no longer needs it"
+
+[[exception]]
+id = "EX-22"
+path = "tests/devctl/github_fixtures.py"
+rule = "V107"
+reason = "ctx_github requests isolated_home for its effect, HOME in tmp_path, and a fixture cannot use pytest.mark.usefixtures"
+remove_when = "ctx_github reads its isolated_home value, or no longer needs it"
+
+[[exception]]
+id = "EX-23"
+path = "tests/test_kit_app_import.py"
+rule = "V107"
+reason = "Terminal.read keeps BytesIO.read's signature, which mypy checks, and fails the test without reading size"
+remove_when = "Terminal no longer overrides read"
+
+[[exception]]
+id = "EX-24"
+path = "tests/test_kit_cli.py"
+rule = "V103"
+reason = "pytest calls the no_package_metadata fixture by name, from the usefixtures marks of two tests"
+remove_when = "No test uses no_package_metadata"
+
+[[exception]]
+id = "EX-25"
+path = "tests/test_kit_init_existing_checks.py"
+rule = "V103"
+reason = "pytest calls the autouse default_hooks_directory fixture by name for each test in the module"
+remove_when = "The module's tests no longer need git's default hooks directory"
+
+[[exception]]
+id = "EX-26"
+path = "pyproject.toml"
+rule = "vulture.ignore_names:do_[A-Z]*"
+reason = "BaseHTTPRequestHandler calls do_<METHOD> by name, in rapid_ship/app_flow.py and the HTTP fakes in tests/devctl/github_fakes.py and tests/test_kit_app.py"
+remove_when = "No module here subclasses BaseHTTPRequestHandler"
+
+[[exception]]
+id = "EX-27"
+path = "pyproject.toml"
+rule = "vulture.ignore_names:log_message"
+reason = "BaseHTTPRequestHandler calls log_message, which the same three handlers override to stay silent"
+remove_when = "No module here overrides BaseHTTPRequestHandler.log_message"
+
+[[exception]]
+id = "EX-28"
+path = "pyproject.toml"
+rule = "vulture.ignore_names:pytest_plugins"
+reason = "pytest reads pytest_plugins from tests/conftest.py by name"
+remove_when = "tests/conftest.py loads no plugin module"
+
+[[exception]]
+id = "EX-29"
+path = "pyproject.toml"
+rule = "vulture.ignore_names:pytestmark"
+reason = "pytest reads pytestmark from a test module by name; three devctl test modules set it"
+remove_when = "No test module sets pytestmark"
