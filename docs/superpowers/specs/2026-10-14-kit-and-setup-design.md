@@ -1,6 +1,6 @@
 # Spec 1: Kit and Setup
 
-**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, on 2026-10-23 for the standards as its PR 5.3 built them, and on 2026-10-25 for the documented settings and `sync`'s migrations as its PR 5.4 built them. Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in PRs 5.1 to 5.4, and plans 6 and 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run; map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in the Kit version that ships them (section 5). PR 5.4 builds a comment on each seeded settings key, the loaders' errors that name what each key accepts, and `sync`'s migrations (section 3). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
+**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, on 2026-10-23 for the standards as its PR 5.3 built them, and on 2026-10-25 for the documented settings and `sync`'s migrations as its PR 5.4 built them, and for the owner's comment rule, which the root guide seeds as Rules. Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in PRs 5.1 to 5.4, and plans 6 and 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run; map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in the Kit version that ships them (section 5). PR 5.4 builds a comment on each seeded settings key, the loaders' errors that name what each key accepts, and `sync`'s migrations (section 3). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
 
 ## 1. Scope and outcome
 
@@ -328,8 +328,27 @@ The root guide stays short, following upstream `writing-for-agents`:
 1. One paragraph naming the project.
 2. Commands: `./devctl doctor --settings`, which each Session runs first unless it runs the full `./devctl doctor` (section 6), `./devctl check`, and `./devctl --help` for the project's verbs.
 3. A "Find the change" table that points to directory guides, each stack's directory, `docs/features/` and `docs/patterns/`, and from plan 5 to `README.md` and `ARCHITECTURE.md`.
-4. **Rules.** Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
+4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
+
+The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it.
+
+| Rule | Marker |
+| --- | --- |
+| Keep each change inside its task's paths. | `advisory` |
+| Prefer clear names, types, and simple control flow. | `advisory` |
+| Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. | `advisory` |
+| Delete commented-out code. | Python: `enforced by: check:lint` (Ruff `ERA001`). Agnostic: `advisory` |
+| Keep local explanations beside the relevant code and broader design reasoning in linked documentation. | `advisory` |
+| A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. | `advisory` |
+| A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. | `advisory` |
+| Give each TODO its author and the issue that tracks it. | Python: `enforced by: check:lint` (Ruff `TD002`, `TD003`). Agnostic: `advisory` |
+| Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`, with its reason and removal condition. | `enforced by: check:exceptions` |
+| Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete. | `advisory` |
+| Declare each removed test under `Removed tests:` in the PR body, with a reason. | `enforced by: check:diff` |
+| Update comments with behaviour changes, and investigate existing constraint comments before removing them. | `advisory` |
+| Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. | `advisory` |
+| Editing or deleting a Kit-managed file makes it the project's own and stops its Kit updates; the Rule says how to keep updates, own a file outright or give it back ("Who owns what", section 3). | `advisory` |
 
 AGENTS.md files are the single instruction source. The seeded `CLAUDE.md` is a real file containing `@AGENTS.md`.
 

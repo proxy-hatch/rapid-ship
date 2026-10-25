@@ -46,7 +46,7 @@ template_sha256 = "437dd04f182dd8db0420582f967589551225f796b0967616498aa8b83638d
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "e137f7de15fa82a560b24ea5099b609e596e963987ffe16381652404dae7d4fb"
+template_sha256 = "f22e58485707065a0d4eea3e5b91038c96a55e620feb94252a56810db0351490"
 
 [[file]]
 path = "ARCHITECTURE.md"

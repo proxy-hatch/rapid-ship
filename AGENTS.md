@@ -47,12 +47,17 @@ When adding or moving a maintained directory, update its guide and parent naviga
 
 Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
 
-Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Comments explain non-obvious behaviour, not the code. Keep exact commands, limits and safety conditions.
+Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Keep exact commands, limits and safety conditions.
+
+Prefer clear names, types, and simple control flow. Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. Keep local explanations beside the relevant code and broader design reasoning in linked documentation. Update comments with behaviour changes, and investigate existing constraint comments before removing them. The Kit seeds this rule and the Development bullets on workarounds, tests and refactors as Rules in each project's root guide.
 
 ## Development
 
 - Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
+- A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary.
+- Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete.
+- Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment.
 - Work on a branch and merge through a PR after independent review.
 - Put each rule that prevents a repeated Correction on the rung that fits its purpose. A safe interface removes structural misuse; a check catches local or stylistic problems; one bad pattern can need both. Use a skill or advisory Rule only for what neither can carry.
 - A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
