@@ -26,9 +26,19 @@ Add a row for each directory guide.
 
 ## Rules
 
-- Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`. enforced by: check:exceptions
-- Declare each removed test under `Removed tests:` in the PR body, with a reason. enforced by: check:diff
 - Keep each change inside its task's paths. advisory
+- Prefer clear names, types, and simple control flow. advisory
+- Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. advisory
+- Delete commented-out code. enforced by: check:lint
+- Keep local explanations beside the relevant code and broader design reasoning in linked documentation. advisory
+- A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. advisory
+- A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. advisory
+- Give each TODO its author and the issue that tracks it. enforced by: check:lint
+- Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`, with its reason and removal condition. enforced by: check:exceptions
+- Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete. advisory
+- Declare each removed test under `Removed tests:` in the PR body, with a reason. enforced by: check:diff
+- Update comments with behaviour changes, and investigate existing constraint comments before removing them. advisory
+- Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
 
 ## Shared language and decisions

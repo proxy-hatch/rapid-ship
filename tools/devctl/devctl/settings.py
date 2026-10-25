@@ -1,7 +1,8 @@
 """devctl's typed view of .rapid-ship settings.
 
-Unknown keys are errors, so a typo cannot silently keep a default. Every loader reads
-one file and raises SettingsError, which devctl reports with exit 2.
+Unknown keys are errors, so a typo cannot silently keep a default; each error names the file,
+the key and what it accepts. Every loader reads one file and raises SettingsError, which devctl
+reports with exit 2.
 """
 
 from __future__ import annotations
@@ -29,21 +30,34 @@ REMOVED_TABLES = {
     "roster": _PROVIDERS,
 }
 
-_TABLES = {"stack", "github", "escalation", "kit", "map", "tests"}
-_GITHUB_KEYS = {
-    "repository",
-    "code_owner",
-    "worker_app_id",
-    "worker_app_slug",
-    "reviewer_app_id",
-    "reviewer_app_slug",
+# The keys each project.toml table accepts; "" holds the top-level keys. A test holds each seed
+# to name every one.
+PROJECT_KEYS: dict[str, frozenset[str]] = {
+    "": frozenset({"stack", "github", "escalation", "kit", "map", "tests"}),
+    "github": frozenset(
+        {
+            "repository",
+            "code_owner",
+            "worker_app_id",
+            "worker_app_slug",
+            "reviewer_app_id",
+            "reviewer_app_slug",
+        }
+    ),
+    "escalation": frozenset({"every_pr", "kinds", "revision_rounds"}),
+    "kit": frozenset({"optional", "exclude"}),
+    "map": frozenset({"source_roots", "unguided", "exclude"}),
+    "tests": frozenset({"unit"}),
 }
+# The Kit's optional skills, which [kit] optional may name: kit.toml's optional_skills, which a
+# test holds equal, because devctl runs in projects without rapid-ship.
+OPTIONAL_SKILLS: frozenset[str] = frozenset()
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _APP_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")  # the slugs GitHub gives Apps
 # A code owner as CODEOWNERS writes it: "@login" or "@organisation/team".
 _CODE_OWNER = re.compile(r"@[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9][A-Za-z0-9_.-]*)?")
 _EXCEPTION_ID = re.compile(r"EX-[1-9][0-9]*")
-_EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
+EXCEPTION_KEYS = ("id", "path", "rule", "reason", "remove_when")
 
 
 class SettingsError(Exception):
@@ -98,17 +112,20 @@ class ExceptionEntry:
 class _Table:
     """One TOML table with known keys. Each accessor checks the value's type."""
 
-    def __init__(self, value: object, where: str, keys: set[str]) -> None:
+    def __init__(self, value: object, where: str, keys: frozenset[str]) -> None:
         if not isinstance(value, dict):
             raise SettingsError(f"{where}: expected a table")
         unknown = sorted(set(value) - keys)
         if unknown:
-            raise SettingsError(f"{where}: unknown key {unknown[0]!r}")
+            raise SettingsError(
+                f"{where}: unknown key {unknown[0]!r}; it accepts {', '.join(sorted(keys))}"
+            )
         self.values: dict[str, object] = value
         self.where = where
 
-    def table(self, key: str, keys: set[str]) -> _Table:
-        return _Table(self.values.get(key, {}), f"{self.where} [{key}]", keys)
+    def table(self, key: str) -> _Table:
+        """The project.toml table under key, which accepts PROJECT_KEYS[key]."""
+        return _Table(self.values.get(key, {}), f"{self.where} [{key}]", PROJECT_KEYS[key])
 
     def _error(self, key: str, expected: str) -> SettingsError:
         return SettingsError(f"{self.where} {key}: expected {expected}")
@@ -205,7 +222,7 @@ def _code_owner(github: _Table) -> str | None:
 
 
 def _escalation(top: _Table) -> Escalation:
-    table = top.table("escalation", {"every_pr", "kinds", "revision_rounds"})
+    table = top.table("escalation")
     return Escalation(
         every_pr=table.boolean("every_pr", True),
         kinds=table.texts("kinds"),
@@ -213,12 +230,20 @@ def _escalation(top: _Table) -> Escalation:
     )
 
 
-def _exclude_paths(table: _Table) -> tuple[str, ...]:
-    """A table's `exclude` list, normalised as rapid-ship's read_excluded does."""
-    paths = [_inside_repository(entry) for entry in table.texts("exclude")]
+def _paths(table: _Table, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """A table's list of paths or globs, normalised as rapid-ship's read_excluded does."""
+    paths = [_inside_repository(entry) for entry in table.texts(key, default)]
     if None in paths:
-        raise table._error("exclude", "paths inside the repository")
+        raise table._error(key, "paths inside the repository")
     return tuple(path for path in paths if path is not None)
+
+
+def _optional_skills(kit: _Table) -> tuple[str, ...]:
+    names = kit.texts("optional")
+    if not set(names) <= OPTIONAL_SKILLS:
+        offered = ", ".join(sorted(OPTIONAL_SKILLS)) or "none in this Kit version"
+        raise kit._error("optional", f"names of the Kit's optional skills: {offered}")
+    return names
 
 
 def _refuse_removed(data: dict[str, object]) -> None:
@@ -230,12 +255,12 @@ def _refuse_removed(data: dict[str, object]) -> None:
 def load_project(root: Path) -> ProjectSettings:
     data = _read(root, PROJECT)
     _refuse_removed(data)
-    top = _Table(data, PROJECT, _TABLES)
+    top = _Table(data, PROJECT, PROJECT_KEYS[""])
     stack = cast(Stack, top.choice("stack", get_args(Stack)))
-    github = top.table("github", _GITHUB_KEYS)
-    kit = top.table("kit", {"optional", "exclude"})
-    source_map = top.table("map", {"source_roots", "unguided", "exclude"})
-    tests = top.table("tests", {"unit"})
+    github = top.table("github")
+    kit = top.table("kit")
+    source_map = top.table("map")
+    tests = top.table("tests")
 
     repository = github.text("repository") or None
     if repository is not None and not _REPOSITORY.fullmatch(repository):
@@ -248,24 +273,24 @@ def load_project(root: Path) -> ProjectSettings:
         worker_app=worker_app,
         reviewer_app=reviewer_app,
         escalation=_escalation(top),
-        optional_skills=kit.texts("optional"),
-        excluded=_exclude_paths(kit),
-        source_roots=source_map.texts("source_roots"),
-        unguided=source_map.texts("unguided"),
-        map_exclude=_exclude_paths(source_map),
-        unit_tests=tests.texts("unit", ("tests/unit/**",)),
+        optional_skills=_optional_skills(kit),
+        excluded=_paths(kit, "exclude"),
+        source_roots=_paths(source_map, "source_roots"),
+        unguided=_paths(source_map, "unguided"),
+        map_exclude=_paths(source_map, "exclude"),
+        unit_tests=_paths(tests, "unit", ("tests/unit/**",)),
     )
 
 
 def load_exceptions(root: Path) -> list[ExceptionEntry]:
-    top = _Table(_read(root, EXCEPTIONS), EXCEPTIONS, {"exception"})
+    top = _Table(_read(root, EXCEPTIONS), EXCEPTIONS, frozenset({"exception"}))
     items = top.values.get("exception", [])
     if not isinstance(items, list):
         raise top._error("exception", "a list of tables")
     entries: list[ExceptionEntry] = []
     for number, item in enumerate(items, start=1):
-        row = _Table(item, f"{EXCEPTIONS} [[exception]] #{number}", set(_EXCEPTION_KEYS))
-        fields = {key: row.text(key) for key in _EXCEPTION_KEYS}
+        row = _Table(item, f"{EXCEPTIONS} [[exception]] #{number}", frozenset(EXCEPTION_KEYS))
+        fields = {key: row.text(key) for key in EXCEPTION_KEYS}
         for key, value in fields.items():
             if not value.strip():
                 raise SettingsError(f"{row.where} {key}: required")

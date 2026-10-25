@@ -337,6 +337,29 @@ SETTINGS_FIRST = (
     "- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full "
     "`./devctl doctor`; it checks the settings files and asks GitHub nothing."
 )
+# Rules 2 to 13 of Spec 1 section 4, which carry the owner's comment rule of 2026-10-25.
+COMMENT_RULES = (
+    "Prefer clear names, types, and simple control flow.",
+    "Add comments only when they convey a contract, rationale, invariant, or external constraint "
+    "that the code does not adequately express.",
+    "Delete commented-out code.",
+    "Keep local explanations beside the relevant code and broader design reasoning in linked "
+    "documentation.",
+    "A comment does not make a workaround acceptable. Fix the root cause within scope, or "
+    "explicitly report the limitation.",
+    "A necessary workaround must have a verified reason, appropriate validation, and a tracked "
+    "removal condition when temporary.",
+    "Give each TODO its author and the issue that tracks it.",
+    "Mark every suppression with `rs-exception: EX-<n>` and list it in "
+    "`.rapid-ship/exceptions.toml`, with its reason and removal condition.",
+    "Do not invent explanations, weaken tests, or suppress correctness checks to make a change "
+    "appear complete.",
+    "Declare each removed test under `Removed tests:` in the PR body, with a reason.",
+    "Update comments with behaviour changes, and investigate existing constraint comments before "
+    "removing them.",
+    "Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful "
+    "comment.",
+)
 POINTERS = (
     "`GLOSSARY.md`",
     "`docs/adr/`",
@@ -369,6 +392,8 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     bullets = [line for line in rules.splitlines() if line.startswith("- ")]
     assert bullets
     assert all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
+    statements = [re.sub(r" (enforced by: \S+|advisory)$", "", line[2:]) for line in bullets]
+    assert [s for s in statements if s in COMMENT_RULES] == list(COMMENT_RULES)
     # Spec section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
     # how to keep updates instead, and how to give a file back.
     owned = next(line for line in bullets if "Kit-managed file" in line)
@@ -386,14 +411,26 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     assert commands.strip().splitlines()[0] == SETTINGS_FIRST
 
 
-def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
+def test_the_python_root_guide_adds_its_rows_and_lint_enforced_rules() -> None:
     python = text("python", "AGENTS.md").splitlines()
     rows = [line for line in python if "](src/AGENTS.md)" in line or "](tests/AGENTS.md)" in line]
+    lint = [
+        line.removeprefix("- ").removesuffix(" enforced by: check:lint")
+        for line in python
+        if line.endswith(" enforced by: check:lint")
+    ]
 
     assert len(rows) == 2
-    assert [line for line in python if line not in rows] == text(
-        "agnostic", "AGENTS.md"
-    ).splitlines()
+    # Ruff's ERA001, TD002 and TD003 carry these two Rules, and no other.
+    assert lint == [
+        "Delete commented-out code.",
+        "Give each TODO its author and the issue that tracks it.",
+    ]
+    # The agnostic stack has no lint step, so its guide marks the same two Rules advisory.
+    agnostic = [
+        line.replace(" enforced by: check:lint", " advisory") for line in python if line not in rows
+    ]
+    assert agnostic == text("agnostic", "AGENTS.md").splitlines()
 
 
 def test_the_readme_and_architecture_seeds_follow_the_spec() -> None:

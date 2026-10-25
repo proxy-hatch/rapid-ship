@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import pytest
 
-import devctl
 from check_workspace import Workspace, skill_text
 from devctl.check.map import MapStep
 from devctl.check.map_skills import skill_errors, skill_file_errors
@@ -77,23 +76,14 @@ def file_errors(workspace: Workspace) -> list[str]:
     return skill_file_errors(context.repo.root, context.repo.files())
 
 
-def test_a_symlinked_skill_md_warns_in_kit_0_2_0_and_fails_after(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_symlinked_skill_md_fails_the_map_step(workspace: Workspace) -> None:
     workspace.root_guide()
     symlinked_skill(workspace)
 
-    monkeypatch.setattr(devctl, "__version__", "0.2.0")
-    warned = MapStep().run(workspace.context(source_roots=()))
-    monkeypatch.setattr(devctl, "__version__", "0.3.0")
-    failed = MapStep().run(workspace.context(source_roots=()))
+    result = MapStep().run(workspace.context(source_roots=()))
 
     assert file_errors(workspace) == [SYMLINK]
-    assert (warned.status, warned.details) == (
-        "passed",
-        (f"warning: {SYMLINK}; this fails from the next Kit version",),
-    )
-    assert (failed.status, failed.details) == ("failed", (SYMLINK,))
+    assert (result.status, result.details) == ("failed", (SYMLINK,))
 
 
 def test_a_regular_skill_md_has_no_file_error(workspace: Workspace) -> None:

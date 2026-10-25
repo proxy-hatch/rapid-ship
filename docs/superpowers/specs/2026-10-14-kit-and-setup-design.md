@@ -1,6 +1,6 @@
 # Spec 1: Kit and Setup
 
-**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, and on 2026-10-23 for the standards as its PR 5.3 built them. Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plans 5 to 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run; map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in the Kit version that ships them (section 5). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
+**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, on 2026-10-23 for the standards as its PR 5.3 built them, and on 2026-10-25 for the documented settings as its PR 5.4 built them, for the owner's comment rule, which the root guide seeds as Rules and which narrows the seeds' comments to each key's contract, and for the owner's decision that the Kit keeps no backward compatibility before GA, which drops `sync`'s migrations and the map rules' warning period. Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in PRs 5.1 to 5.4, and plans 6 and 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run. PR 5.4 builds the seeds' comments on each key's contract and the loaders' errors that name what each key accepts, and makes plan 5's new map rules fail at once (sections 3 and 5). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
 
 ## 1. Scope and outcome
 
@@ -108,7 +108,7 @@ Files not in the lock are the project's and are not reported. When `status` list
 
 `sync` without `--in-place` is an owner command. Its push runs inside its own process, where the Harness guardrails cannot see it, so skills run `sync` only with `--in-place`.
 
-**Migrations (plan 5).** A Kit version can change what a seeded file must contain, such as a settings table that devctl no longer accepts, or Protected paths that CODEOWNERS must list. The Kit then carries a migration: code in rapid-ship that detects the old content in one seeded file and writes the edit. `sync` never applies a migration silently. Without `--in-place`, when a migration applies, `sync` commits its edits on a second branch, `rapid-ship/kit-migrate-<version>`, based on the sync branch, and opens a second PR whose body explains each edit. The files are Protected, so the owner reviews and merges it. With `--in-place`, `sync` lists each migration that applies, with its edit, and writes none. Where a new rule can accept the old content for one Kit version at little cost, devctl warns for that version before it fails. The first migrations remove the tables that plan 4 dropped. Codex's and agy's wiring bring their own CODEOWNERS migrations when they land.
+**Kit changes to seeded content.** A Kit version can change what a seeded file must contain, such as a settings table that devctl no longer accepts, links that a new map rule requires, or Protected paths that CODEOWNERS must list. Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backward compatibility: the project updates its seeded files itself. `sync` does not edit a seeded file; it lists each one whose template changed (step 6), and `status` reports it as `template updated`. A check that requires the new content fails at once, with no warning first. devctl refuses the tables that plan 4 dropped, and its message says to delete the table (section 4). Map rules 5, 7 and 8 fail on files that an existing project already owns (section 5). In Walk, the seeded Mode, no check requires a Protected path that a newer Kit adds to CODEOWNERS. G5, the merge guard and the `diff` step read the Protected set from CODEOWNERS's own lines (section 4), so they leave out such a path until the project adds its line. doctor's CODEOWNERS item reports the missing path only in Flight (section 6). The policy for after GA is designed then. The owner decided this on 2026-10-25, because rapid-ship has no consumers yet.
 
 ### `rapid-ship app`
 
@@ -158,7 +158,7 @@ rapid_ship/
   app_import.py       # plan 4: rapid-ship app --import-key
   app_flow.py         # plan 4: the manifest flows, and GitHub calls made as an App
   app_keychain.py     # plan 4: Keychain storage and item names
-  kit/                # templates, lock, git, init, existing_checks, status, sync, writes, pull_request; migrations (plan 5); stacks (plan 6)
+  kit/                # templates, lock, git, init, existing_checks, status, sync, writes, pull_request; stacks (plan 6)
   templates/
     kit.toml          # seeded, new-project, executable and optional lists; template variables
     common/           # every stack: devctl, tools/devctl, skills, settings, CI, hook, guides
@@ -244,10 +244,10 @@ The Kit aims to give each area it touches a base template that a new project bui
 
 None of these holds a secret. All are in the Protected set. Each is documented where it lives and validated where it is read:
 
-- Every settings file the Kit ships, seeded or managed, documents each key or rule in a short comment wherever its format allows one: what it means, the values or range it accepts, and its default. That covers the TOML files, CODEOWNERS, the CI workflow and, from plan 6, `tsconfig.json`, which TypeScript reads as JSON with comments, `eslint.config.js` and `vite.config.ts`.
+- Every settings file the Kit ships, seeded or managed, states a key's or rule's contract in a short comment where its format allows one and its name and value do not: the values or units it accepts, a default that is not obvious, or a constraint, such as a Protected file. It drops every other comment, as the root guide's comment Rules ask. That covers the TOML files, CODEOWNERS, the CI workflow and, from plan 6, `tsconfig.json`, which TypeScript reads as JSON with comments, `eslint.config.js` and `vite.config.ts`. On 2026-10-25 the owner relaxed plan 5's first rule, a comment on every key, to this one.
 - devctl rejects an unknown key, a wrong type, a number outside its range and a value outside its allowed set in the files it reads. The error names the file, the key and what it accepts, so a typo cannot silently keep a default. A tool's own settings file is validated by the tool that reads it, such as Ruff, `tsc` or ESLint.
 - Plain JSON seeds, such as the Harness wiring file `.claude/settings.json` and `package.json`, cannot hold comments. This section describes them, and doctor checks the wiring file (section 6).
-- A test holds each seed to its loader: every key the loader accepts appears in the seed with its comment (plan 5).
+- A test holds each seed to its loader: every key the loader accepts appears in the seed (plan 5).
 
 `.rapid-ship/project.toml` after plan 6, for a repository with a Python backend and a TypeScript frontend:
 
@@ -265,11 +265,12 @@ name = "typescript"
 directory = "frontend"
 
 [github]
+# The GitHub repository, written "owner/name".
 repository = "owner/name"
 # The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".
 code_owner = "@owner"
 # Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
-# Record both Apps or neither. An ID is a whole number; a slug is lowercase letters, digits and -.
+# Record both Apps or neither.
 worker_app_id = 0
 worker_app_slug = ""
 reviewer_app_id = 0
@@ -277,8 +278,7 @@ reviewer_app_slug = ""
 
 [escalation]
 # The kinds of pull request the Lead brings to the owner instead of merging them on its own.
-# The Protected set is always on the list. true is Walk: every pull request.
-# false leaves the Protected set and the kinds below: Flight, or anything between.
+# true is Walk. false leaves the Protected set and the kinds below: Flight, or anything between.
 every_pr = true
 kinds = [              # plain text for the Lead
   "a pull request that removes a behavioural test",
@@ -291,15 +291,16 @@ optional = []          # opt-in Kit files and skills, such as "rs-contribute"
 exclude = []           # Kit files or directories the project owns instead
 
 [map]
+# Source directories: each child directory needs a guide, and file-size caps their source files at 500 lines.
 source_roots = ["backend/src/<package>", "frontend/src"]
-unguided = []          # maintained directories that need no guide
+unguided = []
 exclude = []           # directories whose AGENTS.md files are template content
 
 [tests]
 unit = ["backend/tests/unit/**"]   # every other test counts as behavioural
 ```
 
-- **`[[stack]]` (plan 6):** one table per stack. `name` is `python`, `typescript` or `agnostic`, and `agnostic` cannot sit beside another stack. `directory` is a path inside the repository, relative to its root, and not a symlink; `"."` is the root. Two tables cannot name the same stack and directory. Until plan 6 the file holds one top-level key, `stack = "python"`, which TOML cannot hold beside `[[stack]]`. Plan 6's migration (section 3) rewrites it as one table at `"."`, and for one Kit version devctl reads the old key as that table, with a warning.
+- **`[[stack]]` (plan 6):** one table per stack. `name` is `python`, `typescript` or `agnostic`, and `agnostic` cannot sit beside another stack. `directory` is a path inside the repository, relative to its root, and not a symlink; `"."` is the root. Two tables cannot name the same stack and directory. Until plan 6 the file holds one top-level key, `stack = "python"`, which TOML cannot hold beside `[[stack]]`. Plan 6 lands before GA, when the Kit keeps no backward compatibility (section 3): devctl rejects the old key with an error that says to rewrite it as one table at `"."`, and the project rewrites it.
 - **`[github]`:** `repository` is `owner/name`. `code_owner` is the code owner that CODEOWNERS names, written as CODEOWNERS writes it: `@<login>` for a person, or `@<organisation>/<team>` for a team. doctor's CODEOWNERS item checks CODEOWNERS against it, never against the repository's owner, because an organisation itself cannot be a code owner. Agent identity is on when both Apps are recorded, each with its ID and slug. A partial record, or Apps recorded without `repository`, is a settings error. [Spec 3](2026-10-16-metrics-and-gardening-design.md) matches an agent PR's author against the Worker App's slug, so it needs no App key.
 - **`[escalation]`:** the escalation list. The Protected set is always on it, whether or not it is written here. `every_pr = true` is Walk. With `every_pr = false`, the list is the Protected set plus `kinds`: that is Flight, and each kind the owner adds moves it toward Walk. The merge guard holds the Protected set in every setup, and GitHub also holds it through CODEOWNERS with Agent identity and a ruleset (section 4). The other kinds are plain text for the Lead, which neither CODEOWNERS nor the merge guard can check. Two kinds are seeded: a PR that removes a behavioural test, which replaces the old test-removal switch, and a PR that declares `Over the diff cap:` (section 5). `revision_rounds`, 1 or more and 3 by default, sends a PR that reached that many Revision rounds to the owner in every Mode; it replaces `review_round_limit`, and [Spec 2](2026-10-16-delivery-skills-design.md) says how the Lead counts a round. `rs-lead` changes this table, and proposes the matching CODEOWNERS change, as a Protected PR.
 - **`[kit]`, `[map]`, `[tests]`:** built in plans 2 and 3. `[map] exclude` lets this repository keep the template guides under `rapid_ship/templates/` out of the map rules. Spec 3's plan lets `[kit] optional` name an optional Kit file, such as the metrics Action, as well as a skill. With several stacks, `source_roots` and `unit` name paths inside each stack's directory.
@@ -326,8 +327,27 @@ The root guide stays short, following upstream `writing-for-agents`:
 1. One paragraph naming the project.
 2. Commands: `./devctl doctor --settings`, which each Session runs first unless it runs the full `./devctl doctor` (section 6), `./devctl check`, and `./devctl --help` for the project's verbs.
 3. A "Find the change" table that points to directory guides, each stack's directory, `docs/features/` and `docs/patterns/`, and from plan 5 to `README.md` and `ARCHITECTURE.md`.
-4. **Rules.** Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
+4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
+
+The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it.
+
+| Rule | Marker |
+| --- | --- |
+| Keep each change inside its task's paths. | `advisory` |
+| Prefer clear names, types, and simple control flow. | `advisory` |
+| Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. | `advisory` |
+| Delete commented-out code. | Python: `enforced by: check:lint` (Ruff `ERA001`). Agnostic: `advisory` |
+| Keep local explanations beside the relevant code and broader design reasoning in linked documentation. | `advisory` |
+| A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. | `advisory` |
+| A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. | `advisory` |
+| Give each TODO its author and the issue that tracks it. | Python: `enforced by: check:lint` (Ruff `TD002`, `TD003`). Agnostic: `advisory` |
+| Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`, with its reason and removal condition. | `enforced by: check:exceptions` |
+| Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete. | `advisory` |
+| Declare each removed test under `Removed tests:` in the PR body, with a reason. | `enforced by: check:diff` |
+| Update comments with behaviour changes, and investigate existing constraint comments before removing them. | `advisory` |
+| Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. | `advisory` |
+| Editing or deleting a Kit-managed file makes it the project's own and stops its Kit updates; the Rule says how to keep updates, own a file outright or give it back ("Who owns what", section 3). | `advisory` |
 
 AGENTS.md files are the single instruction source. The seeded `CLAUDE.md` is a real file containing `@AGENTS.md`.
 
@@ -552,7 +572,7 @@ A file belongs to the stack whose directory contains it, the innermost one when 
 
 Spec 3 adds a rule for the Corrections ledger after these.
 
-Three of plan 5's additions fail on files that an existing project already owns, so they only warn in the Kit version that ships them (section 3): rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links, which are the root guide's links to both documents and the local links inside them. In that version each message is only a note, `warning: <message>; this fails from the next Kit version`; from the next version it is an error. A missing `README.md` or `ARCHITECTURE.md` fails at once, because `sync` creates a missing seed. The diff cap and the ledger rule judge new changes only, so they fail at once too.
+Plan 5's additions fail at once, as the rest of the rules do. Three of them fail on files that an existing project already owns: rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links, which are the root guide's links to both documents and the local links inside them. Before GA the Kit keeps no backward compatibility (section 3), so the project fixes those files.
 
 ### References
 
@@ -830,11 +850,11 @@ The new plans add:
 
 - Plan 4: settings, with `[escalation]` read, a partial App record or Apps without a repository refused, and the removed tables refused. doctor's parsers against recorded GitHub responses and fake Harness executables: the ruleset in Walk, in Flight with Agent identity and in Flight without it, CODEOWNERS against `every_pr`, App items only with Agent identity on, and `--skills` adding and removing its temporary worktree at `HEAD`. Token minting, the `GIT_ASKPASS` helper and `rapid-ship app` against a local fake HTTP server and a fake `security`; these are labelled simulated. `devctl as` with fake `gh` and `git` executables and a local bare repository: each refusal, the token present only in the one child's environment and never in argv or output, and the exit codes.
 - Plan 4's follow-ups: `[github] code_owner`, and doctor's CODEOWNERS item with a login and with a team on an organisation-owned repository; `rapid-ship app`'s organisation manifest flow and `--import-key` against a local fake HTTP server and a fake `security`, labelled simulated; Keychain items named by App ID, with two Apps' keys for one role on one machine; and, with `[roster]` out of devctl, a leftover `[roster]` table and an `[agents]` table refused with "rapid-ship does not run agents across several Providers; delete the table", no Harness sign-in item, and `--skills` probing Claude Code alone, only when `claude` is on `PATH`.
-- Plan 5: `devctl hook` against recorded Claude Code event JSON: each rule's deny or ask, a command line split as the shell does, with `;`, `&&`, `||`, `|`, `&` and a newline joining commands, and subshells, `$( … )` and backticks giving commands of their own, G7 and G8 only with Agent identity on, no decision when no rule matches, G1 to G4 with unreadable settings, and the exit-code mapping. G3 denying `gh pr merge --admin` and each `gh api` form of section 4, REST and GraphQL, run directly and through `devctl as`, and each form of `git push` to the default branch, with `origin/HEAD` present and missing. The merge guard against a fake GitHub reader: `gh pr merge` run directly and through `devctl as`; passed, pending, failed and missing check runs; Protected paths at the base, renames by both paths, a ledger entry changed or removed, and entries added as `open` and as `implemented`, neither of them Protected; a merge without `--match-head-commit`, or naming another commit, denied with the exact retry; a denial when GitHub cannot be read or the guard itself fails; with Agent identity on, a merge that the Reviewer App approved at the head commit passing, and no review, another login's approval, an approval of an older commit and a later request for changes each denied, comments and dismissed reviews ignored, and reviews read page by page; with Agent identity off, no review read; unreadable settings denying every merge; and no read for any other command. Map rule 5's `task` and Lessons, map rule 8 and the `SKILL.md` rule, each warning in the Kit version that ships it and failing after, the diff cap's count, exclusions and declaration, and the ledger rule. `doctor --settings` on fixture repositories, asking GitHub nothing, with an invalid key exiting 2 and naming the file and the key. The CI workflow's concurrency group. The Python starter Patterns and the Python performance Pattern passing map rule 5 on a new project. Each seed held to its loader. `sync`'s migrations: detection, the second branch and PR, and `--in-place` writing none. doctor's wiring item.
-- Plan 6: `[[stack]]` settings: names, directories inside the repository, duplicates, `agnostic` alone, and the old `stack` key. `init --stack NAME=DIRECTORY`, and detection without it: nested roots, skipped vendored and generated directories, no root found, and nothing written. Each stack's steps in its directory with their names, from fake tools; the TypeScript steps blocked without `node_modules`; `--install`. The TypeScript suppressions, the `eslint:` and `type:` references, removed Vitest tests and tautologies. CODEOWNERS and `project.toml` rendered for two stacks. doctor's Node.js and TypeScript floor items.
+- Plan 5: `devctl hook` against recorded Claude Code event JSON: each rule's deny or ask, a command line split as the shell does, with `;`, `&&`, `||`, `|`, `&` and a newline joining commands, and subshells, `$( … )` and backticks giving commands of their own, G7 and G8 only with Agent identity on, no decision when no rule matches, G1 to G4 with unreadable settings, and the exit-code mapping. G3 denying `gh pr merge --admin` and each `gh api` form of section 4, REST and GraphQL, run directly and through `devctl as`, and each form of `git push` to the default branch, with `origin/HEAD` present and missing. The merge guard against a fake GitHub reader: `gh pr merge` run directly and through `devctl as`; passed, pending, failed and missing check runs; Protected paths at the base, renames by both paths, a ledger entry changed or removed, and entries added as `open` and as `implemented`, neither of them Protected; a merge without `--match-head-commit`, or naming another commit, denied with the exact retry; a denial when GitHub cannot be read or the guard itself fails; with Agent identity on, a merge that the Reviewer App approved at the head commit passing, and no review, another login's approval, an approval of an older commit and a later request for changes each denied, comments and dismissed reviews ignored, and reviews read page by page; with Agent identity off, no review read; unreadable settings denying every merge; and no read for any other command. Map rule 5's `task` and Lessons, map rule 8 and the `SKILL.md` rule, each failing the map step, the diff cap's count, exclusions and declaration, and the ledger rule. `doctor --settings` on fixture repositories, asking GitHub nothing, with an invalid key exiting 2 and naming the file and the key. The CI workflow's concurrency group. The Python starter Patterns and the Python performance Pattern passing map rule 5 on a new project. Each seed held to its loader. doctor's wiring item.
+- Plan 6: `[[stack]]` settings: names, directories inside the repository, duplicates, `agnostic` alone, and the old `stack` key rejected. `init --stack NAME=DIRECTORY`, and detection without it: nested roots, skipped vendored and generated directories, no root found, and nothing written. Each stack's steps in its directory with their names, from fake tools; the TypeScript steps blocked without `node_modules`; `--install`. The TypeScript suppressions, the `eslint:` and `type:` references, removed Vitest tests and tautologies. CODEOWNERS and `project.toml` rendered for two stacks. doctor's Node.js and TypeScript floor items.
 - Plan 7: the upstream lock (`verbatim` and `patched` files), every Kit skill through map rule 7, and `ruleset.json` passing doctor's ruleset check.
 
-**Integration tests**, offline and labelled as such: `init` on scratch repositories for each stack, after which `./devctl check` passes; `sync --in-place` between two template versions, and `sync` proposing a migration in its own PR; and this repository's dog-food tests. From plan 6, `init` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, after which `./devctl check` passes. That test needs network access for `npm ci` and is labelled so.
+**Integration tests**, offline and labelled as such: `init` on scratch repositories for each stack, after which `./devctl check` passes; `sync --in-place` between two template versions; and this repository's dog-food tests. From plan 6, `init` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, after which `./devctl check` passes. That test needs network access for `npm ci` and is labelled so.
 
 **Spikes and live trials**, recorded under `docs/trials/`:
 

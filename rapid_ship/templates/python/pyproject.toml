@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [dependency-groups]
-dev = [
+dev = [                # the check tools that devctl runs
     "import-linter>=2.15,<3",
     "mypy>=1.20,<3",
     "pytest>=9,<10",
@@ -50,6 +50,7 @@ ban-relative-imports = "all"
 python_version = "3.12"
 strict = true
 warn_unreachable = true
+# strict leaves these error codes off.
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 files = ["src", "tests"]
 mypy_path = "src"
@@ -62,9 +63,10 @@ filterwarnings = ["error"]
 
 [tool.importlinter]
 root_packages = ["{{package}}"]
-include_external_packages = true
+include_external_packages = true   # the forbidden contract names pytest, an installed package
 
 [[tool.importlinter.contracts]]
+# Layers are listed top first; no layer imports a layer above it.
 name = "Layers"
 type = "layers"
 containers = ["{{package}}"]
