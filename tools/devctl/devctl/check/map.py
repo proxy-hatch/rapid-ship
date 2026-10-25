@@ -1,6 +1,7 @@
 """The map step: guide links resolve, every maintained directory has a guide and every guide
-is reachable, feature files, Patterns and Rules name things that exist, and every skill has its
-discovery alias and front matter."""
+is reachable, feature files, Patterns and Rules name things that exist, every Pattern has a task
+and Lessons, every skill has its discovery alias, front matter and a regular SKILL.md, and
+README.md and ARCHITECTURE.md exist, are linked from the root guide and hold no broken link."""
 
 from __future__ import annotations
 
@@ -14,18 +15,26 @@ from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-import yaml
-
-from devctl.check.markdown import ListItem, front_matter, navigation_links, rules_items
+import devctl
+from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
+from devctl.check.markdown import (
+    ListItem,
+    front_matter_of,
+    navigation_links,
+    rules_items,
+    section,
+    text_value,
+)
 from devctl.check.references import path_exists, resolve
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
+ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")  # map rule 8
+GRACE_VERSION = "0.2.0"  # the Kit version in which map rules 5, 7 and 8's new parts only warn
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
-SKILLS = ".agents/skills"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
 _RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
 
@@ -50,8 +59,30 @@ class MapStep:
             *rule_errors(context, found),
             *skill_alias_errors(root, files),
             *skill_errors(root, files),
+            *root_document_errors(root, files),
         ]
-        return failed(self.name, *errors) if errors else passed(self.name)
+        late, notes = graced(
+            [
+                *root_link_errors(root, files),
+                *pattern_lesson_errors(context, files),
+                *skill_file_errors(root, files),
+            ]
+        )
+        errors += late
+        return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
+
+
+def graced(messages: list[str]) -> tuple[list[str], list[str]]:
+    """(errors, notes): a new rule's messages, which only warn while this devctl is GRACE_VERSION.
+
+    A project that already owns a file the new rule fails gets one Kit version to fix it (Spec 1
+    section 3). The version is read when the step runs, so a test can set it.
+    """
+    if devctl.__version__ == GRACE_VERSION:
+        return [], [
+            f"warning: {message}; this fails from the next Kit version" for message in messages
+        ]
+    return list(messages), []
 
 
 def guides(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
@@ -102,6 +133,15 @@ def _local_path(target: str) -> str | None:
     return unquote(url.path)
 
 
+def _from_root(guide: str, path: str) -> str:
+    """`path`, a local link in `guide`, relative to the repository root.
+
+    GitHub resolves a link that starts with / against the repository root, as in a README.
+    """
+    directory = "" if path.startswith("/") else posixpath.dirname(guide)
+    return posixpath.normpath(posixpath.join(directory, path.lstrip("/")))
+
+
 def _link_error(
     root: Path,
     guide: str,
@@ -113,7 +153,7 @@ def _link_error(
     path = _local_path(target)
     if path is None:
         return None
-    dependency = Path(os.path.normpath((root / guide).parent / path))
+    dependency = Path(os.path.normpath(root / _from_root(guide, path)))
     if not dependency.exists():
         return f"{guide}:{line}: missing target {target!r}; update the navigation link"
     relative = dependency.relative_to(root).as_posix() if dependency.is_relative_to(root) else None
@@ -196,82 +236,8 @@ def _guide_targets(root: Path, guide: str) -> list[str]:
         links = _links(root, guide)
     except (OSError, ValueError):
         return []
-    directory = posixpath.dirname(guide)
     paths = (_local_path(target) for _, target in links)
-    return [posixpath.normpath(posixpath.join(directory, path)) for path in paths if path]
-
-
-def skill_alias_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, alias half: each skill has a SKILL.md and a symlink in .claude/skills."""
-    present = set(files)
-    canonical = _skill_names(root, files, ".agents/skills")
-    aliases = _skill_names(root, files, ".claude/skills")
-    errors = [_canonical_error(root, name) for name in sorted(canonical)]
-    errors += [_alias_error(root, present, name) for name in sorted(canonical)]
-    errors += [
-        f".claude/skills/{name}: no matching .agents/skills/{name} in Git; "
-        "remove the alias or add the skill"
-        for name in sorted(aliases - canonical)
-    ]
-    errors += [
-        f"{path}: only skill links belong in .claude/skills; remove it"
-        for path in _stray_files(root, files)
-    ]
-    return [error for error in errors if error]
-
-
-def _skill_names(root: Path, files: Sequence[str], surface: str) -> set[str]:
-    names: set[str] = set()
-    for path in files:
-        if path.startswith(f"{surface}/"):
-            name = path[len(surface) + 1 :].split("/", 1)[0]
-            entry = root / surface / name
-            if entry.is_symlink() or entry.is_dir():  # files are not skills
-                names.add(name)
-    return names
-
-
-def _stray_files(root: Path, files: Sequence[str]) -> list[str]:
-    """Files directly under .claude/skills, such as a guide; rule 7 allows only skill links."""
-    names = {path.split("/")[2] for path in files if path.startswith(".claude/skills/")}
-    entries = {name: root / ".claude/skills" / name for name in names}
-    return sorted(
-        f".claude/skills/{name}"
-        for name, entry in entries.items()
-        if not entry.is_symlink() and not entry.is_dir()
-    )
-
-
-def _canonical_error(root: Path, name: str) -> str | None:
-    entry = root / ".agents/skills" / name
-    if entry.is_symlink() and (
-        entry.readlink().is_absolute() or not entry.resolve().is_relative_to(root.resolve())
-    ):
-        return f".agents/skills/{name}: make it a relative symlink inside the repository"
-    if not (entry / "SKILL.md").is_file():
-        return f".agents/skills/{name}: missing SKILL.md"
-    return None
-
-
-def _alias_error(root: Path, present: set[str], name: str) -> str | None:
-    relative = f".claude/skills/{name}"
-    alias, canonical = root / relative, root / ".agents/skills" / name
-    expected = f"../../.agents/skills/{name}"
-    if relative in present and alias.is_symlink():
-        resolved = alias.resolve()
-        inside = resolved.is_relative_to(root.resolve())
-        if not alias.readlink().is_absolute() and inside and resolved == canonical.resolve():
-            return None
-        return f"{relative}: make it a relative symlink to {expected}"
-    if (
-        alias.is_dir()
-        and not alias.is_symlink()
-        and any(p.startswith(f"{relative}/") for p in present)
-    ):
-        return (
-            f"{relative}: a copy is not an alias; replace it with a relative symlink to {expected}"
-        )
-    return f"{relative}: add a relative symlink to {expected} and track it in Git"
+    return [_from_root(guide, path) for path in paths if path]
 
 
 def registered_verbs() -> frozenset[str]:
@@ -282,24 +248,6 @@ def registered_verbs() -> frozenset[str]:
         if isinstance(action, argparse._SubParsersAction):
             return frozenset(action.choices)
     return frozenset()
-
-
-def _front_matter(root: Path, path: str, keys: str) -> dict[str, object] | str:
-    """The front matter of `path` as a mapping, or the message that says what is wrong."""
-    try:
-        data = front_matter((root / path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, yaml.YAMLError) as error:
-        return f"{path}: {' '.join(str(error).split())}"
-    if data is None:
-        return f"{path}: no front matter; start the file with --- and the keys {keys}"
-    if not isinstance(data, dict):
-        return f"{path}: front matter must be a mapping"
-    return data
-
-
-def _text(data: dict[str, object], key: str) -> str | None:
-    value = data.get(key)
-    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def _string_list(data: dict[str, object], key: str, *, allow_empty: bool) -> list[str] | None:
@@ -328,13 +276,23 @@ def _document_errors(
     context: CheckContext,
     files: Sequence[str],
     directory: str,
-    keys: str,
-    problems: Callable[[CheckContext, str, dict[str, object]], list[str]],
+    keys: str | None,
+    problems: Callable[[CheckContext, str, dict[str, object], str], list[str]],
 ) -> list[str]:
+    """`problems(context, path, front matter, text)` for each document under `directory`.
+
+    A document whose front matter is unusable is reported as one error; when it has none, the
+    message names `keys`. With `keys` None it is skipped, because another rule already reports
+    it.
+    """
+    root = context.repo.root
     errors: list[str] = []
-    for path in _documents(context.repo.root, files, directory):
-        data = _front_matter(context.repo.root, path, keys)
-        errors.extend([data] if isinstance(data, str) else problems(context, path, data))
+    for path in _documents(root, files, directory):
+        data = front_matter_of(root, path, keys or "")
+        if isinstance(data, dict):
+            errors += problems(context, path, data, (root / path).read_text(encoding="utf-8"))
+        elif keys is not None:
+            errors.append(data)
     return errors
 
 
@@ -344,9 +302,11 @@ def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
     return _document_errors(context, files, FEATURES, keys, _feature_problems)
 
 
-def _feature_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+def _feature_problems(
+    context: CheckContext, path: str, data: dict[str, object], _text: str
+) -> list[str]:
     problems: list[str] = []
-    if _text(data, "purpose") is None:
+    if text_value(data, "purpose") is None:
         problems.append(f"{path}: purpose is missing or empty")
     for key, allow_empty in (("entry_points", False), ("data", True)):
         items = _string_list(data, key, allow_empty=allow_empty)
@@ -358,7 +318,7 @@ def _feature_problems(context: CheckContext, path: str, data: dict[str, object])
             for item in items
             if not path_exists(context.repo.root, item)
         ]
-    if _text(data, "observe") is None:
+    if text_value(data, "observe") is None:
         problems.append(f"{path}: observe is missing or empty")
     if problem := _reproduce_problem(path, data):
         problems.append(problem)
@@ -366,7 +326,7 @@ def _feature_problems(context: CheckContext, path: str, data: dict[str, object])
 
 
 def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
-    command = _text(data, "reproduce")
+    command = text_value(data, "reproduce")
     if command is None:
         return f"{path}: reproduce is missing or empty"
     try:
@@ -385,13 +345,15 @@ def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
 def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
     """Map rule 5: each Pattern file has a reference that exists and enforcement that resolves."""
     return _document_errors(
-        context, files, PATTERNS, "reference and enforced_by", _pattern_problems
+        context, files, PATTERNS, "task, reference and enforced_by", _pattern_problems
     )
 
 
-def _pattern_problems(context: CheckContext, path: str, data: dict[str, object]) -> list[str]:
+def _pattern_problems(
+    context: CheckContext, path: str, data: dict[str, object], _text: str
+) -> list[str]:
     problems: list[str] = []
-    reference = _text(data, "reference")
+    reference = text_value(data, "reference")
     if reference is None:
         problems.append(f"{path}: reference is missing or empty")
     elif not path_exists(context.repo.root, reference):
@@ -402,6 +364,27 @@ def _pattern_problems(context: CheckContext, path: str, data: dict[str, object])
         return problems
     reasons = (resolve(item, context) for item in enforced)
     return problems + [f"{path}: {reason}" for reason in reasons if reason is not None]
+
+
+def pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
+    """Map rule 5's task and Lessons: each Pattern file has a task and a non-empty ## Lessons.
+
+    This part only warns for one Kit version (`graced`). A file whose front matter is unusable
+    is left to `pattern_errors`, which reports it.
+    """
+    return _document_errors(context, files, PATTERNS, None, _lesson_problems)
+
+
+def _lesson_problems(
+    context: CheckContext, path: str, data: dict[str, object], text: str
+) -> list[str]:
+    problems: list[str] = []
+    if text_value(data, "task") is None:
+        problems.append(f"{path}: task is missing or empty")
+    lessons = section(text, "Lessons", 2)
+    if lessons is None or not lessons.strip():
+        problems.append(f"{path}: ## Lessons is missing or empty")
+    return problems
 
 
 def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]:
@@ -425,19 +408,38 @@ def _rule_problem(context: CheckContext, guide: str, item: ListItem) -> str | No
     return f"{guide}:{item.line}: {reason}" if reason else None
 
 
-def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, front-matter half: each SKILL.md names its directory and has a description."""
-    errors: list[str] = []
-    for name in sorted(_skill_names(root, files, SKILLS)):
-        path = f"{SKILLS}/{name}/SKILL.md"
-        if not (root / path).is_file():
-            continue  # skill_alias_errors reports the missing SKILL.md
-        data = _front_matter(root, path, "name and description")
-        if isinstance(data, str):
-            errors.append(data)
-            continue
-        if data.get("name") != name:
-            errors.append(f"{path}: name must be {name}, the directory name")
-        if _text(data, "description") is None:
-            errors.append(f"{path}: description is missing or empty")
+def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
+    """The ROOT_DOCUMENTS that exist as files the checkout maintains."""
+    present = set(files)
+    return [name for name in ROOT_DOCUMENTS if name in present and (root / name).is_file()]
+
+
+def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 8: README.md and ARCHITECTURE.md exist at the repository root.
+
+    This part fails at once, because rapid-ship sync seeds a missing document when it upgrades a
+    project from a Kit without the seed. Once the lock lists a document, sync never writes it
+    again, so the message names git.
+    """
+    found = _root_documents(root, files)
+    return [
+        f"{name}: missing at the repository root; restore it from git or write a new one "
+        "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+        for name in ROOT_DOCUMENTS
+        if name not in found
+    ]
+
+
+def root_link_errors(root: Path, files: Sequence[str]) -> list[str]:
+    """Map rule 8: each local link in the root documents resolves, by rule 1, and the root guide
+    links both. A missing document is root_document_errors' report, and a missing root guide
+    reachability_errors'."""
+    errors = link_errors(root, files, _root_documents(root, files))
+    if (root / ROOT_GUIDE).is_file():
+        targets = set(_guide_targets(root, ROOT_GUIDE))
+        errors += [
+            f"{ROOT_GUIDE}: does not link {name}; add it to the Find the change table"
+            for name in ROOT_DOCUMENTS
+            if name not in targets
+        ]
     return errors

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 import yaml
 
@@ -174,6 +175,25 @@ def front_matter(text: str) -> object | None:
             data: object = yaml.safe_load("\n".join(lines[1:index]))  # yaml.YAMLError propagates
             return data
     raise ValueError("front matter is not closed with ---")
+
+
+def front_matter_of(root: Path, path: str, keys: str) -> dict[str, object] | str:
+    """The front matter of `path` as a mapping, or the message that says what is wrong."""
+    try:
+        data = front_matter((root / path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, yaml.YAMLError) as error:
+        return f"{path}: {' '.join(str(error).split())}"
+    if data is None:
+        return f"{path}: no front matter; start the file with --- and the keys {keys}"
+    if not isinstance(data, dict):
+        return f"{path}: front matter must be a mapping"
+    return data
+
+
+def text_value(data: dict[str, object], key: str) -> str | None:
+    """The stripped text under `key`, or None when it is missing, not text or blank."""
+    value = data.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")

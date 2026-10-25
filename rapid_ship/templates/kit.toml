@@ -6,7 +6,9 @@ seeded = [
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
+    "ARCHITECTURE.md",
     "CLAUDE.md",
+    "README.md",
     "docs/AGENTS.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
@@ -15,11 +17,23 @@ seeded = [
 ]
 new_project = [
     ".gitignore",
+    "docs/patterns/python-configuration.md",
+    "docs/patterns/python-error-handling.md",
+    "docs/patterns/python-input-validation.md",
+    "docs/patterns/python-performance.md",
     "pyproject.toml",
     "src/AGENTS.md",
     "src/__package__/__init__.py",
+    "src/__package__/errors.py",
+    "src/__package__/inputs.py",
+    "src/__package__/profiling.py",
+    "src/__package__/settings.py",
     "tests/AGENTS.md",
+    "tests/test_errors.py",
     "tests/test_import.py",
+    "tests/test_inputs.py",
+    "tests/test_profiling.py",
+    "tests/test_settings.py",
 ]
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
 optional_skills = []

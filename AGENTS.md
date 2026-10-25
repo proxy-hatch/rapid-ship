@@ -4,7 +4,7 @@ rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI ca
 
 Plans 1 to 4 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor` and `as`. Plan 4 and its follow-ups are merged in PRs #31 to #33, and the owner tagged `v0.1.0`: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
-- The rest of plan 5, Kit standards and Harness guardrails: the README.md and ARCHITECTURE.md seeds, `doctor --settings`, the Python starter Patterns, the diff cap, documented settings and `sync`'s migrations. Its hook spike (PRO-139) is recorded, and `devctl hook claude pre-tool` is built, with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring.
+- The rest of plan 5, Kit standards and Harness guardrails: documented settings and `sync`'s migrations (PR 5.4). Built in plan 5: the hook spike (PRO-139), `devctl hook claude pre-tool` with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring, and the standards of PR 5.3, which are the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns, the `SKILL.md` rule, the 1,500-line diff cap, the Corrections ledger rule and one CI concurrency group for each push run. Map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn for one Kit version before they fail.
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
 - [Spec 2](docs/superpowers/specs/2026-10-16-delivery-skills-design.md)'s delivery skills, and [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`.
@@ -13,10 +13,11 @@ The settings hold the code owner, the escalation list and each App's ID and slug
 
 ## Commands
 
+- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
-- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code wiring.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.
@@ -27,6 +28,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 
 | Work | Start here |
 | --- | --- |
+| What the project does, and how to run and check it | [README](README.md) |
 | The `rapid-ship` package, its file helpers and the engineering skill | [Source map](rapid_ship/AGENTS.md) |
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |

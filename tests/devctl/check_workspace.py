@@ -67,6 +67,15 @@ class Workspace:
         target.write_text(text)
         return target
 
+    def root_guide(self, text: str = "# Root\n") -> None:
+        """Write AGENTS.md with map rule 8's two links on its first line, and both documents."""
+        first, _, rest = text.partition("\n")
+        self.write(
+            "AGENTS.md", f"{first} [README](README.md) [Architecture](ARCHITECTURE.md)\n{rest}"
+        )
+        self.write("README.md", "# Readme\n")
+        self.write("ARCHITECTURE.md", "# Architecture\n")
+
     def write_with_bom(self, path: str, text: str) -> Path:
         """Write text as UTF-8 with the byte-order mark that some Windows editors put first."""
         target = self.write(path, text)

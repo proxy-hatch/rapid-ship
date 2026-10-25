@@ -63,12 +63,12 @@ def _lock_error(reason: object) -> KitLockError:
     return KitLockError(f"{LOCK_PATH}: {reason}")
 
 
-def _read_lock(root: Path) -> dict[str, object]:
+def _read_lock(root: Path) -> str:
     try:
-        return tomllib.loads((root / LOCK_PATH).read_text(encoding="utf-8"))
+        return (root / LOCK_PATH).read_text(encoding="utf-8")
     except FileNotFoundError:
         raise _lock_error("missing; run rapid-ship init") from None
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+    except (OSError, UnicodeDecodeError) as error:
         raise _lock_error(error) from error
 
 
@@ -91,7 +91,15 @@ def _lock_file(item: object, number: int) -> _LockFile:
 
 def _lock(root: Path) -> _Lock:
     """The lock's kit_version and [[file]] entries. Raises KitLockError if it is unreadable."""
-    data = _read_lock(root)
+    return _parsed_lock(_read_lock(root))
+
+
+def _parsed_lock(text: str) -> _Lock:
+    """The kit_version and [[file]] entries of a lock's text. Raises KitLockError if invalid."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
+        raise _lock_error(error) from error
     kit_version = data.get("kit_version")
     if not isinstance(kit_version, str):
         raise _lock_error("kit_version must be a string")
@@ -120,6 +128,14 @@ def _managed(entries: Sequence[_LockFile], excluded: Sequence[str]) -> list[_Loc
 def managed_paths(root: Path, excluded: Sequence[str]) -> frozenset[str]:
     """The managed paths in the lock, less those the project owns under [kit] exclude."""
     return frozenset(entry.path for entry in _managed(_entries(root), excluded))
+
+
+def managed_paths_in(text: str, excluded: Sequence[str]) -> frozenset[str]:
+    """managed_paths for a lock's text, such as the lock at a base commit.
+
+    Raises KitLockError when the text is not a valid lock.
+    """
+    return frozenset(entry.path for entry in _managed(_parsed_lock(text).files, excluded))
 
 
 def _command(kit_version: str, command: str) -> str:

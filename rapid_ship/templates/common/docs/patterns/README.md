@@ -6,6 +6,7 @@ Every Pattern file starts with YAML front matter:
 
 ```yaml
 ---
+task: Read configuration
 reference: src/app/settings.py
 enforced_by:
   - banned:os.environ
@@ -13,6 +14,7 @@ enforced_by:
 ---
 ```
 
+- `task` is the recurring task in a few words.
 - `reference` is the path of the reference implementation. It must exist.
 - `enforced_by` lists at least one reference to the check that enforces the Pattern. Each must resolve:
 
@@ -25,4 +27,4 @@ enforced_by:
 | `contract:<name>` | An import-linter contract has that name (Python) |
 | `type:<path>` | The file exists and mypy checks it (Python) |
 
-The text after the front matter states the rule, when it applies and the bypass it bans.
+The text after the front matter states the rule, when it applies and the bypass it bans. A non-empty `## Lessons` section then explains what the reference does right: the choices a reader should copy, such as where it validates input, how it reports an error and why it stops at once. A path alone shows where good code is, not why it is good.

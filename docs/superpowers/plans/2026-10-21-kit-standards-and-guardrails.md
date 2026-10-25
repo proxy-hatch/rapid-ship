@@ -1014,7 +1014,7 @@ def settings_item(root: Path) -> Item: ...  # area "guardrails", name "settings"
 - [ ] **Step 1: move rule 7.** Move `_front_matter` and `_text` to `check/markdown.py` as `front_matter_of` and `text_value`, then the skill functions and `SKILLS` to `check/map_skills.py`; update `MapStep.run` and the test imports, among them `test_devctl_map_links.py:11`, which imports `skill_alias_errors` from `devctl.check.map`. Format, check and sync, then run `uv run pytest tests/devctl/test_devctl_map_*.py -q`; expected PASS. Commit `refactor: move map rule 7 into check/map_skills.py`.
 - [ ] **Step 2: write the failing tests.** In `test_devctl_map_root_documents.py`, docstring `Offline: map rule 8 in fixture repositories.`, using `Workspace`:
   - `test_rule_8_passes_with_both_documents_linked_from_the_root_guide`: `AGENTS.md` links both, each links `AGENTS.md`; `MapStep().run(ctx).status == "passed"`.
-  - `test_rule_8_reports_a_missing_document_and_a_broken_link`: `AGENTS.md` links both documents, `ARCHITECTURE.md` links `gone.md`, and `README.md` is missing. `root_document_errors` holds `README.md: missing at the repository root; rapid-ship init seeds it`, and `root_link_errors` holds only rule 1's message for the `gone.md` link.
+  - `test_rule_8_reports_a_missing_document_and_a_broken_link`: `AGENTS.md` links both documents, `ARCHITECTURE.md` links `gone.md`, and `README.md` is missing. `root_document_errors` holds `README.md: missing at the repository root; restore it from git or write a new one (rapid-ship sync seeds it only while the Kit lock does not list it)`, and `root_link_errors` holds only rule 1's message for the `gone.md` link.
   - `test_a_broken_link_in_architecture_md_warns_in_kit_0_2_0_and_fails_after`: through `MapStep`, that message is a note `warning: <message>; this fails from the next Kit version` under `0.2.0` and an error under `0.3.0`.
   - `test_a_root_guide_without_the_links_warns_in_kit_0_2_0_and_fails_after`: with `devctl.__version__` patched to `0.2.0`, the step passes with the note `warning: AGENTS.md: does not link README.md; add it to the Find the change table; this fails from the next Kit version`; patched to `0.3.0`, it fails with `AGENTS.md: does not link README.md; add it to the Find the change table`.
 
@@ -1131,8 +1131,8 @@ class Settings:
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings: ...  # None: os.environ
 
 
-# src/<package>/profiling.py: py-spy record -o profile.svg -- python -m <package>.profiling
-def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 100000
+# src/<package>/profiling.py: uvx py-spy record -o profile.svg -- .venv/bin/python -m <package>.profiling
+def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 5000000
 ```
 
 | Pattern file | `task` | `reference` | `enforced_by` |
@@ -1142,7 +1142,7 @@ def main(argv: Sequence[str] | None = None) -> int: ...  # --rounds N, default 1
 | `python-input-validation.md` | `Validate input` | `src/{{package}}/inputs.py` | `type:tests/test_inputs.py`, `test:tests/test_inputs.py::test_an_unknown_value_is_rejected` |
 | `python-performance.md` | `Find slow code` | `src/{{package}}/profiling.py` | `test:tests/test_profiling.py::test_the_profiling_entry_point_runs_on_a_small_input` |
 
-Each file states the rule of Spec 1 section 4's starter table, when it applies and the bypass it bans, then `## Lessons` on what its reference does right. The performance Pattern documents `uvx py-spy record -o profile.svg -- python -m <package>.profiling` and how to read the flame graph; no check runs a profiler.
+Each file states the rule of Spec 1 section 4's starter table, when it applies and the bypass it bans, then `## Lessons` on what its reference does right. The performance Pattern documents `uvx py-spy record -o profile.svg -- .venv/bin/python -m <package>.profiling`, run after `uv sync`, and how to read the flame graph; no check runs a profiler.
 
 - Ruling: `pyproject.toml`'s `banned-api` gains `"os.environ".msg` and `"os.getenv".msg`, both pointing to `docs/patterns/python-configuration.md`, and `per-file-ignores` gains `"src/{{package}}/settings.py" = ["TID251"]  # the one module that reads the environment`. A per-file entry in the Protected `pyproject.toml` is the owner's setting, while an inline suppression would need an `exceptions.toml` entry, and the seed must hold none.
 - Ruling: `tests/test_inputs.py` is the `type:` fixture: `assert_type(parse_level("info"), Level)` sits in its test, which mypy checks under `files = ["src", "tests"]`; no `type: ignore` is needed.
@@ -1404,7 +1404,9 @@ Each PR's last task fills its row with the command, its exit code and the summar
 | --- | --- | --- | --- | --- | --- |
 | 5.1 | exit 0 at 738c845: `1320 passed in 217.00s (0:03:36)` | exit 0 at 738c845: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 738c845: `36 managed files unchanged.` | exit 0 at 738c845, with `--base main` and the draft body `pr-5.1-body.md`: every step passed; the diff step listed the Protected paths `AGENTS.md`, `docs/superpowers/AGENTS.md` and `docs/trials/AGENTS.md` | exit 0 at 738c845: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
 | 5.2 | exit 0: `1735 passed in 236.36s (0:03:56)` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0: `43 managed files unchanged.` | exit 0, with `--base origin/plan5-hook-spike` (`d18217b`) and the draft body `plan5-2.md`: every step passed, `tests` and `evidence` included; the diff step listed 26 Protected paths, among them the vendored devctl, the AGENTS.md files, `.claude/settings.json`, `.github/CODEOWNERS`, `.rapid-ship/` and `pyproject.toml` | exit 0: `[SUCCESS] Generated static files in "build".`, with no broken-link or anchor warning |
-| 5.3 | | | | | |
+| 5.3 | at 5073ca8: `1806 passed in 272.02s (0:04:32)`, no failure; the exit code was not captured, and the full check's `tests` step passed | exit 0 at 5073ca8: format, lint, map, exceptions, file-size, kit and vendored passed | exit 0 at 5073ca8: `44 managed files unchanged.` | exit 0 at 5073ca8, with `--base origin/plan5-guardrails` (`ef017f6`) and the body `plan5-3.md`: every step passed, `tests`, `diff` and `evidence` included; the diff step listed 18 Protected paths and the note `diff cap: 1813 counted lines, over 1,500, declared: ...` | exit 0 at 5073ca8: `[SUCCESS] Generated static files in "build".` |
 | 5.4 | | | | | |
 
 Row 5.2's checks first ran on 2026-10-23 on `03de0bf` with the trial record's changes, against a draft body written before the trial. They ran again the same day on `5129a95` with the review fixes to the trial record, before the row was filled in, against a draft body whose Evidence section lists the five checks and the trial record. The row gives the second run's results.
+
+PR 5.3's `diff` step, run against `plan5-guardrails` (`ef017f6`), counts more lines than the cap: 1,618 at `981114f`, where the whole-branch review ran, and 1,780 at `f493308`, after the review's fixes. Of the 1,780, devctl's tests hold 748, the devctl template 646, the Python skeleton template 222, the other tests 144 and the remaining files 20. Task 14 Step 6 applies: the PR body declares `Over the diff cap: <reason>` only after the owner accepts the overage; otherwise the PR is split at a task boundary. The owner accepted the overage on 2026-10-23, so PR 5.3's body declares it; at 646b7ed, after the last review fix, the step counts 1,813.

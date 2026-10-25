@@ -36,7 +36,9 @@ SEEDED = {
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
+    "ARCHITECTURE.md",
     "CLAUDE.md",
+    "README.md",
     "docs/AGENTS.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
@@ -86,6 +88,7 @@ def test_python_new_project_seeds() -> None:
         "src/demo_app/__init__.py",
         "tests/AGENTS.md",
         "tests/test_import.py",
+        *STARTER_PYTHON_FILES,
     )
     assert {kinds[p] for p in paths} == {"seeded"}
     assert text("python", ".gitignore") == "__pycache__/\n*.py[cod]\n.venv/\ndist/\n"
@@ -106,7 +109,10 @@ def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[s
         },
         "escalation": {
             "every_pr": True,
-            "kinds": ["a pull request that removes a behavioural test"],
+            "kinds": [
+                "a pull request that removes a behavioural test",
+                "a pull request that declares Over the diff cap:",
+            ],
             "revision_rounds": 3,
         },
         "kit": {"optional": [], "exclude": []},
@@ -192,16 +198,29 @@ PYTHON_PROTECTED = (
     "/tox.ini",
     "/.importlinter",
 )
+# A new Python project's starter Patterns: CODEOWNERS lists each existing Pattern file.
+STARTER_PATTERNS = tuple(
+    f"/docs/patterns/python-{name}.md"
+    for name in ("error-handling", "configuration", "input-validation", "performance")
+)
+PYTHON_SET = (*PROTECTED[:9], *STARTER_PATTERNS, *PROTECTED[9:], *PYTHON_PROTECTED)
+# The new-project seeds that come with them: each Pattern's reference module and its tests.
+STARTER_MODULES = ("errors", "inputs", "settings", "profiling")
+STARTER_PYTHON_FILES = (
+    *(path.removeprefix("/") for path in STARTER_PATTERNS),
+    *(f"src/demo_app/{name}.py" for name in STARTER_MODULES),
+    *(f"tests/test_{name}.py" for name in STARTER_MODULES),
+)
 
 
-@pytest.mark.parametrize(("stack", "extra"), [("python", PYTHON_PROTECTED), ("agnostic", ())])
+@pytest.mark.parametrize(("stack", "expected"), [("python", PYTHON_SET), ("agnostic", PROTECTED)])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
-    stack: Stack, extra: tuple[str, ...]
+    stack: Stack, expected: tuple[str, ...]
 ) -> None:
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     assert active(lines) == ["* @octo"]
     protected = [line for line in lines if re.fullmatch(r"# /\S+ @octo", line)]
-    assert protected == [f"# {path} @octo" for path in (*PROTECTED, *extra)]
+    assert protected == [f"# {path} @octo" for path in expected]
 
 
 @pytest.mark.parametrize("stack", STACKS)
@@ -224,8 +243,10 @@ def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
 def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     python = text("python", ".github/CODEOWNERS").splitlines()
     agnostic = text("agnostic", ".github/CODEOWNERS").splitlines()
+    split = agnostic.index("# /.rapid-ship/ @octo") + 1
+    patterns = [f"# {path} @octo" for path in STARTER_PATTERNS]
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
-    assert python == [*agnostic, *added]
+    assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
@@ -267,7 +288,16 @@ def test_python_seed_has_the_spec_guardrails() -> None:
         "ANN401",
     }
     assert lint["mccabe"]["max-complexity"] == 10
-    assert lint["flake8-tidy-imports"] == {"ban-relative-imports": "all", "banned-api": {}}
+    tidy = lint["flake8-tidy-imports"]
+    assert tidy["ban-relative-imports"] == "all"
+    # The configuration Pattern's bans; its settings module is the one file exempt from them.
+    assert set(tidy["banned-api"]) == {"os.environ", "os.getenv"}
+    for entry in tidy["banned-api"].values():
+        assert "docs/patterns/python-configuration.md" in entry["msg"]
+    assert lint["per-file-ignores"] == {
+        "tests/**": ["S101"],
+        "src/demo_app/settings.py": ["TID251"],
+    }
     assert data["tool"]["ruff"]["extend-exclude"] == ["tools/devctl"]
     mypy = data["tool"]["mypy"]
     assert mypy["strict"] is True
@@ -289,17 +319,24 @@ def test_python_seed_has_the_spec_guardrails() -> None:
 
 
 def test_python_seeds_are_valid_python() -> None:
-    for path in ("src/demo_app/__init__.py", "tests/test_import.py"):
+    modules = [path for path in STARTER_PYTHON_FILES if path.endswith(".py")]
+    for path in ("src/demo_app/__init__.py", "tests/test_import.py", *modules):
         compile(text("python", path), path, "exec")
     assert 'importlib.import_module("demo_app")' in text("python", "tests/test_import.py")
 
 
 ROOT_GUIDE_LINKS = [
+    "README.md",
+    "ARCHITECTURE.md",
     "docs/features/README.md",
     "docs/patterns/README.md",
     "docs/AGENTS.md",
     "tools/AGENTS.md",
 ]
+SETTINGS_FIRST = (
+    "- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full "
+    "`./devctl doctor`; it checks the settings files and asks GitHub nothing."
+)
 POINTERS = (
     "`GLOSSARY.md`",
     "`docs/adr/`",
@@ -307,6 +344,7 @@ POINTERS = (
     "`rs-ponytail`",
     "`./devctl check`",
     "`./devctl doctor`",
+    "`./devctl doctor --settings`",
 )
 
 
@@ -343,6 +381,9 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
         assert words in owned
     assert re.findall(r"\]\(([^)]+)\)", guide) == links
     assert all(pointer in guide for pointer in POINTERS)
+    # Spec 1 section 6: each Session that does not run the full doctor runs --settings first.
+    commands = guide.split("## Commands")[1].split("##")[0]
+    assert commands.strip().splitlines()[0] == SETTINGS_FIRST
 
 
 def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
@@ -353,6 +394,18 @@ def test_the_python_root_guide_only_adds_the_source_and_test_rows() -> None:
     assert [line for line in python if line not in rows] == text(
         "agnostic", "AGENTS.md"
     ).splitlines()
+
+
+def test_the_readme_and_architecture_seeds_follow_the_spec() -> None:
+    readme = text("agnostic", "README.md")
+    assert "./devctl check" in readme
+    assert "](AGENTS.md)" in readme
+    architecture = text("agnostic", "ARCHITECTURE.md")
+    assert "| Part | Where | What it does |" in architecture
+    assert "`docs/adr/`" in architecture
+    for seed in (readme, architecture):
+        assert "demo-app" in seed
+        assert "{{" not in seed
 
 
 def test_claude_md_imports_the_guide() -> None:
@@ -367,8 +420,10 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
+        "`task`",
         "`reference`",
         "`enforced_by`",
+        "## Lessons",
         "`check:",
         "`test:",
         "`ruff:",

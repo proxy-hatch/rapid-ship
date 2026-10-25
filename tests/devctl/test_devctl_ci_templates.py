@@ -41,7 +41,7 @@ def test_permissions_and_concurrency() -> None:
 
     assert data["permissions"] == {"contents": "read"}
     assert data["concurrency"] == {
-        "group": "devctl-check-${{ github.ref }}",
+        "group": "devctl-check-${{ github.event_name == 'push' && github.sha || github.ref }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
     }
 

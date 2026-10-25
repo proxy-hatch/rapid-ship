@@ -262,7 +262,10 @@ def test_protected_paths_match_the_seeded_codeowners() -> None:
         if re.fullmatch(r"# /\S+ @o", line)
     ]
     protected = {line.split()[0].removeprefix("/") for line in flight}
-    assert protected == {*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS}
+    # A new project's starter Pattern files are listed too; doctor requires none of them.
+    patterns = {path for path in protected if path.startswith("docs/patterns/")}
+    assert len(patterns) == 4
+    assert protected - patterns == {*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS}
     assert codeowners_problems("".join(f"{line}\n" for line in flight), False, "@o", "python") == []
 
 

@@ -78,7 +78,7 @@ def test_missing_root_guide_is_reported(workspace: Workspace) -> None:
 
 
 def test_excluded_template_guides_are_not_part_of_the_map(workspace: Workspace) -> None:
-    workspace.write("AGENTS.md", "# Root\n")
+    workspace.root_guide()
     workspace.write("pkg/templates/common/AGENTS.md", "[Missing](nowhere.md)\n")
 
     result = MapStep().run(
@@ -129,7 +129,7 @@ def test_an_unreadable_guide_links_nothing(workspace: Workspace) -> None:
 
 
 def test_the_step_fails_on_a_directory_without_a_guide(workspace: Workspace) -> None:
-    workspace.write("AGENTS.md", "# Root\n")
+    workspace.root_guide()
     workspace.write("tools/devctl/x.py", "")
 
     result = MapStep().run(workspace.context(source_roots=()))
@@ -139,7 +139,7 @@ def test_the_step_fails_on_a_directory_without_a_guide(workspace: Workspace) -> 
 
 
 def test_the_step_fails_on_a_guide_no_link_reaches(workspace: Workspace) -> None:
-    workspace.write("AGENTS.md", "# Root\n")
+    workspace.root_guide()
     workspace.write("docs/AGENTS.md", "# Docs\n")
 
     result = MapStep().run(workspace.context(source_roots=()))
@@ -153,7 +153,7 @@ def test_the_step_fails_on_a_guide_no_link_reaches(workspace: Workspace) -> None
 def test_the_step_reports_links_then_coverage_then_reachability_then_aliases(
     workspace: Workspace,
 ) -> None:
-    workspace.write("AGENTS.md", "[Missing](nowhere.md)\n")
+    workspace.root_guide("[Missing](nowhere.md)\n")
     workspace.write("tools/devctl/x.py", "")
     workspace.write("docs/AGENTS.md", "# Docs\n")
     workspace.write(".agents/skills/demo/SKILL.md", skill_text("demo"))
