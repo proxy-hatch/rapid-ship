@@ -171,9 +171,11 @@ def test_pytest_settings() -> None:
 def test_dev_dependencies_compare_normalised_names() -> None:
     data = seeded_pyproject()
     data["dependency-groups"]["dev"] = ["Import_Linter>=2", "ruff", "pytest ; python_version>'3'"]
-    assert guardrail_gaps(data) == ["dev dependencies lack mypy"]
+    assert guardrail_gaps(data) == ["dev dependencies lack mypy, vulture, deptry"]
     data["dependency-groups"]["dev"] = [{"include-group": "lint"}]
-    assert guardrail_gaps(data) == ["dev dependencies lack ruff, mypy, pytest, import-linter"]
+    assert guardrail_gaps(data) == [
+        "dev dependencies lack ruff, mypy, pytest, import-linter, vulture, deptry"
+    ]
 
 
 def test_an_empty_or_malformed_pyproject_reports_every_area_and_does_not_crash() -> None:
@@ -193,7 +195,7 @@ def test_an_empty_or_malformed_pyproject_reports_every_area_and_does_not_crash()
         "pytest: addopts lacks --strict-config",
         "pytest: xfail_strict is not true",
         "pytest: filterwarnings lacks error",
-        "dev dependencies lack ruff, mypy, pytest, import-linter",
+        "dev dependencies lack ruff, mypy, pytest, import-linter, vulture, deptry",
     ]
     malformed = {"tool": {"ruff": "no", "mypy": 3, "pytest": [], "importlinter": {"contracts": 1}}}
     assert guardrail_gaps({**malformed, "project": [], "dependency-groups": "no"}) == gaps

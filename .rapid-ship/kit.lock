@@ -101,7 +101,7 @@ sha256 = "1d92b98236b910d30f536179149df2bfa8fd5170beedbdeb5f1915216223d1a7"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "b544f059ca94dd3ea635a50ef6bb5f8192cf82f13f19d31e5a5068b95f88f7bf"
+sha256 = "69587c8846e6bc97b86c36117d4394cb3c08b04d2543408f4b854b83a67bcfc5"
 
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
@@ -116,7 +116,7 @@ sha256 = "0fa3f10dd25d422a4ba23b435e6abeb67dc7073c71d28f31c2a9801233c4977a"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "e63e521f76f832d651183e00740d0a68a72cffcf2813a8ea9870b8c07a226c7e"
+sha256 = "9b53932d9ee2e3283b53962eaf19dbb46461421f4e2466c22e1a738b735faab7"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -161,7 +161,12 @@ sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "321300c5e30e03969c0ccd81616b9b0b8c85c822368462bf22469b9411785386"
+sha256 = "e0c3f249f9c1afe46c66093acd53522c17a59d6b048af28e0a1ded6b9158e770"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/python_dead_code.py"
+kind = "managed"
+sha256 = "f7b6b1d2eaefac1a535c3e01309179180b6c0d0258f7a243a846de002ec1e314"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
@@ -201,7 +206,7 @@ sha256 = "55f7d49fdc77eb5367a9f35b07d58e3a6afd01cd2f8c7eff501215f9274b1092"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "698217c052414650a55886dc9424b8e3f709f18ba7da8ccd576a801acce1a3bd"
+sha256 = "a6d5fa09bae02f57373573492ffbd3345113881580589d4931b73a8aed359acc"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
@@ -281,7 +286,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "a52165f15299255a3029422bf23750bb11d0955a838197692fb8fdfbee908f1e"
+sha256 = "3320f0225e33e63019456bdfef60fe8627a52f09627e00b480b7a4d7e6641ef6"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

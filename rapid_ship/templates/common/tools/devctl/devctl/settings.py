@@ -71,10 +71,9 @@ class App:
 
 
 @dataclass(frozen=True)
-class Escalation:
+class Escalation:  # revision_rounds is checked, not kept: rs-lead reads it from the file
     every_pr: bool  # default True: Walk
     kinds: tuple[str, ...]  # plain text for the Lead
-    revision_rounds: int  # default 3, at least 1
 
 
 @dataclass(frozen=True)
@@ -101,12 +100,11 @@ class ProjectSettings:
 
 
 @dataclass(frozen=True)
-class ExceptionEntry:
+class ExceptionEntry:  # remove_when is checked, not kept: rs-health reads it from the file
     id: str  # "EX-<n>", n >= 1, unique
     path: str
     rule: str
     reason: str
-    remove_when: str
 
 
 class _Table:
@@ -223,11 +221,9 @@ def _code_owner(github: _Table) -> str | None:
 
 def _escalation(top: _Table) -> Escalation:
     table = top.table("escalation")
-    return Escalation(
-        every_pr=table.boolean("every_pr", True),
-        kinds=table.texts("kinds"),
-        revision_rounds=table.integer("revision_rounds", 3, minimum=1),
-    )
+    escalation = Escalation(every_pr=table.boolean("every_pr", True), kinds=table.texts("kinds"))
+    table.integer("revision_rounds", 3, minimum=1)  # checked, not kept
+    return escalation
 
 
 def _paths(table: _Table, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
@@ -300,5 +296,7 @@ def load_exceptions(root: Path) -> list[ExceptionEntry]:
             raise SettingsError(f"{row.where}: {fields['id']} is listed twice")
         if _inside_repository(fields["path"]) is None:
             raise row._error("path", "a path inside the repository")
-        entries.append(ExceptionEntry(**fields))
+        entries.append(
+            ExceptionEntry(fields["id"], fields["path"], fields["rule"], fields["reason"])
+        )
     return entries

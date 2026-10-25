@@ -176,6 +176,31 @@ def test_workflow_ignore_with_several_names_matches_its_entry(workspace: Workspa
 
 
 @pytest.mark.parametrize(
+    ("comment", "rule"),
+    [
+        ("# deptry: ignore", "deptry"),
+        ("# deptry: ignore[DEP003, DEP001]", "deptry:DEP001,DEP003"),
+        ("# Deptry: Ignore[dep003]", "deptry:DEP003"),
+    ],
+)
+def test_deptrys_inline_comment_is_a_suppression(
+    workspace: Workspace, comment: str, rule: str
+) -> None:
+    unmarked = setup(workspace, f"import yaml  {comment}\n")
+    marked = setup(
+        workspace,
+        f"import yaml  {comment}  # rs-exception: EX-1\n",
+        ("EX-1", "src/app/run.py", rule),
+    )
+
+    assert unmarked.details == (
+        f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
+        "and an entry in .rapid-ship/exceptions.toml",
+    )
+    assert marked.status == "passed", marked.details
+
+
+@pytest.mark.parametrize(
     ("rule", "normal"),
     [
         ("S607, S603", "S603,S607"),

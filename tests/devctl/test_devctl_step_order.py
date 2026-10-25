@@ -14,6 +14,7 @@ PYTHON = [
     "kit",
     "types",
     "contracts",
+    "dead-code",
     "tests",
     "audit",
     "secrets",

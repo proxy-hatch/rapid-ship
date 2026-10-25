@@ -7,7 +7,9 @@ from {{package}}.settings import Settings, load_settings
 
 
 def test_unset_values_take_their_defaults() -> None:
-    assert load_settings({}) == Settings(log_level="info", workers=4)
+    settings = load_settings({})
+
+    assert (settings.log_level, settings.workers) == ("info", 4)
 
 
 @pytest.mark.parametrize("workers", ["1", "32"])

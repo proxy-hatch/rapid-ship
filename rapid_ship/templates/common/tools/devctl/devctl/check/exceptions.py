@@ -1,14 +1,16 @@
 """The exceptions step: each suppression has exactly one listed, current exception.
 
-A suppression is a lint, type, coverage, test or secret-scan opt-out. It carries
+A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out. It carries
 `# rs-exception: EX-<n>` on its line, and .rapid-ship/exceptions.toml has one entry for that
-ID. This module and the Python rows in stacks/ are the one definition of suppressions and
-their rule names; rapid_ship/kit/adopt.py copies the Python rows.
+ID. On the Python stack, each allowlist item in the root pyproject.toml is one too. This module
+and the Python rows in stacks/ are the one definition of suppressions and their rule names;
+rapid_ship/kit/adopt.py copies the Python rows.
 """
 
 from __future__ import annotations
 
 import re
+import tomllib
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -17,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from devctl.check.kit import KitLockError, managed_paths
 from devctl.check.stacks.agnostic import text_rules
 from devctl.check.stacks.python import autouse_fixtures, comment_rules, comments, marker_rules
+from devctl.check.stacks.python_dead_code import PYPROJECT, toml_allowlist
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
 from devctl.settings import ExceptionEntry, SettingsError, load_exceptions
@@ -41,13 +44,18 @@ class ExceptionsStep:
 
     def run(self, context: CheckContext) -> StepResult:
         root = context.repo.root
+        stack = context.project.stack
         try:
             entries = load_exceptions(root)
             managed = managed_paths(root, context.project.excluded)
-            lines = scan(root, context.repo.files(), managed, context.project.stack)
+            files = context.repo.files()
+            lines = scan(root, files, managed, stack)
+            unplaced = _allowlist_errors(root, files, managed) if stack == "python" else []
+        except tomllib.TOMLDecodeError as error:
+            return blocked(self.name, f"{PYPROJECT}: {error}")
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
-        errors = exception_errors(lines, entries)
+        errors = [*exception_errors(lines, entries), *unplaced]
         return failed(self.name, *errors) if errors else passed(self.name)
 
 
@@ -58,24 +66,39 @@ def scan(
 
     Paths are relative to `root`. A file is skipped when it is a Kit file the project does not
     own (`managed`), is not a regular file, is a symlink, or is not UTF-8. Lines come in path
-    then line order.
+    then line order. On the Python stack, the root pyproject.toml's allowlist items are
+    suppressions on their lines; invalid TOML there raises tomllib.TOMLDecodeError.
     """
     found: list[SuppressedLine] = []
     for path in sorted(files):
-        if path in managed:
-            continue
-        target = root / path
-        if not target.is_file() or target.is_symlink():
-            continue
-        try:
-            text = target.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        text = _readable(root, path, managed)
+        if text is None:
             continue
         if stack == "python" and path.endswith(_PYTHON_SOURCE):
             found += _python_lines(path, text)
+        elif stack == "python" and path == PYPROJECT:
+            found += _pyproject_lines(path, text)
         else:
             found += _text_lines(path, text)
     return found
+
+
+def _allowlist_errors(root: Path, files: Sequence[str], managed: frozenset[str]) -> list[str]:
+    """The root pyproject.toml's items that the scan could not place on a line, and lines that
+    hold two items. The scan reads the same file, so the file is read twice."""
+    text = _readable(root, PYPROJECT, managed) if PYPROJECT in files else None
+    return toml_allowlist(text)[1] if text is not None else []
+
+
+def _readable(root: Path, path: str, managed: frozenset[str]) -> str | None:
+    """The text of a file that the scan reads; None for a file it skips."""
+    target = root / path
+    if path in managed or not target.is_file() or target.is_symlink():
+        return None
+    try:
+        return target.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def _markers(text: str) -> tuple[str, ...]:
@@ -104,13 +127,26 @@ def _python_lines(path: str, source: str) -> list[SuppressedLine]:
     return lines
 
 
-def _text_lines(path: str, text: str) -> list[SuppressedLine]:
-    """Every line of a non-Python file. A marker counts only on a line with a suppression."""
+def _text_lines(
+    path: str, text: str, extra: Mapping[int, Sequence[str]] | None = None
+) -> list[SuppressedLine]:
+    """Every line of a non-Python file. A marker counts only on a line with a suppression.
+
+    `extra` adds rules by line number, such as pyproject.toml's allowlist items.
+    """
     lines: list[SuppressedLine] = []
     for number, line in enumerate(text.split("\n"), start=1):
-        if rules := text_rules(path, line):
+        if rules := [*text_rules(path, line), *(extra or {}).get(number, ())]:
             lines.append(SuppressedLine(path, number, tuple(rules), (), _markers(line)))
     return lines
+
+
+def _pyproject_lines(path: str, text: str) -> list[SuppressedLine]:
+    """The text rules, plus each allowlist item as a suppression on its line."""
+    items: dict[int, list[str]] = {}
+    for item in toml_allowlist(text)[0]:
+        items.setdefault(item.line, []).append(normal_rule(item.rule))
+    return _text_lines(path, text, items)
 
 
 def normal_rule(rule: str) -> str:

@@ -288,6 +288,7 @@ def test_python_seed_has_the_spec_guardrails() -> None:
         "BLE",
         "ANN401",
     }
+    assert lint["external"] == ["V"]
     assert lint["mccabe"]["max-complexity"] == 10
     tidy = lint["flake8-tidy-imports"]
     assert tidy["ban-relative-imports"] == "all"
@@ -315,7 +316,12 @@ def test_python_seed_has_the_spec_guardrails() -> None:
     assert pytest_options["filterwarnings"] == ["error"]
     assert [c["type"] for c in data["tool"]["importlinter"]["contracts"]] == ["layers", "forbidden"]
     names = {re.split(r"[<>=]", requirement)[0] for requirement in data["dependency-groups"]["dev"]}
-    assert names == {"import-linter", "mypy", "pytest", "ruff"}
+    assert names == {"deptry", "import-linter", "mypy", "pytest", "ruff", "vulture"}
+    assert data["tool"]["vulture"] == {"paths": ["src", "tests"]}
+    assert data["tool"]["deptry"] == {
+        "extend_exclude": ["tools/devctl"],
+        "known_first_party": ["demo_app"],
+    }
     assert data["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"] == ["src/demo_app"]
 
 

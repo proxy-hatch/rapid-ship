@@ -36,6 +36,7 @@ _NOQA = re.compile(
 _TYPE_IGNORE = re.compile(r"#\s*type:\s*ignore\b(?:\[(?P<codes>[^\]]*)\])?")
 _MYPY = re.compile(r"#\s*mypy:\s*(?P<setting>ignore-errors|disable-error-code)")
 _NO_COVER = re.compile(r"#\s*pragma:\s*no\s+cover", re.IGNORECASE)
+_DEPTRY_IGNORE = re.compile(r"#\s*deptry:\s*ignore\b(?:\[(?P<codes>[^\]]*)\])?", re.IGNORECASE)
 _SKIP_MARKS = frozenset({"skip", "skipif", "xfail"})
 _SKIP_CALLS = frozenset({"skip", "xfail", "importorskip"})
 
@@ -230,6 +231,8 @@ def comment_rules(comment: str) -> list[str]:
     rules += [_codes(m.group("codes")) or "type-ignore" for m in _TYPE_IGNORE.finditer(comment)]
     rules += [f"mypy:{m.group('setting')}" for m in _MYPY.finditer(comment)]
     rules += ["no-cover" for _ in _NO_COVER.finditer(comment)]
+    deptry = (_codes(m.group("codes"), upper=True) for m in _DEPTRY_IGNORE.finditer(comment))
+    rules += [f"deptry:{codes}" if codes else "deptry" for codes in deptry]
     return rules
 
 
@@ -325,7 +328,7 @@ REQUIRED_RUFF = (
 )
 ESCAPE_HATCHES = ("PGH003", "PGH004", "RUF100", "ERA001")
 MYPY_CODES = ("ignore-without-code", "redundant-expr", "truthy-bool")
-DEV_TOOLS = ("ruff", "mypy", "pytest", "import-linter")
+DEV_TOOLS = ("ruff", "mypy", "pytest", "import-linter", "vulture", "deptry")
 _ASYNC_FRAMEWORKS = frozenset({"fastapi", "anyio", "trio"})
 
 
@@ -367,14 +370,14 @@ def _requirement_name(requirement: str) -> str | None:
     return re.sub(r"[-_.]+", "-", match.group()).lower() if match else None
 
 
-def _requirement_names(value: object) -> set[str]:
+def requirement_names(value: object) -> set[str]:
     names = (_requirement_name(requirement) for requirement in toml_strings(value))
     return {name for name in names if name is not None}
 
 
 def _ruff_gaps(pyproject: Mapping[str, object]) -> list[str]:
     lint = toml_table(pyproject, "tool", "ruff", "lint")
-    frameworks = _requirement_names(toml_table(pyproject, "project").get("dependencies"))
+    frameworks = requirement_names(toml_table(pyproject, "project").get("dependencies"))
     required = list(REQUIRED_RUFF)
     if frameworks & _ASYNC_FRAMEWORKS:
         required.append("ASYNC")
@@ -453,7 +456,7 @@ def _pytest_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 
 def _dev_gaps(pyproject: Mapping[str, object]) -> list[str]:
-    present = _requirement_names(toml_table(pyproject, "dependency-groups").get("dev"))
+    present = requirement_names(toml_table(pyproject, "dependency-groups").get("dev"))
     lacking = [tool for tool in DEV_TOOLS if tool not in present]
     return [f"dev dependencies lack {', '.join(lacking)}"] if lacking else []
 

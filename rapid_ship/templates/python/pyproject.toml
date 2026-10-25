@@ -14,10 +14,12 @@ dependencies = []      # runtime requirements, as PEP 508 strings; none to start
 
 [dependency-groups]
 dev = [                # the check tools that devctl runs, locked in uv.lock
+    "deptry>=0.25,<1",
     "import-linter>=2.15,<3",
     "mypy>=1.20,<3",
     "pytest>=9,<10",
     "ruff>=0.17,<1",
+    "vulture>=2.16,<3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -33,6 +35,9 @@ select = [             # the rules Ruff reports, in place of its default set
     "E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PGH", "ERA", "T20", "S",
     "TID", "PT", "PTH", "DTZ", "C90", "TD", "BLE", "ANN401",
 ]
+# Codes of other tools that a noqa comment may name, kept instead of reported as RUF102:
+# vulture's. Rule codes or prefixes; Ruff's default is none.
+external = ["V"]
 
 [tool.ruff.lint.per-file-ignores]
 # The rules switched off for the files that match each glob.
@@ -86,3 +91,22 @@ name = "Production code never imports the test framework"
 type = "forbidden"
 source_modules = ["{{package}}"]
 forbidden_modules = ["pytest"]
+
+[tool.vulture]
+# Unused code: devctl's dead-code step runs vulture, and each finding fails the step. A false
+# positive gets `# noqa: V<code>` and its rs-exception marker on the reported line.
+# paths: the files and directories vulture scans, tests included, so a use in a test counts.
+# vulture's default is none, and it then stops with "Please pass at least one file or directory".
+paths = ["src", "tests"]
+
+[tool.deptry]
+# Dependencies that do not match the imports: devctl's dead-code step runs `deptry .` with every
+# rule on, and each finding fails the step. A false positive on an import gets
+# `# deptry: ignore[<code>]` and its rs-exception marker on the import's line.
+# extend_exclude: regular expressions, each matched from the start of a path relative to this
+# directory, added to deptry's default exclude (venv, .venv, .direnv, tests, .git and setup.py)
+# and to .gitignore's entries. Default: none. devctl's imports are not the project's.
+extend_exclude = ["tools/devctl"]
+# known_first_party: module names that deptry counts as this project's own, besides the modules
+# directly in this directory. Default: none. The package sits under src/.
+known_first_party = ["{{package}}"]

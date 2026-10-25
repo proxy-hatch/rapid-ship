@@ -7,6 +7,7 @@ settings, runs in it). An item's detail never quotes a tool's output.
 
 from __future__ import annotations
 
+import fnmatch
 import re
 import shutil
 import tomllib
@@ -24,6 +25,7 @@ from devctl.check.stacks.python import (
     toml_strings,
     toml_table,
 )
+from devctl.check.stacks.python_dead_code import dead_code_gaps
 from devctl.codeowners import CODEOWNERS_FILES, protected_patterns
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
 from devctl.doctor_wiring import wiring_item
@@ -36,7 +38,11 @@ CI_WORKFLOW = ".github/workflows/devctl-check.yml"
 CI_JOB_NAME = "devctl check"  # the status check the ruleset requires
 MINIMUM_GIT = (2, 31)  # git rev-parse --path-format=absolute
 NO_PYPROJECT = "no pyproject.toml"
-KIT_SOURCE_NOTE = "ruff, mypy and pytest not checked: this repository holds the Kit templates"
+KIT_SOURCE_NOTE = (
+    "ruff, mypy, pytest, vulture and deptry not checked: this repository holds the Kit templates"
+)
+# deptry's exclude when [tool.deptry] sets none, as deptry 0.25.1 documents it.
+DEPTRY_EXCLUDE = ("venv", r"\.venv", r"\.direnv", "tests", r"\.git", r"setup\.py")
 
 _GIT_VERSION = re.compile(r"git version ((\d+)\.(\d+)(?:\.\d+)*)")
 _SEMVER = re.compile(r"\d+\.\d+\.\d+")
@@ -192,7 +198,7 @@ def _guardrail_item(root: Path) -> Item:
     pyproject = _read_pyproject(root)
     if isinstance(pyproject, str):
         return Item("guardrails", name, "missing", pyproject)
-    gaps = guardrail_gaps(pyproject)
+    gaps = [*guardrail_gaps(pyproject), *dead_code_gaps(pyproject)]
     if gaps:
         return Item("guardrails", name, "missing", "; ".join(gaps))
     return Item("guardrails", name, "ok", "meets the Python floor of spec section 4")
@@ -235,6 +241,35 @@ def _mypy_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
     return [f"mypy: files covers {DEVCTL_DIRECTORY} and no exclude pattern matches it"]
 
 
+def _vulture_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    vulture = toml_table(pyproject, "tool", "vulture")
+    paths = (_normalised(entry) for entry in toml_strings(vulture.get("paths")))
+    if not any(
+        p in (".", "tools", DEVCTL_DIRECTORY) or p.startswith(f"{DEVCTL_DIRECTORY}/") for p in paths
+    ):
+        return []
+    # vulture matches each pattern against absolute paths with fnmatch.fnmatch, after wrapping a
+    # pattern without a wildcard in *...*. The root here stands in for the real one.
+    probe = f"/repository/{DEVCTL_DIRECTORY}/devctl/cli.py"
+    for pattern in toml_strings(vulture.get("exclude")):
+        if fnmatch.fnmatch(probe, pattern if any(c in pattern for c in "*?[") else f"*{pattern}*"):
+            return []
+    return [f"vulture: paths covers {DEVCTL_DIRECTORY} and no exclude pattern matches it"]
+
+
+def _deptry_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
+    # deptry joins its patterns as ^(a|b) and tests each path relative to the root, without ./.
+    deptry = toml_table(pyproject, "tool", "deptry")
+    excluded = toml_strings(deptry["exclude"]) if "exclude" in deptry else list(DEPTRY_EXCLUDE)
+    for pattern in [*excluded, *toml_strings(deptry.get("extend_exclude"))]:
+        try:
+            if re.match(pattern, DEVCTL_DIRECTORY):
+                return []
+        except re.error:
+            continue
+    return [f"deptry: no exclude or extend_exclude pattern matches {DEVCTL_DIRECTORY}"]
+
+
 def _pytest_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
     options = toml_table(pyproject, "tool", "pytest", "ini_options")
     ignored = {
@@ -270,12 +305,15 @@ def _uv_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
 def devctl_exclusion_gaps(pyproject: Mapping[str, object], *, python: bool) -> list[str]:
     """The settings that make a project's own tools read tools/devctl, one message each.
 
-    Ruff, mypy and pytest are checked only with python. The uv workspace is checked for either
-    stack: without the exclude, the project's own uv lock fails (Checked facts).
+    Ruff, mypy, pytest, vulture and deptry are checked only with python. The uv workspace is
+    checked for either stack: without the exclude, the project's own uv lock fails (Checked
+    facts).
     """
     return [
         *(_ruff_exclusion_gaps(pyproject) if python else []),
         *(_mypy_exclusion_gaps(pyproject) if python else []),
+        *(_vulture_exclusion_gaps(pyproject) if python else []),
+        *(_deptry_exclusion_gaps(pyproject) if python else []),
         *(_pytest_exclusion_gaps(pyproject) if python else []),
         *_uv_exclusion_gaps(pyproject),
     ]

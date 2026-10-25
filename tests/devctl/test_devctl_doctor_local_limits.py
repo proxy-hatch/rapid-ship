@@ -362,7 +362,8 @@ class TestItems:
         item = by_name(local_items(ctx()))["tools/devctl exclusions"]
         assert item.status == "ok"
         assert item.detail == (
-            "ruff, mypy and pytest not checked: this repository holds the Kit templates"
+            "ruff, mypy, pytest, vulture and deptry not checked: this repository holds the Kit "
+            "templates"
         )
 
 
