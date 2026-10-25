@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-import devctl
 from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep, normal_rule, scan
 from devctl.check.steps import StepResult
@@ -25,20 +24,13 @@ KIT_FILE_LOCK = (
 )
 
 
-def setup(
-    workspace: Workspace, source: str, *entries: tuple[str, str, str], version: str = "0.3.0"
-) -> StepResult:
-    """Run the step with `source` in src/app/run.py, as devctl `version`.
-
-    The default is the Kit version after GRACE_VERSION, in which Kit 0.2.0's suppressions fail.
-    """
+def setup(workspace: Workspace, source: str, *entries: tuple[str, str, str]) -> StepResult:
+    """Run the step with `source` in src/app/run.py."""
     workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
     workspace.write("src/app/run.py", source)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(devctl, "__version__", version)
-        return ExceptionsStep().run(workspace.context())
+    return ExceptionsStep().run(workspace.context())
 
 
 def test_marked_suppression_with_entry_passes(workspace: Workspace) -> None:
@@ -206,7 +198,8 @@ def test_deptrys_inline_comment_is_a_suppression(
         ("EX-1", "src/app/run.py", rule),
     )
 
-    assert unmarked.details == (
+    assert (unmarked.status, *unmarked.details) == (
+        "failed",
         f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
         "and an entry in .rapid-ship/exceptions.toml",
     )
@@ -291,7 +284,8 @@ def test_a_line_that_vulture_or_deptry_reads_as_a_suppression_needs_its_marker(
     unmarked = setup(workspace, f"{source}\n")
     marked = setup(workspace, f"{source}  # rs-exception: EX-1\n", ("EX-1", "src/app/run.py", rule))
 
-    assert unmarked.details == (
+    assert (unmarked.status, *unmarked.details) == (
+        "failed",
         f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
         "and an entry in .rapid-ship/exceptions.toml",
     )

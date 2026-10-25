@@ -17,7 +17,6 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from devctl.check.map import graced
 from devctl.check.stacks.python import DEPTRY_CODES, requirement_names, toml_strings, toml_table
 from devctl.check.steps import (
     CheckContext,
@@ -26,7 +25,6 @@ from devctl.check.steps import (
     blocked,
     command_result,
     failed,
-    not_applicable,
     output_tail,
     passed,
     run_tool,
@@ -85,8 +83,7 @@ class DeadCodeStep:
             return blocked(self.name, f"{PYPROJECT}: {error}")
         gaps = _run_gaps(pyproject)
         if gaps:
-            errors, notes = graced(gaps)
-            return blocked(self.name, *errors) if errors else not_applicable(self.name, *notes)
+            return blocked(self.name, *gaps)
         vulture = run_tool(root, VULTURE, _TIMEOUT_SECONDS)
         results = {
             "vulture": command_result(self.name, VULTURE, vulture, frozenset({3})),

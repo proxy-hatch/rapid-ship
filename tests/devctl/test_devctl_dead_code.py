@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-import devctl
 from check_workspace import Workspace, fake_tool
 from devctl.check.stacks.python_dead_code import DeadCodeStep, dead_code_gaps
 
@@ -154,24 +153,10 @@ def test_a_blocked_tool_outranks_a_failed_one(workspace: Workspace, tools: Path)
         (None, [TOOLS, PATHS]),
     ],
 )
-@pytest.mark.parametrize("version", ["0.2.0", "0.3.0"])
-def test_without_the_tools_or_paths_the_step_warns_in_kit_0_2_0_and_blocks_after(
-    workspace: Workspace,
-    tools: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    pyproject: str | None,
-    messages: list[str],
-    version: str,
+def test_without_the_tools_or_paths_the_step_blocks(
+    workspace: Workspace, tools: Path, pyproject: str | None, messages: list[str]
 ) -> None:
-    monkeypatch.setattr(devctl, "__version__", version)
-
-    result = dead_code(workspace, pyproject)
-
-    if version == "0.2.0":
-        warnings = (f"warning: {m}; this fails from the next Kit version" for m in messages)
-        assert result == ("not_applicable", *warnings)
-    else:
-        assert result == ("blocked", *messages)
+    assert dead_code(workspace, pyproject) == ("blocked", *messages)
     assert not (tools / "uv.log").exists()
 
 

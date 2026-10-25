@@ -5,9 +5,6 @@ A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out.
 ID. On the Python stack, each allowlist item in the root pyproject.toml is one too, and so is a
 line that vulture or deptry reads as one, a string included. This module and the Python rows in
 stacks/ are the one definition of suppressions and their rule names.
-
-Kit 0.2.0 adds the dead-code tools' suppressions. An existing project already owns them, so their
-missing markers and the allowlist's errors pass through `graced`: they warn in that version.
 """
 
 from __future__ import annotations
@@ -20,7 +17,6 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from devctl.check.kit import KitLockError, managed_paths
-from devctl.check.map import graced
 from devctl.check.stacks.agnostic import text_rules
 from devctl.check.stacks.python import autouse_fixtures, comment_rules, comments, marker_rules
 from devctl.check.stacks.python_dead_code import PYPROJECT, toml_allowlist, tool_line_rules
@@ -40,7 +36,6 @@ class SuppressedLine:
     rules: tuple[str, ...]  # suppressions that need an exception
     optional: tuple[str, ...]  # autouse fixtures: validated when marked, required only by diff
     markers: tuple[str, ...]
-    graced: tuple[str, ...] = ()  # rules among `rules` that Kit 0.2.0 adds: see the docstring
 
 
 class ExceptionsStep:
@@ -60,10 +55,8 @@ class ExceptionsStep:
             return blocked(self.name, f"{PYPROJECT}: {error}")
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
-        errors, late = exception_errors(lines, entries)
-        missing, notes = graced([*late, *unplaced])
-        errors += missing
-        return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
+        errors = [*exception_errors(lines, entries), *unplaced]
+        return failed(self.name, *errors) if errors else passed(self.name)
 
 
 def scan(
@@ -131,16 +124,11 @@ def _python_lines(path: str, source: str) -> list[SuppressedLine]:
     for number in sorted(found.keys() | tools.keys() | autouse.keys()):
         rules = (*found.get(number, ()), *tools.get(number, ()))
         markers = _markers(comment_by_line.get(number, ""))
-        late = (*(r for r in found.get(number, ()) if _deptry(r)), *tools.get(number, ()))
         if rules or markers:
             lines.append(
-                SuppressedLine(path, number, rules, tuple(autouse.get(number, ())), markers, late)
+                SuppressedLine(path, number, rules, tuple(autouse.get(number, ())), markers)
             )
     return lines
-
-
-def _deptry(rule: str) -> bool:
-    return rule.partition(":")[0] == "deptry"
 
 
 def _text_lines(
@@ -148,13 +136,12 @@ def _text_lines(
 ) -> list[SuppressedLine]:
     """Every line of a non-Python file. A marker counts only on a line with a suppression.
 
-    `extra` adds graced rules by line number: pyproject.toml's allowlist items.
+    `extra` adds rules by line number: pyproject.toml's allowlist items.
     """
     lines: list[SuppressedLine] = []
     for number, line in enumerate(text.split("\n"), start=1):
-        late = tuple((extra or {}).get(number, ()))
-        if rules := (*text_rules(path, line), *late):
-            lines.append(SuppressedLine(path, number, rules, (), _markers(line), late))
+        if rules := (*text_rules(path, line), *(extra or {}).get(number, ())):
+            lines.append(SuppressedLine(path, number, rules, (), _markers(line)))
     return lines
 
 
@@ -175,33 +162,26 @@ def normal_rule(rule: str) -> str:
 
 def exception_errors(
     lines: Sequence[SuppressedLine], entries: Sequence[ExceptionEntry]
-) -> tuple[list[str], list[str]]:
-    """(errors, late): late holds the graced rules that lack their marker."""
+) -> list[str]:
     # load_exceptions has already checked the fields, the ID format and uniqueness.
     by_id = {entry.id: entry for entry in entries}
     errors: list[str] = []
-    late: list[str] = []
     uses = Counter(marker for line in lines for marker in line.markers)
     for line in lines:
-        found, missing = _line_errors(line, by_id)
-        errors += found
-        late += missing
+        errors += _line_errors(line, by_id)
     errors += [f"{i} is used on {n} lines; each ID is used once" for i, n in uses.items() if n > 1]
     errors += [
         f"{entry.id} is stale: no suppression carries it; delete the entry"
         for entry in by_id.values()
         if entry.rule != "file-size" and uses[entry.id] == 0
     ]
-    return errors, late
+    return errors
 
 
-def _line_errors(
-    line: SuppressedLine, by_id: Mapping[str, ExceptionEntry]
-) -> tuple[list[str], list[str]]:
+def _line_errors(line: SuppressedLine, by_id: Mapping[str, ExceptionEntry]) -> list[str]:
     where = f"{line.path}:{line.number}"
     required, optional = list(line.rules), list(line.optional)
     errors: list[str] = []
-    late: list[str] = []
     for marker in line.markers:
         entry = by_id.get(marker)
         if entry is None:
@@ -216,9 +196,9 @@ def _line_errors(
             errors.append(
                 f"{where}: {marker} is for rule {entry.rule}, which is not suppressed on this line"
             )
-    for rule in required:
-        (late if rule in line.graced else errors).append(
-            f"{where}: suppression {rule} needs '# rs-exception: EX-<n>' and an entry in "
-            ".rapid-ship/exceptions.toml"
-        )
-    return errors, late
+    errors += [
+        f"{where}: suppression {rule} needs '# rs-exception: EX-<n>' and an entry in "
+        ".rapid-ship/exceptions.toml"
+        for rule in required
+    ]
+    return errors
