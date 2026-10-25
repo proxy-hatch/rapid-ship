@@ -39,6 +39,7 @@ Add a row for each directory guide.
 - Declare each removed test under `Removed tests:` in the PR body, with a reason. enforced by: check:diff
 - Update comments with behaviour changes, and investigate existing constraint comments before removing them. advisory
 - Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
+- Mark a `dead-code` false positive where devctl can see it, with its `rs-exception` marker. Use `# noqa: V<code>` on the line vulture reports, and `# deptry: ignore[<code>]` on the line deptry reports. For a dependency that deptry reports as unused, add an item under `DEP002` in `[tool.deptry.per_rule_ignores]`. For one definition, prefer the comment to an `ignore_names` item, which spares every definition of the name. Never hide a finding with a vulture whitelist module, a bare reference to the name, a leading `_`, an `__all__` entry or a `getattr` string. devctl cannot detect these, so review treats each as an unmarked suppression. advisory
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
 
 ## Shared language and decisions

@@ -417,8 +417,13 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     assert commands.strip().splitlines()[0] == SETTINGS_FIRST
 
 
-def test_the_python_root_guide_adds_its_rows_and_lint_enforced_rules() -> None:
+def test_the_python_root_guide_adds_its_rows_and_rules() -> None:
     python = text("python", "AGENTS.md").splitlines()
+    (dead_code,) = [line for line in python if "`dead-code` false positive" in line]
+    python.remove(dead_code)
+    # Spec 1 section 5, Exceptions: the forms that devctl reads, and those that only review catches.
+    for words in ("noqa: V<code>", "deptry: ignore[<code>]", "`ignore_names`", "whitelist"):
+        assert words in dead_code
     rows = [line for line in python if "](src/AGENTS.md)" in line or "](tests/AGENTS.md)" in line]
     lint = [
         line.removeprefix("- ").removesuffix(" enforced by: check:lint")

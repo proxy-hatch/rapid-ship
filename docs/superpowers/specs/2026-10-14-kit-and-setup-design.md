@@ -330,7 +330,7 @@ The root guide stays short, following upstream `writing-for-agents`:
 4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
 
-The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it.
+The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it. The Python guide adds a `dead-code` Rule after rule 13, from section 5's Exceptions. It is `advisory`: `check:exceptions` fails an unmarked comment or item, but devctl cannot detect the forms that the Rule forbids.
 
 | Rule | Marker |
 | --- | --- |
@@ -347,6 +347,7 @@ The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's c
 | Declare each removed test under `Removed tests:` in the PR body, with a reason. | `enforced by: check:diff` |
 | Update comments with behaviour changes, and investigate existing constraint comments before removing them. | `advisory` |
 | Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. | `advisory` |
+| Mark a `dead-code` false positive where devctl can see it, with its `rs-exception` marker: `# noqa: V<code>` or `# deptry: ignore[<code>]` on the reported line, or a `DEP002` item in `[tool.deptry.per_rule_ignores]` for a dependency. For one definition, prefer the comment to an `ignore_names` item. Never hide a finding with a form that devctl cannot detect, which review treats as an unmarked suppression (section 5, Exceptions). | Python: `advisory`. Agnostic: not seeded |
 | Editing or deleting a Kit-managed file makes it the project's own and stops its Kit updates; the Rule says how to keep updates, own a file outright or give it back ("Who owns what", section 3). | `advisory` |
 
 AGENTS.md files are the single instruction source. The seeded `CLAUDE.md` is a real file containing `@AGENTS.md`.
