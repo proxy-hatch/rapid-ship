@@ -380,10 +380,12 @@ def _stopped(root: Path, error: Exception, undo: Undo, base: str | None, branch:
 
 
 def _start_branch(root: Path, branch: str) -> str:
-    """Create the sync branch at HEAD. Returns the branch it starts from.
+    """Create branch, the sync or the migration branch, at HEAD. Returns the branch HEAD is on,
+    which the new branch's pull request targets.
 
-    git branch makes the branch or fails without one, so a failure leaves nothing to undo.
-    sync_repository switches to it inside its undo.
+    git branch makes the branch or fails without one, so a failure leaves nothing to undo. The
+    caller switches to it inside its undo: sync_repository to the sync branch, _commit_migrations
+    to the migration branch.
     """
     base = head_branch(root)
     if base is None:
@@ -409,7 +411,8 @@ def _propose_migrations(
     open_pull_request: OpenPullRequest,
 ) -> None:
     """Commit the migrations on branch, a new branch at HEAD, and open their pull request into
-    the branch sync is on, where sync then stays. Nothing to do when branch is None."""
+    the branch HEAD was on: the sync branch when sync committed one, else the branch sync started
+    from. sync then stays on the migration branch. Nothing to do when branch is None."""
     if branch is None:
         return
     base = _start_branch(root, branch)
