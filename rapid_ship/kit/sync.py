@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import stat
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from rapid_ship.files import UnsafePath, relative_parts
+from rapid_ship.files import UnsafePath, atomic_replace, relative_parts
 from rapid_ship.kit.git import commit_paths, git, head_branch, is_clean, leave_branch
 from rapid_ship.kit.lock import (
     LOCK_PATH,
@@ -19,6 +20,7 @@ from rapid_ship.kit.lock import (
     template_hash,
     write_lock,
 )
+from rapid_ship.kit.migrations import Pending, migration_body, pending
 from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
 from rapid_ship.kit.status import entry_fingerprint, fingerprint, locate, template_fingerprint
 from rapid_ship.kit.templates import (
@@ -60,6 +62,9 @@ class SyncResult:
     conflicts: list[Conflict] = field(default_factory=list)
     branch: str | None = None
     pull_request: str | None = None
+    migrations: list[Pending] = field(default_factory=list)  # each one that applies
+    migration_branch: str | None = None
+    migration_pull_request: str | None = None
 
     @property
     def changed(self) -> bool:
@@ -93,6 +98,10 @@ def sync_repository(
     pull request. in_place writes the work tree only; it accepts uncommitted work, because it
     replaces or deletes only files equal to their locked content. revert names Kit-managed paths
     the project owns, or edited, to replace with the current template and manage again.
+
+    Each run also lists the migrations that apply. Without in_place they land as one commit on
+    rapid-ship/kit-migrate-<version>, based on the sync branch when there is one, and a pull
+    request of their own; in_place writes none of them.
     """
     root = root.resolve()
     lock = read_lock(root)
@@ -116,8 +125,14 @@ def sync_repository(
     _plan_seeded(root, new, planned, writes, result, new_project_only)
     # [kit] exclude is the only record of an exclusion, so the lock carries no mark.
     kept = {path: entry for path, entry in entries.items() if is_excluded(path, excluded)}
+    # Even a project at the current templates can hold content this Kit refuses.
+    result.migrations = pending(root, excluded)
+    migrate = f"rapid-ship/kit-migrate-{version}" if result.migrations and not in_place else None
+    if migrate is not None:
+        _refuse_existing(root, migrate)  # before any write
     if not result.changed:
         result.kit_version = lock.kit_version
+        _propose_migrations(root, result, migrate, version, open_pull_request)
         return result
     branch = f"rapid-ship/kit-sync-{version}"
     base = None if in_place else _start_branch(root, branch)
@@ -146,6 +161,7 @@ def sync_repository(
         title = f"Sync rapid-ship Kit to {version}"
         body = pull_request_body(result, lock.kit_version)
         result.pull_request = open_pull_request(root, branch, base, title, body)
+    _propose_migrations(root, result, migrate, version, open_pull_request)
     return result
 
 
@@ -372,10 +388,57 @@ def _start_branch(root: Path, branch: str) -> str:
     base = head_branch(root)
     if base is None:
         raise KitRefusal("HEAD is detached; check out the branch the pull request should target")
+    _refuse_existing(root, branch)
+    git(root, "branch", "--quiet", branch)
+    return base
+
+
+def _refuse_existing(root: Path, branch: str) -> None:
     if git(root, "branch", "--list", branch).strip():
         raise KitRefusal(
             f"branch {branch} exists; a previous sync may have opened a pull request "
             f"(gh pr list --head {branch})"
         )
-    git(root, "branch", "--quiet", branch)
-    return base
+
+
+def _propose_migrations(
+    root: Path,
+    result: SyncResult,
+    branch: str | None,
+    version: str,
+    open_pull_request: OpenPullRequest,
+) -> None:
+    """Commit the migrations on branch, a new branch at HEAD, and open their pull request into
+    the branch sync is on, where sync then stays. Nothing to do when branch is None."""
+    if branch is None:
+        return
+    base = _start_branch(root, branch)
+    try:
+        _commit_migrations(root, result.migrations, base, branch, version)
+        result.migration_branch = branch
+        title = f"Migrate seeded files for rapid-ship Kit {version}"
+        body = migration_body(result.migrations, version)
+        result.migration_pull_request = open_pull_request(root, branch, base, title, body)
+    except KitError as error:
+        if result.pull_request is None:
+            raise
+        raise KitError(f"{error}; the sync pull request {result.pull_request} is open") from error
+
+
+def _commit_migrations(
+    root: Path, found: Sequence[Pending], base: str, branch: str, version: str
+) -> None:
+    """Switch to branch and commit each file's last edit. A failed write or commit restores the
+    files, switches back to base and deletes branch, as a failed sync does."""
+    finals = {item.migration.path: item.after for item in found}
+    undo = Undo(root)
+    try:
+        git(root, "switch", "--quiet", branch)
+        for path, text in finals.items():
+            target = locate(root, path)
+            undo.before(target)
+            atomic_replace(target, text.encode("utf-8"), mode=stat.S_IMODE(target.stat().st_mode))
+        message = f"chore: migrate seeded files for rapid-ship Kit {version}"
+        commit_paths(root, sorted(finals), message)
+    except (OSError, UnsafePath, KitError) as error:
+        raise _stopped(root, error, undo, base, branch) from error

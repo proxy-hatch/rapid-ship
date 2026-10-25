@@ -2,6 +2,7 @@
 GitHub Apps."""
 
 import argparse
+import difflib
 import json
 import sys
 import webbrowser
@@ -17,7 +18,7 @@ from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
 from rapid_ship.kit.pull_request import REVERT
 from rapid_ship.kit.status import classify
-from rapid_ship.kit.sync import sync_repository
+from rapid_ship.kit.sync import SyncResult, sync_repository
 from rapid_ship.kit.templates import STACKS, KitError, KitRefusal, installed_version
 
 _NO_METADATA = (
@@ -269,7 +270,7 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
 
 def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
     result = sync_repository(root, in_place=in_place, revert=revert)
-    if not result.changed and not result.conflicts:
+    if not (result.changed or result.conflicts or result.migrations):
         sys.stdout.write("Kit is current; nothing to sync.\n")
     buckets = [
         ("Replaced with the new template:", result.updated),
@@ -303,7 +304,30 @@ def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
             sys.stdout.write(f"Opened {result.pull_request} on {result.branch}.\n")
     elif result.conflicts:
         sys.stdout.write("Nothing was written.\n")
-    return 1 if result.conflicts else 0
+    if result.migrations:
+        _print_migrations(result, in_place=in_place)
+    # In place, the project still holds content devctl refuses, so the owner must act.
+    return 1 if result.conflicts or (in_place and result.migrations) else 0
+
+
+def _print_migrations(result: SyncResult, *, in_place: bool) -> None:
+    """Each migration that applies; in place, with its edit as a unified diff."""
+    for item in result.migrations:
+        migration = item.migration
+        sys.stdout.write(f"migration {migration.id}: {migration.path}: {migration.explanation}\n")
+        if in_place:
+            before, after = item.before.splitlines(), item.after.splitlines()
+            diff = difflib.unified_diff(
+                before, after, f"a/{migration.path}", f"b/{migration.path}", lineterm=""
+            )
+            sys.stdout.writelines(f"{line}\n" for line in diff)
+    if in_place:
+        sys.stdout.write(
+            "Wrote none of the migrations. Run rapid-ship sync without --in-place to propose "
+            "them in a pull request, or make each edit by hand.\n"
+        )
+    else:
+        sys.stdout.write(f"Opened {result.migration_pull_request} on {result.migration_branch}.\n")
 
 
 def _print_paths(heading: str, paths: Sequence[str]) -> None:
