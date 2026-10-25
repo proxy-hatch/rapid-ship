@@ -89,7 +89,7 @@ def github(app_keys: dict[str, tuple[bytes, bytes]]) -> Iterator[FakeGitHub]:
     fake.close()
 
 
-@pytest.fixture
+@pytest.fixture  # noqa: V103  # rs-exception: EX-19
 def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """HOME in tmp_path, so git never reads the owner's ~/.gitconfig.
 
@@ -102,7 +102,7 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def remote(tmp_path: Path, isolated_home: Path) -> Remote:
+def remote(tmp_path: Path, isolated_home: Path) -> Remote:  # noqa: V107  # rs-exception: EX-20
     """A bare repository at tmp_path/remote.git and its clone at tmp_path/work/r.
 
     The clone has one commit on main, pushed.
@@ -195,7 +195,7 @@ def no_owner_reads(path: str, jq: str | None = None) -> object:
 
 
 @pytest.fixture
-def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeContext:
+def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeContext:  # noqa: V107  # rs-exception: EX-21
     """Make DoctorContexts for a temporary repository on main, with no access and no owner reads.
 
     excluded replaces project.excluded, as load_project would from [kit] exclude.
@@ -243,7 +243,7 @@ def recorded() -> RecordedOwner:
 
 @pytest.fixture
 def ctx_github(
-    isolated_home: Path,
+    isolated_home: Path,  # noqa: V107  # rs-exception: EX-22
     project: ProjectSettings,
     github: FakeGitHub,
     keychain: FakeKeychain,

@@ -25,9 +25,6 @@ from devctl.check.steps import (
     run_tool,
 )
 
-# rapid_ship/kit/adopt.py copies these patterns, comment_rules, marker_rules, _codes and
-# _dotted, because rapid-ship cannot import devctl. tests/devctl/test_devctl_adopt_rules.py
-# fails when the copies differ.
 _NOQA = re.compile(
     r"#\s*(?:(?:ruff|flake8)\s*:\s*)?noqa\b"
     r"(?::\s*(?P<codes>[A-Za-z]+[0-9]+(?:[\s,]+[A-Za-z]+[0-9]+)*))?",
@@ -36,6 +33,11 @@ _NOQA = re.compile(
 _TYPE_IGNORE = re.compile(r"#\s*type:\s*ignore\b(?:\[(?P<codes>[^\]]*)\])?")
 _MYPY = re.compile(r"#\s*mypy:\s*(?P<setting>ignore-errors|disable-error-code)")
 _NO_COVER = re.compile(r"#\s*pragma:\s*no\s+cover", re.IGNORECASE)
+# deptry 0.25.1 matches its comment case-sensitively, with no word boundary after `ignore`, and
+# reads codes only in upper case: with any other bracket it ignores every rule on the line. devctl
+# reads any case, so a spelling that deptry skips only needs a marker.
+_DEPTRY_IGNORE = re.compile(r"#\s*deptry:\s*ignore(?:\[(?P<codes>[^\]]*)\])?", re.IGNORECASE)
+DEPTRY_CODES = r"[A-Z0-9,\s]+"  # deptry's own pattern for the codes in its bracket
 _SKIP_MARKS = frozenset({"skip", "skipif", "xfail"})
 _SKIP_CALLS = frozenset({"skip", "xfail", "importorskip"})
 
@@ -230,7 +232,13 @@ def comment_rules(comment: str) -> list[str]:
     rules += [_codes(m.group("codes")) or "type-ignore" for m in _TYPE_IGNORE.finditer(comment)]
     rules += [f"mypy:{m.group('setting')}" for m in _MYPY.finditer(comment)]
     rules += ["no-cover" for _ in _NO_COVER.finditer(comment)]
+    rules += [_deptry_rule(m.group("codes")) for m in _DEPTRY_IGNORE.finditer(comment)]
     return rules
+
+
+def _deptry_rule(codes: str | None) -> str:
+    named = _codes(codes) if codes is not None and re.fullmatch(DEPTRY_CODES, codes) else ""
+    return f"deptry:{named}" if named else "deptry"
 
 
 def _codes(text: str | None, *, upper: bool = False) -> str:
@@ -325,7 +333,7 @@ REQUIRED_RUFF = (
 )
 ESCAPE_HATCHES = ("PGH003", "PGH004", "RUF100", "ERA001")
 MYPY_CODES = ("ignore-without-code", "redundant-expr", "truthy-bool")
-DEV_TOOLS = ("ruff", "mypy", "pytest", "import-linter")
+DEV_TOOLS = ("ruff", "mypy", "pytest", "import-linter", "vulture", "deptry")
 _ASYNC_FRAMEWORKS = frozenset({"fastapi", "anyio", "trio"})
 
 
@@ -367,14 +375,14 @@ def _requirement_name(requirement: str) -> str | None:
     return re.sub(r"[-_.]+", "-", match.group()).lower() if match else None
 
 
-def _requirement_names(value: object) -> set[str]:
+def requirement_names(value: object) -> set[str]:
     names = (_requirement_name(requirement) for requirement in toml_strings(value))
     return {name for name in names if name is not None}
 
 
 def _ruff_gaps(pyproject: Mapping[str, object]) -> list[str]:
     lint = toml_table(pyproject, "tool", "ruff", "lint")
-    frameworks = _requirement_names(toml_table(pyproject, "project").get("dependencies"))
+    frameworks = requirement_names(toml_table(pyproject, "project").get("dependencies"))
     required = list(REQUIRED_RUFF)
     if frameworks & _ASYNC_FRAMEWORKS:
         required.append("ASYNC")
@@ -453,7 +461,7 @@ def _pytest_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 
 def _dev_gaps(pyproject: Mapping[str, object]) -> list[str]:
-    present = _requirement_names(toml_table(pyproject, "dependency-groups").get("dev"))
+    present = requirement_names(toml_table(pyproject, "dependency-groups").get("dev"))
     lacking = [tool for tool in DEV_TOOLS if tool not in present]
     return [f"dev dependencies lack {', '.join(lacking)}"] if lacking else []
 

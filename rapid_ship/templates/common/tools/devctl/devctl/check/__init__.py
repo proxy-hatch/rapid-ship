@@ -21,6 +21,7 @@ from devctl.check.kit import KitStep
 from devctl.check.map import MapStep
 from devctl.check.stacks.agnostic import SecretsStep, WorkflowsStep
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES, AuditStep
+from devctl.check.stacks.python_dead_code import DeadCodeStep
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
 from devctl.repo import Repo, RepoError
 from devctl.settings import ProjectSettings
@@ -39,7 +40,10 @@ def core_steps(project: ProjectSettings) -> list[Step]:
     """Core steps for the project's stack in spec section 5's order."""
     python = project.stack == "python"
     # Typed apart: mypy reads the inline list of CommandStep and AuditStep as list[object].
-    python_full: list[Step] = [TYPES, CONTRACTS, TESTS, AuditStep()] if python else []
+    # The static steps run before the tests.
+    python_full: list[Step] = (
+        [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()] if python else []
+    )
     return [
         *([FORMAT, LINT] if python else []),
         MapStep(),

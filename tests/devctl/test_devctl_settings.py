@@ -56,7 +56,7 @@ def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None
         code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
         reviewer_app=None,
-        escalation=Escalation(every_pr=True, kinds=SEEDED_KINDS, revision_rounds=3),
+        escalation=Escalation(every_pr=True, kinds=SEEDED_KINDS),
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),
@@ -74,7 +74,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
 
     project = load_project(tmp_path)
 
-    assert project.escalation == Escalation(every_pr=True, kinds=(), revision_rounds=3)
+    assert project.escalation == Escalation(every_pr=True, kinds=())
     assert project.unit_tests == ("tests/unit/**",)
     assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
         None,
@@ -157,7 +157,7 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     )
 
     assert load_project(tmp_path).escalation == Escalation(
-        every_pr=False, kinds=("a database migration", "a public API change"), revision_rounds=2
+        every_pr=False, kinds=("a database migration", "a public API change")
     )
 
 

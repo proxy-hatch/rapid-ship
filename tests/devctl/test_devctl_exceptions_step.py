@@ -25,6 +25,7 @@ KIT_FILE_LOCK = (
 
 
 def setup(workspace: Workspace, source: str, *entries: tuple[str, str, str]) -> StepResult:
+    """Run the step with `source` in src/app/run.py."""
     workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
     workspace.write("src/app/run.py", source)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
@@ -176,6 +177,122 @@ def test_workflow_ignore_with_several_names_matches_its_entry(workspace: Workspa
 
 
 @pytest.mark.parametrize(
+    ("comment", "rule"),
+    [
+        ("# deptry: ignore", "deptry"),
+        ("# deptry: ignored", "deptry"),
+        ("# deptry: ignore[DEP003, DEP001]", "deptry:DEP001,DEP003"),
+        ("# Deptry: Ignore[DEP003]", "deptry:DEP003"),
+        # deptry reads only upper-case codes; with any other bracket it ignores every rule.
+        ("# deptry: ignore[dep003]", "deptry"),
+        ("# deptry: ignore[DEP003, dep001]", "deptry"),
+    ],
+)
+def test_deptrys_inline_comment_is_a_suppression(
+    workspace: Workspace, comment: str, rule: str
+) -> None:
+    unmarked = setup(workspace, f"import yaml  {comment}\n")
+    marked = setup(
+        workspace,
+        f"import yaml  {comment}  # rs-exception: EX-1\n",
+        ("EX-1", "src/app/run.py", rule),
+    )
+
+    assert (unmarked.status, *unmarked.details) == (
+        "failed",
+        f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
+        "and an entry in .rapid-ship/exceptions.toml",
+    )
+    assert marked.status == "passed", marked.details
+
+
+# vulture reads its noqa comment anywhere on a line, this file's lines included, so these sources
+# build it from parts.
+NOQA = "# " + "noqa"
+TOOL_LINES = (
+    f"def a() -> None: ...  {NOQA}_hidden\n"
+    f"def b(tag: str = '{NOQA}') -> str: ...\n"
+    f"def c(tag: str = '{NOQA}: V103, E501') -> str: ...\n"
+    f"def d() -> None: ...  {NOQA}:  V107\n"
+    f"def e() -> None: ...  {NOQA}: V103\n"
+    f"TEXT = '{NOQA}: E501'\n"
+    "import yaml; TAG = '# deptry: ignore'\n"
+    "TAG = '# deptry: ignore'\n"
+    "from toml import (\n"
+    "    load,\n"
+    "); TAG = '# deptry: ignore[DEP001]'\n"
+    "import click  # deptry: ignore[DEP003]\n"
+    "from importlib import import_module\n"
+    "jwt = import_module('jwt'); TAG = '# deptry: ignore'\n"
+    'def f() -> None:\n    """Write\n'
+    f"    {NOQA} to silence Ruff.\n"
+    '    """\n'
+    f'X = """{NOQA}\n'
+    '"""\n'
+    "# page\fbreak\n"
+    f"def g(tag: str = '{NOQA}') -> str: ...\n"
+    "def h() -> None: ...\n"
+    "import os, \\\n"
+    "    yaml; TAG = '# deptry: ignore'\n"
+)
+
+
+def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
+    # Each tool searches a line's whole text, a string included, and acts on its first match,
+    # but only on the first line of what it reports: lines 11 and 17 hide nothing. Line 19 hides
+    # X, and no comment fits there. vulture numbers lines as str.splitlines does, so after line
+    # 21's form feed it reads line 22's text as line 23's. deptry reads line 25 for yaml, the
+    # second name of line 24's import.
+    (tmp_path / "run.py").write_text(TOOL_LINES)
+
+    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+
+    assert {line.number: list(line.rules) for line in lines} == {
+        1: ["noqa"],
+        2: ["noqa"],
+        3: ["V103"],
+        4: ["V107", "noqa"],
+        5: ["V103"],
+        7: ["deptry"],
+        12: ["deptry:DEP003"],
+        14: ["deptry"],
+        19: ["noqa"],
+        23: ["noqa"],
+        25: ["deptry"],
+    }
+
+
+def test_where_the_source_does_not_parse_every_line_counts_for_vulture(tmp_path: Path) -> None:
+    # vulture's Python may parse what devctl's cannot, such as newer syntax.
+    (tmp_path / "run.py").write_text(f"X = 1 +\n'''\n{NOQA}\n'''\n")
+
+    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+
+    assert [(line.number, line.rules) for line in lines] == [(3, ("noqa",))]
+
+
+@pytest.mark.parametrize(
+    ("source", "rule"),
+    [
+        (f"def unused(tag: str = '{NOQA}') -> str: ...", "noqa"),
+        ("import yaml; TAG = '# deptry: ignore'", "deptry"),
+    ],
+)
+def test_a_line_that_vulture_or_deptry_reads_as_a_suppression_needs_its_marker(
+    workspace: Workspace, source: str, rule: str
+) -> None:
+    unmarked = setup(workspace, f"{source}\n")
+    marked = setup(workspace, f"{source}  # rs-exception: EX-1\n", ("EX-1", "src/app/run.py", rule))
+
+    assert (unmarked.status, *unmarked.details) == (
+        "failed",
+        f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
+        "and an entry in .rapid-ship/exceptions.toml",
+    )
+    assert marked.status == "passed", marked.details
+
+
+@pytest.mark.parametrize(
     ("rule", "normal"),
     [
         ("S607, S603", "S603,S607"),
@@ -207,7 +324,8 @@ def test_marked_autouse_fixture_is_validated_unmarked_one_is_left_to_diff(
     assert result.status == "passed", result.details
 
 
-# The gitleaks line is split so that documents quoting this test hold no allow comment.
+# The gitleaks line is split so that documents quoting this test hold no allow comment, and so
+# that vulture, which reads its noqa comment anywhere on a line, reads none on this file's line.
 EVERY_PYTHON_SUPPRESSION = (
     "# ruff: noqa: e501\n"
     "# flake8: noqa\n"
@@ -217,7 +335,7 @@ EVERY_PYTHON_SUPPRESSION = (
     "yaml = pytest.importorskip('yaml')  # noqa: f401\n"
     "pytestmark = mark.xfail\n"
     "x = f()  # type: ignore[call-arg, arg-type]  # noqa: E501, F821\n"
-    "KEY = 'k'  # gitleaks" + ":allow  # NOQA\n"
+    "KEY = 'k'  # gitleaks" + ":allow  # " + "NOQA\n"
     "TEXT = '# noqa: E501  # type: ignore'\n"
     "y = g()  # type: ignore\n"
     "@pytest.mark.skipif(\n"

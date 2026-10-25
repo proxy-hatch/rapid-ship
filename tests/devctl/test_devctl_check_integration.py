@@ -125,3 +125,45 @@ def test_a_project_verb_and_check_step_extend_devctl(tmp_path: Path) -> None:
         "status": "passed",
         "details": ["release notes are current"],
     }
+
+
+UNUSED_FUNCTION = '''def unused_helper() -> None:
+    """Nothing calls this function."""
+'''
+
+
+def test_a_new_project_fails_the_dead_code_step_on_unused_code_and_a_dependency(
+    tmp_path: Path,
+) -> None:
+    # The vendored devctl imports yaml, so the DEP002 line also shows that deptry leaves
+    # tools/devctl out, and the absence of any other deptry line that the seed passes every rule.
+    project = init_project(tmp_path / "project", "python")
+    [package] = [path.parent.name for path in (project.root / "src").glob("*/__init__.py")]
+    project.write(f"src/{package}/extra.py", UNUSED_FUNCTION)
+    pyproject = project.root / "pyproject.toml"
+    seeded = pyproject.read_text()
+    assert "dependencies = []" in seeded
+    pyproject.write_text(
+        seeded.replace("dependencies = []", 'dependencies = ["pyyaml>=6.0.3,<7"]', 1)
+    )
+    for command in (["uv", "lock", "--quiet"], ["uv", "sync", "--quiet"]):
+        ran = run_process(command, project.root, 600, env=tool_environment())
+        assert ran.returncode == 0, ran.stdout + ran.stderr
+    project.commit("an unused function and an unused dependency")
+
+    code, out, err = run_devctl(project, "check", "--tier", "full", "--json")
+
+    assert code == 1, out + err
+    steps = {step["name"]: step for step in json.loads(out)}
+    dead_code = steps.pop("dead-code")
+    assert dead_code["status"] == "failed", dead_code
+    statuses = {name: step["status"] for name, step in steps.items()}
+    assert set(statuses.values()) <= {"passed", "not_applicable"}, steps
+    skipped = {name for name, status in statuses.items() if status == "not_applicable"}
+    assert skipped == NOT_APPLICABLE[("python", "full")]
+    details: list[str] = dead_code["details"]
+    unused = "unused function 'unused_helper' (60% confidence)"
+    assert any(d.startswith("vulture: ") and d.endswith(unused) for d in details), details
+    deptry = [d for d in details if d.startswith("deptry: ")]
+    assert len(deptry) == 1, details
+    assert deptry[0].startswith("deptry: pyproject.toml: DEP002 'pyyaml'"), details

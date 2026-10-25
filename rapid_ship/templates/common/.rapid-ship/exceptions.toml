@@ -6,5 +6,7 @@
 # id = "EX-1"                # EX-<n>, n from 1, each ID once
 # path = "src/app/run.py"    # from the repository root
 # rule = "S603"              # or "file-size" for a file over the cap
+#                            # or, for an allowlist item, "<tool>.<key>:<item>", such as
+#                            # "vulture.ignore_names:pytestmark", with its settings file as path
 # reason = "Runs the project's own build tool with fixed arguments"
 # remove_when = "The build tool has a Python API"

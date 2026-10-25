@@ -252,7 +252,7 @@ def test_a_command_is_required() -> None:
 # PYTHONPATH=. python -m rapid_ship) must say so, not fail with a traceback.
 
 
-@pytest.fixture
+@pytest.fixture  # noqa: V103  # rs-exception: EX-24
 def no_package_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing(name: str) -> NoReturn:
         raise PackageNotFoundError(name)
@@ -260,12 +260,12 @@ def no_package_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("importlib.metadata.version", missing)
 
 
+@pytest.mark.usefixtures("no_package_metadata")
 @pytest.mark.parametrize("argv", [["--version"], ["init", "--stack", "agnostic"]])
 def test_missing_package_metadata_exits_2_and_writes_nothing(
     git_repo: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    no_package_metadata: None,
     argv: list[str],
 ) -> None:
     monkeypatch.chdir(git_repo)
@@ -279,11 +279,9 @@ def test_missing_package_metadata_exits_2_and_writes_nothing(
     assert not (git_repo / ".rapid-ship").exists()
 
 
+@pytest.mark.usefixtures("no_package_metadata")
 def test_help_does_not_need_the_package_metadata(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    no_package_metadata: None,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.chdir(tmp_path)
 

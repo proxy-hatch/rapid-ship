@@ -55,7 +55,7 @@ class Terminal(io.BytesIO):
     def isatty(self) -> bool:
         return True
 
-    def read(self, size: int | None = -1, /) -> bytes:
+    def read(self, size: int | None = -1, /) -> bytes:  # noqa: V107  # rs-exception: EX-23
         raise AssertionError("a terminal on stdin is never read")
 
 

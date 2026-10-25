@@ -21,7 +21,6 @@ from devctl.check.steps import (
 )
 
 # Split so that documents quoting this code do not contain gitleaks's allow comment.
-# rapid_ship/kit/adopt.py copies _GITLEAKS_ALLOW.
 _GITLEAKS_ALLOW = "gitleaks" + ":allow"
 _ZIZMOR = re.compile(r"#\s*zizmor:\s*ignore\[(?P<names>[^\]]+)\]")
 

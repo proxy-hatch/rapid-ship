@@ -3,7 +3,10 @@
 import tomllib
 from typing import Any
 
+import pytest
+
 from devctl.check.stacks.python import guardrail_gaps
+from devctl.check.stacks.python_dead_code import dead_code_gaps
 from devctl.doctor import devctl_exclusion_gaps
 from rapid_ship.kit.templates import render_files
 
@@ -17,6 +20,7 @@ def seeded_pyproject() -> dict[str, Any]:
 
 def test_seeded_python_settings_meet_the_floor() -> None:
     assert guardrail_gaps(seeded_pyproject()) == []
+    assert dead_code_gaps(seeded_pyproject()) == []
 
 
 def test_gaps_name_each_missing_setting() -> None:
@@ -57,3 +61,35 @@ def test_exclusion_gaps_name_each_setting() -> None:
     data["tool"]["uv"]["workspace"]["exclude"] = ["tools/devctl"]
     assert devctl_exclusion_gaps(data, python=True) == [ruff, pytest_gap]
     assert devctl_exclusion_gaps(data, python=False) == []
+
+
+VULTURE_GAP = "vulture: paths covers tools/devctl and no exclude pattern matches it"
+DEPTRY_GAP = "deptry: no exclude or extend_exclude pattern matches tools/devctl"
+
+
+@pytest.mark.parametrize(
+    ("tool", "settings", "gaps"),
+    [
+        ("vulture", {"paths": ["."]}, [VULTURE_GAP]),
+        ("vulture", {"paths": ["."], "exclude": ["tools/devctl"]}, []),
+        # vulture matches exclude with fnmatch, which keeps case outside Windows.
+        ("vulture", {"paths": ["."], "exclude": ["TOOLS/DEVCTL"]}, [VULTURE_GAP]),
+        ("deptry", None, [DEPTRY_GAP]),
+        ("deptry", {"extend_exclude": ["tools"]}, []),
+        ("deptry", {"extend_exclude": [".*devctl"]}, []),
+        # deptry also tests each path beneath tools/devctl.
+        ("deptry", {"extend_exclude": ["tools/devctl/"]}, []),
+        ("deptry", {"extend_exclude": ["tools/devctl/.*"]}, []),
+        # deptry matches each pattern from the start of the path.
+        ("deptry", {"extend_exclude": ["devctl"]}, [DEPTRY_GAP]),
+    ],
+)
+def test_the_exclusions_keep_tools_devctl_out_of_vulture_and_deptry(
+    tool: str, settings: dict[str, list[str]] | None, gaps: list[str]
+) -> None:
+    data = seeded_pyproject()
+    if settings is None:
+        del data["tool"][tool]
+    else:
+        data["tool"][tool] = settings
+    assert devctl_exclusion_gaps(data, python=True) == gaps

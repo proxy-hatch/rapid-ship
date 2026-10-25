@@ -11,10 +11,12 @@ dependencies = []
 
 [dependency-groups]
 dev = [                # the check tools that devctl runs
+    "deptry>=0.25,<1",
     "import-linter>=2.15,<3",
     "mypy>=1.20,<3",
     "pytest>=9,<10",
     "ruff>=0.17,<1",
+    "vulture>=2.16,<3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -30,6 +32,7 @@ select = [
     "E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PGH", "ERA", "T20", "S",
     "TID", "PT", "PTH", "DTZ", "C90", "TD", "BLE", "ANN401",
 ]
+external = ["V"]   # vulture's noqa codes, which Ruff keeps instead of reporting RUF102
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]  # pytest asserts
@@ -78,3 +81,16 @@ name = "Production code never imports the test framework"
 type = "forbidden"
 source_modules = ["{{package}}"]
 forbidden_modules = ["pytest"]
+
+[tool.vulture]
+# devctl's dead-code step needs it, because vulture has no default. With tests listed, a use in a
+# test counts as a use.
+paths = ["src", "tests"]
+
+[tool.deptry]
+# Regular expressions, each matched from the start of a path relative to this directory.
+# devctl's imports are not the project's.
+extend_exclude = ["tools/devctl"]
+# deptry counts as the project's own only the modules directly in this directory, and the package
+# sits under src/.
+known_first_party = ["{{package}}"]

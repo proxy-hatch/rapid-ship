@@ -31,7 +31,7 @@ sha256 = "02181d8df89e9d8a8384e66ecc76a76e1c97206df97fb6cf842bff1ff841c3ee"
 [[file]]
 path = ".rapid-ship/exceptions.toml"
 kind = "seeded"
-template_sha256 = "3093a6b802e90b44e3c4cba35c06c9357646e8bfe0052bf6a299d228bdbc3339"
+template_sha256 = "a1b9065a1fb561fee1e92ac61c825bbe0259931baf360fa9f3c9d03436c8ecb7"
 
 [[file]]
 path = ".rapid-ship/gate.toml"
@@ -46,7 +46,7 @@ template_sha256 = "cce5b5760254cb218a4fe07769c5146dbeaebc94ca4da93be33822b6a5fe0
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "f22e58485707065a0d4eea3e5b91038c96a55e620feb94252a56810db0351490"
+template_sha256 = "27c57bd03f9c66e51e6f08a41f2bc20f8cbbac6c63189117e2de8313e3ed0e8d"
 
 [[file]]
 path = "ARCHITECTURE.md"
@@ -101,7 +101,7 @@ sha256 = "1d92b98236b910d30f536179149df2bfa8fd5170beedbdeb5f1915216223d1a7"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "b544f059ca94dd3ea635a50ef6bb5f8192cf82f13f19d31e5a5068b95f88f7bf"
+sha256 = "69587c8846e6bc97b86c36117d4394cb3c08b04d2543408f4b854b83a67bcfc5"
 
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
@@ -116,7 +116,7 @@ sha256 = "0fa3f10dd25d422a4ba23b435e6abeb67dc7073c71d28f31c2a9801233c4977a"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "e63e521f76f832d651183e00740d0a68a72cffcf2813a8ea9870b8c07a226c7e"
+sha256 = "5bad0412625ea0df04e038fdab62651627c38108522beb129de03c7352f05b30"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -156,12 +156,17 @@ sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/agnostic.py"
 kind = "managed"
-sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
+sha256 = "8481108b46fa644129706329b02545fb067e4b7db1c19dc4a90fb86907d74aff"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "321300c5e30e03969c0ccd81616b9b0b8c85c822368462bf22469b9411785386"
+sha256 = "d676f604ea2dfb861f67c567b6aa73aee79f7f2a34035f1106c26831a44a4ee2"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/python_dead_code.py"
+kind = "managed"
+sha256 = "7f0c7771fb5f3be444cdef012fc991bc867ed622df76343b145da65860d0be11"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
@@ -181,7 +186,7 @@ sha256 = "ac53ee2ba61ffe4af538d50a02bd3eda53e522d651b7d2db67c220a9a2488171"
 [[file]]
 path = "tools/devctl/devctl/command_line.py"
 kind = "managed"
-sha256 = "e84b88a41e50d5d80c6d11d3f7f22f99454bb74fcacde0b0b5385596080665d6"
+sha256 = "7f06acce50c6f5eac6bcbde1b186bc995c05ad16f0a4e57ccbae40f79e21d8e3"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
@@ -201,7 +206,7 @@ sha256 = "55f7d49fdc77eb5367a9f35b07d58e3a6afd01cd2f8c7eff501215f9274b1092"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "698217c052414650a55886dc9424b8e3f709f18ba7da8ccd576a801acce1a3bd"
+sha256 = "233868cf043b9a820662b93a857b73b64fe58e5b562ca92fb2a5283ce6d9cc49"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
@@ -281,7 +286,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "a52165f15299255a3029422bf23750bb11d0955a838197692fb8fdfbee908f1e"
+sha256 = "3320f0225e33e63019456bdfef60fe8627a52f09627e00b480b7a4d7e6641ef6"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"
