@@ -302,7 +302,8 @@ def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
             sys.stdout.write("Wrote the changes to the work tree.\n")
         else:
             sys.stdout.write(f"Opened {result.pull_request} on {result.branch}.\n")
-    elif result.conflicts:
+    elif result.conflicts and result.migration_branch is None:
+        # A migration branch holds the commit of the migrations, so sync did write something.
         sys.stdout.write("Nothing was written.\n")
     if result.migrations:
         _print_migrations(result, in_place=in_place)

@@ -23,6 +23,9 @@ _HEADER = re.compile(
     rf"[ \t]*\[\[?[ \t]*({_KEY})(?:[ \t]*\.[ \t]*{_KEY})*[ \t]*\]\]?[ \t]*(?:#.*)?"
 )
 _SEPARATOR = re.compile(r"[ \t]*\|?(?:[ \t]*:?-+:?[ \t]*\|)+(?:[ \t]*:?-+:?[ \t]*)?")
+# Fenced code and inline code spans, as devctl's check/markdown.py finds them.
+_FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
+_CODE_SPAN = re.compile(r"(?<![\\`])(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)")
 # Task 9's Find the change rows, which map rule 8 requires: the target each links, and the row.
 ROOT_ROWS = (
     ("README.md", "| What the project does, and how to run and check it | [README](README.md) |"),
@@ -100,12 +103,34 @@ def _without_table(name: str) -> Callable[[str], str]:
     return edit
 
 
+def _blank(text: str) -> str:
+    return re.sub(r"[^\n]", " ", text)
+
+
+def _without_code(text: str) -> str:
+    """The text with fenced code and inline code spans blanked, so a link in code does not count,
+    as in map rule 8. rapid_ship cannot import devctl, so this repeats its without_code."""
+    lines: list[str] = []
+    fence = ""
+    for line in text.splitlines(keepends=True):
+        if fence:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}\s*", line):
+                fence = ""
+            line = _blank(line)
+        elif opening := _FENCE.match(line):
+            fence = opening.group(1)
+            line = _blank(line)
+        lines.append(line)
+    return _CODE_SPAN.sub(lambda match: _blank(match.group()), "".join(lines))
+
+
 def _links(text: str, name: str) -> bool:
-    """Whether text holds a Markdown link, inline or by reference, to the root file name."""
+    """Whether text links the root file name outside code, inline or by reference."""
     target = rf"<?(?:\./|/)?{re.escape(name)}(?:#[^\s)>]*)?>?"
     inline = rf"\]\([ \t]*{target}(?:[ \t]+[^)\n]*)?\)"
     definition = rf"^[ \t]{{0,3}}\[[^\]\n]+\]:[ \t]*{target}(?:[ \t]|$)"
-    return re.search(f"{inline}|{definition}", text, flags=re.MULTILINE) is not None
+    found = re.search(f"{inline}|{definition}", _without_code(text), flags=re.MULTILINE)
+    return found is not None
 
 
 def _separator(lines: Sequence[str]) -> int | None:

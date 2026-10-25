@@ -1,16 +1,19 @@
 """Offline: sync's migrations against fixture repositories and a recording PR opener."""
 
+import functools
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from test_kit_sync import PullRequests
 
+from devctl.check.map import root_link_errors
 from devctl.settings import REMOVED_TABLES, SettingsError, load_project
 from rapid_ship.cli import main
 from rapid_ship.kit.migrations import MIGRATIONS, migration_body, pending
+from rapid_ship.kit.pull_request import push_and_open_pull_request
 from rapid_ship.kit.sync import sync_repository
-from rapid_ship.kit.templates import KitError, KitRefusal, packaged_templates
+from rapid_ship.kit.templates import KitError, KitRefusal, installed_version, packaged_templates
 
 PROJECT = ".rapid-ship/project.toml"
 MIGRATE = "rapid-ship/kit-migrate-9.9.9"
@@ -114,6 +117,10 @@ needed.
 """
 
 SEED_IDS = ["0.2.0-remove-dispatch", "0.2.0-remove-linear", "0.2.0-remove-release"]
+ROOT_GUIDE_LINKS = next(item for item in MIGRATIONS if item.id == "0.2.0-root-guide-links")
+SYNC_BRANCH = "rapid-ship/kit-sync-9.9.9"
+NEWER_DEVCTL = {"common/devctl": "#!/bin/sh\necho newer\n"}
+FIRST_PR, SECOND_PR = (f"https://github.com/octo/demo-app/pull/{n}" for n in (1, 2))
 
 
 def write(root: Path, path: str, text: str) -> None:
@@ -123,6 +130,15 @@ def write(root: Path, path: str, text: str) -> None:
 
 def table_section(guide: str) -> str:
     return guide.split("## Find the change\n", 1)[1].split("\n## ", 1)[0]
+
+
+def cli_sync(monkeypatch: pytest.MonkeyPatch, templates: Path) -> PullRequests:
+    """Make rapid-ship sync use templates and record each pull request it opens."""
+    pulls = PullRequests()
+    monkeypatch.setattr("rapid_ship.kit.templates.packaged_templates", lambda: templates)
+    opener = functools.partial(sync_repository, open_pull_request=pulls)
+    monkeypatch.setattr("rapid_ship.cli.sync_repository", opener)
+    return pulls
 
 
 def test_plan_3s_seed_loads_after_its_migrations(tmp_path: Path) -> None:
@@ -222,6 +238,43 @@ def test_the_root_guide_migration_adds_the_missing_rows(tmp_path: Path) -> None:
     assert not found.migration.applies(without_table)
 
 
+@pytest.mark.parametrize(
+    ("readme", "linked"),
+    [
+        ("| Run it | [README](README.md) |\n", True),
+        ("| Run it | [README](./README.md#checks) |\n", True),
+        ("| Run it | [README][readme] |\n\n[readme]: README.md\n", True),
+        ("| Run it | `[README](README.md)` |\n", False),
+        ("\n```markdown\n| Run it | [README](README.md) |\n```\n", False),
+        ("\n~~~\n[readme]: README.md\n~~~\n", False),
+    ],
+    ids=[
+        "inline",
+        "relative-with-fragment",
+        "reference",
+        "code-span",
+        "fenced",
+        "fenced-definition",
+    ],
+)
+def test_the_root_guide_migration_reads_links_as_map_rule_8_does(
+    tmp_path: Path, readme: str, linked: bool
+) -> None:
+    guide = (
+        "# demo-app\n\n## Find the change\n\n| Work | Start here |\n| --- | --- |\n"
+        "| The parts | [Architecture](ARCHITECTURE.md) |\n" + readme
+    )
+    write(tmp_path, "AGENTS.md", guide)
+    write(tmp_path, "README.md", "# demo-app\n")
+    write(tmp_path, "ARCHITECTURE.md", "# Architecture\n")
+
+    errors = root_link_errors(tmp_path, ["AGENTS.md", "README.md", "ARCHITECTURE.md"])
+
+    unlinked = "AGENTS.md: does not link README.md; add it to the Find the change table"
+    assert errors == ([] if linked else [unlinked])
+    assert ROOT_GUIDE_LINKS.applies(guide) is not linked
+
+
 def test_the_migration_body_lists_each_edit_and_its_evidence(tmp_path: Path) -> None:
     write(tmp_path, PROJECT, OLD_SEED)
 
@@ -257,17 +310,16 @@ def test_sync_proposes_the_migrations_on_a_second_branch_and_pr(
 ) -> None:
     write(git_repo, PROJECT, OLD_SEED)
     commit_all(git_repo)
-    new = make_templates("new", {"common/devctl": "#!/bin/sh\necho newer\n"})
+    new = make_templates("new", NEWER_DEVCTL)
     pulls = PullRequests()
 
     result = sync_repository(
         git_repo, in_place=False, templates_root=new, kit_version="9.9.9", open_pull_request=pulls
     )
 
-    sync_branch = "rapid-ship/kit-sync-9.9.9"
     assert [call[:3] for call in pulls.calls] == [
-        (sync_branch, "main", "Sync rapid-ship Kit to 9.9.9"),
-        (MIGRATE, sync_branch, "Migrate seeded files for rapid-ship Kit 9.9.9"),
+        (SYNC_BRANCH, "main", "Sync rapid-ship Kit to 9.9.9"),
+        (MIGRATE, SYNC_BRANCH, "Migrate seeded files for rapid-ship Kit 9.9.9"),
     ]
     body = pulls.calls[1][3]
     for item in result.migrations:
@@ -277,12 +329,12 @@ def test_sync_proposes_the_migrations_on_a_second_branch_and_pr(
         index for index, line in enumerate(evidence) if line.startswith("Not covered:")
     )
     assert result.migration_branch == MIGRATE
-    assert result.migration_pull_request == "https://github.com/octo/demo-app/pull/1"
+    assert (result.pull_request, result.migration_pull_request) == (FIRST_PR, SECOND_PR)
     assert run_git(git_repo, "branch", "--show-current").strip() == MIGRATE
     assert run_git(git_repo, "log", "-1", "--format=%s").strip() == (
         "chore: migrate seeded files for rapid-ship Kit 9.9.9"
     )
-    assert run_git(git_repo, "rev-parse", "HEAD^") == run_git(git_repo, "rev-parse", sync_branch)
+    assert run_git(git_repo, "rev-parse", "HEAD^") == run_git(git_repo, "rev-parse", SYNC_BRANCH)
     assert run_git(git_repo, "status", "--porcelain") == ""
     assert (git_repo / PROJECT).read_text() == result.migrations[-1].after
 
@@ -368,6 +420,82 @@ def test_a_failed_migration_commit_restores_the_file_and_deletes_its_branch(
     assert pulls.calls == []
 
 
+def test_a_failed_migration_after_the_sync_pr_goes_back_to_the_sync_branch(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
+    write(git_repo, PROJECT, OLD_SEED)
+    commit_all(git_repo)
+    pulls = PullRequests()
+
+    def open_then_break_signing(root: Path, branch: str, base: str, title: str, body: str) -> str:
+        # Once the sync commit is made, every later commit fails to sign.
+        run_git(root, "config", "commit.gpgsign", "true")
+        run_git(root, "config", "gpg.program", "false")
+        return pulls(root, branch, base, title, body)
+
+    with pytest.raises(KitError) as stopped:
+        sync_repository(
+            git_repo,
+            in_place=False,
+            templates_root=make_templates("new", NEWER_DEVCTL),
+            kit_version="9.9.9",
+            open_pull_request=open_then_break_signing,
+        )
+
+    assert str(stopped.value).endswith(
+        f"back on {SYNC_BRANCH}, {MIGRATE} deleted; the sync pull request {FIRST_PR} is open"
+    )
+    assert [call[0] for call in pulls.calls] == [SYNC_BRANCH]
+    assert run_git(git_repo, "branch", "--show-current").strip() == SYNC_BRANCH
+    assert run_git(git_repo, "branch", "--list", MIGRATE) == ""
+    assert run_git(git_repo, "log", "-1", "--format=%s").strip() == (
+        "chore: sync rapid-ship Kit to 9.9.9"
+    )
+    assert (git_repo / PROJECT).read_bytes() == OLD_SEED.encode()
+    assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
+
+
+def test_a_failed_migration_push_names_the_migration_commit_and_the_sync_pr(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
+    write(git_repo, PROJECT, OLD_SEED)
+    commit_all(git_repo)
+    pulls = PullRequests()
+
+    def record_then_push(root: Path, branch: str, base: str, title: str, body: str) -> str:
+        if not pulls.calls:
+            return pulls(root, branch, base, title, body)
+        # git push fails: the repository has no origin.
+        return push_and_open_pull_request(root, branch, base, title, body)
+
+    with pytest.raises(KitError) as stopped:
+        sync_repository(
+            git_repo,
+            in_place=False,
+            templates_root=make_templates("new", NEWER_DEVCTL),
+            kit_version="9.9.9",
+            open_pull_request=record_then_push,
+        )
+
+    message = str(stopped.value)
+    assert message.endswith(
+        f"; the commit is on the local branch {MIGRATE}; the sync pull request {FIRST_PR} is open"
+    )
+    assert "sync commit" not in message
+    assert run_git(git_repo, "branch", "--show-current").strip() == MIGRATE
+    assert run_git(git_repo, "log", "-1", "--format=%s").strip() == (
+        "chore: migrate seeded files for rapid-ship Kit 9.9.9"
+    )
+
+
 def test_rapid_ship_sync_in_place_exits_1_and_lists_each_migration(
     git_repo: Path,
     vendored: Path,
@@ -392,3 +520,48 @@ def test_rapid_ship_sync_in_place_exits_1_and_lists_each_migration(
     assert "Kit is current" not in out
     assert out.endswith("make each edit by hand.\n")
     assert (git_repo / PROJECT).read_bytes() == OLD_SEED.encode()
+
+
+def test_rapid_ship_sync_prints_the_sync_and_the_migration_pull_requests(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write(git_repo, PROJECT, OLD_SEED)
+    commit_all(git_repo)
+    cli_sync(monkeypatch, make_templates("new", NEWER_DEVCTL))
+    monkeypatch.chdir(git_repo)
+
+    assert main(["sync"]) == 0
+
+    out = capsys.readouterr().out
+    version = installed_version()
+    assert f"Opened {FIRST_PR} on rapid-ship/kit-sync-{version}.\n" in out
+    assert out.endswith(f"Opened {SECOND_PR} on rapid-ship/kit-migrate-{version}.\n")
+
+
+def test_a_sync_that_conflicts_and_migrates_does_not_say_nothing_was_written(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write(git_repo, PROJECT, OLD_SEED)
+    write(git_repo, "docs/guide.md", "ours\n")
+    commit_all(git_repo)
+    pulls = cli_sync(monkeypatch, make_templates("new", {"common/docs/guide.md": "Kit\n"}))
+    monkeypatch.chdir(git_repo)
+
+    assert main(["sync"]) == 1
+
+    out = capsys.readouterr().out
+    migrate = f"rapid-ship/kit-migrate-{installed_version()}"
+    assert "Conflict: docs/guide.md: exists and is not managed" in out
+    assert "Nothing was written" not in out
+    assert out.endswith(f"Opened {FIRST_PR} on {migrate}.\n")
+    assert [call[0] for call in pulls.calls] == [migrate]

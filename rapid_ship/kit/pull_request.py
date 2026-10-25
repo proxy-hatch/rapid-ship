@@ -24,7 +24,7 @@ def push_and_open_pull_request(root: Path, branch: str, base: str, title: str, b
     try:
         git(root, "push", "--set-upstream", "origin", branch)
     except KitError as error:
-        raise KitError(f"{error}; the sync commit is on the local branch {branch}") from error
+        raise KitError(f"{error}; the commit is on the local branch {branch}") from error
     _progress("Opening a pull request with gh.")
     command = ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title]
     command += ["--body-file", "-"]
