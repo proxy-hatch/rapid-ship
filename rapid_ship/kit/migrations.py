@@ -250,6 +250,7 @@ def pending(root: Path, excluded: Sequence[str]) -> list[Pending]:
 def migration_body(found: Sequence[Pending], version: str) -> str:
     """The migration pull request's text. The Evidence section comes last, as in sync's."""
     edits = [f"- `{item.migration.path}`: {item.migration.explanation}" for item in found]
+    count = f"{len(found)} {'migration' if len(found) == 1 else 'migrations'}"
     parts = [
         f"This pull request migrates seeded files to what rapid-ship Kit {version} requires. "
         "`rapid-ship sync` generated it, because the Kit no longer accepts their old content "
@@ -259,7 +260,7 @@ def migration_body(found: Sequence[Pending], version: str) -> str:
         "## Needs the owner",
         "These files are Protected, so the owner reviews and merges this pull request.",
         "## Evidence",
-        f"- `rapid-ship sync`: {len(found)} migrations for Kit {version}",
+        f"- `rapid-ship sync`: {count} for Kit {version}",
         "Not covered: sync did not run ./devctl check; CI runs it on this pull request.",
     ]
     return "\n\n".join(parts) + "\n"

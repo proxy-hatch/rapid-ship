@@ -313,6 +313,14 @@ def test_the_migration_body_lists_each_edit_and_its_evidence(tmp_path: Path) -> 
     )
 
 
+def test_the_migration_body_counts_one_migration_in_the_singular(tmp_path: Path) -> None:
+    write(tmp_path, "AGENTS.md", OLD_GUIDE)
+
+    body = migration_body(pending(tmp_path, ()), "0.2.0")
+
+    assert "\n- `rapid-ship sync`: 1 migration for Kit 0.2.0\n" in body
+
+
 def test_in_place_lists_each_migration_and_writes_none(
     git_repo: Path, vendored: Path, commit_all: Callable[..., None]
 ) -> None:
