@@ -1496,11 +1496,11 @@ def comment_rules(comment: str) -> list[str]: ...  # also "deptry" or "deptry:<c
 - Ruling: the seed's `Settings.log_level` is reported, because the seed sets it only through keyword arguments and nothing reads `.log_level`. `test_unset_values_take_their_defaults` keeps its name and reads both fields: `settings = load_settings({})`, then `assert (settings.log_level, settings.workers) == ("info", 4)`. The skeleton's settings are examples that the project's code reads later. Until then, the test's read is the use, and a use in a test counts.
 - Ruling: the seed sets deptry's `known_first_party` to its package. deptry counts as local only the modules directly in the directory it scans, and the package sits under `src/`. `uv sync` installs it, so without the key its own absolute imports could read as DEP003, or as DEP001 if it is not installed. That reading of deptry's `core.py` is unverified until deptry runs. The seed's integration tests show whether the seed passes, first in Step 7 item 1 and again in Step 8.
 - Ruling: never hide a finding with a form that devctl cannot see and no marker records: a leading `_` added to a name, an `__all__` entry, a `getattr` string, `del name`, a vulture whitelist module, or a bare reference to the name in a test or any other scanned file. Each is a suppression without an exception, and review rejects it (Spec 1 section 5).
-- The seed's `pyproject.toml` gains, in Task 15's comment form (what a key means, what it accepts, its default):
+- The seed's `pyproject.toml` gains these keys. Each comment states only the key's contract, as Task 15 does after the owner relaxed it on 2026-10-25:
 
     ```toml
     [dependency-groups]
-    dev = [                # the check tools that devctl runs, locked in uv.lock
+    dev = [                # the check tools that devctl runs
         "deptry>=0.25,<1",
         "import-linter>=2.15,<3",
         "mypy>=1.20,<3",
@@ -1510,28 +1510,20 @@ def comment_rules(comment: str) -> list[str]: ...  # also "deptry" or "deptry:<c
     ]
 
     # in [tool.ruff.lint], after select:
-    # Codes of other tools that a noqa comment may name, kept instead of reported as RUF102:
-    # vulture's. Rule codes or prefixes; Ruff's default is none.
-    external = ["V"]
+    external = ["V"]   # vulture's noqa codes, which Ruff keeps instead of reporting RUF102
 
     # at the end of the file:
     [tool.vulture]
-    # Unused code: devctl's dead-code step runs vulture, and each finding fails the step. A false
-    # positive gets `# noqa: V<code>` and its rs-exception marker on the reported line.
-    # paths: the files and directories vulture scans, tests included, so a use in a test counts.
-    # vulture's default is none, and it then stops with "Please pass at least one file or directory".
+    # devctl's dead-code step needs it, because vulture has no default. With tests listed, a use in a
+    # test counts as a use.
     paths = ["src", "tests"]
 
     [tool.deptry]
-    # Dependencies that do not match the imports: devctl's dead-code step runs `deptry .` with every
-    # rule on, and each finding fails the step. A false positive on an import gets
-    # `# deptry: ignore[<code>]` and its rs-exception marker on the import's line.
-    # extend_exclude: regular expressions, each matched from the start of a path relative to this
-    # directory, added to deptry's default exclude (venv, .venv, .direnv, tests, .git and setup.py)
-    # and to .gitignore's entries. Default: none. devctl's imports are not the project's.
+    # Regular expressions, each matched from the start of a path relative to this directory.
+    # devctl's imports are not the project's.
     extend_exclude = ["tools/devctl"]
-    # known_first_party: module names that deptry counts as this project's own, besides the modules
-    # directly in this directory. Default: none. The package sits under src/.
+    # deptry counts as the project's own only the modules directly in this directory, and the package
+    # sits under src/.
     known_first_party = ["{{package}}"]
     ```
 
