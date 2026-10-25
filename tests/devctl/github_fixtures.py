@@ -73,7 +73,6 @@ def keychain(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
 
 @pytest.fixture
 def keychain_without_reviewer(app_keys: dict[str, tuple[bytes, bytes]]) -> FakeKeychain:
-    """A Keychain that holds only the Worker App's key."""
     return FakeKeychain({f"rapid-ship/worker-app/{WORKER_ID}": app_keys["worker"][0]})
 
 

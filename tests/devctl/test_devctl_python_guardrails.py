@@ -1,4 +1,4 @@
-"""Offline: the Python guardrail floor from spec section 4, and the tools/devctl exclusions."""
+"""Offline: the Python guardrail floor from Spec 1 section 4, and the tools/devctl exclusions."""
 
 import tomllib
 from typing import Any

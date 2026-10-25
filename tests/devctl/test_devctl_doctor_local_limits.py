@@ -55,7 +55,6 @@ def adjusted(context: DoctorContext, **changes: object) -> DoctorContext:
 
 
 def rendered_agnostic_seed(path: str) -> str:
-    """The Kit's seed at path as init renders it for the agnostic stack."""
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
     [template] = [t for t in render_files("agnostic", variables, ()) if t.path == path]
     assert template.content is not None

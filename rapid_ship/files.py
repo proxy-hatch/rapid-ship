@@ -20,8 +20,7 @@ def relative_parts(relative: str) -> tuple[str, ...]:
 def safe_path(root: Path, relative: str) -> Path:
     """Return root/relative after refusing every symlink below root.
 
-    Ported from rapid_ship/project/configuration.py:33-44 at f7b877b. The root is
-    resolved first, so a repository reached through a symlink is accepted.
+    The root is resolved first, so a repository reached through a symlink is accepted.
     """
     root = root.resolve()
     current = root

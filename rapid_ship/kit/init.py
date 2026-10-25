@@ -59,7 +59,7 @@ class InitResult:
     skipped: tuple[str, ...]  # seeded files that already existed; rs-setup merges them
     conflicts: tuple[str, ...]  # "path: reason"; when present, init wrote nothing
     branch: str = ""  # the branch that holds the Kit commit; "" when there are conflicts
-    commit: str = ""  # the Kit commit
+    commit: str = ""  # the Kit commit; "" when there are conflicts
     # The branch or, for a detached HEAD, the commit init started from. None when the repository
     # had no commits, so the Kit commit is its first, on the current branch.
     base: str | None = None

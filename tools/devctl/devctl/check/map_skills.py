@@ -39,7 +39,7 @@ def _skill_names(root: Path, files: Sequence[str], surface: str) -> set[str]:
         if path.startswith(f"{surface}/"):
             name = path[len(surface) + 1 :].split("/", 1)[0]
             entry = root / surface / name
-            if entry.is_symlink() or entry.is_dir():  # files are not skills
+            if entry.is_symlink() or entry.is_dir():
                 names.add(name)
     return names
 

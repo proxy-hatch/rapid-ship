@@ -1,21 +1,8 @@
 """rapid-ship app: find or create the owner's Worker and Reviewer Apps, and print how to install
 them.
 
-A repository's owner is a user or an organisation, and a private App installs only on its owner's
-repositories. A user's repository is refused unless gh is signed in as that user. An
-organisation's Apps are created through its own manifest flow, which only its admins can run: any
-member can use Apps that exist, and an App is created only when gh's login is an admin.
-
-For each role, the command uses the App that .rapid-ship/project.toml records, else an App of
-the repository's owner whose key the Keychain holds, else it creates the App through GitHub's
-manifest flow (app_flow.py). Spec 1 section 3: app creates only the Apps that do not exist yet.
-GitHub shows the owner's gh no private App, so for an item whose App GitHub does not show, GET
-/app under a token that the item's key signs tells which account owns the App. One machine can
-hold the keys of a developer's own Apps and their organisation's, so another account's App is
-skipped. An item whose key cannot tell stops the command instead: rapid-ship cannot tell whether
-that App exists.
-The Keychain keeps each key in an item named by App ID (app_keychain.py); a key kept under plan
-4's name is re-stored under the new name, and the old item stays.
+`rapid-ship app` in section 3 of docs/superpowers/specs/2026-10-14-kit-and-setup-design.md
+says which App the command uses for each role.
 """
 
 from __future__ import annotations
@@ -178,7 +165,6 @@ def _target(repository: str, owner_get: OwnerGet) -> _Target:
             f"GitHub's record of {repository} names an owner that is neither a user nor an "
             "organisation"
         )
-    # A private App installs only on the account that owns it.
     user = as_record(owner_get("user")).get("login")
     if not isinstance(user, str):
         raise AppSetupError("GitHub's record of your account has no login")
@@ -218,8 +204,8 @@ class _Choice:
 
     app: StoredApp | None
     recorded: bool = False  # .rapid-ship/project.toml records app
-    # The key in app's plan 4 item, to copy to keychain_service's item. It is read with the other
-    # reads, so a key that cannot be read stops the command before any App is created.
+    # The key in app's LEGACY_SERVICE item, to copy to keychain_service's item. It is read with
+    # the other reads, so a key that cannot be read stops the command before any App is created.
     old_key: bytes | None = field(default=None, repr=False)
     stops: tuple[str, ...] = ()  # why the command must not go on, one message each
 
@@ -245,7 +231,7 @@ def _owned(app: StoredApp, target: _Target, owner_get: OwnerGet) -> bool | None:
 
 
 def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _Choice:
-    """The recorded App, whose key is in its item or in plan 4's item. Never a new App."""
+    """The recorded App, whose key is in its item or its LEGACY_SERVICE item. Never a new App."""
     # exists, not find: devctl reads the item by its name alone, even one rapid-ship did not write.
     if store.exists(keychain_service(role, recorded.app_id)):
         return _Choice(recorded, recorded=True)
@@ -256,7 +242,7 @@ def _choose_recorded(role: str, recorded: StoredApp, store: KeychainStore) -> _C
 
 
 def _candidates(role: str, store: KeychainStore) -> list[tuple[str, StoredApp]]:
-    """The role's items named by App ID, then plan 4's item when it holds another App."""
+    """The role's items named by App ID, then the LEGACY_SERVICE item if it holds another App."""
     listed, old = store.listed(role), store.find(LEGACY_SERVICE[role])
     candidates = [(keychain_service(role, app.app_id), app) for app in listed]
     if old is not None and old.app_id not in {app.app_id for app in listed}:
@@ -315,8 +301,8 @@ def _choose(
 
 
 def _restore(role: str, app: StoredApp, key: bytes, store: KeychainStore) -> None:
-    """Store the key read from plan 4's item in the item named by App ID. rapid-ship deletes
-    nothing."""
+    """Store the key read from the LEGACY_SERVICE item in the item named by App ID. rapid-ship
+    deletes nothing."""
     old, new = LEGACY_SERVICE[role], keychain_service(role, app.app_id)
     store.add(new, app, key)
     sys.stdout.write(

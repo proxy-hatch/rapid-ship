@@ -90,7 +90,7 @@ def test_secrets_without_a_base_scans_the_history_from_the_repository_root(
         "json",
     ]
     assert command[7] == "--report-path"
-    assert not Path(command[8]).is_relative_to(workspace.root)  # The report stays out of the repo.
+    assert not Path(command[8]).is_relative_to(workspace.root)
     assert command[9:] == ["."]
     assert cwd(tools, "gitleaks") == str(workspace.root)
 

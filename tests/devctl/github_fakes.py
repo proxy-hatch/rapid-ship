@@ -135,7 +135,6 @@ class FakeGitHub:
         )
 
     def uninstall(self, app_id: int, repository: str) -> None:
-        """Remove the App's installation on repository, as the owner's uninstall does."""
         del self.installations[(app_id, repository)]
 
     def jwt_app_id(self, call: Call) -> int | None:
@@ -262,8 +261,8 @@ def files_containing(root: Path, needle: str) -> list[Path]:
 class Remote:
     """A local bare repository in GitHub's place, and a clone of it with main pushed.
 
-    Each method runs git outside the clone, so rules a test writes into the clone's git config,
-    such as insteadOf, never apply to it.
+    branch and commit_on run git outside the clone, so rules a test writes into the clone's git
+    config, such as insteadOf, never apply to them. commit_in runs git in the worktree it is given.
     """
 
     bare: Path

@@ -1,6 +1,5 @@
-"""[kit] exclude during rapid-ship sync (offline): an excluded path is never written,
-re-created or deleted, its skill link is covered, and removing it from the list restores
-normal handling (spec section 3, Project overrides)."""
+"""[kit] exclude during rapid-ship sync: the Project overrides group of Spec 1 section 3,
+"Who owns what" (offline)."""
 
 import os
 from collections.abc import Callable

@@ -263,7 +263,7 @@ def test_a_refused_sigterm_still_ends_the_group_and_is_reported(
 ) -> None:
     # A child under another user can refuse our SIGTERM. The timer must still escalate to
     # SIGKILL, so the call ends at the timeout plus the grace period instead of at the
-    # child's own exit, and the refusal reaches the caller as it did before the timer.
+    # child's own exit, and run_process still raises the refusal.
     real_killpg = os.killpg
 
     def refuse_term(pid: int, sig: int) -> None:

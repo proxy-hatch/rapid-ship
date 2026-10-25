@@ -37,10 +37,9 @@ class ChangeError(Exception):
 
 
 def core_steps(project: ProjectSettings) -> list[Step]:
-    """Core steps for the project's stack in spec section 5's order."""
+    """Core steps for the project's stack in Spec 1 section 5's order."""
     python = project.stack == "python"
-    # Typed apart: mypy reads the inline list of CommandStep and AuditStep as list[object].
-    # The static steps run before the tests.
+    # Typed apart: mypy reads an inline list of different step classes as list[object].
     python_full: list[Step] = (
         [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()] if python else []
     )

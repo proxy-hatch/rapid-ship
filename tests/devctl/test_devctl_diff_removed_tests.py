@@ -10,8 +10,6 @@ from devctl.check.steps import StepResult
 from devctl.codeowners import glob_match
 
 EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
-# A passed or failed result ends with this note, then the diff cap's: these workspaces have
-# no CODEOWNERS file.
 NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
 
 

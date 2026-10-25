@@ -142,7 +142,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except PackageNotFoundError:
         sys.stderr.write(f"rapid-ship: {_NO_METADATA}\n")
         return 2
-    except (OSError, UnicodeDecodeError) as error:  # an unreadable file or template, for one
+    except (OSError, UnicodeDecodeError) as error:
         sys.stderr.write(f"rapid-ship: {error}\n")
         return 2
 
@@ -150,7 +150,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _app(repository: str | None, import_role: str | None) -> int:
     try:
         target = repository or current_repository()
-        # Inside a work tree, the Apps its .rapid-ship/project.toml records for target.
         recorded = recorded_apps(root, target) if (root := _work_tree()) else {}
     except AppSetupError as error:
         sys.stderr.write(f"rapid-ship: {error}\n")

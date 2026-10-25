@@ -1,10 +1,8 @@
 """GitHub App keys, App JWTs, installation tokens and token-bearing git.
 
-Each App's private key lives in the macOS Keychain, in an item named for the role and the App's
-ID: rapid-ship/<role>-app/<App ID>. A command reads it, signs a short-lived JWT and mints one
-installation token, restricted to one repository and the App's permissions. Keys and tokens stay
-in memory: nothing here writes one to disk, puts one in argv or prints one. git receives a token
-only from askpass.py, through the environment of that one git command.
+Each installation token is restricted to one repository and the App's permissions. Keys and
+tokens stay in memory: nothing here writes one to disk, puts one in argv or prints one. git
+receives a token only from askpass.py, through the environment of that one git command.
 """
 
 from __future__ import annotations
@@ -70,7 +68,8 @@ class KeychainMissing(AppError):
         missing = f"Keychain item {self.service} not found"
         if self.role is None:
             return missing
-        # Plan 4 named the item without the App ID; `rapid-ship app` re-stores such a key.
+        # `rapid-ship app` re-stores a key kept under the old name, which has no App ID (Spec 1
+        # section 3, step 2).
         return (
             f"{missing}; run {app_command}, which re-stores a key kept under "
             f"rapid-ship/{self.role}-app, or {app_command} --import-key {self.role}"
@@ -205,7 +204,7 @@ def installation_token(
     api_url: str = API_URL,
 ) -> str:
     # One Keychain read and one JWT per mint. An item written by `security` trusts it, so
-    # the read shows no dialog, and any process the owner runs can read it (spec section 6).
+    # the read shows no dialog, and any process the owner runs can read it (Spec 1 section 6).
     app = _app_client(role, app_id, keychain, api_url)
     found = _installation(app, role, repository)
     installation_id = found.get("id")

@@ -1,14 +1,13 @@
 """The merge guard, G9 (Spec 1 section 4), and find_merge, which names each way to land a change
 on the default branch.
 
-Step 1 lists those ways: gh pr merge, which guard checks, and the forms that G3 denies outright,
-gh pr merge --admin, a git push to the default branch, and gh api writes through REST or GraphQL.
-A gh command run through ./devctl as <role> gh counts as the gh command it runs. Local git is read
-only for a git push, a ref path, or a gh pr merge that names no pull request.
+Step 1 of the merge guard lists those ways: gh pr merge, which guard checks, and the forms that
+G3 denies outright. A gh command run through ./devctl as <role> gh counts as the gh command it
+runs.
 
 guard reads GitHub only through OwnerGet, doctor's GET with the owner's gh sign-in, and only for
 gh pr merge. Once it has recognised a merge it denies every merge it cannot check, its own errors
-included, so a merge that the running guard cannot check does not pass.
+included.
 """
 
 from __future__ import annotations

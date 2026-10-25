@@ -1,5 +1,3 @@
-"""A UsageError names the problem and the next step, and keeps its cause."""
-
 import pytest
 
 from {{package}}.errors import UsageError

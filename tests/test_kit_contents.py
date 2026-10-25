@@ -164,14 +164,13 @@ def active(lines: list[str]) -> list[str]:
     return [line for line in lines if line.strip() and not line.startswith("#")]
 
 
-# Plan 4's doctor requires these in Flight: PROTECTED_PATHS, plus PYTHON_PROTECTED_PATHS for Python.
+# devctl doctor requires these in Flight: PROTECTED_PATHS, plus PYTHON_PROTECTED_PATHS for Python.
 PROTECTED = (
     "/.github/",
     "/.githooks/",
     "/devctl",
     "/tools/devctl/",
     "/.agents/skills/",
-    # Agent instructions: everything under .claude/, and every AGENTS.md and CLAUDE.md.
     "/.claude/",
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
@@ -400,7 +399,7 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     assert all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
     statements = [re.sub(r" (enforced by: \S+|advisory)$", "", line[2:]) for line in bullets]
     assert [s for s in statements if s in COMMENT_RULES] == list(COMMENT_RULES)
-    # Spec section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
+    # Spec 1 section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
     # how to keep updates instead, and how to give a file back.
     owned = next(line for line in bullets if "Kit-managed file" in line)
     for words in (
@@ -464,7 +463,7 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
     features = text("agnostic", "docs/features/README.md")
     for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
         assert f"`{key}`" in features
-    # Plan 3's map check requires at least one entry point.
+    # devctl's map check requires at least one entry point.
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
@@ -507,7 +506,7 @@ def test_devctl_is_its_own_uv_workspace_and_its_versions_agree() -> None:
     lock = tomllib.loads(content(files["tools/devctl/uv.lock"]).decode())
     locked = {p["name"]: p.get("version") for p in lock["package"]}
     assert locked["devctl"] == version
-    # Plans 3 and 4 add dependencies. uv.lock records each under its normalized name.
+    # uv.lock records each dependency under its normalized name.
     declared = {
         re.sub(r"[-_.]+", "-", re.split(r"[\[<>=!~;\s]", requirement, maxsplit=1)[0]).lower()
         for requirement in project["project"]["dependencies"]
@@ -525,5 +524,5 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
 
 
 def test_askpass_is_written_executable() -> None:
-    # init and sync set the executable bit only for paths kit.toml lists (plan 2).
+    # init and sync set the executable bit only for paths kit.toml lists.
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable

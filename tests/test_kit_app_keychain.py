@@ -2,12 +2,8 @@
 and GitHub.
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of the
-repository's owner whose key the Keychain holds, else it creates one. GitHub shows gh no private
-App, even its owner's, so for an item whose App GitHub does not show, GET /app under a token that
-the item's key signs tells whose App it is. An item whose key cannot tell stops the command
-before it creates anything. A key kept under plan 4's item name, which has no App ID, is
-re-stored under the new name, and the old item stays. No test reads the real Keychain or contacts
-GitHub.
+repository's owner whose key the Keychain holds, else it creates one: Spec 1 section 3,
+`rapid-ship app`. No test reads the real Keychain or contacts GitHub.
 """
 
 import html
@@ -43,8 +39,8 @@ from rapid_ship.app_keychain import (
 from rapid_ship.github_app import recorded_apps, run_app
 
 ROLES = ("worker", "reviewer")
-# The owner's private Apps, as OWNER_READS has them, and a stand-in for each key: rapid-ship
-# never parses a key.
+# The owner's private Apps, as OWNER_READS has them, and a stand-in for each key, for tests that
+# never sign a token with it; tests that do use rsa_key.
 APPS = {"worker": StoredApp(11, "o-rs-worker"), "reviewer": StoredApp(12, "o-rs-reviewer")}
 KEYS = {
     role: f"-----BEGIN RSA PRIVATE KEY-----\n{role}\n-----END RSA PRIVATE KEY-----\n".encode()
@@ -52,8 +48,8 @@ KEYS = {
 }
 # `security dump-keychain` without -d, in the format of keychain_utilities.c
 # print_keychain_item_attributes: an unrelated generic password, an internet password, a Worker
-# App's item named by its ID, plan 4's item, a Reviewer App's item, and an item named like
-# rapid-ship's whose account is not the App ID in its name.
+# App's item named by its ID, an item under the old name, a Reviewer App's item, and an item
+# named like rapid-ship's whose account is not the App ID in its name.
 DUMP = r"""keychain: "/Users/o/Library/Keychains/login.keychain-db"
 version: 512
 class: "genp"
@@ -200,7 +196,7 @@ NO_API = "http://127.0.0.1:1"
 
 
 def keychain(*, old_names: bool, keys: Mapping[str, bytes] = KEYS) -> FakeStore:
-    """A Keychain with the owner's two Apps, under plan 4's names or under names with App IDs."""
+    """A Keychain with the owner's two Apps, under the old names or under names with App IDs."""
     store = FakeStore()
     for role, app in APPS.items():
         name = LEGACY_SERVICE[role] if old_names else keychain_service(role, app.app_id)
@@ -247,7 +243,6 @@ def app_reads(log: list[str]) -> list[str]:
 def test_the_owners_old_items_are_re_stored_under_the_recorded_app_ids(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The owner's two items from before the rename, in the repository that records their Apps."""
     store = keychain(old_names=True)
     log: list[str] = []
     opened: list[str] = []
@@ -314,7 +309,7 @@ def test_a_recorded_app_with_no_key_here_says_to_import_one(
 def test_no_key_is_re_stored_while_another_recorded_app_has_no_key_here(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The Worker App's plan 4 item holds its key, and this machine has no Reviewer App key."""
+    """The Worker App's old item holds its key, and this machine has no Reviewer App key."""
     store = FakeStore()
     old = LEGACY_SERVICE["worker"]
     store.apps[old], store.keys[old] = APPS["worker"], KEYS["worker"]
@@ -363,7 +358,7 @@ def test_without_recorded_apps_a_private_app_is_confirmed_with_its_own_key(
     """A second repository of the same owner, a user or an organisation, gets no second pair of
     Apps. GitHub shows gh no private App, so GET /app, under a token that the item's key signs,
     tells which account owns it. A member who is not an admin uses the organisation's Apps too.
-    Plan 4's items, which a user's repository needed, are re-stored under the new name."""
+    Old items, which a user's repository needed, are re-stored under the new name."""
     owner = repository.split("/")[0]
     apps = {role: StoredApp(app.app_id, f"{owner}-rs-{role}") for role, app in APPS.items()}
     log: list[str] = []
@@ -521,12 +516,10 @@ def test_an_item_named_by_app_id_is_used_before_the_old_item_of_the_same_app(
 
 
 def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> None:
-    """Apps that GitHub, or an item's own key, shows as another account's are skipped, and the
-    owner's are created."""
     others = {
         "rapid-ship/worker-app/21": StoredApp(21, "u-rs-worker"),  # another account's App
         "rapid-ship/worker-app/23": StoredApp(23, "o-rs-worker"),  # its slug is App 11's now
-        "rapid-ship/reviewer-app": StoredApp(31, "u-rs-reviewer"),  # plan 4's item of u's App
+        "rapid-ship/reviewer-app": StoredApp(31, "u-rs-reviewer"),  # the old item of u's App
     }
     store = FakeStore()
     for name, app in others.items():
@@ -619,7 +612,7 @@ def test_every_read_comes_before_any_change(capsys: pytest.CaptureFixture[str]) 
 def test_an_old_key_that_cannot_be_read_stops_the_command_before_any_app_is_created(
     reviewer_recorded: bool, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The Worker App must be created, and the Reviewer App's plan 4 item holds no key. The key
+    """The Worker App must be created, and the Reviewer App's old item holds no key. The key
     is read before the browser opens, so no App exists when the command stops."""
     store = FakeStore()
     store.apps[LEGACY_SERVICE["reviewer"]] = APPS["reviewer"]  # no key in the item
@@ -664,7 +657,7 @@ def test_a_recorded_apps_item_that_rapid_ship_did_not_write_is_used_as_it_is(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Items added by hand under the recorded Apps' names, with no account and no comment, beside
-    plan 4's items. devctl reads an item by its name alone, so the command uses each item as it
+    the old items. devctl reads an item by its name alone, so the command uses each item as it
     is and re-stores nothing."""
     security = FakeSecurity()
     for role, app in APPS.items():

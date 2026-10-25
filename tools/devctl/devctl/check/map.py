@@ -1,7 +1,5 @@
-"""The map step: guide links resolve, every maintained directory has a guide and every guide
-is reachable, feature files, Patterns and Rules name things that exist, every Pattern has a task
-and Lessons, every skill has its discovery alias, front matter and a regular SKILL.md, and
-README.md and ARCHITECTURE.md exist, are linked from the root guide and hold no broken link."""
+"""The map step: map rules 1 to 8 of Spec 1 section 5, over the guides, feature files,
+Patterns, Rules, skills and root documents."""
 
 from __future__ import annotations
 

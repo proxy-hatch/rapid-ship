@@ -1,5 +1,5 @@
 """Offline: a new Python project from init, checked with map rule 5 and with the skeleton's own
-check commands; no network."""
+check commands."""
 
 import sys
 from collections.abc import Callable

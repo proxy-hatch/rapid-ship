@@ -1,8 +1,5 @@
 """Integration test: needs network access (PyPI and pip-audit's lookups) and gitleaks on PATH.
 
-rapid-ship init writes a new project. devctl check's fast tier passes before the first
-commit, as rs-setup runs it, and the full tier passes after it. A project's own verb and
-check step, written against the seeded devctl_project interface, run through ./devctl.
 No GitHub access.
 """
 
@@ -117,7 +114,6 @@ def test_a_project_verb_and_check_step_extend_devctl(tmp_path: Path) -> None:
     full = run_devctl(project, "check", "--tier", "full", "--json")
 
     assert greeted[:2] == (0, "hello world\n"), greeted
-    # The step runs in its own tier only, after the core steps.
     assert "release-notes" not in {step["name"] for step in json.loads(fast[1])}
     assert full[0] == 0, full
     assert json.loads(full[1])[-1] == {

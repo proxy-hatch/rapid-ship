@@ -35,7 +35,7 @@ RAPID_SHIP = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 ra
 
 
 def choices(path: str) -> str:
-    """Spec section 5's kit row: the message names both choices as full commands at the lock's
+    """Spec 1 section 5's kit row: the message names both choices as full commands at the lock's
     kit_version, the 0.2.0 that lock() writes."""
     return (
         f"{RAPID_SHIP} sync --revert {path} restores it, "

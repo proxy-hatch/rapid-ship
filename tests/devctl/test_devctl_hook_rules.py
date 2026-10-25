@@ -127,12 +127,9 @@ EDITS = [
     (".rapid-ship/KIT.lock", "deny", "G4"),
     (".Rapid-Ship/kit.lock", "deny", "G4"),
 ]
-# The shell runs each of these commands, so Spec 1 section 4 checks it: a comment that holds
-# an apostrophe, a reserved word or a brace before a command, process substitution, a
-# redirection after a subshell, --branches, git's newer name for --all, a backslash that
-# continues the line, a # inside a word, and each heredoc form. Each heredoc body holds an
-# apostrophe, so a heredoc the hook misses fails the split, and one it opens wrongly hides
-# the push.
+# The shell runs each of these commands, so the hook checks it (Spec 1 section 4). --branches is
+# git's newer name for --all. Each heredoc body holds an apostrophe, so a heredoc the hook misses
+# fails the split, and one it opens wrongly hides the push.
 GRAMMAR = [
     ("git status  # don't push yet\ngit push -f origin task", "G2"),
     ("if git push origin main; then echo ok; fi", "G3"),

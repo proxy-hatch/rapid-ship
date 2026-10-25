@@ -4,7 +4,7 @@ on, both Apps.
 Repository settings are read with the owner's gh sign-in (OwnerGet, always GET). Each App is read
 as the App itself: its installation, and one installation token that proves its Keychain key can
 mint. Those POSTs are the only writes, they change nothing in the repository, and each token is
-discarded unprinted. doctor_rules.py holds the checks that compare what GitHub returned.
+discarded unprinted.
 """
 
 from __future__ import annotations

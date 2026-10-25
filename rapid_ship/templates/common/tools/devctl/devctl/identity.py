@@ -1,9 +1,9 @@
-"""devctl as: an agent's GitHub writes, made as the Worker App or the Reviewer App.
+"""devctl as: an agent's GitHub writes, made as the Worker App or the Reviewer App (Spec 1
+section 6).
 
-Agent identity is on when .rapid-ship/project.toml records both Apps (Spec 1 section 6). Each run
-mints one installation token, keeps it in memory and gives it to one child only: gh through
-GH_TOKEN, or git push through askpass.py. Nothing here writes the token to disk, puts it in argv
-or prints it. devctl refuses (exit 1) before it mints a token wherever it can.
+Each run mints one installation token, keeps it in memory and gives it to one child only: gh
+through GH_TOKEN, or git push through askpass.py. Nothing here writes the token to disk, puts it
+in argv or prints it. devctl refuses (exit 1) before it mints a token wherever it can.
 """
 
 from __future__ import annotations

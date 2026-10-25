@@ -44,7 +44,6 @@ APP_PAGES = [
     ("org/r", "https://github.com/organizations/org/settings/apps"),
 ]
 ADMIN_READS = reads({**OWNER_READS, **ORG_ADMIN})
-# The refusal of a login that is not an admin of the organisation that must create an App.
 NOT_ADMIN = (
     "rapid-ship: refused: org/r belongs to the organisation org, and gh's login is not an admin "
     "of org: an organisation admin creates its Apps once; ask one to run rapid-ship app, or, if "
@@ -221,7 +220,7 @@ def test_a_get_app_reply_that_rapid_ship_cannot_use_changes_nothing(
     status: int, changes: dict[str, object], message: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """GET /app under the key of an item whose App GitHub does not show to gh fails, or answers
-    without the App's owner: the command stops before it changes anything."""
+    without the App's owner."""
     store = FakeStore()
     app, name = StoredApp(11, "o-rs-worker"), "rapid-ship/worker-app/11"
     store.apps[name], store.keys[name] = app, rsa_key("o/worker")
@@ -296,8 +295,8 @@ def test_an_organisation_member_who_is_not_an_admin_creates_no_app(
 def test_a_member_who_is_not_an_admin_is_refused_before_any_key_is_re_stored(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """GitHub shows the organisation's Worker App, whose key plan 4's item holds, and the
-    Reviewer App must be created. The refusal comes before the Worker App's key is re-stored."""
+    """GitHub shows the organisation's Worker App, whose key is in the old Keychain item named
+    without the App ID, and the Reviewer App must be created."""
     store = FakeStore()
     old = "rapid-ship/worker-app"
     store.apps[old] = StoredApp(11, "org-rs-worker")
@@ -332,8 +331,6 @@ def test_a_membership_read_that_fails_otherwise_is_an_error(
 def test_an_organisation_developer_with_recorded_apps_and_no_key_is_told_to_import_one(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The repository records the organisation's Apps, and this machine holds no key for them.
-    The command reads no membership, opens no browser and names --import-key."""
     recorded = {
         "worker": StoredApp(11, "org-rs-worker"),
         "reviewer": StoredApp(12, "org-rs-reviewer"),

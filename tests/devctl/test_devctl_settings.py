@@ -83,8 +83,8 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     )
 
 
-# devctl knows nothing about Providers (Spec 1 section 4): a [roster] table left from plan 4 is
-# refused whatever it holds.
+# devctl knows nothing about Providers (Spec 1 section 4), so it refuses a [roster] table
+# whatever it holds.
 @pytest.mark.parametrize(
     "roster",
     [
@@ -247,7 +247,7 @@ def test_devctl_offers_the_optional_skills_of_its_kit() -> None:
 def test_kit_optional_names_only_the_kits_optional_skills(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A later Kit version offers optional skills; 0.2.0 offers none.
+    # This Kit version offers no optional skills, so the test supplies two.
     monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
     write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a"]\n')
     assert load_project(tmp_path).optional_skills == ("rs-a",)

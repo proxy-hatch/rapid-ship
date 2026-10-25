@@ -20,8 +20,7 @@ Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 _PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
-# Tables devctl refuses, and what replaced each or why nothing did (Spec 1 section 4): [roster]
-# since the owner's decision of 2026-10-20, the others since the re-scope of 2026-10-16.
+# Tables devctl refuses, and what replaced each or why nothing did (Spec 1 section 4).
 REMOVED_TABLES = {
     "agents": _PROVIDERS,
     "dispatch": "rapid-ship no longer starts Workers; delete the table",

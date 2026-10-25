@@ -1,10 +1,8 @@
 """rapid-ship app --import-key: store a developer's own key for an App that [github] records.
 
-Where the Apps exist, such as an organisation's, each developer generates their own private key in
-the App's settings on GitHub and gives it on stdin (Spec 1 section 3, step 4). GET /app, under a
-token that the key signs, must show the App that .rapid-ship/project.toml records before the key
-is stored. The key stays in memory and reaches `security` only on stdin, and an existing Keychain
-item is left in place.
+Step 4 of `rapid-ship app`, in section 3 of
+docs/superpowers/specs/2026-10-14-kit-and-setup-design.md, describes the command. The key stays
+in memory and reaches `security` only on stdin.
 """
 
 from __future__ import annotations
@@ -50,10 +48,7 @@ def _read_key(role: str, stdin: BinaryIO | None) -> bytes:
 
 
 def _confirm(role: str, app: StoredApp, key: bytes, api_url: str) -> None:
-    """Refused unless GitHub shows app to a token that the key signs.
-
-    GitHub refuses the token when the key is another App's, or the App or the key is gone.
-    """
+    """Refused unless GitHub shows app to a token that the key signs."""
     title = f"{TITLES[role]} {app.app_id} ({app.slug})"
     try:
         shown = app_of_key(key, app.app_id, api_url=api_url).app

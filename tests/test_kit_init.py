@@ -307,7 +307,7 @@ def test_a_lock_the_write_refuses_also_removes_everything_init_created(
     assert files_in(git_repo) == []
 
 
-# init commits the Kit on its own branch (spec section 3, init steps 5 to 8).
+# init commits the Kit on its own branch (Spec 1 section 3, rapid-ship init).
 
 
 def test_init_commits_exactly_the_kit_on_its_own_branch(

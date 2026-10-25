@@ -196,8 +196,8 @@ def test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable(
     fake_harness: FakeHarness,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Any sign-in method is ok (Spec 1 section 6), so one the owner's shell exports reaches the
-    # Session; devctl as's variables never do.
+    # Any sign-in method is ok (Spec 1 sections 4 and 6), so one the owner's shell exports reaches
+    # the Session; devctl as's variables never do.
     commit_skills(remote.clone, "rs-tdd")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "example-value")
     monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")

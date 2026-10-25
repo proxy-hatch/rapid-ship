@@ -1,9 +1,8 @@
 """Offline: rapid-ship app --import-key with a simulated GitHub API and a fake `security`.
 
-Where the Apps exist, such as an organisation's, a developer generates their own private key for
-an App that .rapid-ship/project.toml records, and gives it on stdin. GET /app, under a token that
-the key signs, must show that App before the key is stored. No test reads the real Keychain or
-contacts GitHub.
+GET /app, under a token that the key on stdin signs, must show the App that
+.rapid-ship/project.toml records before the key is stored: Spec 1 section 3, `rapid-ship app`,
+step 4. No test reads the real Keychain or contacts GitHub.
 """
 
 import io
@@ -306,7 +305,7 @@ def test_input_that_is_no_unencrypted_rsa_private_key_stores_nothing(
 ) -> None:
     assert developer.run("worker", make()) == 1
     assert developer.stored_nothing()
-    assert developer.api.requests == []  # refused before any call to GitHub
+    assert developer.api.requests == []
     out, err = capsys.readouterr()
     assert out == ""
     assert err == f"rapid-ship: {message}. Nothing was stored.\n"

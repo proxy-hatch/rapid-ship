@@ -1,12 +1,6 @@
 """rapid-ship app's calls to GitHub as an App: the manifest flow, and GET /app under a key.
 
-In the manifest flow, GitHub creates one App and hands over its key. A server on 127.0.0.1 serves
-a page that posts the manifest to GitHub, then takes GitHub's one-time code on its callback. The
-code buys the App's ID, slug and private key (Spec 1 section 3). The page posts to the settings of
-the account that will own the App: a user's own, or an organisation's, which only its admins open.
-GET /app, under a token that a key signs, tells which App the key belongs to and which account
-owns it, for a private App too. rapid_ship may not import devctl, so the permissions here repeat
-devctl's, and a test keeps the two equal.
+Section 3 of docs/superpowers/specs/2026-10-14-kit-and-setup-design.md describes both.
 """
 
 from __future__ import annotations
@@ -35,7 +29,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 from rapid_ship.app_keychain import SLUG, AppSetupError, StoredApp
 
-APP_PERMISSIONS = {  # the same table as devctl's, kept equal by a test
+APP_PERMISSIONS = {  # devctl's table: rapid_ship may not import it; a test keeps them equal
     "worker": {
         "contents": "write",
         "pull_requests": "write",
@@ -100,7 +94,6 @@ class AppOwner:
 
 
 def as_record(value: object) -> dict[str, object]:
-    """value when it is a JSON object, else an empty one."""
     return value if isinstance(value, dict) else {}
 
 

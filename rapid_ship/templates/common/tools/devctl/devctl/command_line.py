@@ -1,9 +1,6 @@
 """Shell splitting, and the git and gh forms that devctl hook's rules read.
 
-simple_commands splits a command line into simple commands as the shell does. parse_command
-names the program of one, and parse_push, parse_api and gh_subcommand read the arguments of
-git push, gh api, and gh pr or gh issue. hook.py and merge_guard.py share them. The hook
-follows no script, alias, sh -c string or wrapper other than devctl as (Spec 1 section 4).
+The hook follows no script, alias, sh -c string or wrapper other than devctl as (Spec 1 section 4).
 """
 
 from __future__ import annotations

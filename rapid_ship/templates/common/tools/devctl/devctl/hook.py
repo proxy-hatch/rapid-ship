@@ -1,13 +1,9 @@
 """devctl hook: G1 to G5, G7 and G8, then the merge guard, on one normalised tool call (Spec 1
 section 4).
 
-decide applies the rules in the order of the simple commands, and within one command G1, G2, G3,
-G7 and G8; for an edit G4, then G5. The first deny wins, and a deny beats an ask. When decide
-gives no decision, run_hook runs the merge guard on each gh pr merge of the line, in order. The
-hook only denies or asks: with no rule matched it gives no decision. G1 to G4 need no settings,
-so they apply when the settings are unreadable; G5, G7 and G8 then give no decision, and the merge
-guard denies every merge. hook_command reads the event and answers in the Harness's protocol,
-which hook_protocols.py keeps.
+The first deny wins, and a deny beats an ask; the merge guard runs only when no rule decided. G1
+to G4 need no settings, so they apply when the settings are unreadable; G5, G7 and G8 then give
+no decision, and the merge guard denies every merge.
 """
 
 from __future__ import annotations

@@ -125,11 +125,7 @@ def _literal_dollars(piece: str) -> str:
 
 
 def wiring_problems(settings: object) -> list[str]:
-    """Why parsed settings do not run devctl hook for each of WIRED_TOOLS; [] when they do.
-
-    A tool is wired when a PreToolUse entry's matcher covers it and one of the entry's hooks runs
-    the hook command.
-    """
+    """Why parsed settings do not run devctl hook for each of WIRED_TOOLS; [] when they do."""
     fields = _mapping(settings)
     problems = []
     if fields.get("disableAllHooks") is True:

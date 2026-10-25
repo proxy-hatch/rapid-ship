@@ -5,10 +5,7 @@ Run it from the project root, after `uv sync`:
     uvx py-spy record -o profile.svg -- \
         .venv/bin/python -m {{package}}.profiling
 
-Open profile.svg in a browser. Each bar is a function, and its width is the share of
-samples in which that function was running or waiting for a function it called, so the
-widest bars are where the time goes. Left to right is not time order.
-docs/patterns/python-performance.md says more about reading the graph.
+Open profile.svg in a browser. docs/patterns/python-performance.md says how to read it.
 """
 
 import argparse
