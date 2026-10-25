@@ -1,6 +1,6 @@
 # Spec 3: Metrics and gardening
 
-**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
+**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row, and so that `metrics.toml` follows Spec 1's rule for settings comments.** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
 
 ## 1. Scope and outcome
 
@@ -212,7 +212,7 @@ Corrections are agent-reported: agents write the ledger entries they count.
 
 ## 6. Settings: `.rapid-ship/metrics.toml`
 
-`metrics.toml` replaces `.rapid-ship/gate.toml`. It is a seeded Kit file in the Protected set, like every file in `.rapid-ship/`, so changing a threshold is a PR the owner approves. It holds no secret. Like every settings file the Kit ships, it documents each key inline, and devctl validates every key.
+`metrics.toml` replaces `.rapid-ship/gate.toml`. It is a seeded Kit file in the Protected set, like every file in `.rapid-ship/`, so changing a threshold is a PR the owner approves. It holds no secret. Like every settings file the Kit ships, it comments a key only where its name and value do not show its contract (Spec 1 section 4), and devctl validates every key.
 
 ```toml
 # Suggested thresholds and project-defined metrics for ./devctl metrics.

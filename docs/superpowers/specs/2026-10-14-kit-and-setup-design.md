@@ -1,6 +1,6 @@
 # Spec 1: Kit and Setup
 
-**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, on 2026-10-23 for the standards as its PR 5.3 built them, and on 2026-10-25 for the documented settings and `sync`'s migrations as its PR 5.4 built them, and for the owner's decisions of that day on the `dead-code` check step (section 5). Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in PRs 5.1 to 5.5, and plans 6 and 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run; map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in the Kit version that ships them (section 5). PR 5.4 builds a comment on each seeded settings key, the loaders' errors that name what each key accepts, and `sync`'s migrations (section 3). PR 5.5 builds the `dead-code` step for Python, and plan 6 builds it for TypeScript (section 5). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
+**Status:** revised on 2026-10-16 for the team-management boundary ([ADR 0004](../../adr/0004-team-management-boundary.md)), on 2026-10-19 for the owner's second review of the design PR, on 2026-10-20 for the owner's decisions to descope running agents across several Providers, to ship the Harness guardrail wiring for Claude Code first and to probe Claude Code alone in `doctor --skills`, and on 2026-10-22 for the hook spike's result, the owner's decisions on it and `devctl hook` as plan 5's PR 5.2 built it, on 2026-10-23 for the standards as its PR 5.3 built them, and on 2026-10-25 for the documented settings and `sync`'s migrations as its PR 5.4 built them, for the owner's comment rule, which the root guide seeds as Rules and which narrows the seeds' comments to each key's contract, and for the owner's decisions of that day on the `dead-code` check step (section 5). Plans 1 to 4 are built and merged, plan 4 in PRs #31 to #33 with its follow-ups, which support organisation-owned repositories, remove the `[roster]` table from devctl and narrow `doctor --skills` to Claude Code. The owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in PRs 5.1 to 5.5, and plans 6 and 7 are planned in the [plan index](../plans/2026-10-14-kit-and-setup.md). Of plan 5, the hook spike is recorded in [its trial record](../../trials/2026-10-21-hook-spike.md), and PR 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, whose live trial ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 builds the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section with the Python starter Patterns, the `SKILL.md` rule, the diff cap, the ledger rule and one CI concurrency group for each push run; map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in the Kit version that ships them (section 5). PR 5.4 builds the seeds' comments on each key's contract, the loaders' errors that name what each key accepts, and `sync`'s migrations (section 3). PR 5.5 builds the `dead-code` step for Python, and plan 6 builds it for TypeScript (section 5). This is the first of the three specs in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and its terms follow `GLOSSARY.md` at the repository root. [Section 11](#11-questions) lists what is still open.
 
 ## 1. Scope and outcome
 
@@ -244,10 +244,10 @@ The Kit aims to give each area it touches a base template that a new project bui
 
 None of these holds a secret. All are in the Protected set. Each is documented where it lives and validated where it is read:
 
-- Every settings file the Kit ships, seeded or managed, documents each key or rule in a short comment wherever its format allows one: what it means, the values or range it accepts, and its default. That covers the TOML files, CODEOWNERS, the CI workflow and, from plan 6, `tsconfig.json` and `knip.jsonc`, which TypeScript and knip read as JSON with comments, `eslint.config.js` and `vite.config.ts`.
+- Every settings file the Kit ships, seeded or managed, states a key's or rule's contract in a short comment where its format allows one and its name and value do not: the values or units it accepts, a default that is not obvious, or a constraint, such as a Protected file. It drops every other comment, as the root guide's comment Rules ask. That covers the TOML files, CODEOWNERS, the CI workflow and, from plan 6, `tsconfig.json` and `knip.jsonc`, which TypeScript and knip read as JSON with comments, `eslint.config.js` and `vite.config.ts`. On 2026-10-25 the owner relaxed plan 5's first rule, a comment on every key, to this one.
 - devctl rejects an unknown key, a wrong type, a number outside its range and a value outside its allowed set in the files it reads. The error names the file, the key and what it accepts, so a typo cannot silently keep a default. A tool's own settings file is validated by the tool that reads it, such as Ruff, `tsc` or ESLint.
 - Plain JSON seeds, such as the Harness wiring file `.claude/settings.json` and `package.json`, cannot hold comments. This section describes them, and doctor checks the wiring file (section 6).
-- A test holds each seed to its loader: every key the loader accepts appears in the seed with its comment (plan 5).
+- A test holds each seed to its loader: every key the loader accepts appears in the seed (plan 5).
 
 `.rapid-ship/project.toml` after plan 6, for a repository with a Python backend and a TypeScript frontend:
 
@@ -270,7 +270,7 @@ repository = "owner/name"
 # The code owner that CODEOWNERS names, written as CODEOWNERS writes it: "@login" or "@organisation/team".
 code_owner = "@owner"
 # Agent identity: each App's ID and slug, as rapid-ship app prints them. 0 and "" mean off.
-# Record both Apps or neither. An ID is a whole number; a slug is lowercase letters, digits and -.
+# Record both Apps or neither.
 worker_app_id = 0
 worker_app_slug = ""
 reviewer_app_id = 0
@@ -278,8 +278,7 @@ reviewer_app_slug = ""
 
 [escalation]
 # The kinds of pull request the Lead brings to the owner instead of merging them on its own.
-# The Protected set is always on the list. true is Walk: every pull request.
-# false leaves the Protected set and the kinds below: Flight, or anything between.
+# true is Walk. false leaves the Protected set and the kinds below: Flight, or anything between.
 every_pr = true
 kinds = [              # plain text for the Lead
   "a pull request that removes a behavioural test",
@@ -294,7 +293,7 @@ exclude = []           # Kit files or directories the project owns instead
 [map]
 # Source directories: each child directory needs a guide, and file-size caps their source files at 500 lines.
 source_roots = ["backend/src/<package>", "frontend/src"]
-unguided = []          # maintained directories that need no guide
+unguided = []
 exclude = []           # directories whose AGENTS.md files are template content
 
 [tests]
@@ -328,8 +327,27 @@ The root guide stays short, following upstream `writing-for-agents`:
 1. One paragraph naming the project.
 2. Commands: `./devctl doctor --settings`, which each Session runs first unless it runs the full `./devctl doctor` (section 6), `./devctl check`, and `./devctl --help` for the project's verbs.
 3. A "Find the change" table that points to directory guides, each stack's directory, `docs/features/` and `docs/patterns/`, and from plan 5 to `README.md` and `ARCHITECTURE.md`.
-4. **Rules.** Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
+4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
+
+The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it.
+
+| Rule | Marker |
+| --- | --- |
+| Keep each change inside its task's paths. | `advisory` |
+| Prefer clear names, types, and simple control flow. | `advisory` |
+| Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. | `advisory` |
+| Delete commented-out code. | Python: `enforced by: check:lint` (Ruff `ERA001`). Agnostic: `advisory` |
+| Keep local explanations beside the relevant code and broader design reasoning in linked documentation. | `advisory` |
+| A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. | `advisory` |
+| A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. | `advisory` |
+| Give each TODO its author and the issue that tracks it. | Python: `enforced by: check:lint` (Ruff `TD002`, `TD003`). Agnostic: `advisory` |
+| Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`, with its reason and removal condition. | `enforced by: check:exceptions` |
+| Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete. | `advisory` |
+| Declare each removed test under `Removed tests:` in the PR body, with a reason. | `enforced by: check:diff` |
+| Update comments with behaviour changes, and investigate existing constraint comments before removing them. | `advisory` |
+| Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. | `advisory` |
+| Editing or deleting a Kit-managed file makes it the project's own and stops its Kit updates; the Rule says how to keep updates, own a file outright or give it back ("Who owns what", section 3). | `advisory` |
 
 AGENTS.md files are the single instruction source. The seeded `CLAUDE.md` is a real file containing `@AGENTS.md`.
 
@@ -501,7 +519,7 @@ Plan 6 adds the TypeScript stack, for React with TypeScript, with npm as the pac
 - **ESLint:** a flat `eslint.config.js` with ESLint's recommended rules, typescript-eslint's `strictTypeChecked` set and the React Hooks plugin's recommended rules. It adds `complexity` at 10, `no-console`, `@typescript-eslint/switch-exhaustiveness-check`, and `@typescript-eslint/ban-ts-comment`, which bans `@ts-ignore` and `@ts-nocheck` and requires a description on `@ts-expect-error`. An unused disable comment is an error (`reportUnusedDisableDirectives`). A `no-restricted-imports` rule starts empty, and Patterns fill it, as they fill Ruff's `banned-api`. The lint step allows no warnings.
 - **Prettier:** its defaults. Line width and other style options are the project's choice.
 - **Vitest:** `vitest run`, with `allowOnly: false`. React component tests use jsdom and Testing Library.
-- **knip:** `knip.jsonc`, which knip reads as JSON with comments, so each key carries its comment. knip runs in its default mode. A test file is then an entry file, so a use in a test counts as a use, as for Python code. The seed sets no `ignore*` key, no `tags`, no `rules`, no `include` and no `exclude`. It names `entry` and `project` files only where knip's Vite and Vitest plugins do not find them.
+- **knip:** `knip.jsonc`, which knip reads as JSON with comments, so a key carries a comment where section 4 asks for one. knip runs in its default mode. A test file is then an entry file, so a use in a test counts as a use, as for Python code. The seed sets no `ignore*` key, no `tags`, no `rules`, no `include` and no `exclude`. It names `entry` and `project` files only where knip's Vite and Vitest plugins do not find them.
 - **npm:** `package-lock.json` is committed, and `engines.node` names the supported Node.js major version.
 - **Other tools:** Tailwind CSS and tools like it are welcome. The Kit neither seeds nor blocks them, and `rs-setup` adds their ESLint and Prettier plugins where the project uses them.
 - **Dev dependencies:** ESLint with its TypeScript and React Hooks plugins, Prettier, TypeScript, Vitest, jsdom, Testing Library and knip, in the stack's `package.json` and lock. Plan 6 pins their versions.

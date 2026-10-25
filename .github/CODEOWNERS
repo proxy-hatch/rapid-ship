@@ -6,25 +6,19 @@
 * @proxy-hatch
 #
 # Flight: replace the Walk line with the Protected set below, uncommented.
-# Lines that start with ## stay comments in Flight.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
 # The set ends with the settings files of the check tools, because a
 # settings file can switch its check off.
-## CI, hooks and devctl.
 # /.github/ @proxy-hatch
 # /.githooks/ @proxy-hatch
 # /devctl @proxy-hatch
 # /tools/devctl/ @proxy-hatch
-## Skills and the Harness guardrail wiring.
 # /.agents/skills/ @proxy-hatch
 # /.claude/ @proxy-hatch
-## Agent instructions.
 # /**/AGENTS.md @proxy-hatch
 # /**/CLAUDE.md @proxy-hatch
-## rapid-ship settings.
 # /.rapid-ship/ @proxy-hatch
-## The check tools' settings files; each can switch its check off.
 # /.gitleaks.toml @proxy-hatch
 # /.gitleaksignore @proxy-hatch
 # /zizmor.yml @proxy-hatch
