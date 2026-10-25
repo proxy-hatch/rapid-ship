@@ -125,7 +125,7 @@ def patterns_in(text: str) -> list[str]: ...  # owned lines, commented or not; n
 def protected_patterns(root: Path) -> list[str] | None: ...  # None: no file; OSError: unreadable
 ```
 
-- [ ] **Step 1: start Kit version 0.2.0.** Set `0.2.0` in both `pyproject.toml` files and in `__version__`, run `uv lock` and `uv lock --project rapid_ship/templates/common/tools/devctl`, sync, then `uv run pytest tests/test_kit_contents.py -q`; expected PASS. Commit `chore: start Kit version 0.2.0`. Ruling: 0.2.0, because plan 5 is the first Kit change after the `v0.1.0` tag and its migration IDs and the warning period of Task 9 name the version.
+- [ ] **Step 1: start Kit version 0.2.0.** Set `0.2.0` in both `pyproject.toml` files and in `__version__`, run `uv lock` and `uv lock --project rapid_ship/templates/common/tools/devctl`, sync, then `uv run pytest tests/test_kit_contents.py -q`; expected PASS. Commit `chore: start Kit version 0.2.0`. Ruling: 0.2.0, because plan 5 is the first Kit change after the `v0.1.0` tag and its migration IDs and the warning period of Task 9 name the version (the owner's decision of 2026-10-25 removed both; Task 16).
 - [ ] **Step 2: write the failing test.** Move the `codeowners_match` table and the first-file test from `test_devctl_diff_rules.py` into `test_devctl_codeowners.py`, importing from `devctl.codeowners`, and add:
 
 ```python
@@ -1265,7 +1265,7 @@ assert workflow["concurrency"] == {
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_ci_templates.py -q`; expected FAIL.
 - [ ] **Step 3: implement**, sync, then run `./devctl check --tier full` and confirm its `workflows` step, zizmor 1.30.1, passes.
 - [ ] **Step 4: commit** `ci: give each push run its own concurrency group`.
-- [ ] **Step 5: documents.** Describe Tasks 9 to 14 in the files above, including the warning period of `GRACE_VERSION`. Spec 1 section 4's ARCHITECTURE.md bullet names the ADRs in `docs/adr/` as a code span, as Task 9's seed does, in place of "links to the ADRs". Spec 1 section 6's doctor row and the index's Conventions write `doctor [--skills | --settings]`. The index's Layout gains `check/map_skills.py`, and its CODEOWNERS section the Python seed's commented starter Pattern lines right after `/.rapid-ship/` (Task 11). Commit `docs: describe plan 5's standards`.
+- [ ] **Step 5: documents.** Describe Tasks 9 to 14 in the files above, including the warning period of `GRACE_VERSION` (the owner's decision of 2026-10-25 removed it, and Task 16 updated these documents). Spec 1 section 4's ARCHITECTURE.md bullet names the ADRs in `docs/adr/` as a code span, as Task 9's seed does, in place of "links to the ADRs". Spec 1 section 6's doctor row and the index's Conventions write `doctor [--skills | --settings]`. The index's Layout gains `check/map_skills.py`, and its CODEOWNERS section the Python seed's commented starter Pattern lines right after `/.rapid-ship/` (Task 11). Commit `docs: describe plan 5's standards`.
 - [ ] **Step 6: verify.** Run the five checks with `--base plan5-guardrails`, and record them in the Verification record. When `diff` counts more than 1,500 lines, the PR body declares `Over the diff cap: <reason>` only after the owner accepts the overage; otherwise split the PR at a task boundary. Commit `docs: record PR 5.3's verification`.
 
 ## PR 5.4: settings, and no backward compatibility before GA (`plan5-settings-migrations`, on `plan5-standards`)
@@ -1319,7 +1319,7 @@ NEW_ROWS = [
 
 ### Task 16: No backward compatibility before GA, documents, and PR 5.4's verification
 
-The owner's decision of 2026-10-25: rapid-ship has no consumers yet, and it is GA when its documentation is released, in plan 7's PR 7.4. Before GA the Kit keeps no backward compatibility: a Kit change that breaks a project's seeded content fails that project's checks, and the project fixes it; the policy for after GA is designed then (Spec 1 section 3). This task first built `sync`'s migrations, which proposed deleting each table devctl refuses and adding the root guide's README.md and ARCHITECTURE.md rows, on a branch and PR of their own. The decision removed them before PR 5.4 merged, with the warning period of Tasks 9, 10 and 12. devctl still refuses the removed tables and says to delete them, because that is validation, not an upgrade path.
+The owner's decision of 2026-10-25: rapid-ship has no consumers yet, and it is GA when its documentation is released, in plan 7's PR 7.4. Before GA the Kit keeps no backward compatibility: the project updates its own seeded files, and a check that requires the new content fails at once; the policy for after GA is designed then (Spec 1 section 3). This task first built `sync`'s migrations, which proposed deleting each table devctl refuses and adding the root guide's README.md and ARCHITECTURE.md rows, on a branch and PR of their own. The decision removed them before PR 5.4 merged, with the warning period of Tasks 9, 10 and 12. devctl still refuses the removed tables and says to delete them, because that is validation, not an upgrade path.
 
 **Files:**
 - Delete: `rapid_ship/kit/migrations.py`, `tests/test_kit_migrations.py`
