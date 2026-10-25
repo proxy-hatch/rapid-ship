@@ -39,8 +39,8 @@ VULTURE = ("uv", "run", "--locked", "vulture", "--min-confidence", "0")
 DEPTRY = ("uv", "run", "--locked", "deptry", ".", "--no-ansi", "--json-output")
 DEAD_CODE_TOOLS = ("vulture", "deptry")
 VULTURE_CODES = ("V101", "V102", "V103", "V104", "V105", "V106", "V107", "V201")
-# Each item of these keys under [tool] hides a finding, so each item is a suppression. Every key of
-# the last two tables is one.
+# Each item under these [tool] keys hides a finding, so each is a suppression. An item is an array
+# element, an element of each array under per_rule_ignores, or a key of package_module_name_map.
 ALLOWLIST_KEYS = (
     "vulture.ignore_names",
     "vulture.ignore_decorators",

@@ -25,9 +25,6 @@ from devctl.check.steps import (
     run_tool,
 )
 
-# rapid_ship/kit/adopt.py copies these patterns, comment_rules, marker_rules, _codes and
-# _dotted, because rapid-ship cannot import devctl. tests/devctl/test_devctl_adopt_rules.py
-# fails when the copies differ.
 _NOQA = re.compile(
     r"#\s*(?:(?:ruff|flake8)\s*:\s*)?noqa\b"
     r"(?::\s*(?P<codes>[A-Za-z]+[0-9]+(?:[\s,]+[A-Za-z]+[0-9]+)*))?",

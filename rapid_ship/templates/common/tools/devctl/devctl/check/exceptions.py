@@ -4,8 +4,7 @@ A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out.
 `# rs-exception: EX-<n>` on its line, and .rapid-ship/exceptions.toml has one entry for that
 ID. On the Python stack, each allowlist item in the root pyproject.toml is one too, and so is a
 line that vulture or deptry reads as one, a string included. This module and the Python rows in
-stacks/ are the one definition of suppressions and their rule names; rapid_ship/kit/adopt.py
-copies the Python rows.
+stacks/ are the one definition of suppressions and their rule names.
 
 Kit 0.2.0 adds the dead-code tools' suppressions. An existing project already owns them, so their
 missing markers and the allowlist's errors pass through `graced`: they warn in that version.
