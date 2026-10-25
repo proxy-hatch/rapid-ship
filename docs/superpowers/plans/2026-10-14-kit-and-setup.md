@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in four PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, and 5.4 comments each seeded settings key's contract and builds `sync`'s migrations. Plans 6 and 7 are not started. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in four PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, and 5.4 comments each seeded settings key's contract. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations, and its new map rules fail at once. Plans 6 and 7 are not started. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
-| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and `sync` migrations | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings and `sync`'s migrations, on `plan5-settings-migrations` |
+| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, and documented settings | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations` |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: three PRs |
 
@@ -56,7 +56,6 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
   upstream.lock                  # plan 7: upstream files of forked skills
   kit/
     templates.py lock.py git.py init.py existing_checks.py status.py sync.py writes.py pull_request.py
-    migrations.py                # plan 5: the edits sync proposes to seeded files
     stacks.py                    # plan 6: stacks, their directories, rendering under a directory
   templates/
     kit.toml                     # see "Kit manifest" below
@@ -66,7 +65,7 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
     agnostic/                    # stack-agnostic additions
 tests/
   conftest.py                    # the only conftest; plan 4 adds pytest_plugins = ["github_fixtures"]
-  test_files.py test_kit_*.py    # rapid-ship CLI tests; plan 4 adds test_kit_app*.py, plan 5 test_kit_migrations*.py, plan 6 test_kit_stacks*.py, plan 7 test_kit_upstream.py
+  test_files.py test_kit_*.py    # rapid-ship CLI tests; plan 4 adds test_kit_app*.py, plan 6 test_kit_stacks*.py, plan 7 test_kit_upstream.py
   fixtures/upstream/<repository>/<commit>/<path>   # plan 7: pristine upstream files
   devctl/                        # no __init__.py, no conftest.py; files named test_devctl_*.py
     check_workspace.py           # plan 3: project_settings, Workspace, new_workspace, fake_tool
@@ -208,7 +207,7 @@ def load_project(root: Path) -> ProjectSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
 ```
 
-Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. Its follow-ups added `[github] code_owner`, and removed the `[roster]` table that plan 4 first built, with its `Agent` type (follow-up 7). devctl refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and from the follow-ups `[roster]`. Each message says why the table went and to delete it: for `[agents]` and `[roster]`, "rapid-ship does not run agents across several Providers; delete the table". Plan 6 replaces `stack` with `[[stack]]`, with the migration that `sync` proposes (Spec 1 section 3). Spec 2's plan adds `[tracker]` and `[design]`.
+Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. Its follow-ups added `[github] code_owner`, and removed the `[roster]` table that plan 4 first built, with its `Agent` type (follow-up 7). devctl refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and from the follow-ups `[roster]`. Each message says why the table went and to delete it: for `[agents]` and `[roster]`, "rapid-ship does not run agents across several Providers; delete the table". Plan 6 replaces `stack` with `[[stack]]`; devctl then rejects the old key, and the project rewrites it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3). Spec 2's plan adds `[tracker]` and `[design]`.
 
 ### doctor (plan 4; plans 5 and 6 add items)
 
@@ -384,35 +383,6 @@ Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `ta
 - The rule code lives in `devctl/check/stacks/python.py` (`comments`, `comment_rules`, `marker_rules`) and `stacks/agnostic.py` (`text_rules`).
 - In the Evidence section, a command is a list item that starts with a code span, a colon and text, or a fenced block whose first non-empty line starts with `$ ` and that has another non-empty line. `Not covered:` starts a line outside code, with text after the colon. Backticks around a removed test's identity are optional, and `<name>` is `test_x` or `TestA::test_x`.
 
-### Kit migrations (plan 5)
-
-```python
-# rapid_ship/kit/migrations.py
-@dataclass(frozen=True)
-class Migration:
-    id: str  # "<kit version>-<slug>", unique
-    path: str  # the seeded file it edits
-    applies: Callable[[str], bool]  # the file holds the old content
-    edit: Callable[[str], str]  # the new content; applies(edit(text)) is False
-    explanation: str  # one line for the PR body
-
-
-MIGRATIONS: tuple[Migration, ...]
-
-
-@dataclass(frozen=True)
-class Pending:  # a migration that applies, with the file's text before and after its edit
-    migration: Migration
-    before: str
-    after: str
-
-
-def pending(root: Path, excluded: Sequence[str]) -> list[Pending]: ...
-def migration_body(found: Sequence[Pending], version: str) -> str: ...
-```
-
-`sync` checks the migrations on every run, before it reports that nothing changed. Without `--in-place` it commits the edits of every migration that applies on `rapid-ship/kit-migrate-<version>`, based on the sync branch, or on `HEAD` when no template changed, and opens its own PR against that branch. With `--in-place` it lists each with its diff, writes none and exits 1 (Spec 1 section 3). `SyncResult` carries `migrations`, `migration_branch` and `migration_pull_request`. Plan 5 built the first six, `0.2.0-remove-<table>` for each table devctl refuses and `0.2.0-root-guide-links`; plan 6's rewrites `stack = "python"` as one `[[stack]]` table.
-
 ### Stacks (plan 6)
 
 - `project.toml` and the lock hold one `[[stack]]` table per stack, with `name` and `directory`.
@@ -485,9 +455,9 @@ The owner's decisions of 2026-10-19 and 2026-10-20 changed plan 4's built code: 
 
 Its plan document, [Kit standards and Harness guardrails](2026-10-21-kit-standards-and-guardrails.md), holds the tasks of the four PRs below and lands in PR 5.1.
 
-**State:** PR 5.1 is built in #35 (`plan5-hook-spike`): the hook spike's [trial record](../../trials/2026-10-21-hook-spike.md) and the document changes it needs. PR 5.2 is built on `plan5-guardrails`, Tasks 2 to 7: `devctl hook claude pre-tool` with G1 to G5, G7, G8 and the merge guard, the seeded `.claude/settings.json`, and doctor's Harness wiring item. Its live trial, Task 8, ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 is built on `plan5-standards`, Tasks 9 to 14: the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns and the performance Pattern, the `SKILL.md` rule, the diff cap and the ledger rule, and one CI concurrency group for each push run. Map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links warn in Kit `0.2.0` (`GRACE_VERSION`) and fail from the next Kit version. PR 5.4 is built on `plan5-settings-migrations`, Tasks 15 and 16: comments on each seeded settings key's contract, after the owner relaxed Task 15's comment on every key on 2026-10-25, and a test that holds each seed to its loader; the loaders' errors that name what each key accepts, and their checks of `[map]` and `[tests]` paths and of `[kit] optional`; and `sync`'s migrations, which delete each table devctl refuses and add the root guide's README.md and ARCHITECTURE.md rows, on a branch and PR of their own. The spike changed one thing in them: Claude Code's `Monitor` tool runs shell commands, so the wiring, `read_event` and doctor's wiring item cover `Monitor` too (plan 5's Task 1 Step 9).
+**State:** PR 5.1 is built in #35 (`plan5-hook-spike`): the hook spike's [trial record](../../trials/2026-10-21-hook-spike.md) and the document changes it needs. PR 5.2 is built on `plan5-guardrails`, Tasks 2 to 7: `devctl hook claude pre-tool` with G1 to G5, G7, G8 and the merge guard, the seeded `.claude/settings.json`, and doctor's Harness wiring item. Its live trial, Task 8, ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 is built on `plan5-standards`, Tasks 9 to 14: the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns and the performance Pattern, the `SKILL.md` rule, the diff cap and the ledger rule, and one CI concurrency group for each push run. PR 5.4 is built on `plan5-settings-migrations`, Tasks 15 and 16: comments on each seeded settings key's contract, after the owner relaxed Task 15's comment on every key on 2026-10-25, and a test that holds each seed to its loader; the loaders' errors that name what each key accepts, and their checks of `[map]` and `[tests]` paths and of `[kit] optional`. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): PR 5.4 builds no `sync` migrations, and map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links fail at once, without the warning period that PR 5.3 gave them. The spike changed one thing in them: Claude Code's `Monitor` tool runs shell commands, so the wiring, `read_event` and doctor's wiring item cover `Monitor` too (plan 5's Task 1 Step 9).
 
-**Goal:** Run the hook spike in Claude Code, Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings; and `sync`'s migrations. Plan 5 wires no other Harness: the spike's report decides whether a follow-up, with its own plan, adds the wiring for Codex or agy (Spec 1 section 4).
+**Goal:** Run the hook spike in Claude Code, Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; and documented and validated settings. Plan 5 wires no other Harness: the spike's report decides whether a follow-up, with its own plan, adds the wiring for Codex or agy (Spec 1 section 4).
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
@@ -496,7 +466,7 @@ Its plan document, [Kit standards and Harness guardrails](2026-10-21-kit-standar
 | 5.1 | 1 | The hook spike, backlog PRO-139: a trial record, and the Spec 1 edits its result needs. No product code |
 | 5.2 | 2 to 8 | Guardrails: `devctl hook`, the merge guard, the Claude Code wiring and the CODEOWNERS comment, with their live trial |
 | 5.3 | 9 to 14 | Standards: the seeds, `doctor --settings`, map rules 5, 7 and 8, the Python starter Patterns, the diff cap, the ledger rule and the CI concurrency |
-| 5.4 | 15 and 16 | Settings and migrations: documented seeds and `sync`'s migrations |
+| 5.4 | 15 and 16 | Settings: documented seeds, and no backward compatibility before GA |
 
 If review finds a PR too large, it splits at a task boundary.
 
@@ -505,7 +475,7 @@ If review finds a PR too large, it splits at a task boundary.
 - 5.1: this plan's document, `2026-10-21-kit-standards-and-guardrails.md`; the trial record `docs/trials/2026-10-21-hook-spike.md` and `docs/trials/AGENTS.md`; Spec 1's status line and sections 3, 4, 6, 10 and 11, where the result and plan 4's merge change them; this index; and the text that called plan 4 unmerged or untagged, in `AGENTS.md`, `ARCHITECTURE.md`, `README.md`, `docs/superpowers/AGENTS.md` and plan 4's two plan documents.
 - 5.2: devctl templates under `rapid_ship/templates/common/tools/devctl/`, then vendored with `sync`: the Kit version in `pyproject.toml`, `uv.lock` and `devctl/__init__.py`; and in `devctl/`, `codeowners.py`, `command_line.py`, `hook.py`, `hook_protocols.py`, `merge_guard.py`, `merge_guard_github.py`, `doctor_wiring.py`, `cli.py`, `check/diff.py`, `doctor_items.py`, `doctor_github.py` and `doctor_local.py`. Kit templates: `common/.claude/settings.json`, `common/.github/CODEOWNERS`, `python/.github/CODEOWNERS`, `kit.toml`. This repository: the version in `pyproject.toml` and `uv.lock`; `.github/CODEOWNERS`, edited in place; `.claude/settings.json`, created by `sync`, and `.claude/AGENTS.md`; and `.rapid-ship/exceptions.toml`, for EX-12. Tests: `tests/devctl/test_devctl_codeowners.py`, `test_devctl_hook*.py`, `test_devctl_merge_guard*.py`, `fixtures/hooks/claude/`, `test_devctl_doctor_wiring.py`, `test_devctl_doctor_local_limits.py`, `test_devctl_diff_rules.py`, `test_devctl_diff_removed_tests.py`, and `tests/test_kit_contents.py`.
 - 5.3: devctl templates: `check/map.py`, `check/map_skills.py`, `check/markdown.py`, `check/diff.py`, `check/evidence.py`, and `doctor.py` and `doctor_local.py` for `--settings`. Kit templates: `common/README.md`, `common/ARCHITECTURE.md`, `common/AGENTS.md`, `python/AGENTS.md`, `common/docs/patterns/README.md`, the Python starter Patterns with their reference code and tests under `python/`, `python/pyproject.toml` and `python/.github/CODEOWNERS` for the starter Patterns, `{python,agnostic}/.rapid-ship/project.toml` for the new escalation kind, `common/.github/workflows/devctl-check.yml`, `kit.toml`. This repository: the root `AGENTS.md` and `.rapid-ship/project.toml`, edited in place, and the workflow through `sync`. Tests: `tests/devctl/test_devctl_map_*.py`, `test_devctl_diff_*.py`, `test_devctl_evidence_step.py`, `test_devctl_doctor*.py`, `test_devctl_ci_templates.py`, `tests/test_kit_contents.py`, `tests/test_kit_templates*.py`.
-- 5.4: devctl template `settings.py`. `rapid_ship/kit/migrations.py`, `rapid_ship/kit/sync.py`, `rapid_ship/cli.py`. Kit templates: every seeded TOML file and the CI workflow, for their comments. Tests: `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_migrations*.py`, `tests/test_kit_sync*.py` and `tests/test_kit_seed_keys.py`.
+- 5.4: devctl templates `settings.py`, `check/map.py` and `check/map_skills.py`. Kit templates: every seeded TOML file and the CI workflow, for their comments. Tests: `tests/devctl/test_devctl_settings*.py`, `tests/devctl/test_devctl_map_*.py` and `tests/test_kit_seed_keys.py`.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
 
 **Tasks:**
@@ -525,7 +495,7 @@ If review finds a PR too large, it splits at a task boundary.
 13. The diff cap: 1,500 lines, its exclusions and the `Over the diff cap:` declaration; the seeded escalation kind; and the ledger rule in the `diff` step: a change to an existing entry is Protected, and an added entry is not checked.
 14. A concurrency group for each push run in the CI workflow, which zizmor still passes.
 15. Documented seeds: a short comment on each key's contract in every settings file the Kit ships whose format allows comments, such as the TOML files, CODEOWNERS and the CI workflow, where the key's name and value do not show it (relaxed on 2026-10-25 from a comment on every key); the loaders' range and value checks, errors that name what each key accepts, and the test that holds each seed to its loader.
-16. `sync`'s migrations: `migrations.py`, the second branch and its PR, and `--in-place` listing them. The first migrations remove plan 4's tables. Task 7's comment needs none, because it changes no Protected path.
+16. No backward compatibility before GA, the documentation release (plan 7's PR 7.4), by the owner's decision of 2026-10-25: no `sync` migrations, and map rules 5, 7 and 8's new parts fail at once, without PR 5.3's warning period.
 
 ## Plan 6: TypeScript stack and several stacks in one repository
 
@@ -541,18 +511,18 @@ If review finds a PR too large, it splits at a task boundary.
 
 **Files:**
 
-- 6.1: `rapid_ship/kit/stacks.py`, `templates.py`, `init.py`, `lock.py`, `status.py`, `sync.py`, `migrations.py`; `rapid_ship/cli.py`; the `project.toml` and CODEOWNERS templates; devctl templates `settings.py`, `check/__init__.py`, `check/steps.py`, `check/exceptions.py`, `check/filesize.py`, `check/references.py`, `doctor_local.py`, `doctor_rules.py`. This repository's `.rapid-ship/project.toml`, migrated in place. Tests: `tests/test_kit_stacks*.py`, `tests/test_kit_init*.py`, `tests/devctl/test_devctl_settings*.py`, `test_devctl_check_stacks*.py`.
+- 6.1: `rapid_ship/kit/stacks.py`, `templates.py`, `init.py`, `lock.py`, `status.py`, `sync.py`; `rapid_ship/cli.py`; the `project.toml` and CODEOWNERS templates; devctl templates `settings.py`, `check/__init__.py`, `check/steps.py`, `check/exceptions.py`, `check/filesize.py`, `check/references.py`, `doctor_local.py`, `doctor_rules.py`. This repository's `.rapid-ship/project.toml`, rewritten in place. Tests: `tests/test_kit_stacks*.py`, `tests/test_kit_init*.py`, `tests/devctl/test_devctl_settings*.py`, `test_devctl_check_stacks*.py`.
 - 6.2: devctl templates `check/stacks/typescript.py`, `check/diff.py`, `check/references.py`, `cli.py` for `--install`, `doctor_local.py`, `doctor_rules.py`. Tests: `tests/devctl/test_devctl_typescript*.py`, with fake tools in a fake `node_modules/.bin`.
 - 6.3: `rapid_ship/templates/typescript/`: `package.json`, `tsconfig.json`, `eslint.config.js`, `vite.config.ts`, `index.html`, `.gitignore`, the `src/` skeleton and its `AGENTS.md`, the starter Patterns with their reference code and tests, and the Protected lines; `kit.toml`; `common/.github/workflows/devctl-check.yml`. Tests: `tests/test_kit_typescript*.py`, `tests/devctl/test_devctl_ci_templates.py`, and an integration test of `init` with a Python `backend/` and a TypeScript `frontend/`, labelled as needing network access.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
 
 **Tasks:**
 
-1. `[[stack]]` in the settings and the lock, with its checks; devctl reading the old `stack` key for one Kit version, with a warning; and the migration that rewrites it.
+1. `[[stack]]` in the settings and the lock, with its checks; and devctl rejecting the old `stack` key with an error that says how to rewrite it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3).
 2. `init --stack NAME[=DIRECTORY]`; without it, a recursive search for stack roots that skips vendored and generated directories, proposes what it found, with the `--stack` options and the instruction to confirm them with the owner and rerun, and writes nothing; and templates rendered under a stack's directory.
 3. `project.toml` and CODEOWNERS rendered from every stack, with each stack's Protected lines under its directory; doctor's CODEOWNERS and Python floor items for each stack.
 4. `check` for each stack: the common steps once, and each stack's steps in its directory with their names; file ownership for the exceptions and file-size steps; references resolved against their stack.
-5. This repository stays one Python stack at the root: its `project.toml` migrates in place, and the output of `./devctl check` keeps its step names.
+5. This repository stays one Python stack at the root: its `project.toml` is rewritten in place, and the output of `./devctl check` keeps its step names.
 6. The TypeScript steps: format, lint, types, tests and audit, from `node_modules/.bin` and npm; a missing tool blocks its step with the command that installs it; `check --install`.
 7. The TypeScript suppressions and their rule names, and the `eslint:` and `type:` references.
 8. The diff policy for Vitest: removed tests by their title chain, and tautologies.
