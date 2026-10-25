@@ -1273,8 +1273,8 @@ assert workflow["concurrency"] == {
 ### Task 15: Documented seeds and the loaders' checks
 
 **Files:**
-- Modify: `devctl/settings.py`; `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml`, `rapid_ship/templates/common/.rapid-ship/exceptions.toml`, `rapid_ship/templates/python/pyproject.toml`, both CODEOWNERS templates, `rapid_ship/templates/common/.github/workflows/devctl-check.yml`; this repository's `.rapid-ship/project.toml` and `.github/CODEOWNERS` (in place)
-- Test: `tests/devctl/test_devctl_settings.py`, `tests/test_kit_contents.py`; create `tests/test_kit_seed_comments.py`
+- Modify: `devctl/settings.py`; `rapid_ship/templates/{python,agnostic}/.rapid-ship/project.toml`, `rapid_ship/templates/common/.rapid-ship/exceptions.toml`, `rapid_ship/templates/python/pyproject.toml`, `rapid_ship/templates/common/.github/workflows/devctl-check.yml`; this repository's `.rapid-ship/project.toml` and `.rapid-ship/exceptions.toml` (in place)
+- Test: `tests/devctl/test_devctl_settings.py`; create `tests/test_kit_seed_keys.py`
 
 **Interfaces:**
 - Produces: in `settings.py`, `PROJECT_KEYS: dict[str, frozenset[str]]`, each table's accepted keys, with `""` for the top-level keys, `EXCEPTION_KEYS: tuple[str, ...]` (today's `_EXCEPTION_KEYS`) and `OPTIONAL_SKILLS: frozenset[str]`.
@@ -1285,7 +1285,7 @@ Loader changes:
 - `[kit] optional` must name skills the Kit offers. `OPTIONAL_SKILLS` holds the Kit's optional names, none in 0.2.0, and a parity test in `test_devctl_settings.py` holds it equal to `kit.toml`'s `optional_skills` (`load_manifest()`), as the index does for `keychain_service`. Another name fails with `<where> optional: expected names of the Kit's optional skills: <names, sorted, comma-separated, or none in this Kit version>`.
 - Spec 1 states no other range or allowed set than those the loader checks today.
 
-Seed comments: every key line of each seeded TOML file carries a short comment on its line, or directly above it or above the run of key lines it belongs to, saying what it means, what it accepts and its default (Spec 1 section 4). `project.toml` takes Spec 1's comments from section 4's example, except `[[stack]]` (plan 6), and `[kit] optional`, whose comment says what the key accepts, `opt-in Kit skills; none in this Kit version`: it keeps `skills` until Spec 3's plan widens the key, and drops the `rs-contribute` example, which the loader rejects in 0.2.0, until plan 7 ships that skill. It adds a short comment on `stack`, `repository` and `source_roots`, which the example leaves without one, and Task 16's documents step adds the last two to Spec 1's example. The CI workflow does the same for each key line outside a `run:` block. Ruling: the `repository` comment sits on the line above `repository`, because `test_kit_contents.py:121-123` requires the line above `code_owner`'s comment to be exactly `repository = "octo/demo-app"`. Ruling: CODEOWNERS gets a `##` line above each group of Protected lines, in Spec 1 section 4's grouping, because a trailing comment would stop `patterns_in` from reading the owned line: `## CI, hooks and devctl.`, `## Skills and the Harness guardrail wiring.`, `## Agent instructions.`, `## rapid-ship settings.`, in the Python seed `## The starter Patterns.`, and `## The check tools' settings files; each can switch its check off.` Task 7 removed the seed's only note on `##` lines, so the header of both templates and of this repository's copy gains `# Lines that start with ## stay comments in Flight.` On 2026-10-25 the owner relaxed this comment requirement to each key's contract, and the comment rule now lives in the seeded root guides' Rules and Spec 1 section 4, so the seeds, the CODEOWNERS headings and `tests/test_kit_seed_comments.py` were trimmed to match.
+Seed comments: a seeded settings file comments a key only where its name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint (Spec 1 section 4). That covers both `project.toml` seeds, the `exceptions.toml` seed's commented example, the Python `pyproject.toml` and the CI workflow outside its `run:` blocks. CODEOWNERS is unchanged. `project.toml` follows Spec 1 section 4's example, with `stack` in place of `[[stack]]` (plan 6). `[kit] optional`'s comment says what the key accepts, `opt-in Kit skills; none in this Kit version`: it keeps `skills` until Spec 3's plan widens the key, and drops the `rs-contribute` example, which the loader rejects in 0.2.0, until plan 7 ships that skill. Ruling: the `repository` comment sits on the line above `repository`, because `test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder` in `test_kit_contents.py` requires the line above `code_owner`'s comment to be exactly `repository = "octo/demo-app"`.
 
 - [ ] **Step 1: write the failing tests.** In `test_devctl_settings.py`, these rows join the table of `test_invalid_settings_raise_settings_error`:
 
@@ -1311,22 +1311,17 @@ NEW_ROWS = [
 ]
 ```
 
-  with matching rows for `[map] unguided` and `[tests] unit`. `tests/test_kit_seed_comments.py`, docstring `Offline: every seed documents each key, and names every key its loader accepts.`:
-  - `test_each_seeded_toml_key_has_a_comment`, over the rendered `project.toml` of both stacks and the Python `pyproject.toml`: every line that matches `^\s*[\w."-]+\s*=` has a `#` comment on it, or sits in a run of such lines, with no blank line or table header between them, directly below a comment line, as Spec 1's four App keys do.
-  - `test_each_ci_workflow_key_has_a_comment`: the same rule for each line that matches `^\s*(- )?[\w-]+:` outside a `run: |` block.
-  - `test_each_protected_group_is_under_a_heading`: for both templates, the line above each line that `patterns_in` reads is another such line or starts with `## `, and the header holds `# Lines that start with ## stay comments in Flight.` It fails today, because the first group sits under `# settings file can switch its check off.`
-  - In `tests/test_kit_contents.py`, Task 11's `test_the_python_codeowners_only_adds_the_python_settings` expects `"## The starter Patterns."` right before `*patterns`.
-  - `test_each_seed_names_every_key_its_loader_accepts`: each key of `PROJECT_KEYS` appears as a key line under its table in both `project.toml` seeds, and each of `EXCEPTION_KEYS` appears in the `exceptions.toml` seed's commented example as `# <key> = `.
+  with matching rows for `[map] unguided` and `[tests] unit`. `tests/test_kit_seed_keys.py`, docstring `Offline: every seed names every key its loader accepts.`, holds `test_each_seed_names_every_key_its_loader_accepts`: each key of `PROJECT_KEYS` appears as a key line under its table in both `project.toml` seeds, and each of `EXCEPTION_KEYS` appears in the `exceptions.toml` seed's commented example as `# <key> = `.
 - [ ] **Step 2: run** them; expected FAIL.
 - [ ] **Step 3: implement**; add the comments; edit this repository's two seeded copies in place; sync.
-- [ ] **Step 4: run** `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_seed_comments.py` and `tests/test_kit_contents.py`; expected PASS. Status, fast check.
+- [ ] **Step 4: run** `tests/devctl/test_devctl_settings*.py`, `tests/test_kit_seed_keys.py` and `tests/test_kit_contents.py`; expected PASS. Status, fast check.
 - [ ] **Step 5: commit** `feat: document every seeded key and name what each settings key accepts`.
 
 ### Task 16: `sync`'s migrations, documents, and PR 5.4's verification
 
 **Files:**
 - Create: `rapid_ship/kit/migrations.py`, `tests/test_kit_migrations.py`
-- Modify: `rapid_ship/kit/sync.py` (`SyncResult`, `sync_repository`), `rapid_ship/cli.py` (`_sync`), `tests/test_kit_sync.py`; `ARCHITECTURE.md`, `rapid_ship/kit/AGENTS.md`, `rapid_ship/AGENTS.md`, the root `AGENTS.md`, `README.md`, Spec 1's section 4 example and status line, the plan index (plan 5 built, and its CODEOWNERS section), and this plan's Verification record
+- Modify: `rapid_ship/kit/sync.py` (`SyncResult`, `sync_repository`), `rapid_ship/cli.py` (`_sync`), `tests/test_kit_sync.py`; `ARCHITECTURE.md`, `rapid_ship/kit/AGENTS.md`, `rapid_ship/AGENTS.md`, the root `AGENTS.md`, `README.md`, Spec 1's section 4 example and status line, the plan index (plan 5 built), and this plan's Verification record
 
 **Interfaces:**
 - Consumes: the index's `Migration`, unchanged.
@@ -1393,7 +1388,7 @@ def test_each_migration_id_is_unique_and_names_the_kit_version() -> None:
 - [ ] **Step 3: implement.** `sync.py` stays under 500 lines because the branch work for migrations lives in a helper beside `_start_branch`; `migrations.py` imports nothing from `sync.py`.
 - [ ] **Step 4: run** `tests/test_kit_migrations.py` and `tests/test_kit_sync*.py`; expected PASS. `uv run rapid-ship sync --in-place` in this repository lists no migration. Status, fast check.
 - [ ] **Step 5: commit** `feat: propose migrations of seeded settings from rapid-ship sync`.
-- [ ] **Step 6: documents.** Describe the migrations and plan 5 as built in the files above, add Task 15's `repository` and `source_roots` comments to Spec 1 section 4's `project.toml` example, the `repository` comment on the line above the key as in the seed, describe Task 15's `##` group headings and its header line `# Lines that start with ## stay comments in Flight.` in the index's CODEOWNERS section, and move plan 5's row to Built; commit `docs: record plan 5 as built`.
+- [ ] **Step 6: documents.** Describe the migrations and plan 5 as built in the files above, add Task 15's `repository` and `source_roots` comments to Spec 1 section 4's `project.toml` example, the `repository` comment on the line above the key as in the seed, and move plan 5's row to Built; commit `docs: record plan 5 as built`.
 - [ ] **Step 7: verify.** Run the five checks with `--base plan5-standards`, record them in the Verification record, and handle the diff cap as Task 14 Step 6 says. Commit `docs: record PR 5.4's verification`.
 
 ## Verification record

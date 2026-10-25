@@ -414,10 +414,18 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
 def test_the_python_root_guide_adds_its_rows_and_lint_enforced_rules() -> None:
     python = text("python", "AGENTS.md").splitlines()
     rows = [line for line in python if "](src/AGENTS.md)" in line or "](tests/AGENTS.md)" in line]
-    lint = [line for line in python if line.endswith(" enforced by: check:lint")]
+    lint = [
+        line.removeprefix("- ").removesuffix(" enforced by: check:lint")
+        for line in python
+        if line.endswith(" enforced by: check:lint")
+    ]
 
     assert len(rows) == 2
-    assert len(lint) == 2
+    # Ruff's ERA001, TD002 and TD003 carry these two Rules, and no other.
+    assert lint == [
+        "Delete commented-out code.",
+        "Give each TODO its author and the issue that tracks it.",
+    ]
     # The agnostic stack has no lint step, so its guide marks the same two Rules advisory.
     agnostic = [
         line.replace(" enforced by: check:lint", " advisory") for line in python if line not in rows
