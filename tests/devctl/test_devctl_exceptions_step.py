@@ -231,11 +231,22 @@ TOOL_LINES = (
     "import click  # deptry: ignore[DEP003]\n"
     "from importlib import import_module\n"
     "jwt = import_module('jwt'); TAG = '# deptry: ignore'\n"
+    'def f() -> None:\n    """Write\n'
+    f"    {NOQA} to silence Ruff.\n"
+    '    """\n'
+    f'X = """{NOQA}\n'
+    '"""\n'
+    "# page\fbreak\n"
+    f"def g(tag: str = '{NOQA}') -> str: ...\n"
+    "def h() -> None: ...\n"
 )
 
 
 def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
-    # Each tool searches a line's whole text, a string included, and acts on its first match.
+    # Each tool searches a line's whole text, a string included, and acts on its first match,
+    # but only on the first line of what it reports: lines 11 and 17 hide nothing. Line 19 hides
+    # X, and no comment fits there. vulture numbers lines as str.splitlines does, so after line
+    # 21's form feed it reads line 22's text as line 23's.
     (tmp_path / "run.py").write_text(TOOL_LINES)
 
     lines = scan(tmp_path, ["run.py"], frozenset(), "python")
@@ -247,10 +258,20 @@ def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
         4: ["V107", "noqa"],
         5: ["V103"],
         7: ["deptry"],
-        11: ["deptry:DEP001"],
         12: ["deptry:DEP003"],
         14: ["deptry"],
+        19: ["noqa"],
+        23: ["noqa"],
     }
+
+
+def test_where_the_source_does_not_parse_every_line_counts_for_vulture(tmp_path: Path) -> None:
+    # vulture's Python may parse what devctl's cannot, such as newer syntax.
+    (tmp_path / "run.py").write_text(f"X = 1 +\n'''\n{NOQA}\n'''\n")
+
+    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+
+    assert [(line.number, line.rules) for line in lines] == [(3, ("noqa",))]
 
 
 @pytest.mark.parametrize(
