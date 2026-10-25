@@ -236,7 +236,7 @@ sha256 = "7b605a6849bd8ed37335d6d4019ff15e205773da22718ab949f6bd130b3770e7"
 [[file]]
 path = "tools/devctl/devctl/github/app.py"
 kind = "managed"
-sha256 = "144e00c78deaf32a5a27484a551a865a5355e3893e23de1b0b3689b083013212"
+sha256 = "71a38304cff72f494e8cb35f5e30480d47df5bcc25569d0f5a7e22c68e945ce5"
 
 [[file]]
 path = "tools/devctl/devctl/github/askpass.py"

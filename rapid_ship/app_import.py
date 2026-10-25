@@ -48,7 +48,10 @@ def _read_key(role: str, stdin: BinaryIO | None) -> bytes:
 
 
 def _confirm(role: str, app: StoredApp, key: bytes, api_url: str) -> None:
-    """Refused unless GitHub shows app to a token that the key signs."""
+    """Refused unless GitHub shows app to a token that the key signs.
+
+    GitHub refuses the token when the key is another App's, or the App or the key is gone.
+    """
     title = f"{TITLES[role]} {app.app_id} ({app.slug})"
     try:
         shown = app_of_key(key, app.app_id, api_url=api_url).app

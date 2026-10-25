@@ -24,8 +24,9 @@ _GENERATED = frozenset(
     {".venv", "__pycache__", ".DS_Store"}
 )  # names skipped in every template tree
 _MANIFEST_KEYS = ("seeded", "new_project", "executable", "optional_skills", "variables")
-# Derived from owner when rendering, so a lock that predates it still renders. project.toml
-# reads code_owner = "" as unset, so an empty one stays "" instead of a commented placeholder.
+# Derived from owner when rendering, so a lock that predates it still renders; PRO-145 removes
+# that before GA. project.toml reads code_owner = "" as unset, so an empty one stays "" instead
+# of a commented placeholder.
 _CODE_OWNER = "code_owner"
 
 

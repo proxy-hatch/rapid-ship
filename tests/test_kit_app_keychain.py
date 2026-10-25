@@ -39,8 +39,8 @@ from rapid_ship.app_keychain import (
 from rapid_ship.github_app import recorded_apps, run_app
 
 ROLES = ("worker", "reviewer")
-# The owner's private Apps, as OWNER_READS has them, and a stand-in for each key, for tests that
-# never sign a token with it; tests that do use rsa_key.
+# The owner's private Apps, as OWNER_READS has them, and a PEM-shaped stand-in for each key,
+# which cannot sign a token; a test whose key must sign one uses rsa_key.
 APPS = {"worker": StoredApp(11, "o-rs-worker"), "reviewer": StoredApp(12, "o-rs-reviewer")}
 KEYS = {
     role: f"-----BEGIN RSA PRIVATE KEY-----\n{role}\n-----END RSA PRIVATE KEY-----\n".encode()

@@ -69,7 +69,7 @@ class KeychainMissing(AppError):
         if self.role is None:
             return missing
         # `rapid-ship app` re-stores a key kept under the old name, which has no App ID (Spec 1
-        # section 3, step 2).
+        # section 3, `rapid-ship app`, step 2). PRO-145 removes this before GA.
         return (
             f"{missing}; run {app_command}, which re-stores a key kept under "
             f"rapid-ship/{self.role}-app, or {app_command} --import-key {self.role}"
