@@ -3,7 +3,7 @@ name: devctl check   # the workflow's name in GitHub's Actions tab
 
 # The events that start a run.
 on:
-  # A pull request that opens, gains a commit, reopens or has its body edited.
+  # A pull request that opens, gains a commit, reopens or has its title, body or base branch edited.
   pull_request:
     # edited: the evidence step reads the PR body, so a body edit reruns the check.
     types: [opened, synchronize, reopened, edited]

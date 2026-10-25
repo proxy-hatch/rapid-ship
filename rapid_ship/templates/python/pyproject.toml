@@ -53,7 +53,7 @@ ban-relative-imports = "all"   # every relative import; Ruff's default, "parents
 
 [tool.mypy]
 python_version = "3.12"   # the Python version mypy checks against
-strict = true             # every optional strictness check; mypy's default is false
+strict = true             # mypy's strict set of optional checks; mypy's default is false
 warn_unreachable = true   # report code mypy proves unreachable; default false
 # Error codes that strict leaves off: an ignore without a code, a redundant expression, and a
 # condition whose type is always true.
