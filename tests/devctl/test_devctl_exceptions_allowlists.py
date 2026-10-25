@@ -1,9 +1,11 @@
-"""Offline: allowlist items in pyproject.toml as suppressions, in fixture repositories."""
+"""Offline: allowlist items in pyproject.toml as suppressions, and the warning period of the
+suppressions that Kit 0.2.0 adds, in fixture repositories."""
 
 from __future__ import annotations
 
 import pytest
 
+import devctl
 from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.stacks.python_dead_code import AllowlistItem, toml_allowlist
@@ -20,16 +22,29 @@ remove_when = "Nothing calls them by name"
 VULTURE = '[tool.vulture]\npaths = ["src"]\nignore_names = [\n'
 MARKED = f'{VULTURE}    "do_[A-Z]*",  # rs-exception: EX-1\n]\n'
 UNMARKED = f'{VULTURE}    "do_[A-Z]*",\n]\n'
+# vulture reads its noqa comment anywhere on a line, this file's lines included, so it is built
+# from parts.
+NOQA = "# " + "noqa"
 
 
 def setup(
-    workspace: Workspace, pyproject: str, *entries: tuple[str, str, str], stack: str = "python"
+    workspace: Workspace,
+    pyproject: str,
+    *entries: tuple[str, str, str],
+    stack: str = "python",
+    version: str = "0.3.0",
 ) -> StepResult:
+    """Run the step as devctl `version`.
+
+    The default is the Kit version after GRACE_VERSION, in which Kit 0.2.0's suppressions fail.
+    """
     workspace.write(".rapid-ship/kit.lock", f'kit_version = "0.2.0"\nstack = "{stack}"\n')
     workspace.write("pyproject.toml", pyproject)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    return ExceptionsStep().run(workspace.context(stack=stack))
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(devctl, "__version__", version)
+        return ExceptionsStep().run(workspace.context(stack=stack))
 
 
 def test_a_marked_item_with_its_entry_passes(workspace: Workspace) -> None:
@@ -165,3 +180,51 @@ def test_an_invalid_pyproject_blocks_the_exceptions_step(workspace: Workspace) -
 
     assert result.status == "blocked"
     assert result.details[0].startswith("pyproject.toml: ")
+
+
+def needs_marker(where: str, rule: str) -> str:
+    return (
+        f"{where}: suppression {rule} needs '# rs-exception: EX-<n>' and an entry in "
+        ".rapid-ship/exceptions.toml"
+    )
+
+
+@pytest.mark.parametrize("version", ["0.2.0", "0.3.0"])
+def test_kit_0_2_0s_suppressions_warn_in_it_and_fail_after(
+    workspace: Workspace, version: str
+) -> None:
+    # An existing project already owns these lines, so they warn for one Kit version (Spec 1
+    # section 3). A suppression that an earlier Kit read still fails at once.
+    workspace.write(
+        "src/app/run.py",
+        "import yaml  # deptry: ignore\n"
+        f"def unused(tag: str = '{NOQA}') -> str: ...\n"
+        "x = 1  # type: ignore[assignment]\n",
+    )
+    inline = '\n[tool.deptry]\nper_rule_ignores = { DEP002 = ["psycopg2"] }\n'
+
+    result = setup(workspace, UNMARKED + inline, version=version)
+
+    new = [
+        needs_marker("pyproject.toml:4", "vulture.ignore_names:do_[A-Z]*"),
+        needs_marker("src/app/run.py:1", "deptry"),
+        needs_marker("src/app/run.py:2", "noqa"),
+        unplaced("deptry.per_rule_ignores.DEP002", "psycopg2", "deptry.per_rule_ignores"),
+    ]
+    if version == "0.2.0":
+        new = [f"warning: {m}; this fails from the next Kit version" for m in new]
+    assert (result.status, *result.details) == (
+        "failed",
+        needs_marker("src/app/run.py:3", "assignment"),
+        *new,
+    )
+
+
+def test_in_kit_0_2_0_the_step_passes_with_only_warnings(workspace: Workspace) -> None:
+    result = setup(workspace, UNMARKED, version="0.2.0")
+
+    assert (result.status, *result.details) == (
+        "passed",
+        f"warning: {needs_marker('pyproject.toml:4', 'vulture.ignore_names:do_[A-Z]*')}; this "
+        "fails from the next Kit version",
+    )

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import devctl
 from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep, normal_rule, scan
 from devctl.check.steps import StepResult
@@ -24,12 +25,20 @@ KIT_FILE_LOCK = (
 )
 
 
-def setup(workspace: Workspace, source: str, *entries: tuple[str, str, str]) -> StepResult:
+def setup(
+    workspace: Workspace, source: str, *entries: tuple[str, str, str], version: str = "0.3.0"
+) -> StepResult:
+    """Run the step with `source` in src/app/run.py, as devctl `version`.
+
+    The default is the Kit version after GRACE_VERSION, in which Kit 0.2.0's suppressions fail.
+    """
     workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
     workspace.write("src/app/run.py", source)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    return ExceptionsStep().run(workspace.context())
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(devctl, "__version__", version)
+        return ExceptionsStep().run(workspace.context())
 
 
 def test_marked_suppression_with_entry_passes(workspace: Workspace) -> None:
@@ -179,8 +188,12 @@ def test_workflow_ignore_with_several_names_matches_its_entry(workspace: Workspa
     ("comment", "rule"),
     [
         ("# deptry: ignore", "deptry"),
+        ("# deptry: ignored", "deptry"),
         ("# deptry: ignore[DEP003, DEP001]", "deptry:DEP001,DEP003"),
-        ("# Deptry: Ignore[dep003]", "deptry:DEP003"),
+        ("# Deptry: Ignore[DEP003]", "deptry:DEP003"),
+        # deptry reads only upper-case codes; with any other bracket it ignores every rule.
+        ("# deptry: ignore[dep003]", "deptry"),
+        ("# deptry: ignore[DEP003, dep001]", "deptry"),
     ],
 )
 def test_deptrys_inline_comment_is_a_suppression(
@@ -192,6 +205,66 @@ def test_deptrys_inline_comment_is_a_suppression(
         f"import yaml  {comment}  # rs-exception: EX-1\n",
         ("EX-1", "src/app/run.py", rule),
     )
+
+    assert unmarked.details == (
+        f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
+        "and an entry in .rapid-ship/exceptions.toml",
+    )
+    assert marked.status == "passed", marked.details
+
+
+# vulture reads its noqa comment anywhere on a line, this file's lines included, so these sources
+# build it from parts.
+NOQA = "# " + "noqa"
+TOOL_LINES = (
+    f"def a() -> None: ...  {NOQA}_hidden\n"
+    f"def b(tag: str = '{NOQA}') -> str: ...\n"
+    f"def c(tag: str = '{NOQA}: V103, E501') -> str: ...\n"
+    f"def d() -> None: ...  {NOQA}:  V107\n"
+    f"def e() -> None: ...  {NOQA}: V103\n"
+    f"TEXT = '{NOQA}: E501'\n"
+    "import yaml; TAG = '# deptry: ignore'\n"
+    "TAG = '# deptry: ignore'\n"
+    "from toml import (\n"
+    "    load,\n"
+    "); TAG = '# deptry: ignore[DEP001]'\n"
+    "import click  # deptry: ignore[DEP003]\n"
+    "from importlib import import_module\n"
+    "jwt = import_module('jwt'); TAG = '# deptry: ignore'\n"
+)
+
+
+def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
+    # Each tool searches a line's whole text, a string included, and acts on its first match.
+    (tmp_path / "run.py").write_text(TOOL_LINES)
+
+    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+
+    assert {line.number: list(line.rules) for line in lines} == {
+        1: ["noqa"],
+        2: ["noqa"],
+        3: ["V103"],
+        4: ["V107", "noqa"],
+        5: ["V103"],
+        7: ["deptry"],
+        11: ["deptry:DEP001"],
+        12: ["deptry:DEP003"],
+        14: ["deptry"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("source", "rule"),
+    [
+        (f"def unused(tag: str = '{NOQA}') -> str: ...", "noqa"),
+        ("import yaml; TAG = '# deptry: ignore'", "deptry"),
+    ],
+)
+def test_a_line_that_vulture_or_deptry_reads_as_a_suppression_needs_its_marker(
+    workspace: Workspace, source: str, rule: str
+) -> None:
+    unmarked = setup(workspace, f"{source}\n")
+    marked = setup(workspace, f"{source}  # rs-exception: EX-1\n", ("EX-1", "src/app/run.py", rule))
 
     assert unmarked.details == (
         f"src/app/run.py:1: suppression {rule} needs '# rs-exception: EX-<n>' "
@@ -232,7 +305,8 @@ def test_marked_autouse_fixture_is_validated_unmarked_one_is_left_to_diff(
     assert result.status == "passed", result.details
 
 
-# The gitleaks line is split so that documents quoting this test hold no allow comment.
+# The gitleaks line is split so that documents quoting this test hold no allow comment, and so
+# that vulture, which reads its noqa comment anywhere on a line, reads none on this file's line.
 EVERY_PYTHON_SUPPRESSION = (
     "# ruff: noqa: e501\n"
     "# flake8: noqa\n"
@@ -242,7 +316,7 @@ EVERY_PYTHON_SUPPRESSION = (
     "yaml = pytest.importorskip('yaml')  # noqa: f401\n"
     "pytestmark = mark.xfail\n"
     "x = f()  # type: ignore[call-arg, arg-type]  # noqa: E501, F821\n"
-    "KEY = 'k'  # gitleaks" + ":allow  # NOQA\n"
+    "KEY = 'k'  # gitleaks" + ":allow  # " + "NOQA\n"
     "TEXT = '# noqa: E501  # type: ignore'\n"
     "y = g()  # type: ignore\n"
     "@pytest.mark.skipif(\n"

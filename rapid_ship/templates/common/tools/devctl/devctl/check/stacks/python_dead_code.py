@@ -1,22 +1,24 @@
-"""The dead-code step for Python, its floor settings, and the allowlist items in pyproject.toml.
+"""The dead-code step for Python, its floor settings, and the suppressions that its tools read.
 
 vulture reports unused code and deptry reports dependencies that do not match the imports. The
-exceptions step reads each allowlist item as a suppression, so each needs its own line.
+exceptions step reads each allowlist item in pyproject.toml as a suppression, so each needs its own
+line. It also reads each Python line as vulture and deptry read it, strings included.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import tempfile
 import tomllib
 from collections import Counter
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from devctl.check.map import graced
-from devctl.check.stacks.python import requirement_names, toml_strings, toml_table
+from devctl.check.stacks.python import DEPTRY_CODES, requirement_names, toml_strings, toml_table
 from devctl.check.steps import (
     CheckContext,
     StepResult,
@@ -59,6 +61,14 @@ _ARRAY_OPEN = re.compile(rf"\s*(?P<key>{_BARE})\s*=\s*\[")
 _STRING = r""""(?:[^"\\]|\\.)*"|'[^']*'"""
 _MAP_KEY = re.compile(rf"\s*(?P<key>{_BARE}|{_STRING})\s*=")
 _TOKEN = re.compile(rf"{_STRING}|#")
+
+# vulture 2.16's and deptry 0.25.1's own patterns. Each tool searches a line's whole text, strings
+# included, and acts on the first match. `[ ]` is one space, so that vulture reads nothing here.
+_VULTURE_NOQA = re.compile(
+    r"#[ ]noqa(?::\s?(?P<codes>(?:[A-Z]+[0-9]+(?:[,\s]+)?)+))?", re.IGNORECASE
+)
+_VULTURE_READS = frozenset({*VULTURE_CODES, "F401", "F841"})  # it maps the last two to V104, V107
+_DEPTRY_LINE = re.compile(rf"#\s*deptry:\s*ignore(?:\[(?P<codes>{DEPTRY_CODES})\])?")
 
 
 class DeadCodeStep:
@@ -293,3 +303,66 @@ def _decoded(token: str) -> str | None:
     except tomllib.TOMLDecodeError:
         return None
     return value if isinstance(value, str) else None
+
+
+def tool_line_rules(source: str, recorded: Mapping[int, Sequence[str]]) -> dict[int, list[str]]:
+    """The rules that vulture or deptry reads on a line of `source`, beyond its `recorded` rules.
+
+    Ruff and mypy read only comments. vulture and deptry search each line's whole text, so a noqa
+    comment inside a string hides vulture's findings on its line, and a deptry comment inside one
+    hides deptry's on an import's line. vulture's rule is `noqa` or the codes it acts on, deptry's
+    `deptry` or `deptry:<codes>`. A reading that the line's recorded rules already name adds none.
+    """
+    imports = _import_lines(source) if _DEPTRY_LINE.search(source) else frozenset()
+    found: dict[int, list[str]] = {}
+    # Split as the exceptions step splits, so the line numbers agree.
+    for number, line in enumerate(source.split("\n"), start=1):
+        rules = recorded.get(number, ())
+        deptry = _deptry_reading(line, rules) if number in imports else None
+        if read := [rule for rule in (_vulture_reading(line, rules), deptry) if rule]:
+            found[number] = read
+    return found
+
+
+def _vulture_reading(line: str, rules: Sequence[str]) -> str | None:
+    match = _VULTURE_NOQA.search(line)
+    if match is None or "noqa" in rules:
+        return None
+    if match["codes"] is None:
+        return "noqa"
+    named = {code for rule in rules for code in rule.split(",")}
+    codes = {code.strip() for code in match["codes"].split(",")}  # as vulture splits them
+    return ",".join(sorted((codes & _VULTURE_READS) - named)) or None
+
+
+def _deptry_reading(line: str, rules: Sequence[str]) -> str | None:
+    match = _DEPTRY_LINE.search(line)
+    if match is None or "deptry" in rules:
+        return None
+    if match["codes"] is None:
+        return "deptry"
+    prefix = "deptry:"
+    named = {c for r in rules if r.startswith(prefix) for c in r.removeprefix(prefix).split(",")}
+    missing = {code for code in re.split(r"[\s,]+", match["codes"]) if code} - named
+    return f"{prefix}{','.join(sorted(missing))}" if missing else None
+
+
+def _import_lines(source: str) -> frozenset[int]:
+    """The lines of each import statement and import_module call, whose imports deptry reads."""
+    try:
+        tree = ast.parse(source.removeprefix("\ufeff"))
+    except (SyntaxError, ValueError):
+        return frozenset()
+    nodes = [n for n in ast.walk(tree) if isinstance(n, ast.stmt | ast.expr) and _imports(n)]
+    return frozenset(
+        line for node in nodes for line in range(node.lineno, (node.end_lineno or node.lineno) + 1)
+    )
+
+
+def _imports(node: ast.stmt | ast.expr) -> bool:
+    if isinstance(node, ast.Import | ast.ImportFrom):
+        return True
+    function = node.func if isinstance(node, ast.Call) else None
+    if isinstance(function, ast.Attribute):
+        return function.attr == "import_module"
+    return isinstance(function, ast.Name) and function.id == "import_module"

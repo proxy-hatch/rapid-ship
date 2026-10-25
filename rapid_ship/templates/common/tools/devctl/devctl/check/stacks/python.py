@@ -36,7 +36,11 @@ _NOQA = re.compile(
 _TYPE_IGNORE = re.compile(r"#\s*type:\s*ignore\b(?:\[(?P<codes>[^\]]*)\])?")
 _MYPY = re.compile(r"#\s*mypy:\s*(?P<setting>ignore-errors|disable-error-code)")
 _NO_COVER = re.compile(r"#\s*pragma:\s*no\s+cover", re.IGNORECASE)
-_DEPTRY_IGNORE = re.compile(r"#\s*deptry:\s*ignore\b(?:\[(?P<codes>[^\]]*)\])?", re.IGNORECASE)
+# deptry 0.25.1 matches its comment case-sensitively, with no word boundary after `ignore`, and
+# reads codes only in upper case: with any other bracket it ignores every rule on the line. devctl
+# reads any case, so a spelling that deptry skips only needs a marker.
+_DEPTRY_IGNORE = re.compile(r"#\s*deptry:\s*ignore(?:\[(?P<codes>[^\]]*)\])?", re.IGNORECASE)
+DEPTRY_CODES = r"[A-Z0-9,\s]+"  # deptry's own pattern for the codes in its bracket
 _SKIP_MARKS = frozenset({"skip", "skipif", "xfail"})
 _SKIP_CALLS = frozenset({"skip", "xfail", "importorskip"})
 
@@ -231,9 +235,13 @@ def comment_rules(comment: str) -> list[str]:
     rules += [_codes(m.group("codes")) or "type-ignore" for m in _TYPE_IGNORE.finditer(comment)]
     rules += [f"mypy:{m.group('setting')}" for m in _MYPY.finditer(comment)]
     rules += ["no-cover" for _ in _NO_COVER.finditer(comment)]
-    deptry = (_codes(m.group("codes"), upper=True) for m in _DEPTRY_IGNORE.finditer(comment))
-    rules += [f"deptry:{codes}" if codes else "deptry" for codes in deptry]
+    rules += [_deptry_rule(m.group("codes")) for m in _DEPTRY_IGNORE.finditer(comment)]
     return rules
+
+
+def _deptry_rule(codes: str | None) -> str:
+    named = _codes(codes) if codes is not None and re.fullmatch(DEPTRY_CODES, codes) else ""
+    return f"deptry:{named}" if named else "deptry"
 
 
 def _codes(text: str | None, *, upper: bool = False) -> str:

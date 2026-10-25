@@ -116,7 +116,7 @@ sha256 = "0fa3f10dd25d422a4ba23b435e6abeb67dc7073c71d28f31c2a9801233c4977a"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "9b53932d9ee2e3283b53962eaf19dbb46461421f4e2466c22e1a738b735faab7"
+sha256 = "5984cfb06bb54329ced77375290219770a183001656d6674a0368f0c237357f2"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -161,12 +161,12 @@ sha256 = "aba39ecc0e3bc4b4698d95d327690988e5ec61f8cb05d33f81665921b5c014ed"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python.py"
 kind = "managed"
-sha256 = "e0c3f249f9c1afe46c66093acd53522c17a59d6b048af28e0a1ded6b9158e770"
+sha256 = "e7e799f8a7c79717dfde4436383e78dc249e457ecec156fe51734cfb024b5f28"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/python_dead_code.py"
 kind = "managed"
-sha256 = "f7b6b1d2eaefac1a535c3e01309179180b6c0d0258f7a243a846de002ec1e314"
+sha256 = "263f1ff3d33870e1b1c9978173095337659aff0a3bcf8d1012fae578a79caca9"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"

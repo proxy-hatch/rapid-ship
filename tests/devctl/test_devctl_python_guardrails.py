@@ -72,6 +72,8 @@ DEPTRY_GAP = "deptry: no exclude or extend_exclude pattern matches tools/devctl"
     [
         ("vulture", {"paths": ["."]}, [VULTURE_GAP]),
         ("vulture", {"paths": ["."], "exclude": ["tools/devctl"]}, []),
+        # vulture matches exclude with fnmatch, which keeps case outside Windows.
+        ("vulture", {"paths": ["."], "exclude": ["TOOLS/DEVCTL"]}, [VULTURE_GAP]),
         ("deptry", None, [DEPTRY_GAP]),
         ("deptry", {"extend_exclude": ["tools"]}, []),
         ("deptry", {"extend_exclude": [".*devctl"]}, []),
