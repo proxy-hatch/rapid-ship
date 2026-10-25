@@ -15,7 +15,6 @@ from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
-import devctl
 from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
 from devctl.check.markdown import (
     ListItem,
@@ -32,7 +31,6 @@ from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
 ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")  # map rule 8
-GRACE_VERSION = "0.2.0"  # the Kit version in which map rules 5, 7 and 8's new parts only warn
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
@@ -56,33 +54,15 @@ class MapStep:
             *reachability_errors(root, found),
             *feature_errors(context, files),
             *pattern_errors(context, files),
+            *pattern_lesson_errors(context, files),
             *rule_errors(context, found),
             *skill_alias_errors(root, files),
             *skill_errors(root, files),
+            *skill_file_errors(root, files),
             *root_document_errors(root, files),
+            *root_link_errors(root, files),
         ]
-        late, notes = graced(
-            [
-                *root_link_errors(root, files),
-                *pattern_lesson_errors(context, files),
-                *skill_file_errors(root, files),
-            ]
-        )
-        errors += late
-        return failed(self.name, *errors, *notes) if errors else passed(self.name, *notes)
-
-
-def graced(messages: list[str]) -> tuple[list[str], list[str]]:
-    """(errors, notes): a new rule's messages, which only warn while this devctl is GRACE_VERSION.
-
-    A project that already owns a file the new rule fails gets one Kit version to fix it (Spec 1
-    section 3). The version is read when the step runs, so a test can set it.
-    """
-    if devctl.__version__ == GRACE_VERSION:
-        return [], [
-            f"warning: {message}; this fails from the next Kit version" for message in messages
-        ]
-    return list(messages), []
+        return failed(self.name, *errors) if errors else passed(self.name)
 
 
 def guides(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
@@ -369,8 +349,7 @@ def _pattern_problems(
 def pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
     """Map rule 5's task and Lessons: each Pattern file has a task and a non-empty ## Lessons.
 
-    This part only warns for one Kit version (`graced`). A file whose front matter is unusable
-    is left to `pattern_errors`, which reports it.
+    A file whose front matter is unusable is left to `pattern_errors`, which reports it.
     """
     return _document_errors(context, files, PATTERNS, None, _lesson_problems)
 
@@ -417,9 +396,8 @@ def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
 def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
     """Map rule 8: README.md and ARCHITECTURE.md exist at the repository root.
 
-    This part fails at once, because rapid-ship sync seeds a missing document when it upgrades a
-    project from a Kit without the seed. Once the lock lists a document, sync never writes it
-    again, so the message names git.
+    rapid-ship sync seeds a missing document when it upgrades a project from a Kit without the
+    seed. Once the lock lists a document, sync never writes it again, so the message names git.
     """
     found = _root_documents(root, files)
     return [

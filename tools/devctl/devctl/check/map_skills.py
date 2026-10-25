@@ -108,8 +108,8 @@ def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
 def skill_file_errors(root: Path, files: Sequence[str]) -> list[str]:
     """Map rule 7, file half: each SKILL.md is a regular file, because Codex rejects a symlink.
 
-    This part only warns for one Kit version (`graced` in map.py). It judges the last path
-    component only; a skill directory that is itself a symlink is the alias half's concern.
+    It judges the last path component only; a skill directory that is itself a symlink is the
+    alias half's concern.
     """
     paths = (f"{SKILLS}/{name}/SKILL.md" for name in sorted(_skill_names(root, files, SKILLS)))
     return [

@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
-import devctl
 from check_workspace import Workspace
 from devctl.check.map import MapStep, root_document_errors, root_link_errors
 from devctl.check.steps import StepResult
@@ -13,16 +10,13 @@ LINKS = "[README](README.md) [Architecture](ARCHITECTURE.md)\n"
 BACK = "Start at [AGENTS.md](AGENTS.md).\n"
 BROKEN = "ARCHITECTURE.md:1: missing target 'gone.md'; update the navigation link"
 UNLINKED = "AGENTS.md: does not link README.md; add it to the Find the change table"
-GRACE = "; this fails from the next Kit version"
 MISSING = (
     "README.md: missing at the repository root; restore it from git or write a new one "
     "(rapid-ship sync seeds it only while the Kit lock does not list it)"
 )
 
 
-def run_map(workspace: Workspace, monkeypatch: pytest.MonkeyPatch, version: str) -> StepResult:
-    """The map step as devctl `version` runs it."""
-    monkeypatch.setattr(devctl, "__version__", version)
+def run_map(workspace: Workspace) -> StepResult:
     return MapStep().run(workspace.context(source_roots=()))
 
 
@@ -39,7 +33,7 @@ def test_rule_8_passes_with_both_documents_linked_from_the_root_guide(
     workspace.write("README.md", f"# Demo\n\n{BACK}")
     workspace.write("ARCHITECTURE.md", f"# Architecture\n\n{BACK}")
 
-    result = MapStep().run(workspace.context(source_roots=()))
+    result = run_map(workspace)
 
     assert (result.status, result.details) == ("passed", ())
 
@@ -54,46 +48,33 @@ def test_rule_8_reports_a_missing_document_and_a_broken_link(workspace: Workspac
     )
 
 
-def test_a_broken_link_in_architecture_md_warns_in_kit_0_2_0_and_fails_after(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_broken_link_in_architecture_md_fails_the_map_step(workspace: Workspace) -> None:
     workspace.write("AGENTS.md", LINKS)
     workspace.write("README.md", BACK)
     workspace.write("ARCHITECTURE.md", "[Gone](gone.md)\n")
 
-    warned = run_map(workspace, monkeypatch, "0.2.0")
-    failed = run_map(workspace, monkeypatch, "0.3.0")
+    result = run_map(workspace)
 
-    assert (warned.status, warned.details) == ("passed", (f"warning: {BROKEN}{GRACE}",))
-    assert (failed.status, failed.details) == ("failed", (BROKEN,))
+    assert (result.status, result.details) == ("failed", (BROKEN,))
 
 
-def test_a_root_guide_without_the_links_warns_in_kit_0_2_0_and_fails_after(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_root_guide_without_the_links_fails_the_map_step(workspace: Workspace) -> None:
     workspace.write("AGENTS.md", "[Architecture](ARCHITECTURE.md)\n")
     workspace.write("README.md", BACK)
     workspace.write("ARCHITECTURE.md", BACK)
 
-    warned = run_map(workspace, monkeypatch, "0.2.0")
-    failed = run_map(workspace, monkeypatch, "0.3.0")
+    result = run_map(workspace)
 
-    assert (warned.status, warned.details) == ("passed", (f"warning: {UNLINKED}{GRACE}",))
-    assert (failed.status, failed.details) == ("failed", (UNLINKED,))
+    assert (result.status, result.details) == ("failed", (UNLINKED,))
 
 
-def test_a_missing_document_fails_at_once_in_kit_0_2_0(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_missing_document_fails_the_map_step(workspace: Workspace) -> None:
     workspace.write("AGENTS.md", "[Architecture](ARCHITECTURE.md)\n")
     workspace.write("ARCHITECTURE.md", BACK)
 
-    result = run_map(workspace, monkeypatch, "0.2.0")
+    result = run_map(workspace)
 
-    assert (result.status, result.details) == (
-        "failed",
-        (MISSING, f"warning: {UNLINKED}{GRACE}"),
-    )
+    assert (result.status, result.details) == ("failed", (MISSING, UNLINKED))
 
 
 def test_the_root_guide_may_link_a_document_by_any_local_form(workspace: Workspace) -> None:
