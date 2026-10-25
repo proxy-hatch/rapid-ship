@@ -11,7 +11,7 @@ import pytest
 from check_workspace import Workspace, new_workspace
 from devctl.process import run_process
 
-pytest_plugins = ["github_fixtures"]
+pytest_plugins = ["github_fixtures"]  # noqa: V107  # rs-exception: EX-28
 
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]

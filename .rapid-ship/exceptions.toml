@@ -186,9 +186,9 @@ remove_when = "No module here overrides BaseHTTPRequestHandler.log_message"
 
 [[exception]]
 id = "EX-28"
-path = "pyproject.toml"
-rule = "vulture.ignore_names:pytest_plugins"
-reason = "pytest reads pytest_plugins from tests/conftest.py by name"
+path = "tests/conftest.py"
+rule = "V107"
+reason = "pytest reads pytest_plugins by name"
 remove_when = "tests/conftest.py loads no plugin module"
 
 [[exception]]

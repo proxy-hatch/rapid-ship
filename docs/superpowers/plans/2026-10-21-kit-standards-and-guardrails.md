@@ -1606,7 +1606,8 @@ def comment_rules(comment: str) -> list[str]: ...  # also "deptry" or "deptry:<c
        | `no_package_metadata` as an unread parameter (`tests/test_kit_cli.py:268,286`) | Fix: `@pytest.mark.usefixtures("no_package_metadata")` on both tests, and drop the parameter |
        | `do_GET`, `do_POST`, `do_PATCH`, `do_PUT`, `do_DELETE` in `rapid_ship/app_flow.py`, `tests/devctl/github_fakes.py` and `tests/test_kit_app.py` | `ignore_names` item `"do_[A-Z]*"`: `BaseHTTPRequestHandler` calls `do_<METHOD>` by name |
        | `log_message` in the same three files | `ignore_names` item `"log_message"`: the base class calls it |
-       | `pytest_plugins` (`tests/conftest.py:14`), `pytestmark` (three test modules) | `ignore_names` items `"pytest_plugins"` and `"pytestmark"`: pytest reads both by name |
+       | `pytest_plugins` (`tests/conftest.py:14`) | `# noqa: V107`: pytest reads it by name |
+       | `pytestmark` (three test modules) | `ignore_names` item `"pytestmark"`: pytest reads it by name |
        | `daemon_threads`, and `handle_error` with `client_address` (`rapid_ship/app_flow.py:132,164`) | `# noqa: V107` and `# noqa: V105, V107`: `socketserver` reads and calls them |
        | `namespace`, `option_string` (`rapid_ship/cli.py:45,47`) | `# noqa: V107` on each line: argparse passes them to `Action.__call__` |
        | `whitespace_split`, `commenters` (`devctl/command_line.py:85-86`) | `# noqa: V101` on each line, in the template: `shlex` reads them |

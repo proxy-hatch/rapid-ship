@@ -130,7 +130,6 @@ exclude = ["rapid_ship/templates/"]
 ignore_names = [
     "do_[A-Z]*",  # rs-exception: EX-26
     "log_message",  # rs-exception: EX-27
-    "pytest_plugins",  # rs-exception: EX-28
     "pytestmark",  # rs-exception: EX-29
 ]
 
