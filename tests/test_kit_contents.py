@@ -246,7 +246,8 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     split = agnostic.index("# /.rapid-ship/ @octo") + 1
     patterns = [f"# {path} @octo" for path in STARTER_PATTERNS]
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
-    assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
+    heading = "## The starter Patterns."
+    assert python == [*agnostic[:split], heading, *patterns, *agnostic[split:], *added]
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])

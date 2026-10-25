@@ -1,16 +1,19 @@
 # Guardrail settings from rapid-ship. Changes need the owner (Protected set).
+# A key left out takes its tool's own default.
 [build-system]
+# The build backend, and the versions of it that a build may install.
 requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
+# The distribution's name and version, and the Python versions it supports.
 name = "{{project_name}}"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = []      # runtime requirements, as PEP 508 strings; none to start
 
 [dependency-groups]
-dev = [
+dev = [                # the check tools that devctl runs, locked in uv.lock
     "import-linter>=2.15,<3",
     "mypy>=1.20,<3",
     "pytest>=9,<10",
@@ -18,53 +21,59 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/{{package}}"]
+packages = ["src/{{package}}"]   # the package directories the wheel holds
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py312"   # the oldest Python the code runs on; Ruff's upgrades follow it
 # rapid-ship checks its own Kit code upstream.
 extend-exclude = ["tools/devctl"]
 
 [tool.ruff.lint]
-select = [
+select = [             # the rules Ruff reports, in place of its default set
     "E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PGH", "ERA", "T20", "S",
     "TID", "PT", "PTH", "DTZ", "C90", "TD", "BLE", "ANN401",
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# The rules switched off for the files that match each glob.
 "tests/**" = ["S101"]  # pytest asserts
 "src/{{package}}/settings.py" = ["TID251"]  # the one module that reads the environment
 
 [tool.ruff.lint.mccabe]
-max-complexity = 10
+max-complexity = 10    # C901 reports a function above this complexity; Ruff's default is 10
 
 [tool.ruff.lint.flake8-tidy-imports]
-ban-relative-imports = "all"
+ban-relative-imports = "all"   # every relative import; Ruff's default, "parents", bans `from ..`
 
 # Patterns add entries here, one per banned member.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Each banned member, and the message TID251 reports where code uses it.
 "os.environ".msg = "read configuration through {{package}}.settings; see docs/patterns/python-configuration.md"
 "os.getenv".msg = "read configuration through {{package}}.settings; see docs/patterns/python-configuration.md"
 
 [tool.mypy]
-python_version = "3.12"
-strict = true
-warn_unreachable = true
+python_version = "3.12"   # the Python version mypy checks against
+strict = true             # every optional strictness check; mypy's default is false
+warn_unreachable = true   # report code mypy proves unreachable; default false
+# Error codes that strict leaves off: an ignore without a code, a redundant expression, and a
+# condition whose type is always true.
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-files = ["src", "tests"]
-mypy_path = "src"
+files = ["src", "tests"]  # what a bare `mypy` checks
+mypy_path = "src"         # where mypy finds the package
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests"]        # where a bare `pytest` collects tests
+# An unknown marker or setting is an error, not a warning.
 addopts = ["--strict-markers", "--strict-config"]
-xfail_strict = true
-filterwarnings = ["error"]
+xfail_strict = true          # an xfail test that passes fails the run; pytest's default is false
+filterwarnings = ["error"]   # every warning is an error
 
 [tool.importlinter]
-root_packages = ["{{package}}"]
-include_external_packages = true
+root_packages = ["{{package}}"]    # the packages whose imports the contracts cover
+include_external_packages = true   # contracts may name installed packages, such as pytest
 
 [[tool.importlinter.contracts]]
+# No layer imports a layer above it: name, type, the package, then its layers, top first.
 name = "Layers"
 type = "layers"
 containers = ["{{package}}"]
@@ -72,6 +81,7 @@ containers = ["{{package}}"]
 layers = ["(entrypoints)", "(services)", "(domain)"]
 
 [[tool.importlinter.contracts]]
+# The package's modules never import pytest: name, type, the package and the banned modules.
 name = "Production code never imports the test framework"
 type = "forbidden"
 source_modules = ["{{package}}"]

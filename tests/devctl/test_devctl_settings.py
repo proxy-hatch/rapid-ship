@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from devctl import settings
 from devctl.settings import (
     EXCEPTIONS,
+    OPTIONAL_SKILLS,
     PROJECT,
     REMOVED_TABLES,
     App,
@@ -18,7 +20,7 @@ from devctl.settings import (
     load_project,
 )
 from rapid_ship.kit.init import resolve_variables
-from rapid_ship.kit.templates import KitError, render_files
+from rapid_ship.kit.templates import KitError, load_manifest, render_files
 
 ROOT = Path(__file__).resolve().parents[2]
 VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "repository": ""}
@@ -220,6 +222,45 @@ def test_map_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
     assert load_project(tmp_path).map_exclude == ("pkg/templates", "other/dir")
 
 
+def test_map_and_test_paths_are_normalised(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        PROJECT,
+        'stack = "python"\n[map]\nsource_roots = ["./src/app/"]\nunguided = ["src/app/vendor/"]\n'
+        '[tests]\nunit = ["./tests/unit/**"]\n',
+    )
+
+    project = load_project(tmp_path)
+
+    assert (project.source_roots, project.unguided, project.unit_tests) == (
+        ("src/app",),
+        ("src/app/vendor",),
+        ("tests/unit/**",),
+    )
+
+
+def test_devctl_offers_the_optional_skills_of_its_kit() -> None:
+    # devctl is vendored into projects without rapid-ship, so it keeps its own copy of the list.
+    assert load_manifest().optional_skills == OPTIONAL_SKILLS
+
+
+def test_kit_optional_names_only_the_kits_optional_skills(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A later Kit version offers optional skills; 0.2.0 offers none.
+    monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
+    write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a"]\n')
+    assert load_project(tmp_path).optional_skills == ("rs-a",)
+
+    write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a", "rs-c"]\n')
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    assert str(raised.value) == (
+        f"{PROJECT} [kit] optional: expected names of the Kit's optional skills: rs-a, rs-b"
+    )
+
+
 def test_this_repository_settings_load() -> None:
     project = load_project(ROOT)
     assert (project.repository, project.source_roots) == ("proxy-hatch/rapid-ship", ("rapid_ship",))
@@ -250,7 +291,39 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
         (PROJECT, "", "stack: required"),
         (PROJECT, "stack = \n", "project.toml: Invalid value"),
         (PROJECT, 'stack = "rust"\n', "stack: expected python or agnostic"),
-        (PROJECT, 'stack = "python"\n[test]\nunit = []\n', "unknown key 'test'"),
+        (
+            PROJECT,
+            'stack = "python"\n[test]\nunit = []\n',
+            ".rapid-ship/project.toml: unknown key 'test'; "
+            "it accepts escalation, github, kit, map, stack, tests",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[escalation]\nevery_prs = true\n',
+            ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; "
+            "it accepts every_pr, kinds, revision_rounds",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[map]\nsource_roots = ["../x"]\n',
+            ".rapid-ship/project.toml [map] source_roots: expected paths inside the repository",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[map]\nunguided = ["/srv"]\n',
+            ".rapid-ship/project.toml [map] unguided: expected paths inside the repository",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[tests]\nunit = ["../tests/unit/**"]\n',
+            ".rapid-ship/project.toml [tests] unit: expected paths inside the repository",
+        ),
+        (
+            PROJECT,
+            'stack = "python"\n[kit]\noptional = ["rs-contribute"]\n',
+            ".rapid-ship/project.toml [kit] optional: expected names of the Kit's optional skills: "
+            "none in this Kit version",
+        ),
         (
             PROJECT,
             'stack = "python"\n[github]\nworker_app_id = true\n',
@@ -328,6 +401,12 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
             "exclude: expected paths inside the repository",
         ),
         (EXCEPTIONS, EXCEPTION.replace('remove_when = "w"\n', ""), "remove_when: required"),
+        (
+            EXCEPTIONS,
+            EXCEPTION + 'owner = "o"\n',
+            ".rapid-ship/exceptions.toml [[exception]] #1: unknown key 'owner'; "
+            "it accepts id, path, reason, remove_when, rule",
+        ),
         (EXCEPTIONS, EXCEPTION + EXCEPTION, "EX-1 is listed twice"),
         (EXCEPTIONS, EXCEPTION.replace("EX-1", "EX-01"), "id: expected EX-<n>"),
         (

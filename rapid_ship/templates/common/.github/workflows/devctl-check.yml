@@ -1,40 +1,52 @@
 # Managed by rapid-ship. Change the template in rapid-ship, then run `rapid-ship sync`.
-name: devctl check
+name: devctl check   # the workflow's name in GitHub's Actions tab
 
+# The events that start a run.
 on:
+  # A pull request that opens, gains a commit, reopens or has its body edited.
   pull_request:
     # edited: the evidence step reads the PR body, so a body edit reruns the check.
     types: [opened, synchronize, reopened, edited]
+  # A push to the default branch, such as a merge.
   push:
     # Kit files are identical in every project, so the default branch is listed by name.
     branches: [main, master]
+  # Nightly on the default branch, at 04:23 UTC.
   schedule:
     - cron: "23 4 * * *"
+  # By hand, from the Actions tab.
   workflow_dispatch:
 
+# The job's token reads the repository and nothing else. The job uses no secrets.
 permissions:
   contents: read
 
+# A group runs one run at a time and holds one pending run; a newer run replaces the pending one.
 concurrency:
   # Each push run has its own commit's group, so a later push never replaces the queued run of an
   # earlier commit. A pull request keeps one group per ref and cancels its older run.
   group: devctl-check-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# One job runs every check step.
 jobs:
   check:
+    # The ruleset requires a passing check of this name, and the merge guard reads it.
     name: devctl check
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04   # GitHub's hosted runner, held to one Ubuntu release
+    timeout-minutes: 60     # GitHub cancels a longer run; its default is 360
     steps:
+      # The commit under test.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
-          fetch-depth: 0
+          persist-credentials: false   # leave no token in .git/config for later steps
+          fetch-depth: 0               # full history: the diff step compares with the base
+      # uv, which runs devctl from its lock.
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      # The secrets step needs gitleaks on PATH. The archive's SHA-256 is checked before unpacking.
       - name: Install gitleaks
         env:
-          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_VERSION: "8.30.1"   # the version devctl check pins
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
         run: |
           archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -45,5 +57,6 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/gitleaks"
           tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks" gitleaks
           echo "${RUNNER_TEMP}/gitleaks" >> "${GITHUB_PATH}"
+      # The full tier, which includes the diff and evidence steps.
       - name: Run devctl check
         run: ./devctl check --tier full
