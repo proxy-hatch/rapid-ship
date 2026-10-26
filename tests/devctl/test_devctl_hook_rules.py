@@ -238,7 +238,9 @@ def test_each_shell_rule_denies_its_forms(line: str, rule: str | None) -> None:
 
 
 @pytest.mark.parametrize(("line", "rule"), IDENTITY)
-def test_g7_and_g8_apply_only_with_agent_identity(line: str, rule: str | None) -> None:
+def test_pushes_and_gh_writes_go_through_the_apps_only_with_agent_identity(
+    line: str, rule: str | None
+) -> None:
     decision, reason = decided(line, ON)
     assert decision == ("deny" if rule else None)
     assert reason.startswith(f"{rule}: ") if rule else reason == ""
@@ -290,7 +292,7 @@ def test_a_deny_beats_an_ask() -> None:
     assert decide(call, ROOT, OFF, unread)[0] == "deny"
 
 
-def test_g1_to_g4_apply_and_g5_gives_no_decision_with_unreadable_settings() -> None:
+def test_with_unreadable_settings_only_the_rules_that_need_no_settings_apply() -> None:
     for line in ("git commit -n -m x", "git push -f origin task", "git push origin main"):
         assert decided(line, None)[0] == "deny"
     assert edited(".rapid-ship/kit.lock", None)[0] == "deny"
@@ -466,7 +468,7 @@ def test_an_edit_in_a_linked_worktree_belongs_to_that_worktree(tmp_path: Path) -
     assert work_tree_root(Path("/")) is None
 
 
-def test_unreadable_settings_switch_off_g5_g7_g8_and_say_why(
+def test_unreadable_settings_switch_off_the_rules_that_need_them_and_say_why(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     workspace = new_workspace(tmp_path / "main")

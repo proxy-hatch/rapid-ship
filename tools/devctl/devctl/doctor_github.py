@@ -188,7 +188,8 @@ def _repository_items(ctx: DoctorContext, repository: str) -> list[Item]:
 def _installation_item(
     ctx: DoctorContext, access: GitHubAccess, repository: str, role: Role, app: App
 ) -> Item:
-    name = f"{_LABELS[role]} App installation"
+    label = _LABELS[role]
+    name = f"{label} App installation"
     try:
         found = installation(
             role, repository, app.id, keychain=access.keychain, api_url=access.api_url
@@ -200,7 +201,9 @@ def _installation_item(
     problems: list[str] = []
     granted = installation_problems(found, role)
     if granted:
-        problems.append(f"permissions differ from Spec 1 section 3: {'; '.join(granted)}")
+        problems.append(
+            f"permissions differ from those the {label} App needs: {'; '.join(granted)}"
+        )
     slug = found.get("app_slug")
     if slug != app.slug:
         # The merge guard finds the Reviewer App's approval by its slug, so a wrong one denies
@@ -209,7 +212,7 @@ def _installation_item(
         problems.append(f"the installed App's slug is {shown}, but {PROJECT} records {app.slug}")
     if problems:
         return _identity(name, "missing", "; ".join(problems))
-    detail = f"{app.slug} is installed on {repository} with exactly the {role} App's permissions"
+    detail = f"{app.slug} is installed on {repository} with exactly the {label} App's permissions"
     return _identity(name, "ok", detail)
 
 
