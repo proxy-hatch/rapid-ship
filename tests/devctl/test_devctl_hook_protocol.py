@@ -250,6 +250,9 @@ def test_an_unknown_harness_and_a_bad_usage_name_the_way_through(
     hook(monkeypatch, recorded(), "claude")
     assert capsys.readouterr().err == "devctl hook: usage: devctl hook claude pre-tool\n"
 
+    hook(monkeypatch, recorded())
+    assert capsys.readouterr().err == "devctl hook: usage: devctl hook <claude|agy> pre-tool\n"
+
     hook(monkeypatch, b"{}", "claude", "pre-tool")
     err = capsys.readouterr().err
     assert err.startswith("devctl hook: internal error: ")

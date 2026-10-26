@@ -109,9 +109,9 @@ def hook_command(args: argparse.Namespace) -> int:
     """
     harness = next((wired for wired in WIRED_HARNESSES if wired == args.harness), None)
     if harness is None:
-        known = " and ".join(WIRED_HARNESSES)
         if args.harness is None:
-            return _fail(None, f"usage: devctl hook <harness> pre-tool, the Harness {known}")
+            return _fail(None, f"usage: devctl hook <{'|'.join(WIRED_HARNESSES)}> pre-tool")
+        known = " and ".join(WIRED_HARNESSES)
         return _fail(None, f"unknown Harness '{args.harness}'; this devctl wires {known}")
     if args.event != "pre-tool":
         return _fail(harness, f"usage: {HOOK_COMMANDS[harness]}")
