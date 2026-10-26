@@ -9,6 +9,11 @@ project_name = "rapid-ship"
 repository = "proxy-hatch/rapid-ship"
 
 [[file]]
+path = ".agents/hooks.json"
+kind = "seeded"
+template_sha256 = "83fefb2c5806cceb7e798ad3b144584f5774704118223ec713da8cf75067fd78"
+
+[[file]]
 path = ".claude/settings.json"
 kind = "seeded"
 template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0de7"
@@ -21,7 +26,7 @@ sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
 [[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
-template_sha256 = "43beb77bb4c6890df5b34b9671849bc81ac1c45bcf106cd62754faf6f1a01a7f"
+template_sha256 = "382115063136b5fa2858638d7b71c6eedad4877d668ac39676906cf491728de6"
 
 [[file]]
 path = ".github/workflows/devctl-check.yml"
@@ -191,7 +196,7 @@ sha256 = "5fe61b8622f4c401f75da069d4e78d62643953c44177e63aebee2881c60b8559"
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
 kind = "managed"
-sha256 = "9a5005a69b9b9cd08e5fa94f3e05dfdb1f35f1a46d78ae33d8057ac924ea6df6"
+sha256 = "324c1556faafbbe09bdb713834791c0b1befaa5a8a7581d7fce9ac75ec970b7a"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
@@ -206,12 +211,12 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "eeecefeef9cdc041631c3eb22dac6193dae8f533bf223027ff60dd34537f6247"
+sha256 = "93bd8f8d33b6531dac93956b2550368b4ed3ebb0292dd176a813f73a391af999"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "7dba2b1b6e37d3df4e832889b1958e65d46da606f3d677ee8b9fe8903f5b39e9"
+sha256 = "787d9c1f7145b1c588f5359d4fc515d17d9d7c196c98e4727c4045bdf14a1bb6"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
@@ -221,7 +226,7 @@ sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
 kind = "managed"
-sha256 = "17748df6e54ae7c5e04cb0a5dcb69e2341bad3f2335bf46ca8b50ab496b30c3b"
+sha256 = "6503c3b555f6bef74b2fee3fb53b38bc530394b5b6c34b092988b6c1ebe39da5"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"

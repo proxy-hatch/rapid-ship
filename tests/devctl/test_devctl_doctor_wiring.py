@@ -1,4 +1,4 @@
-"""Offline: doctor's Harness wiring item on written settings files."""
+"""Offline: doctor's Claude Code wiring item on written settings files."""
 
 import json
 
@@ -43,7 +43,7 @@ def rendered_seed() -> str:
 
 
 def harness_wiring_item(ctx: MakeContext) -> Item:
-    [item] = [i for i in local_items(ctx()) if i.name == "Harness wiring"]
+    [item] = [i for i in local_items(ctx()) if i.name == "Claude Code wiring"]
     assert item.area == "guardrails"
     return item
 
