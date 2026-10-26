@@ -11,9 +11,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-# The old item names, without the App ID. rapid-ship app re-stores such an item's key under
-# keychain_service and leaves the old item in place. PRO-145 removes this before GA.
-LEGACY_SERVICE = {"worker": "rapid-ship/worker-app", "reviewer": "rapid-ship/reviewer-app"}
 MAX_SECURITY_LINE = 4095  # `security -i` reads each command into a 4096-byte buffer
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")
 
@@ -71,7 +68,6 @@ def keychain_service(role: str, app_id: int) -> str:
 
 class KeychainStore(Protocol):
     def exists(self, service: str) -> bool: ...
-    def find(self, service: str) -> StoredApp | None: ...
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None: ...
     def read_key(self, service: str) -> bytes: ...
     def listed(self, role: str) -> list[StoredApp]: ...
@@ -157,7 +153,7 @@ class MacKeychainStore:
             )
 
     def read_key(self, service: str) -> bytes:
-        """The item's key, for re-storing it under another name."""
+        """The item's PEM private key."""
         result = self.run(["security", "find-generic-password", "-s", service, "-w"], None)
         if result.returncode == _ITEM_NOT_FOUND:
             raise AppSetupError(f"Keychain item {service} not found")

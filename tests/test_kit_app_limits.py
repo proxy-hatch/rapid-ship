@@ -292,15 +292,15 @@ def test_an_organisation_member_who_is_not_an_admin_creates_no_app(
     assert (out, err) == ("", NOT_ADMIN)
 
 
-def test_a_member_who_is_not_an_admin_is_refused_before_any_key_is_re_stored(
+def test_a_member_who_is_not_an_admin_is_refused_when_one_app_must_be_created(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """GitHub shows the organisation's Worker App, whose key is in the old Keychain item named
-    without the App ID, and the Reviewer App must be created."""
+    """GitHub shows the organisation's Worker App, whose key this machine holds, and the
+    Reviewer App must be created. The refusal comes before any browser opens."""
     store = FakeStore()
-    old = "rapid-ship/worker-app"
-    store.apps[old] = StoredApp(11, "org-rs-worker")
-    store.keys[old] = b"-----BEGIN TEST KEY-----\nnot a real key\n-----END TEST KEY-----\n"
+    item = "rapid-ship/worker-app/11"
+    store.apps[item] = StoredApp(11, "org-rs-worker")
+    store.keys[item] = b"-----BEGIN TEST KEY-----\nnot a real key\n-----END TEST KEY-----\n"
     answers = {**OWNER_READS, "apps/org-rs-worker": {"id": 11, "owner": {"login": "org", "id": 4}}}
     opened: list[str] = []
     code = run_app(
@@ -310,7 +310,7 @@ def test_a_member_who_is_not_an_admin_is_refused_before_any_key_is_re_stored(
         open_browser=opened.append,
         timeout_seconds=0.1,
     )
-    assert (code, opened, list(store.apps)) == (1, [], [old])
+    assert (code, opened, list(store.apps)) == (1, [], [item])
     assert capsys.readouterr().err == NOT_ADMIN
 
 
@@ -408,22 +408,26 @@ def test_exists_reads_no_secret_and_counts_an_item_rapid_ship_did_not_write() ->
 def test_find_reads_no_secret_and_refuses_an_item_rapid_ship_did_not_write() -> None:
     security = FakeSecurity()
     store = MacKeychainStore(run=security)
-    assert store.find("rapid-ship/worker-app") is None
-    assert security.argvs == [["security", "find-generic-password", "-s", "rapid-ship/worker-app"]]
+    assert store.find("rapid-ship/worker-app/11") is None
+    assert security.argvs == [
+        ["security", "find-generic-password", "-s", "rapid-ship/worker-app/11"]
+    ]
 
     def foreign(argv: list[str], input_text: str | None) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 0, 'attributes:\n    "acct"<blob>="me"\n', "")
 
     with pytest.raises(AppSetupError, match="was not written by rapid-ship app"):
-        MacKeychainStore(run=foreign).find("rapid-ship/worker-app")
+        MacKeychainStore(run=foreign).find("rapid-ship/worker-app/11")
 
     def locked(argv: list[str], input_text: str | None) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(
             argv, 51, "", "security: User interaction is not allowed."
         )
 
-    with pytest.raises(AppSetupError, match="could not read Keychain item rapid-ship/worker-app"):
-        MacKeychainStore(run=locked).find("rapid-ship/worker-app")
+    with pytest.raises(
+        AppSetupError, match="could not read Keychain item rapid-ship/worker-app/11"
+    ):
+        MacKeychainStore(run=locked).find("rapid-ship/worker-app/11")
 
 
 def test_add_checks_the_item_it_wrote_and_never_reports_the_key() -> None:
@@ -440,8 +444,8 @@ def test_add_checks_the_item_it_wrote_and_never_reports_the_key() -> None:
 
     pem = b"-----BEGIN TEST KEY-----\nnot a real key\n-----END TEST KEY-----\n"
     with pytest.raises(AppSetupError) as caught:
-        MacKeychainStore(run=Ignoring()).add("rapid-ship/worker-app", StoredApp(11, "s"), pem)
-    assert "rapid-ship/worker-app" in str(caught.value)
+        MacKeychainStore(run=Ignoring()).add("rapid-ship/worker-app/11", StoredApp(11, "s"), pem)
+    assert "rapid-ship/worker-app/11" in str(caught.value)
     assert pem.hex() not in str(caught.value)
 
     class Other(FakeSecurity):
@@ -456,7 +460,7 @@ def test_add_checks_the_item_it_wrote_and_never_reports_the_key() -> None:
             return result
 
     with pytest.raises(AppSetupError, match="does not hold the key and App just written"):
-        MacKeychainStore(run=Other()).add("rapid-ship/worker-app", StoredApp(11, "s"), pem)
+        MacKeychainStore(run=Other()).add("rapid-ship/worker-app/11", StoredApp(11, "s"), pem)
 
     calls: list[list[str]] = []
 
@@ -465,8 +469,8 @@ def test_add_checks_the_item_it_wrote_and_never_reports_the_key() -> None:
         return subprocess.CompletedProcess(argv, 1, "", f"echo {input_text}")
 
     with pytest.raises(AppSetupError) as caught:
-        MacKeychainStore(run=failing).add("rapid-ship/worker-app", StoredApp(11, "s"), pem)
-    assert str(caught.value) == "could not write Keychain item rapid-ship/worker-app"
+        MacKeychainStore(run=failing).add("rapid-ship/worker-app/11", StoredApp(11, "s"), pem)
+    assert str(caught.value) == "could not write Keychain item rapid-ship/worker-app/11"
     assert calls == [["security", "-i"]]
 
 
@@ -475,12 +479,12 @@ def test_add_never_updates_an_existing_item() -> None:
     security = FakeSecurity()
     old = b"-----BEGIN TEST KEY-----\nthe key already stored\n-----END TEST KEY-----\n"
     held = {"-a": "11", "-j": "s", "-X": old.hex()}
-    security.items["rapid-ship/worker-app"] = dict(held)
+    security.items["rapid-ship/worker-app/11"] = dict(held)
     new = b"-----BEGIN TEST KEY-----\nnot a real key\n-----END TEST KEY-----\n"
     with pytest.raises(AppSetupError) as caught:
-        MacKeychainStore(run=security).add("rapid-ship/worker-app", StoredApp(12, "t"), new)
-    assert str(caught.value) == "could not write Keychain item rapid-ship/worker-app"
-    assert security.items == {"rapid-ship/worker-app": held}
+        MacKeychainStore(run=security).add("rapid-ship/worker-app/11", StoredApp(12, "t"), new)
+    assert str(caught.value) == "could not write Keychain item rapid-ship/worker-app/11"
+    assert security.items == {"rapid-ship/worker-app/11": held}
     [line] = security.inputs
     assert "-U" not in line.split()
 
