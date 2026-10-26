@@ -67,13 +67,13 @@ def test_every_manifest_path_exists_in_a_layer() -> None:
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_spec_seeded_files_are_seeded(stack: Stack) -> None:
+def test_every_stack_seeds_the_shared_files(stack: Stack) -> None:
     kinds = {path: t.kind for path, t in rendered(stack).items()}
     assert {path for path in SEEDED if kinds.get(path) == "seeded"} == SEEDED
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_claude_code_wiring_seed_is_spec_1s(stack: Stack) -> None:
+def test_the_claude_code_wiring_seed_holds_only_the_pre_tool_hook(stack: Stack) -> None:
     # The seed's PreToolUse hook sets no timeout: the merge guard's 300-second budget relies on
     # Claude Code's default of 600 seconds.
     assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
@@ -95,7 +95,7 @@ def test_python_new_project_seeds() -> None:
 
 
 @pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("agnostic", [])])
-def test_project_settings_seed_has_the_spec_defaults(stack: Stack, roots: list[str]) -> None:
+def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[str]) -> None:
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
         "stack": stack,
@@ -259,7 +259,7 @@ def test_codeowners_without_an_owner_leaves_the_owner_to_rs_setup() -> None:
     assert "# /devctl @<owner>" in lines
 
 
-def test_python_seed_has_the_spec_guardrails() -> None:
+def test_python_seed_has_the_guardrail_settings() -> None:
     data = tomllib.loads(text("python", "pyproject.toml"))
     lint = data["tool"]["ruff"]["lint"]
     assert set(lint["select"]) == {
@@ -384,7 +384,9 @@ POINTERS = (
         ("python", [*ROOT_GUIDE_LINKS, "src/AGENTS.md", "tests/AGENTS.md"]),
     ],
 )
-def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) -> None:
+def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
+    stack: Stack, links: list[str]
+) -> None:
     guide = text(stack, "AGENTS.md")
     headings = re.findall(r"^#+ .*$", guide, flags=re.MULTILINE)
     assert headings == [
@@ -443,7 +445,7 @@ def test_the_python_root_guide_adds_its_rows_and_rules() -> None:
     assert agnostic == text("agnostic", "AGENTS.md").splitlines()
 
 
-def test_the_readme_and_architecture_seeds_follow_the_spec() -> None:
+def test_the_readme_and_architecture_seeds_render_their_skeleton() -> None:
     readme = text("agnostic", "README.md")
     assert "./devctl check" in readme
     assert "](AGENTS.md)" in readme

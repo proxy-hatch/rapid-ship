@@ -42,7 +42,7 @@ def write(root: Path, relative: str, text: str) -> None:
     path.write_text(text)
 
 
-def test_the_seeded_settings_load_with_the_spec_defaults(tmp_path: Path) -> None:
+def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
     for template in render_files("python", VARIABLES, ()):
         if template.path.startswith(".rapid-ship/"):
             assert template.content is not None
@@ -167,7 +167,7 @@ REPLACED_BY = {
     "agents": SEVERAL_PROVIDERS,
     "dispatch": "no longer starts Workers",
     "linear": "never talks to the issue tracker",
-    "release": "Spec 3",
+    "release": "a project defines its own deploy metrics; delete the table",
     "roster": SEVERAL_PROVIDERS,
 }
 

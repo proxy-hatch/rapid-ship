@@ -140,7 +140,7 @@ def test_ruleset_problems(change: Callable[[dict[str, Any]], object], problem: s
 
 
 @pytest.mark.parametrize(("every_pr", "agent_identity"), MODES)
-def test_the_decided_ruleset_passes_in_every_mode(every_pr: bool, agent_identity: bool) -> None:
+def test_the_rs_setup_ruleset_passes_in_every_mode(every_pr: bool, agent_identity: bool) -> None:
     params = rule(RULESET, "pull_request")["parameters"]
     assert params["required_approving_review_count"] == 0
     assert params["require_last_push_approval"] is False

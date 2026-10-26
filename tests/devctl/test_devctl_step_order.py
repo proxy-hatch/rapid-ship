@@ -24,7 +24,7 @@ PYTHON = [
 ]
 
 
-def test_core_steps_follow_the_spec() -> None:
+def test_each_stack_has_its_core_steps_in_order() -> None:
     python = core_steps(project_settings(stack="python"))
     agnostic = core_steps(project_settings(stack="agnostic"))
 
