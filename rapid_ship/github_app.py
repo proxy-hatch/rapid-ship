@@ -8,7 +8,7 @@ member can use Apps that exist, and an App is created only when gh's login is an
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of
 the repository's owner whose key the Keychain holds, else it creates the App through GitHub's
-manifest flow (app_flow.py). Spec 1 section 3: app creates only the Apps that do not exist yet.
+manifest flow (app_flow.py). The command creates only the Apps that do not exist yet.
 GitHub shows the owner's gh no private App, so for an item whose App GitHub does not show, GET
 /app under a token that the item's key signs tells which account owns the App. One machine can
 hold the keys of a developer's own Apps and their organisation's, so another account's App is
