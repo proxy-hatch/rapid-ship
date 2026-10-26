@@ -359,6 +359,23 @@ COMMENT_RULES = (
     "Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful "
     "comment.",
 )
+# The root guide's first Rule, which keeps a change to what was asked.
+SCOPE_RULE = "- Keep each change inside the scope you were asked to change. advisory"
+# The root guide's Pull requests section: how to open, review, merge and undo a pull request.
+PULL_REQUESTS = (
+    "- Run `./devctl check` and fix what it reports before you open a pull request.",
+    "- With Agent identity on, push with `./devctl as worker push` and open the pull request with "
+    "`./devctl as worker gh pr create`.",
+    "- Review a change from a Session that did not write it. With Agent identity on, approve with "
+    "`./devctl as reviewer gh pr review <number> --approve`, or request changes with "
+    "`./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. "
+    "Never approve a change you wrote.",
+    "- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard "
+    "checks the pull request first. In Walk, the owner merges every pull request.",
+    "- Declare `Over the diff cap:` in the pull request body only after the owner accepted the "
+    "overage.",
+    "- Undo a merged change only with `git revert`.",
+)
 POINTERS = (
     "`GLOSSARY.md`",
     "`docs/adr/`",
@@ -387,6 +404,7 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
         "## Commands",
         "## Find the change",
         "## Rules",
+        "## Pull requests",
         "## Shared language and decisions",
     ]
     rules = guide.split("## Rules")[1].split("##")[0]
@@ -409,6 +427,18 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
     assert all(pointer in guide for pointer in POINTERS)
     commands = guide.split("## Commands")[1].split("##")[0]
     assert commands.strip().splitlines()[0] == SETTINGS_FIRST
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_root_guide_keeps_changes_in_scope_and_says_how_to_handle_pull_requests(
+    stack: Stack,
+) -> None:
+    guide = text(stack, "AGENTS.md")
+    rules = guide.split("\n## Rules\n")[1].split("\n## ")[0]
+    pull_requests = guide.split("\n## Pull requests\n")[1].split("\n## ")[0]
+
+    assert rules.strip().splitlines()[0] == SCOPE_RULE
+    assert tuple(pull_requests.strip().splitlines()) == PULL_REQUESTS
 
 
 def test_the_python_root_guide_adds_its_rows_and_rules() -> None:

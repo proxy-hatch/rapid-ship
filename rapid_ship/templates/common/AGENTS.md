@@ -24,7 +24,7 @@ Add a row for each directory guide.
 
 ## Rules
 
-- Keep each change inside its task's paths. advisory
+- Keep each change inside the scope you were asked to change. advisory
 - Prefer clear names, types, and simple control flow. advisory
 - Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. advisory
 - Delete commented-out code. advisory
@@ -39,6 +39,15 @@ Add a row for each directory guide.
 - Update comments with behaviour changes, and investigate existing constraint comments before removing them. advisory
 - Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
+
+## Pull requests
+
+- Run `./devctl check` and fix what it reports before you open a pull request.
+- With Agent identity on, push with `./devctl as worker push` and open the pull request with `./devctl as worker gh pr create`.
+- Review a change from a Session that did not write it. With Agent identity on, approve with `./devctl as reviewer gh pr review <number> --approve`, or request changes with `./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. Never approve a change you wrote.
+- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
+- Declare `Over the diff cap:` in the pull request body only after the owner accepted the overage.
+- Undo a merged change only with `git revert`.
 
 ## Shared language and decisions
 
