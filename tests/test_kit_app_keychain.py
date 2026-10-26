@@ -234,11 +234,17 @@ def test_a_recorded_app_whose_item_exists_is_used_as_it_is(
     assert out.endswith("Both Apps are recorded; ./devctl doctor confirms each installation.\n")
 
 
+@pytest.mark.parametrize("other_app_id", [None, 7])
 def test_a_recorded_app_with_no_key_here_says_to_import_one(
-    capsys: pytest.CaptureFixture[str],
+    other_app_id: int | None, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A developer whose repository records the Apps, with no key for them."""
+    """A developer whose repository records the Apps, with no key for them, or with only the key
+    of another App of each role, which the command never uses in place of a recorded App."""
     store = FakeStore()
+    if other_app_id is not None:
+        for role in ROLES:
+            name = keychain_service(role, other_app_id)
+            store.apps[name], store.keys[name] = StoredApp(other_app_id, f"x-rs-{role}"), KEYS[role]
     before = dict(store.apps)
     log: list[str] = []
     opened: list[str] = []
