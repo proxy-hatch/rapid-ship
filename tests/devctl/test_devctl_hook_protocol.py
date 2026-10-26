@@ -96,7 +96,7 @@ def test_a_path_through_a_symlink_keeps_the_link(tmp_path: Path) -> None:
     assert read_event("claude", payload).edits == (cwd / "link/x.txt",)
 
 
-@pytest.mark.parametrize("tool", WIRED_TOOLS)
+@pytest.mark.parametrize("tool", WIRED_TOOLS["claude"])
 def test_every_wired_tool_is_read_into_a_call_a_rule_can_match(tool: str) -> None:
     tool_input = {
         "command": "git status",
@@ -244,7 +244,7 @@ def test_an_unknown_harness_and_a_bad_usage_name_the_way_through(
 ) -> None:
     hook(monkeypatch, recorded(), "codex", "pre-tool")
     assert capsys.readouterr().err == (
-        "devctl hook: unknown Harness 'codex'; this devctl wires claude only\n"
+        "devctl hook: unknown Harness 'codex'; this devctl wires claude and agy\n"
     )
 
     hook(monkeypatch, recorded(), "claude")
@@ -268,6 +268,21 @@ def test_an_unreadable_directory_is_an_internal_error(
     err = capsys.readouterr().err
     assert err.startswith("devctl hook: internal error: [Errno 13] Permission denied: ")
     assert err.endswith("; the tool call goes through\n")
+
+
+def test_an_exception_inside_the_rules_is_an_internal_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def broken(*args: object, **kwargs: object) -> tuple[None, str]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("devctl.hook.decide", broken)
+
+    assert hook(monkeypatch, recorded(cwd=str(project(tmp_path).root)), "claude", "pre-tool") == 1
+    assert capsys.readouterr() == (
+        "",
+        "devctl hook: internal error: boom; the tool call goes through\n",
+    )
 
 
 def test_run_hook_judges_an_edit_by_its_linked_worktree(tmp_path: Path) -> None:

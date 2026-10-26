@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from devctl.doctor_items import Item
-from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HOOK_COMMAND, WIRED_TOOLS
+from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HOOK_COMMANDS, WIRED_TOOLS
 
 WIRING_FILE = ".claude/settings.json"
 _ITEM = "Harness wiring"
@@ -28,6 +28,7 @@ _QUOTES = re.compile(r"[\"']")
 _PLACEHOLDER = re.compile(r"\$\{[^}]*\}")
 # A command hook with either field set to true runs in the background (hooks reference).
 _BACKGROUND = ("async", "asyncRewake")
+HOOK_COMMAND = HOOK_COMMANDS["claude"]
 _PROGRAM, *_HOOK_ARGS = HOOK_COMMAND.split()
 # The shortest timeout that leaves the merge guard its budget after the devctl shim has started
 # uv and Python, which took 2.39 seconds in one measured cold run.
@@ -136,7 +137,9 @@ def wiring_problems(settings: object) -> list[str]:
         for entry in entries
         if any(_runs_the_hook(_mapping(hook)) for hook in _sequence(entry.get("hooks")))
     ]
-    unwired = [tool for tool in WIRED_TOOLS if not any(_covers(m, tool) for m in matchers)]
+    unwired = [
+        tool for tool in WIRED_TOOLS["claude"] if not any(_covers(m, tool) for m in matchers)
+    ]
     if unwired:
         problems.append(f"no PreToolUse hook runs {HOOK_COMMAND} for {', '.join(unwired)}")
     return problems
@@ -156,5 +159,5 @@ def wiring_item(root: Path, tracked: Sequence[str]) -> Item:
     problems = wiring_problems(settings)
     if problems:
         return Item("guardrails", _ITEM, "missing", f"{WIRING_FILE}: {'; '.join(problems)}")
-    detail = f"{WIRING_FILE} runs {HOOK_COMMAND} for {', '.join(WIRED_TOOLS)}"
+    detail = f"{WIRING_FILE} runs {HOOK_COMMAND} for {', '.join(WIRED_TOOLS['claude'])}"
     return Item("guardrails", _ITEM, "ok", detail)
