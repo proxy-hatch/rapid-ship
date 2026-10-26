@@ -209,8 +209,8 @@ def counted_lines(context: CheckContext, base: str, changes: Sequence[Change]) -
 def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
     """A problem when the count is over the cap and no overage is declared, and the note.
 
-    Whether a declared overage goes to the owner is the escalation list's business, not this
-    step's.
+    A declared overage passes with a note whatever the Mode: the step does not decide who merges
+    the pull request.
     """
     note = f"diff cap: {counted} of {DIFF_CAP:,} counted lines"
     if counted <= DIFF_CAP:
@@ -261,8 +261,8 @@ def _removals(
 ) -> tuple[list[str], list[str]]:
     """A problem for each undeclared removal and a note for each declared one, in removed order.
 
-    Whether a declared removal goes to the owner is the escalation list's business, not this
-    step's.
+    A declared removal passes with a note whatever the Mode: the step does not decide who merges
+    the pull request.
     """
     body = context.pr_body
     declared = {} if body is None else removed_test_declarations(body)[0]
@@ -370,5 +370,5 @@ class DiffStep:
             return blocked(self.name, str(error))
         over, note = _diff_cap(counted, context.pr_body)
         problems += over
-        notes.append(note)  # last, so a Worker sees the count after the Protected notes
+        notes.append(note)  # last, so the reader sees the count after the Protected notes
         return failed(self.name, *problems, *notes) if problems else passed(self.name, *notes)

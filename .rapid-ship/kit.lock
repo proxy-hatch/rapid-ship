@@ -106,7 +106,7 @@ sha256 = "72083a3a4a5563d658ac3bdca335f50a20ae302f7fe2b555fbf30f20cfbeac38"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "7602f785d56c8a5d87157074f46e2ea942e7ffd43bce6e3c59cb611b50c7eaf7"
+sha256 = "0c3c2667e09de402e85cf10b390f664f0660e53b4156ced09a36d8f510e16439"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
