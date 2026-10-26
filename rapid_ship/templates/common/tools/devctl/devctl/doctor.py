@@ -1,7 +1,7 @@
 """devctl doctor: report each item as ok, missing or unknown.
 
-This module re-exports the names that tests import from devctl.doctor, and the doctor_rules names
-that a test of rs-setup's ruleset is to import. No item checks a Harness's sign-in.
+This module re-exports the names that tests import from devctl.doctor. No item checks a Harness's
+sign-in.
 """
 
 from __future__ import annotations

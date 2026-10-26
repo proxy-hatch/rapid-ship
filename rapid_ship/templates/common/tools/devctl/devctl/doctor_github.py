@@ -204,7 +204,7 @@ def _installation_item(
     slug = found.get("app_slug")
     if slug != app.slug:
         # The merge guard finds the Reviewer App's approval by its slug, so a wrong one denies
-        # every agent merge; the metrics are to find agent pull requests by the Worker App's slug.
+        # every agent merge.
         shown = slug if isinstance(slug, str) else "unreadable"
         problems.append(f"the installed App's slug is {shown}, but {PROJECT} records {app.slug}")
     if problems:
