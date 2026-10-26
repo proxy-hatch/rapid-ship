@@ -90,9 +90,6 @@ class FakeStore:
     def exists(self, service: str) -> bool:
         return service in self.apps
 
-    def find(self, service: str) -> StoredApp | None:
-        return self.apps.get(service)
-
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
         if service in self.apps:
             raise AppSetupError(f"could not write Keychain item {service}")
@@ -518,10 +515,12 @@ def test_no_callback_times_out_with_exit_2(store: FakeStore, owner_get: OwnerGet
 def test_keychain_add_passes_the_key_on_stdin_only() -> None:
     security = FakeSecurity()
     pem = b"-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n"
-    MacKeychainStore(run=security).add("rapid-ship/worker-app", StoredApp(11, "o-rs-worker"), pem)
+    MacKeychainStore(run=security).add(
+        "rapid-ship/worker-app/11", StoredApp(11, "o-rs-worker"), pem
+    )
     assert ["security", "-i"] in security.argvs
     assert all(pem.hex() not in arg for argv in security.argvs for arg in argv)
-    assert MacKeychainStore(run=security).find("rapid-ship/worker-app") == StoredApp(
+    assert MacKeychainStore(run=security).find("rapid-ship/worker-app/11") == StoredApp(
         11, "o-rs-worker"
     )
 
@@ -530,7 +529,7 @@ def test_keychain_add_refuses_a_line_security_would_cut() -> None:
     security = FakeSecurity()
     with pytest.raises(AppSetupError, match="too long"):
         MacKeychainStore(run=security).add(
-            "rapid-ship/worker-app", StoredApp(11, "s"), b"-----BEGIN " + b"A" * 2100
+            "rapid-ship/worker-app/11", StoredApp(11, "s"), b"-----BEGIN " + b"A" * 2100
         )
     assert security.argvs == []
 

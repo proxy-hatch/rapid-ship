@@ -95,17 +95,15 @@ def test_the_key_is_read_from_the_item_of_the_app_that_github_records(
 
 
 @pytest.mark.parametrize(("role", "app_id"), [("worker", WORKER_ID), ("reviewer", REVIEWER_ID)])
-def test_a_key_kept_only_under_the_old_name_is_missing(
-    github: FakeGitHub, app_keys: AppKeys, role: Role, app_id: int
+def test_a_missing_key_says_how_to_import_it_before_any_github_call(
+    github: FakeGitHub, role: Role, app_id: int
 ) -> None:
-    # Plan 4 stored each key as rapid-ship/<role>-app; devctl reads only the name with the ID.
-    old = FakeKeychain({f"rapid-ship/{role}-app": app_keys[role][0]})
     with pytest.raises(KeychainMissing) as caught:
-        installation_token(role, "o/r", app_id, keychain=old, api_url=github.url)
+        installation_token(role, "o/r", app_id, keychain=FakeKeychain({}), api_url=github.url)
     assert str(caught.value) == (
-        f"Keychain item rapid-ship/{role}-app/{app_id} not found; run rapid-ship app, "
-        f"which re-stores a key kept under rapid-ship/{role}-app, "
-        f"or rapid-ship app --import-key {role}"
+        f"Keychain item rapid-ship/{role}-app/{app_id} not found; generate a private key in the "
+        f"App's settings on GitHub, then run rapid-ship app --import-key {role} with the key on "
+        "stdin"
     )
     assert github.calls == []
 
@@ -125,9 +123,9 @@ def test_missing_key_message_names_the_tagged_rapid_ship_command(
     assert run_guarded(read_key, root=tmp_path) == 2
     tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
     assert capsys.readouterr().err == (
-        f"devctl: Keychain item rapid-ship/worker-app/5376519 not found; run {tagged}, "
-        f"which re-stores a key kept under rapid-ship/worker-app, "
-        f"or {tagged} --import-key worker\n"
+        "devctl: Keychain item rapid-ship/worker-app/5376519 not found; generate a private key "
+        f"in the App's settings on GitHub, then run {tagged} --import-key worker with the key on "
+        "stdin\n"
     )
 
 

@@ -57,7 +57,7 @@ class AppError(DevctlError):
 class KeychainMissing(AppError):
     """The Keychain has no item for an App's key.
 
-    With the role, the message names the rapid-ship commands that store the key.
+    With the role, the message says how to import the key.
     """
 
     def __init__(self, service: str, role: Role | None = None) -> None:
@@ -70,10 +70,11 @@ class KeychainMissing(AppError):
         missing = f"Keychain item {self.service} not found"
         if self.role is None:
             return missing
-        # Plan 4 named the item without the App ID; `rapid-ship app` re-stores such a key.
+        # devctl reads only the Apps that [github] records, and rapid-ship app stores the key of
+        # a recorded App only with --import-key.
         return (
-            f"{missing}; run {app_command}, which re-stores a key kept under "
-            f"rapid-ship/{self.role}-app, or {app_command} --import-key {self.role}"
+            f"{missing}; generate a private key in the App's settings on GitHub, then run "
+            f"{app_command} --import-key {self.role} with the key on stdin"
         )
 
 
@@ -266,7 +267,7 @@ def guarded_message(error: Exception, root: Path | None) -> str:
 def run_guarded(action: Callable[[], int], *, root: Path | None = None) -> int:
     """Run a command's action. A known error goes to stderr, and the command exits 2.
 
-    With root, a missing Keychain item names the rapid-ship commands that store the key.
+    With root, the remedy for a missing Keychain item pins rapid-ship's version.
     """
     try:
         return action()

@@ -24,8 +24,9 @@ _GENERATED = frozenset(
     {".venv", "__pycache__", ".DS_Store"}
 )  # names skipped in every template tree
 _MANIFEST_KEYS = ("seeded", "new_project", "executable", "optional_skills", "variables")
-# Derived from owner when rendering, so a lock that predates it still renders. project.toml
-# reads code_owner = "" as unset, so an empty one stays "" instead of a commented placeholder.
+# Not one of the lock's variables: rendering always derives it from owner, its one source.
+# project.toml reads code_owner = "" as unset, so an empty one stays "" instead of a commented
+# placeholder.
 _CODE_OWNER = "code_owner"
 
 
