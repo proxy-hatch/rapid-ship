@@ -107,14 +107,7 @@ def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[st
             "reviewer_app_id": 0,
             "reviewer_app_slug": "",
         },
-        "escalation": {
-            "every_pr": True,
-            "kinds": [
-                "a pull request that removes a behavioural test",
-                "a pull request that declares Over the diff cap:",
-            ],
-            "revision_rounds": 3,
-        },
+        "escalation": {"every_pr": True},
         "kit": {"optional": [], "exclude": []},
         "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},
