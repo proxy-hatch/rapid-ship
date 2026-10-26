@@ -1,0 +1,110 @@
+# agy Wiring Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Run the Kit's Harness guardrails in agy, as in Claude Code: a seeded `.agents/hooks.json` that wires agy's `PreToolUse` event to `devctl hook agy pre-tool`, a protocol that answers in agy's format and never lets a failure of devctl's own block agy, doctor's item for that wiring, and the Protected set widened from `/.agents/skills/` to `/.agents/`. G5 is omitted for agy, because in `accept-edits` mode agy wrote the file without a prompt when a hook answered `ask`.
+
+**Architecture:** One PR, a plan 5 follow-up (backlog item PRO-155), on branch `agy-wiring`. devctl changes only in its template under `rapid_ship/templates/common/tools/devctl/devctl/`, and `uv run rapid-ship sync --in-place` vendors it. `hook_protocols.py` gains agy's event, answer and failure answer beside Claude Code's; `hook.py` passes the Harness through and skips G5 for agy; `doctor_wiring.py` gains the agy item, which also runs the wired command once on a probe event.
+
+**Tech Stack:** Python 3.12 standard library, pytest, agy 1.4.7 as the hook spike recorded it.
+
+**Spec:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 4 (Harness guardrails, the Protected set) and 6 (doctor, `devctl hook`). The [hook spike's record](../../trials/2026-10-21-hook-spike.md), its agy rows and [agy's interactive runs](../../trials/2026-10-21-hook-spike.md#agys-interactive-runs-pro-143), gives every agy fact this plan uses. Listed in the [plan index](2026-10-14-kit-and-setup.md) as a plan 5 follow-up.
+
+**Status:** planned on 2026-10-26, after the owner decided that day to wire agy before GA.
+
+## Global Constraints
+
+- Wiring, seeded at `.agents/hooks.json`: one hook named `devctl`, whose `PreToolUse` entry has the matcher `run_command|write_file|edit_file` and one command handler, `"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool`, with `"timeout": 600`. agy runs the hook in the folder that holds `hooks.json`, so the command finds the shim from git's top level. These are the tool names agy 1.4.7 sent; its hooks page names others, which no recorded event used.
+- agy's event has no `cwd`: the first of `workspacePaths` stands in for it. `run_command` gives `toolCall.args.CommandLine` as the shell command; `write_file` and `edit_file` give `toolCall.args.Path` as the edited path. Any other tool gives a call that no rule matches.
+- agy's answer is one line of JSON with exit 0: `{"decision": "deny", "reason": "<reason>"}`, or `{"decision": "allow"}` for no decision, which hands the call to agy's next hook or its own permission flow. The hook never answers `auto_approve`.
+- agy blocks the call on exit 1, exit 2 and a timeout. So for agy, every failure that `devctl hook` sees, a usage error, an event it cannot read and an exception included, writes one stderr line and answers `{"decision": "allow", "reason": "devctl hook: <message>"}` with exit 0: the call goes through, as it does in Claude Code. Failures before devctl runs, such as the shim's exit 127 or uv's exit 2, still block every wired call; doctor's agy item runs the hook to catch them.
+- G5 is omitted for agy. G1 to G4, G7, G8 and the merge guard apply.
+- Claude Code's protocol keeps its behaviour. An unknown or missing Harness still exits 1, because the hook cannot tell which protocol to answer in.
+- doctor's items: `Harness wiring` becomes `Claude Code wiring`, and `agy wiring` follows it, in the full doctor and in `--settings`.
+- Diff cap: the PR stays under 1,500 counted lines (Spec 1 section 5). If it would pass the cap, it stops after Task 3 and the rest moves to a second PR.
+- No comment, docstring, message or test name cites the spike, a spec, a plan or a decision.
+- Tests first. Each new test module's docstring starts `Offline:`.
+- Commits are conventional and end with `Co-Authored-By: <the model that writes the commit>`.
+
+## Review Focus
+
+1. **A failure of devctl's own blocks every agy call.** Inputs: bytes that are not JSON, an event without `toolCall` or `workspacePaths`, a wired tool without its argument, `devctl hook agy` without an event, an invalid `project.toml`, and an exception inside the rules. Expected: each exits 0 with an `allow` whose reason starts `devctl hook: `. Task 2's `test_the_agy_hook_always_exits_0_with_a_decision` pins it.
+2. **G5 asks where agy cannot.** Expected: an agy edit of a Protected path gets `allow`, while G4 still denies an edit of `.rapid-ship/kit.lock`, and Claude Code still asks. Task 2's `test_g5_does_not_run_for_agy` pins it.
+3. **The wiring and the protocol disagree on a tool.** Expected: the seed's matcher names each tool in `WIRED_TOOLS["agy"]`, and doctor reports a matcher that misses one. Tasks 2 and 3 pin it.
+4. **doctor runs a command from a tracked file.** Expected: doctor runs it only when its words are `<path>/devctl hook agy pre-tool` and nothing more, the same parse as the Claude Code item, plus `$(git rev-parse --show-toplevel)` as a program-word prefix.
+
+## Tasks
+
+### Task 1: This plan and the plan index
+
+- [ ] Write this plan, and add it to the plan index as a plan 5 follow-up.
+- [ ] Commit `docs: plan the agy wiring (PRO-155)`.
+
+### Task 2: agy's hook protocol
+
+**Files:** `devctl/hook_protocols.py`, `devctl/hook.py`; `.rapid-ship/exceptions.toml` (EX-30, the blind `except` in `hook_command`); `tests/devctl/fixtures/hooks/agy/*.json`, copied byte for byte from the record's agy events without their `agy-` prefix; `tests/devctl/test_devctl_hook_agy.py`; `tests/devctl/test_devctl_hook_protocol.py` and `tests/devctl/test_devctl_hook_rules.py`.
+
+**Interfaces:**
+
+```python
+# devctl/hook_protocols.py
+WiredHarness = Literal["claude", "agy"]
+WIRED_HARNESSES: tuple[WiredHarness, ...]
+WIRED_TOOLS: Mapping[WiredHarness, tuple[str, ...]]
+HOOK_COMMANDS: Mapping[WiredHarness, str]  # "devctl hook <harness> pre-tool"
+PROTECTED_ASK: frozenset[WiredHarness]  # the Harnesses that run G5: claude
+
+
+def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
+def answer(harness: WiredHarness, decision: Decision, reason: str) -> tuple[str, int]: ...
+def failure(harness: WiredHarness, message: str) -> tuple[str, int]: ...  # the call goes through
+
+
+# devctl/hook.py
+def run_hook(call, owner_get, clock=time.monotonic, *, protected_ask: bool = True): ...
+def decide(call, root, settings, branches, *, protected_ask: bool = True): ...
+```
+
+- [ ] **Step 1: failing tests.** Docstring `Offline: agy's hook protocol, from events agy 1.4.7 sent; no Session runs.`
+  - `test_read_event_normalises_each_recorded_agy_event`: `run-command.json` and `run-command-subagent.json` give `ToolCall("git status", (), /repo)`; `write-file.json` and `edit-file.json` give `ToolCall(None, (/repo/spike.txt,), /repo)`; `invoke-subagent.json` gives `ToolCall(None, (), /repo)`. `read_file` and `send_message` give an empty call too.
+  - A relative `Path` resolves against the first workspace path; every tool in `WIRED_TOOLS["agy"]` reads into a call a rule can match; a malformed event (not JSON, not an object, no `toolCall`, no `name`, `args` not an object, no `CommandLine`, no `Path`, no or empty `workspacePaths`, a relative workspace path) is a `ValueError`.
+  - `answer("agy", ...)`: a deny is one JSON line with its reason; no decision is `{"decision": "allow"}`; both exit 0.
+  - `test_each_rule_decides_through_the_agy_protocol`, through `cli.main(["hook", "agy", "pre-tool"])`: G1, G2, G3, G4, G7 and G8 deny with their prefixes, the merge guard denies `gh pr merge 1` under invalid settings, and `git status` gets `allow`.
+  - `test_g5_does_not_run_for_agy`: a `write_file` of `AGENTS.md` under `# /**/AGENTS.md @o` gets `allow` for agy and an ask for Claude Code; `decide(..., protected_ask=False)` still denies `kit.lock` with G4.
+  - `test_the_agy_hook_always_exits_0_with_a_decision`: the inputs of Review Focus 1, each exit 0 with one stderr line and an `allow` reason that starts `devctl hook: `.
+  - In `test_devctl_hook_protocol.py`: `WIRED_TOOLS` becomes `WIRED_TOOLS["claude"]`, the unknown Harness message names `claude and agy`, and an exception inside the rules exits 1 for Claude Code with one stderr line.
+- [ ] **Step 2: run** them; expected FAIL on the missing names.
+- [ ] **Step 3: implement.** `hook_command` catches every exception, since any traceback would block agy, and answers through `failure`.
+- [ ] **Step 4: run.** Format, check and sync; the hook tests pass. Status, fast check.
+- [ ] **Step 5: commit** `feat: answer agy's pre-tool hook with devctl hook agy pre-tool`.
+
+### Task 3: The seed, doctor's agy item and the Protected set
+
+**Files:** `rapid_ship/templates/common/.agents/hooks.json`; `rapid_ship/templates/kit.toml` (`seeded`); both CODEOWNERS templates and this repository's `.github/CODEOWNERS`, edited in place; `devctl/doctor_rules.py` (`PROTECTED_PATHS`); `devctl/doctor_wiring.py`, `devctl/doctor_local.py`, `devctl/doctor.py`; this repository's `.agents/hooks.json`, written by `sync`. Tests: `tests/devctl/test_devctl_doctor_wiring_agy.py`, `test_devctl_doctor_wiring.py`, `test_devctl_doctor_local_limits.py`, `test_devctl_doctor_settings.py`, `tests/test_kit_contents.py`.
+
+**Interfaces:** `agy_wiring_problems(hooks: object) -> list[str]` and `agy_wiring_item(root: Path, tracked: Sequence[str]) -> Item` in `doctor_wiring.py`, giving `Item("guardrails", "agy wiring", ...)`.
+
+The item is ok when `.agents/hooks.json` is tracked and valid JSON; a named hook that is not switched off (`"enabled"` absent or `true`) has a `PreToolUse` entry with a `command` handler whose words are `devctl`, or a path ending in `/devctl`, then `hook`, `agy` and `pre-tool`; its `timeout` is at least 360 seconds, where agy's default is 30; the matchers cover each tool in `WIRED_TOOLS["agy"]`, `""` or `*` covering all and any other matcher only by `re.fullmatch`, so it covers the tool whether agy anchors it or not; and that command, run with `/bin/sh -c` in `.agents/` on a probe `run_command` event for `git push --force`, exits 0 with a G2 deny. A file doctor cannot read, a probe that cannot start and one that does not finish in 30 seconds are unknown. Every other gap is missing.
+
+- [ ] **Step 1: failing tests.** `agy_wiring_problems` on the seed, `*`, `""`, a regular expression, a missing tool, a missing matcher, `"enabled": false`, a missing or short `timeout`, Claude Code's command, an unquoted `$(git rev-parse --show-toplevel)` and other shapes. The item: ok, untracked, invalid JSON, unreadable, a gap, a hook that exits 127, one that answers `allow`, one that times out, and its probe's argv, working directory and event. `test_devctl_doctor_settings.py` runs the real hook through a shim that starts this checkout's devctl, so `--settings` prints four ok items. The seed equals the tests' `SEED` in both stacks and is seeded; `PROTECTED` has `/.agents/`, which covers `.agents/hooks.json`.
+- [ ] **Step 2: run** them; expected FAIL.
+- [ ] **Step 3: implement**, `git add` the seed, then sync.
+- [ ] **Step 4: run** the doctor and Kit tests; `uv run rapid-ship status --strict` exits 0.
+- [ ] **Step 5: commit** `feat: seed agy's wiring, with doctor's agy wiring item and /.agents/ in the Protected set`.
+
+### Task 4: Documents
+
+- [ ] Spec 1 sections 4, 6, 10 and 11, its scope list and its Kit table describe the wiring as built, in place of the open decision; ARCHITECTURE.md, README.md, `tools/AGENTS.md`, `tests/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, `.agents/AGENTS.md` and the plan index's shared interfaces follow.
+- [ ] Commit `docs: describe the agy wiring as built`.
+
+### Task 5: Verification
+
+- [ ] Run `uv run pytest -q tests/devctl tests/test_kit_*.py`, `./devctl check --tier fast` and `uv run rapid-ship status --strict`, and record them below.
+
+### Task 6 (Owner step): the guardrails in agy
+
+- [ ] In a scratch repository that holds the wiring, in an agy lead Session in `accept-edits` mode and in a subagent it starts, the owner runs plan 5's Task 8 Step 4 list without the G5 edit and the Monitor line, and records each decision and message in a trial record. A difference is fixed before this PR merges.
+
+## Verification record
+
+Task 5 fills it. A blocked, skipped or simulated result is written as such, never as passed.
