@@ -523,6 +523,23 @@ def test_every_read_comes_before_any_change(capsys: pytest.CaptureFixture[str]) 
     )
 
 
+def test_a_key_that_cannot_be_read_stops_the_command_before_any_app_is_created(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The Worker App must be created. GitHub does not show the Reviewer App, and its item holds
+    no key. The key is read before the browser opens, so no App exists when the command stops."""
+    store = FakeStore()
+    store.apps[keychain_service("reviewer", 12)] = APPS["reviewer"]  # no key in the item
+    before = dict(store.apps)
+    log: list[str] = []
+    opened: list[str] = []
+    assert run(store, {}, log, opened) == 2
+    assert (store.apps, opened) == (before, [])
+    assert app_reads(log) == ["apps/o-rs-reviewer"]
+    err = capsys.readouterr().err
+    assert err == "rapid-ship: Keychain item rapid-ship/reviewer-app/12 not found\n"
+
+
 def test_a_recorded_apps_item_that_rapid_ship_did_not_write_is_used_as_it_is(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
