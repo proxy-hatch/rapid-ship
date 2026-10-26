@@ -196,7 +196,7 @@ sha256 = "9a5005a69b9b9cd08e5fa94f3e05dfdb1f35f1a46d78ae33d8057ac924ea6df6"
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
 kind = "managed"
-sha256 = "feab7ff6f3ca42d117ad8dcda5b79931e85eec0002c67134c9b6dc74653cf67d"
+sha256 = "4dc62d607d09d6bb0e5061b3ab6ac9815c2765ff3ec957ff8037fef5b4d99eb1"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
