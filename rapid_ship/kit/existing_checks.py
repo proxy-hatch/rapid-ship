@@ -1,8 +1,8 @@
 """The checks a repository already has, which rapid-ship init lists for rs-setup to combine with
 devctl's: tool settings, git hooks and workflows.
 
-It only reads. It opens a few files and asks git for two paths, and runs no project code and no
-hook. A file it cannot read is listed as "<path> (unreadable)" so that init still succeeds.
+It only reads, and runs no project code and no hook. A file it cannot read is listed as
+"<path> (unreadable)" so that init still succeeds.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ _HOOK_FILES = (".pre-commit-config.yaml", "lefthook.yml", "lefthook.yaml")
 # [tool:pytest] in setup.cfg and [pytest] in tox.ini.
 _SHARED_FILES = ("setup.cfg", "tox.ini")
 _TOOL_SECTIONS = frozenset({"mypy", "flake8", "tool:pytest", "pytest", "isort"})
-_SECTION = re.compile(r"^\[([^\]]+)\]", re.MULTILINE)  # at the start of a line, not indented
+_SECTION = re.compile(r"^\[([^\]]+)\]", re.MULTILINE)
 _PYPROJECT_TABLES = (
     ("tool", "ruff"),
     ("tool", "mypy"),

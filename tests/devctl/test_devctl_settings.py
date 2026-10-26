@@ -83,8 +83,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     )
 
 
-# devctl knows nothing about Providers (Spec 1 section 4): a [roster] table left from plan 4 is
-# refused whatever it holds.
+# devctl knows nothing about Providers, so it refuses a [roster] table whatever it holds.
 @pytest.mark.parametrize(
     "roster",
     [
@@ -161,8 +160,8 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     )
 
 
-# What each removed table's message says replaced it, or why nothing did (Spec 1 section 4),
-# written out so the test does not compare the code with itself.
+# What each removed table's message says replaced it, or why nothing did, written out so the
+# test does not compare the code with itself.
 SEVERAL_PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
 REPLACED_BY = {
     "agents": SEVERAL_PROVIDERS,
@@ -178,7 +177,7 @@ def test_every_removed_table_is_tested() -> None:
 
 
 def test_the_dispatch_message_claims_no_worker_cap() -> None:
-    # rapid-ship takes no notice of how many Sessions run (ADR 0004), so nothing caps Workers.
+    # rapid-ship takes no notice of how many Sessions run, so nothing caps Workers.
     assert "cap" not in REMOVED_TABLES["dispatch"]
 
 
@@ -247,7 +246,7 @@ def test_devctl_offers_the_optional_skills_of_its_kit() -> None:
 def test_kit_optional_names_only_the_kits_optional_skills(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A later Kit version offers optional skills; 0.2.0 offers none.
+    # This Kit version offers no optional skills, so the test supplies two.
     monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
     write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a"]\n')
     assert load_project(tmp_path).optional_skills == ("rs-a",)

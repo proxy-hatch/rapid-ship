@@ -1,7 +1,6 @@
 """The headless Claude Code Session that doctor --skills starts, and how it reads its output.
 
-The Session spends a little of the owner's quota, whatever the Provider, to ask which skills
-Claude Code loads. It runs Claude Code's cheapest model.
+The Session spends a little of the owner's quota, whatever the Provider.
 """
 
 from __future__ import annotations
@@ -12,8 +11,7 @@ from dataclasses import dataclass
 from devctl import process
 from devctl.process import ProcessResult
 
-# Claude Code's cheapest model, as the Checked facts of plan 4 (Doctor and Agent identity) record
-# it. That plan's live trial confirms it.
+# Claude Code's alias for its cheapest model.
 PROBE_MODEL = "haiku"
 PROBE_TIMEOUT_SECONDS = 120.0
 SKILLS_PROMPT = "List the name of every skill you can load, one name per line, and nothing else."
@@ -39,7 +37,7 @@ def skills_args() -> list[str]:
 
 
 def _events(stdout: str) -> list[dict[str, object]]:
-    """Each stdout line that is a JSON object, in order. Other lines are skipped."""
+    """Each stdout line that is a JSON object, in order."""
     found: list[dict[str, object]] = []
     for line in stdout.splitlines():
         try:

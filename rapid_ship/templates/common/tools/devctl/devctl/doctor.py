@@ -1,15 +1,7 @@
 """devctl doctor: report each item as ok, missing or unknown.
 
-doctor_local.py builds the items for this machine and repository, and doctor_github.py the GitHub
-items, which compare what they read with the settings in doctor_rules.py; doctor_skills.py adds
-the --skills items. doctor_items.py holds the types they share and the owner's one way to read
-GitHub. This module runs them, prints them and exits with the worst answer. It re-exports the
-names that tests, and plan 6's test of rs-setup's ruleset, import from devctl.doctor.
-
---settings is the quick read that each Session runs first unless it runs the full doctor (Spec 1
-section 6): git, the settings files and the Harness wiring, with no GitHub request.
-
-No item checks a Harness's sign-in (Spec 1 section 6).
+This module re-exports the names that tests import from devctl.doctor. No item checks a Harness's
+sign-in.
 """
 
 from __future__ import annotations
@@ -91,7 +83,7 @@ def doctor_command(args: argparse.Namespace) -> int:
             [item, settings_item(repo.root), wiring_item(repo.root, repo.tracked_files())]
         )
     project = load_project(repo.root)
-    # doctor reads the Apps only while Agent identity is on (Spec 1 section 6).
+    # doctor reads the Apps only while Agent identity is on.
     access = project_access(project) if project.agent_identity else None
     return run_doctor(DoctorContext(repo.root, project, gh_get, access), skills=args.skills)
 

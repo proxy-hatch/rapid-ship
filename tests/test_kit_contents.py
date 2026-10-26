@@ -1,4 +1,4 @@
-"""The packaged Kit's templates match spec 1, section 4 (offline)."""
+"""Offline: the packaged Kit's templates and the files they render."""
 
 import json
 import re
@@ -74,7 +74,7 @@ def test_the_spec_seeded_files_are_seeded(stack: Stack) -> None:
 
 @pytest.mark.parametrize("stack", STACKS)
 def test_the_claude_code_wiring_seed_is_spec_1s(stack: Stack) -> None:
-    # Spec 1 section 4's wiring, with no timeout: the merge guard's 300-second budget relies on
+    # The seed's PreToolUse hook sets no timeout: the merge guard's 300-second budget relies on
     # Claude Code's default of 600 seconds.
     assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
 
@@ -133,7 +133,6 @@ def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: 
     # devctl reads "" as unset; a placeholder there would fail every later devctl command.
     assert 'code_owner = ""' in lines
     assert not any("<owner>" in line or "<code_owner>" in line for line in lines)
-    # Spec 1 section 4's comment, directly above the key and below repository.
     comment = lines.index('code_owner = ""') - 1
     assert lines[comment] == CODE_OWNER_COMMENT
     assert lines[comment - 1] == 'repository = "octo/demo-app"'
@@ -164,14 +163,13 @@ def active(lines: list[str]) -> list[str]:
     return [line for line in lines if line.strip() and not line.startswith("#")]
 
 
-# Plan 4's doctor requires these in Flight: PROTECTED_PATHS, plus PYTHON_PROTECTED_PATHS for Python.
+# devctl doctor requires these in Flight: PROTECTED_PATHS, plus PYTHON_PROTECTED_PATHS for Python.
 PROTECTED = (
     "/.github/",
     "/.githooks/",
     "/devctl",
     "/tools/devctl/",
     "/.agents/skills/",
-    # Agent instructions: everything under .claude/, and every AGENTS.md and CLAUDE.md.
     "/.claude/",
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
@@ -343,7 +341,7 @@ SETTINGS_FIRST = (
     "- Run `./devctl doctor --settings` first in each Session, unless the Session runs the full "
     "`./devctl doctor`; it checks the settings files and asks GitHub nothing."
 )
-# Rules 2 to 13 of Spec 1 section 4, which carry the owner's comment rule of 2026-10-25.
+# The root guide's Rules on comments, workarounds, suppressions and removed tests, in order.
 COMMENT_RULES = (
     "Prefer clear names, types, and simple control flow.",
     "Add comments only when they convey a contract, rationale, invariant, or external constraint "
@@ -351,6 +349,8 @@ COMMENT_RULES = (
     "Delete commented-out code.",
     "Keep local explanations beside the relevant code and broader design reasoning in linked "
     "documentation.",
+    "Do not cite the document, plan or decision behind the code in a comment; documentation points "
+    "to code, not the reverse.",
     "A comment does not make a workaround acceptable. Fix the root cause within scope, or "
     "explicitly report the limitation.",
     "A necessary workaround must have a verified reason, appropriate validation, and a tracked "
@@ -400,8 +400,8 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
     assert all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
     statements = [re.sub(r" (enforced by: \S+|advisory)$", "", line[2:]) for line in bullets]
     assert [s for s in statements if s in COMMENT_RULES] == list(COMMENT_RULES)
-    # Spec section 3, "Who owns what": the guide says how a Kit file becomes the project's own,
-    # how to keep updates instead, and how to give a file back.
+    # The guide says how a Kit file becomes the project's own, how to keep updates instead,
+    # and how to give a file back.
     owned = next(line for line in bullets if "Kit-managed file" in line)
     for words in (
         "makes it this project's own and stops its Kit updates",
@@ -412,7 +412,6 @@ def test_root_guide_skeleton_follows_the_spec(stack: Stack, links: list[str]) ->
         assert words in owned
     assert re.findall(r"\]\(([^)]+)\)", guide) == links
     assert all(pointer in guide for pointer in POINTERS)
-    # Spec 1 section 6: each Session that does not run the full doctor runs --settings first.
     commands = guide.split("## Commands")[1].split("##")[0]
     assert commands.strip().splitlines()[0] == SETTINGS_FIRST
 
@@ -421,7 +420,7 @@ def test_the_python_root_guide_adds_its_rows_and_rules() -> None:
     python = text("python", "AGENTS.md").splitlines()
     (dead_code,) = [line for line in python if "`dead-code` false positive" in line]
     python.remove(dead_code)
-    # Spec 1 section 5, Exceptions: the forms that devctl reads, and those that only review catches.
+    # The dead-code Rule names the forms that devctl reads, and those that only review catches.
     for words in ("noqa: V<code>", "deptry: ignore[<code>]", "`ignore_names`", "whitelist"):
         assert words in dead_code
     rows = [line for line in python if "](src/AGENTS.md)" in line or "](tests/AGENTS.md)" in line]
@@ -464,7 +463,7 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
     features = text("agnostic", "docs/features/README.md")
     for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
         assert f"`{key}`" in features
-    # Plan 3's map check requires at least one entry point.
+    # devctl's map check requires at least one entry point.
     assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
@@ -507,7 +506,7 @@ def test_devctl_is_its_own_uv_workspace_and_its_versions_agree() -> None:
     lock = tomllib.loads(content(files["tools/devctl/uv.lock"]).decode())
     locked = {p["name"]: p.get("version") for p in lock["package"]}
     assert locked["devctl"] == version
-    # Plans 3 and 4 add dependencies. uv.lock records each under its normalized name.
+    # uv.lock records each dependency under its normalized name.
     declared = {
         re.sub(r"[-_.]+", "-", re.split(r"[\[<>=!~;\s]", requirement, maxsplit=1)[0]).lower()
         for requirement in project["project"]["dependencies"]
@@ -525,5 +524,5 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
 
 
 def test_askpass_is_written_executable() -> None:
-    # init and sync set the executable bit only for paths kit.toml lists (plan 2).
+    # init and sync set the executable bit only for paths kit.toml lists.
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable

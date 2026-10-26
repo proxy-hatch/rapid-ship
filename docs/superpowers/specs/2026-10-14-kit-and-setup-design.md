@@ -330,7 +330,7 @@ The root guide stays short, following upstream `writing-for-agents`:
 4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
 
-The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's comment rule of 2026-10-25: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it. The Python guide adds a `dead-code` Rule after rule 13, from section 5's Exceptions. It is `advisory`: `check:exceptions` fails an unmarked comment or item, but devctl cannot detect the forms that the Rule forbids.
+The skeleton seeds these Rules, in this order. Rules 2 to 14 carry the owner's comment rule of 2026-10-25, with the owner's clarification of 2026-10-26 that code does not cite the document behind it: one Rule for each of its clauses or for each check that enforces part of it. The suppression and removed-test Rules predate it. The Python guide adds a `dead-code` Rule after rule 14, from section 5's Exceptions. It is `advisory`: `check:exceptions` fails an unmarked comment or item, but devctl cannot detect the forms that the Rule forbids.
 
 | Rule | Marker |
 | --- | --- |
@@ -339,6 +339,7 @@ The skeleton seeds these Rules, in this order. Rules 2 to 13 carry the owner's c
 | Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. | `advisory` |
 | Delete commented-out code. | Python: `enforced by: check:lint` (Ruff `ERA001`). Agnostic: `advisory` |
 | Keep local explanations beside the relevant code and broader design reasoning in linked documentation. | `advisory` |
+| Do not cite the document, plan or decision behind the code in a comment; documentation points to code, not the reverse. | `advisory` |
 | A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. | `advisory` |
 | A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. | `advisory` |
 | Give each TODO its author and the issue that tracks it. | Python: `enforced by: check:lint` (Ruff `TD002`, `TD003`). Agnostic: `advisory` |

@@ -1,10 +1,8 @@
 """GitHub App keys, App JWTs, installation tokens and token-bearing git.
 
-Each App's private key lives in the macOS Keychain, in an item named for the role and the App's
-ID: rapid-ship/<role>-app/<App ID>. A command reads it, signs a short-lived JWT and mints one
-installation token, restricted to one repository and the App's permissions. Keys and tokens stay
-in memory: nothing here writes one to disk, puts one in argv or prints one. git receives a token
-only from askpass.py, through the environment of that one git command.
+Each installation token is restricted to one repository and the App's permissions. Keys and
+tokens stay in memory: nothing here writes one to disk, puts one in argv or prints one. git
+receives a token only from askpass.py, through the environment of that one git command.
 """
 
 from __future__ import annotations
@@ -31,7 +29,7 @@ from devctl.github.api import API_URL, GitHubApi, GitHubError, json_object
 from devctl.process import ProcessResult
 from devctl.settings import ProjectSettings, Role, SettingsError
 
-# Spec 1 section 3. Every token asks for exactly these, never the installation's whole grant.
+# Every token asks for exactly these, never the installation's whole grant.
 APP_PERMISSIONS: dict[Role, dict[str, str]] = {
     "worker": {
         "contents": "write",
@@ -206,7 +204,7 @@ def installation_token(
     api_url: str = API_URL,
 ) -> str:
     # One Keychain read and one JWT per mint. An item written by `security` trusts it, so
-    # the read shows no dialog, and any process the owner runs can read it (spec section 6).
+    # the read shows no dialog, and any process the owner runs can read it.
     app = _app_client(role, app_id, keychain, api_url)
     found = _installation(app, role, repository)
     installation_id = found.get("id")
@@ -299,8 +297,7 @@ def git_environment(token: str) -> dict[str, str]:
 
 def token_options(url: str) -> tuple[str, ...]:
     # -c http.extraHeader= clears only unscoped headers; a header scoped to this URL, as
-    # actions/checkout writes, survives it. A reset scoped to the exact URL clears both
-    # (Checked facts).
+    # actions/checkout writes, survives it. A reset scoped to the exact URL clears both.
     return (*askpass.GIT_TOKEN_OPTIONS, "-c", f"http.{url}.extraHeader=")
 
 

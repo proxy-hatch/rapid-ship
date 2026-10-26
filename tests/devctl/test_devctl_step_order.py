@@ -1,4 +1,4 @@
-"""Core steps appear in spec section 5's order for each stack."""
+"""The core steps, and their order, for each stack."""
 
 from __future__ import annotations
 

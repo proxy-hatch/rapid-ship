@@ -4,20 +4,16 @@ with its base.
 The base is the PR base in CI, or the merge base with the default branch locally. The head is
 the work tree, with untracked files that Git does not ignore.
 
-On the Python stack, the step reads the tests. A test is removed when it is present at the base
-and absent everywhere at the head. A test's identity is its name within its file (`test_x` or
-`TestA::test_x`), so a test moved to another file is not removed. Each removal must be declared
-under `Removed tests:` in the PR's Evidence section, and is classed unit when its path matches a
-`[tests] unit` glob, else behavioural.
+On the Python stack, a change fails when it removes a test that the PR's Evidence section does
+not declare, adds an assertion that cannot fail, or adds an autouse fixture to a conftest.py
+without an exception marker. A test is removed when it is present at the base and absent
+everywhere at the head. A test's identity is its name within its file (`test_x` or
+`TestA::test_x`), so a test moved to another file is not removed.
 
-A change also fails when it adds an assertion that cannot fail, or a new autouse fixture in a
-conftest.py without an exception marker.
-
-On every stack, the step lists the Protected paths the change touches, with each Corrections
-ledger entry it modifies or removes, and never fails on them: the merge guard enforces their
-approval (Spec 1 section 5, item 4). A change fails when it adds and removes more than
-DIFF_CAP counted lines, unless the PR's Evidence section declares the overage on a line
-starting `Over the diff cap:` with a reason. Every run notes the count.
+On every stack, a change fails when it adds and removes more than DIFF_CAP counted lines without
+a declared overage. The step lists the Protected paths the change touches and the Corrections
+ledger entries it modifies or removes, and never fails on them: the merge guard enforces their
+approval.
 """
 
 from __future__ import annotations
@@ -59,7 +55,7 @@ from devctl.repo import Repo, RepoError
 DIFF_CAP = 1500
 LOCK_FILES = frozenset({"uv.lock", "package-lock.json"})  # each stack's lock, at any depth
 
-_UNCOUNTED = (".md", ".txt", ".log")  # documentation and logs
+_UNCOUNTED = (".md", ".txt", ".log")
 _BINARY_PROBE = 8000  # Git reads a file with a NUL byte in its first 8,000 bytes as binary
 
 # What reading and parsing a test file raises for text that is not valid Python: bad syntax,
@@ -214,7 +210,7 @@ def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
     """A problem when the count is over the cap and no overage is declared, and the note.
 
     Whether a declared overage goes to the owner is the escalation list's business, not this
-    step's (Spec 1 section 5).
+    step's.
     """
     note = f"diff cap: {counted} of {DIFF_CAP:,} counted lines"
     if counted <= DIFF_CAP:
@@ -266,7 +262,7 @@ def _removals(
     """A problem for each undeclared removal and a note for each declared one, in removed order.
 
     Whether a declared removal goes to the owner is the escalation list's business, not this
-    step's (Spec 1 section 5).
+    step's.
     """
     body = context.pr_body
     declared = {} if body is None else removed_test_declarations(body)[0]

@@ -101,7 +101,7 @@ def test_a_sign_in_held_only_in_the_environment_is_ok(
     tool: str,
     variable: str,
 ) -> None:
-    # Spec 1 section 6: any sign-in method is ok, including one that the owner's shell exports.
+    # Any sign-in method is ok, including one that the owner's shell exports.
     name, signed_in, signed_out = SIGN_IN_ANSWERS[tool]
     install_signed_in_when(fake_harness, tool, variable, signed_in, signed_out)
     context = ctx()
@@ -128,8 +128,8 @@ def test_a_session_signed_in_only_through_the_environment_lists_its_skills(
     monkeypatch: pytest.MonkeyPatch,
     variable: str,
 ) -> None:
-    # Spec 1 section 6: doctor passes Claude Code the owner's sign-in, whatever its method, so a
-    # --skills Session signed in only through the owner's shell can list its skills.
+    # doctor passes Claude Code the owner's sign-in, whatever its method, so a --skills Session
+    # signed in only through the owner's shell can list its skills.
     signed_in = (CLAUDE_SKILL_LIST, "", 0)
     install_signed_in_when(fake_harness, "claude", variable, signed_in, NOT_SIGNED_IN)
     name = "skills (claude)"

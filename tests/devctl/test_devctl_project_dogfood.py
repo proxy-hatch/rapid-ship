@@ -1,8 +1,6 @@
 """Integration test: needs network access (uv, pip-audit, Python 3.12) and gitleaks on PATH.
 
-After a template edit and `uv run rapid-ship sync --in-place`, the vendored devctl carries the
-edit, the seeded devctl_project does not, and ./devctl check still runs this repository's own
-steps. Everything runs in a copy of the work tree, so the checkout is never written.
+Everything runs in a copy of the work tree, so the checkout is never written.
 """
 
 from __future__ import annotations

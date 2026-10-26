@@ -1,21 +1,5 @@
 """rapid-ship app: find or create the owner's Worker and Reviewer Apps, and print how to install
-them.
-
-A repository's owner is a user or an organisation, and a private App installs only on its owner's
-repositories. A user's repository is refused unless gh is signed in as that user. An
-organisation's Apps are created through its own manifest flow, which only its admins can run: any
-member can use Apps that exist, and an App is created only when gh's login is an admin.
-
-For each role, the command uses the App that .rapid-ship/project.toml records, else an App of
-the repository's owner whose key the Keychain holds, else it creates the App through GitHub's
-manifest flow (app_flow.py). The command creates only the Apps that do not exist yet.
-GitHub shows the owner's gh no private App, so for an item whose App GitHub does not show, GET
-/app under a token that the item's key signs tells which account owns the App. One machine can
-hold the keys of a developer's own Apps and their organisation's, so another account's App is
-skipped. An item whose key cannot tell stops the command instead: rapid-ship cannot tell whether
-that App exists.
-The Keychain keeps each key in an item named by App ID (app_keychain.py).
-"""
+them."""
 
 from __future__ import annotations
 
@@ -176,7 +160,6 @@ def _target(repository: str, owner_get: OwnerGet) -> _Target:
             f"GitHub's record of {repository} names an owner that is neither a user nor an "
             "organisation"
         )
-    # A private App installs only on the account that owns it.
     user = as_record(owner_get("user")).get("login")
     if not isinstance(user, str):
         raise AppSetupError("GitHub's record of your account has no login")

@@ -46,7 +46,7 @@ def test_init_skips_a_seeded_file_that_is_a_symlink(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # A common layout in agent repositories. init, status and sync never write or read it.
+    # A common layout in agent repositories.
     (git_repo / "AGENTS.md").write_text("# Ours\n")
     (git_repo / "CLAUDE.md").symlink_to("AGENTS.md")
     commit_all(git_repo)

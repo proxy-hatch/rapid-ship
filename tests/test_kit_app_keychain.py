@@ -2,10 +2,8 @@
 and GitHub.
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of the
-repository's owner whose key the Keychain holds, else it creates one. GitHub shows gh no private
-App, even its owner's, so for an item whose App GitHub does not show, GET /app under a token that
-the item's key signs tells whose App it is. An item whose key cannot tell stops the command
-before it creates anything. No test reads the real Keychain or contacts GitHub.
+repository's owner whose key the Keychain holds, else it creates one. No test reads the real
+Keychain or contacts GitHub.
 """
 
 import html
@@ -40,8 +38,8 @@ from rapid_ship.app_keychain import (
 from rapid_ship.github_app import recorded_apps, run_app
 
 ROLES = ("worker", "reviewer")
-# The owner's private Apps, as OWNER_READS has them, and a stand-in for each key: rapid-ship
-# never parses a key.
+# The owner's private Apps, as OWNER_READS has them, and a PEM-shaped stand-in for each key,
+# which cannot sign a token; a test whose key must sign one uses rsa_key.
 APPS = {"worker": StoredApp(11, "o-rs-worker"), "reviewer": StoredApp(12, "o-rs-reviewer")}
 KEYS = {
     role: f"-----BEGIN RSA PRIVATE KEY-----\n{role}\n-----END RSA PRIVATE KEY-----\n".encode()
@@ -427,8 +425,6 @@ def test_an_app_github_shows_as_the_owners_is_used_beside_an_item_it_does_not_sh
 
 
 def test_keychain_apps_that_github_does_not_show_as_the_owners_are_skipped() -> None:
-    """Apps that GitHub, or an item's own key, shows as another account's are skipped, and the
-    owner's are created."""
     others = {
         "rapid-ship/worker-app/21": StoredApp(21, "u-rs-worker"),  # another account's App
         "rapid-ship/worker-app/23": StoredApp(23, "o-rs-worker"),  # its slug is App 11's now

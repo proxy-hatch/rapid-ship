@@ -73,7 +73,7 @@ include_external_packages = true   # the forbidden contract names pytest, an ins
 name = "Layers"
 type = "layers"
 containers = ["{{package}}"]
-# Optional layers, in parentheses, until Plan names the real ones.
+# Optional layers, in parentheses, until the project's architecture names the real ones.
 layers = ["(entrypoints)", "(services)", "(domain)"]
 
 [[tool.importlinter.contracts]]

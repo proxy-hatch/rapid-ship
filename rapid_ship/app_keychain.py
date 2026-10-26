@@ -1,10 +1,6 @@
 """rapid-ship app's Keychain items, and the process runner and error that the command shares.
 
-Each App's private key is a generic-password item named rapid-ship/<role>-app/<App ID>, with the
-App ID as its account and the slug as its comment. The key reaches `security` on stdin: it is
-never written to disk, put in argv or printed. devctl reads the item back with the same tool.
-rapid_ship may not import devctl, so keychain_service repeats devctl's, and a test keeps the two
-equal.
+A key reaches `security` on stdin: it is never written to disk, put in argv or printed.
 """
 
 from __future__ import annotations
@@ -64,7 +60,8 @@ def run_command(
 def keychain_service(role: str, app_id: int) -> str:
     """The Keychain item that holds the key of the role's App with app_id.
 
-    The ID in the name lets one machine hold the keys of several Apps for one role.
+    The ID in the name lets one machine hold the keys of several Apps for one role. devctl
+    reads the item by this name; rapid_ship may not import devctl, so a test keeps the two equal.
     """
     return f"rapid-ship/{role}-app/{app_id}"
 
@@ -136,7 +133,7 @@ class MacKeychainStore:
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
         # The key travels as hex on stdin, never in argv. Without -U an existing item is never
         # replaced. Without -T the item trusts /usr/bin/security alone, so devctl reads it with
-        # no dialog, and so can any process the owner runs (spec section 6).
+        # no dialog, and so can any process the owner runs.
         line = (
             f"add-generic-password -s {service} -a {app.app_id} -j {app.slug} "
             f"-X {private_key.hex()}\n"

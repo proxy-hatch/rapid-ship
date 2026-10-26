@@ -25,7 +25,6 @@ KIT_FILE_LOCK = (
 
 
 def setup(workspace: Workspace, source: str, *entries: tuple[str, str, str]) -> StepResult:
-    """Run the step with `source` in src/app/run.py."""
     workspace.write(".rapid-ship/kit.lock", 'kit_version = "0.2.0"\nstack = "python"\n')
     workspace.write("src/app/run.py", source)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
@@ -90,7 +89,7 @@ def test_unknown_id_fails(workspace: Workspace) -> None:
 
 
 def test_invalid_exceptions_file_blocks_the_step(workspace: Workspace) -> None:
-    # Plan 2's load_exceptions rejects blank fields, malformed IDs and repeated IDs.
+    # EX-1 is listed twice, which load_exceptions rejects.
     result = setup(
         workspace, "x = 1\n", ("EX-1", "src/app/run.py", "E501"), ("EX-1", "src/app/run.py", "S603")
     )

@@ -2,20 +2,8 @@
 
 The pull request body needs an `## Evidence` section with a command and its result, and a
 `Not covered:` line. The section may also list removed tests under `Removed tests:`, and may
-hold a line starting `Over the diff cap:` with the reason for an overage the owner accepted. The
-diff step reads both through `removed_test_declarations` and `over_cap_reason`.
-
-    ## Evidence
-
-    - `./devctl check`: exit 0; every step passed except evidence, not applicable
-    - **Before:** test_parse_dates failed. **After:** it passes.
-
-    Removed tests:
-    - `tests/test_flags.py::test_legacy_flag`: the flag was deleted in this PR
-
-    Over the diff cap: a generated parser, which the owner accepted
-
-    Not covered: behaviour on Windows.
+hold a line starting `Over the diff cap:` with the reason for an overage the owner accepted.
+The diff step reads both through `removed_test_declarations` and `over_cap_reason`.
 
 Everything is read from the section only, with fenced code blanked, except a fenced transcript
 that starts with `$ `, which counts as a command and its output.

@@ -60,9 +60,8 @@ def copy_work_tree(repo: Repo, target: Path) -> None:
 class DistributionStep:
     """Build the wheel and sdist in a copy of the work tree, then run the distribution smoke.
 
-    scripts/smoke_distribution.py checks that the wheel ships every template, installs it in
-    isolation and runs rapid-ship in scratch projects. It uses only the standard library, so it
-    runs with devctl's Python. The copy keeps dist/ out of the checkout.
+    scripts/smoke_distribution.py uses only the standard library, so it runs with devctl's
+    Python. The copy keeps dist/ out of the checkout.
     """
 
     name = "distribution"

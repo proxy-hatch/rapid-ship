@@ -1,4 +1,4 @@
-"""Offline: Claude Code's hook protocol, from events recorded in the hook spike; no Session runs."""
+"""Offline: Claude Code's hook protocol, from recorded Claude Code events; no Session runs."""
 
 from __future__ import annotations
 

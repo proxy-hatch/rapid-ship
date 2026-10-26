@@ -44,7 +44,7 @@ def project_settings(**changes: object) -> ProjectSettings:
 
 
 def skill_text(name: str) -> str:
-    """A SKILL.md that satisfies map rule 7 for the skill directory `name`."""
+    """A SKILL.md that names the skill directory `name` and has a description."""
     return f"---\nname: {name}\ndescription: Use when testing devctl.\n---\n# {name}\n"
 
 
@@ -68,7 +68,8 @@ class Workspace:
         return target
 
     def root_guide(self, text: str = "# Root\n") -> None:
-        """Write AGENTS.md with map rule 8's two links on its first line, and both documents."""
+        """Write AGENTS.md with links to README.md and ARCHITECTURE.md on its first line, and
+        write both documents."""
         first, _, rest = text.partition("\n")
         self.write(
             "AGENTS.md", f"{first} [README](README.md) [Architecture](ARCHITECTURE.md)\n{rest}"

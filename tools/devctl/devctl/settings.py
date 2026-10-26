@@ -20,8 +20,7 @@ Role = Literal["worker", "reviewer"]
 Stack = Literal["python", "agnostic"]
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 _PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
-# Tables devctl refuses, and what replaced each or why nothing did (Spec 1 section 4): [roster]
-# since the owner's decision of 2026-10-20, the others since the re-scope of 2026-10-16.
+# Tables devctl refuses, and what replaced each or why nothing did.
 REMOVED_TABLES = {
     "agents": _PROVIDERS,
     "dispatch": "rapid-ship no longer starts Workers; delete the table",
@@ -67,7 +66,7 @@ class SettingsError(Exception):
 @dataclass(frozen=True)
 class App:
     id: int  # [github] <role>_app_id; 0 in the file means unset
-    slug: str  # [github] <role>_app_slug; Spec 3 matches agent PR authors against it
+    slug: str  # [github] <role>_app_slug
 
 
 @dataclass(frozen=True)

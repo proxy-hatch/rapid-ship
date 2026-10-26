@@ -1,6 +1,4 @@
-"""parse_level turns text into a Level, or stops with a UsageError.
-
-mypy checks this file, so the assert_type call below holds parse_level to returning a
+"""mypy checks this file, so the assert_type call below holds parse_level to returning a
 Level, not a str (docs/patterns/python-input-validation.md).
 """
 
