@@ -28,6 +28,8 @@ from devctl.doctor_rules import ADMIN_ROLE_ID as ADMIN_ROLE_ID
 from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID as GITHUB_ACTIONS_APP_ID
 from devctl.doctor_rules import PROTECTED_PATHS as PROTECTED_PATHS
 from devctl.doctor_rules import PYTHON_PROTECTED_PATHS as PYTHON_PROTECTED_PATHS
+from devctl.doctor_rules import CodeownersError as CodeownersError
+from devctl.doctor_rules import codeowners_error_problems as codeowners_error_problems
 from devctl.doctor_rules import codeowners_problems as codeowners_problems
 from devctl.doctor_rules import installation_problems as installation_problems
 from devctl.doctor_rules import ruleset_problems as ruleset_problems

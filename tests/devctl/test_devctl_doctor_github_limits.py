@@ -175,9 +175,13 @@ def test_codeowners_is_read_at_the_default_branch_whatever_its_name(
     recorded.serve(REPOSITORY, {**fixture("repository.json"), "default_branch": "release/1"})
     release = "repos/o/r/contents/.github/CODEOWNERS?ref=release/1"
     recorded.serve(release, fixture("codeowners.json"))
+    release_errors = "repos/o/r/codeowners/errors?ref=release/1"
+    recorded.serve(release_errors, {"errors": []})
     assert named(ctx_github, "CODEOWNERS").status == "ok"
     assert release in recorded.paths
+    assert release_errors in recorded.paths
     assert CODEOWNERS not in recorded.paths
+    assert "repos/o/r/codeowners/errors?ref=main" not in recorded.paths
 
 
 @pytest.mark.parametrize("served", [OwnerReadError(None, "gh could not start"), [], {}])

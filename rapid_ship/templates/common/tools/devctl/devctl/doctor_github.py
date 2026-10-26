@@ -14,7 +14,13 @@ from collections.abc import Callable, Mapping
 from urllib.parse import quote
 
 from devctl.doctor_items import DoctorContext, Item, OwnerReadError, Status
-from devctl.doctor_rules import codeowners_problems, installation_problems, ruleset_problems
+from devctl.doctor_rules import (
+    CodeownersError,
+    codeowners_error_problems,
+    codeowners_problems,
+    installation_problems,
+    ruleset_problems,
+)
 from devctl.github.api import GitHubError, json_list, json_object
 from devctl.github.app import (
     AppError,
@@ -24,6 +30,7 @@ from devctl.github.app import (
     guarded_message,
     installation,
 )
+from devctl.process import first_line
 from devctl.settings import PROJECT, App, Role
 
 PLAN_LIMIT = "Upgrade to GitHub Pro"  # GitHub's 403 for rulesets on a private repository
@@ -115,6 +122,22 @@ def decoded_contents(contents: Mapping[str, object]) -> str:
         raise GitHubError(None, "the CODEOWNERS contents are not UTF-8 text") from None
 
 
+def _codeowners_errors(reply: Mapping[str, object]) -> list[CodeownersError]:
+    """The errors in GitHub's reply to GET /repos/{o}/{r}/codeowners/errors. Raises GitHubError."""
+    found: list[CodeownersError] = []
+    for entry in json_list(reply.get("errors"), "the CODEOWNERS errors"):
+        error = json_object(entry, "a CODEOWNERS error")
+        line, kind = error.get("line"), error.get("kind")
+        if isinstance(line, bool) or not isinstance(line, int):
+            raise GitHubError(None, "a CODEOWNERS error has no line number")
+        if not isinstance(kind, str) or not first_line(kind):
+            raise GitHubError(None, "a CODEOWNERS error has no kind")
+        suggestion = error.get("suggestion")
+        shown = first_line(suggestion) if isinstance(suggestion, str) else ""
+        found.append(CodeownersError(line, first_line(kind), shown or None))
+    return found
+
+
 def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, object]) -> Item:
     name = "CODEOWNERS"
     # An organisation cannot be a code owner, so the repository's owner is never the default.
@@ -123,19 +146,34 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
         detail = f'set [github] code_owner in {PROJECT}: "@login" or "@organisation/team"'
         return _github(name, "missing", detail)
     default = _field(repo, "default_branch")
+    ref = quote(default, safe="/")
     # GitHub reads CODEOWNERS from the base branch, so that is the file doctor reads.
-    path = f"repos/{repository}/contents/.github/CODEOWNERS?ref={quote(default, safe='/')}"
+    path = f"repos/{repository}/contents/.github/CODEOWNERS?ref={ref}"
     try:
         text = decoded_contents(json_object(ctx.owner_get(path), "the CODEOWNERS contents"))
     except OwnerReadError as error:
         if error.status == 404:
             return _github(name, "missing", f".github/CODEOWNERS is not on {default}")
         return _unreadable(name, ".github/CODEOWNERS", error)
-    every_pr = ctx.project.escalation.every_pr
-    problems = codeowners_problems(text, every_pr, code_owner, ctx.project.stack)
+    every_pr, stack = ctx.project.escalation.every_pr, ctx.project.stack
+    problems = codeowners_problems(text, every_pr, code_owner, stack)
     if problems:
         return _github(name, "missing", "; ".join(problems))
-    return _github(name, "ok", f".github/CODEOWNERS on {default} matches {_mode(every_pr)}")
+    # The text cannot show whether GitHub accepts each owner: a login needs write access to the
+    # repository, and a team must also exist and be visible.
+    try:
+        reply = ctx.owner_get(f"repos/{repository}/codeowners/errors?ref={ref}")
+    except OwnerReadError as error:
+        return _unreadable(name, "GitHub's CODEOWNERS errors", error)
+    errors = _codeowners_errors(json_object(reply, "the CODEOWNERS errors reply"))
+    problems = codeowners_error_problems(errors, text, every_pr, stack)
+    if problems:
+        return _github(name, "missing", "; ".join(problems))
+    detail = (
+        f".github/CODEOWNERS on {default} matches {_mode(every_pr)}, and GitHub reports no error "
+        "on the lines doctor checks"
+    )
+    return _github(name, "ok", detail)
 
 
 def _delete_branch_item(repo: Mapping[str, object]) -> Item:
