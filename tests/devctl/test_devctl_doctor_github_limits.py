@@ -315,7 +315,7 @@ def test_a_github_error_makes_the_app_items_unknown(
     assert items["ruleset"].status == "ok"
 
 
-def test_a_missing_key_names_the_command_that_creates_it(
+def test_a_missing_key_names_the_command_that_imports_it(
     ctx_github: MakeContext, keychain_without_reviewer: FakeKeychain
 ) -> None:
     items = by_name(github_items(ctx_github(keychain=keychain_without_reviewer)))
