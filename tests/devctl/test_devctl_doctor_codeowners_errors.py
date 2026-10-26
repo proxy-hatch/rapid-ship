@@ -194,3 +194,21 @@ def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
         f"GitHub reports Unknown owner on line {devctl_line}"
     ]
     assert codeowners_error_problems([], WALK, True, "agnostic") == []
+
+
+@pytest.mark.parametrize("separator", ["\x0c", "\x1c", "\x85", "\u2028", "\u2029"])
+def test_only_a_newline_ends_a_codeowners_line(separator: str) -> None:
+    """Lines are numbered by newline, as git numbers them. Python's str.splitlines would also end
+    one at the separator and number the * line 3."""
+    text = f"# Walk{separator}# note\n* {TEAM}\n"
+    unknown = [CodeownersError(2, "Unknown owner", "x")]
+    assert codeowners_error_problems(unknown, text, True, "agnostic") == [
+        "GitHub reports Unknown owner on line 2: x"
+    ]
+
+
+def test_crlf_line_ends_keep_the_line_numbers() -> None:
+    unknown = [CodeownersError(2, "Unknown owner", "x")]
+    assert codeowners_error_problems(unknown, WALK.replace("\n", "\r\n"), True, "agnostic") == [
+        "GitHub reports Unknown owner on line 2: x"
+    ]

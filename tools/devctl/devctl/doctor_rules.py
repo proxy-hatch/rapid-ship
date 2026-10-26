@@ -241,7 +241,8 @@ def _active_lines(text: str) -> list[_Line]:
     active.
     """
     lines: list[_Line] = []
-    for number, raw in enumerate(text.splitlines(), start=1):
+    # Only a newline ends a line, as in git; str.splitlines also ends one at \f, \x85 or U+2028.
+    for number, raw in enumerate(text.split("\n"), start=1):
         line = _COMMENT.sub("", raw.strip())
         if line and not line.startswith("#"):
             pattern, *owners = line.split()

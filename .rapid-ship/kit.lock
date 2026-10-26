@@ -211,7 +211,7 @@ sha256 = "eeecefeef9cdc041631c3eb22dac6193dae8f533bf223027ff60dd34537f6247"
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "af7391f1bf5dcaaacb553ae3fe26e677e711ad4bf230a5c5dfaaafd61067b466"
+sha256 = "273b65a55156535b5b0c6e65d7ea40742a1e08cc3068fd59716620c7072fda6e"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
