@@ -29,6 +29,7 @@ UNKNOWN_TEAM_SUGGESTION = (
 # the visible team had no access to the repository; the team and the line are this file's.
 UNKNOWN_TEAM = {"line": 2, "kind": "Unknown owner", "suggestion": UNKNOWN_TEAM_SUGGESTION}
 FLIGHT = "".join(f"/{path} {TEAM}\n" for path in PROTECTED_PATHS)
+ON_MAIN = "of .github/CODEOWNERS on main"
 
 
 def contents(text: str) -> dict[str, object]:
@@ -63,9 +64,24 @@ def test_a_team_that_does_not_exist_or_has_no_write_access_is_missing(
     item = codeowners_item(owned_by(ctx_github, TEAM))
     assert (item.status, item.detail) == (
         "missing",
-        f"GitHub reports Unknown owner on line 2: {UNKNOWN_TEAM_SUGGESTION}",
+        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
     )
     assert ERRORS in recorded.paths
+
+
+def test_the_detail_names_the_file_and_the_branch_that_github_read(
+    ctx_github: MakeContext, recorded: RecordedOwner
+) -> None:
+    repository = recorded("repos/o/r")
+    assert isinstance(repository, dict)
+    recorded.serve("repos/o/r", {**repository, "default_branch": "release/1"})
+    recorded.serve("repos/o/r/contents/.github/CODEOWNERS?ref=release/1", contents(WALK))
+    recorded.serve("repos/o/r/codeowners/errors?ref=release/1", {"errors": [UNKNOWN_TEAM]})
+    item = codeowners_item(owned_by(ctx_github, TEAM))
+    assert item.detail == (
+        "GitHub reports Unknown owner on line 2 of .github/CODEOWNERS on release/1: "
+        f"{UNKNOWN_TEAM_SUGGESTION}"
+    )
 
 
 def test_a_team_with_write_access_is_ok(ctx_github: MakeContext, recorded: RecordedOwner) -> None:
@@ -90,7 +106,7 @@ def test_a_login_that_github_does_not_know_is_missing(
     item = codeowners_item(owned_by(ctx_github, "@octocat"))
     assert (item.status, item.detail) == (
         "missing",
-        f"GitHub reports Unknown owner on line 1: {suggestion}",
+        f"GitHub reports Unknown owner on line 1 {ON_MAIN}: {suggestion}",
     )
 
 
@@ -100,7 +116,10 @@ def test_an_error_without_a_suggestion_names_its_kind_and_line(
     recorded.serve(CODEOWNERS, contents(WALK))
     recorded.serve(ERRORS, {"errors": [{"line": 2, "kind": "Invalid owner", "suggestion": None}]})
     item = codeowners_item(owned_by(ctx_github, TEAM))
-    assert (item.status, item.detail) == ("missing", "GitHub reports Invalid owner on line 2")
+    assert (item.status, item.detail) == (
+        "missing",
+        f"GitHub reports Invalid owner on line 2 {ON_MAIN}",
+    )
 
 
 def test_in_flight_only_errors_on_protected_lines_count(
@@ -117,7 +136,7 @@ def test_in_flight_only_errors_on_protected_lines_count(
     item = codeowners_item(context)
     assert (item.status, item.detail) == (
         "missing",
-        f"GitHub reports Unknown owner on lines 1 and 13: {UNKNOWN_TEAM_SUGGESTION}",
+        f"GitHub reports Unknown owner on lines 1 and 13 {ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
     )
 
 
@@ -131,8 +150,8 @@ def test_an_error_on_every_protected_line_is_reported_once(
     item = codeowners_item(owned_by(ctx_github, TEAM, every_pr=False))
     assert (item.status, item.detail) == (
         "missing",
-        "GitHub reports Unknown owner on lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13: "
-        f"{UNKNOWN_TEAM_SUGGESTION}",
+        "GitHub reports Unknown owner on lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13 "
+        f"{ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
     )
 
 
@@ -194,8 +213,8 @@ def test_a_reply_not_in_githubs_shape_leaves_the_item_unknown(
 
 def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
     walk = [CodeownersError(1, "Unknown owner", None), CodeownersError(2, "Unknown owner", "x")]
-    assert codeowners_error_problems(walk, WALK, True, "agnostic") == [
-        "GitHub reports Unknown owner on line 2: x"
+    assert codeowners_error_problems(walk, WALK, True, "agnostic", "main") == [
+        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
     ]
     # In Flight the last line for a path is the one GitHub applies, so only that line counts.
     overridden = f"/devctl @o/old\n{FLIGHT}"
@@ -204,10 +223,10 @@ def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
         CodeownersError(1, "Unknown owner", None),
         CodeownersError(devctl_line, "Unknown owner", None),
     ]
-    assert codeowners_error_problems(errors, overridden, False, "agnostic") == [
-        f"GitHub reports Unknown owner on line {devctl_line}"
+    assert codeowners_error_problems(errors, overridden, False, "agnostic", "main") == [
+        f"GitHub reports Unknown owner on line {devctl_line} {ON_MAIN}"
     ]
-    assert codeowners_error_problems([], WALK, True, "agnostic") == []
+    assert codeowners_error_problems([], WALK, True, "agnostic", "main") == []
 
 
 def test_errors_with_one_kind_and_suggestion_are_one_problem_in_line_order() -> None:
@@ -220,11 +239,11 @@ def test_errors_with_one_kind_and_suggestion_are_one_problem_in_line_order() -> 
         CodeownersError(4, "Invalid owner", "a"),
         CodeownersError(6, "Invalid owner", None),
     ]
-    assert codeowners_error_problems(errors, FLIGHT, False, "agnostic") == [
-        "GitHub reports Unknown owner on lines 2, 3 and 5: a",
-        "GitHub reports Unknown owner on line 3: b",
-        "GitHub reports Invalid owner on line 4: a",
-        "GitHub reports Invalid owner on line 6",
+    assert codeowners_error_problems(errors, FLIGHT, False, "agnostic", "main") == [
+        f"GitHub reports Unknown owner on lines 2, 3 and 5 {ON_MAIN}: a",
+        f"GitHub reports Unknown owner on line 3 {ON_MAIN}: b",
+        f"GitHub reports Invalid owner on line 4 {ON_MAIN}: a",
+        f"GitHub reports Invalid owner on line 6 {ON_MAIN}",
     ]
 
 
@@ -234,13 +253,14 @@ def test_only_a_newline_ends_a_codeowners_line(separator: str) -> None:
     one at the separator and number the * line 3."""
     text = f"# Walk{separator}# note\n* {TEAM}\n"
     unknown = [CodeownersError(2, "Unknown owner", "x")]
-    assert codeowners_error_problems(unknown, text, True, "agnostic") == [
-        "GitHub reports Unknown owner on line 2: x"
+    assert codeowners_error_problems(unknown, text, True, "agnostic", "main") == [
+        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
     ]
 
 
 def test_crlf_line_ends_keep_the_line_numbers() -> None:
     unknown = [CodeownersError(2, "Unknown owner", "x")]
-    assert codeowners_error_problems(unknown, WALK.replace("\n", "\r\n"), True, "agnostic") == [
-        "GitHub reports Unknown owner on line 2: x"
+    crlf = WALK.replace("\n", "\r\n")
+    assert codeowners_error_problems(unknown, crlf, True, "agnostic", "main") == [
+        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
     ]

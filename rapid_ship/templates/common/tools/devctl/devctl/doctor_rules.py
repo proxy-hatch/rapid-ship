@@ -311,10 +311,11 @@ def _line_numbers(numbers: Sequence[int]) -> str:
 
 
 def codeowners_error_problems(
-    errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: Stack
+    errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: Stack, branch: str
 ) -> list[str]:
-    """GitHub's report of the errors on the lines of text that codeowners_problems checks: one
-    problem for each kind and suggestion, which names its lines in order."""
+    """GitHub's report of the errors on the lines of text, .github/CODEOWNERS on branch, that
+    codeowners_problems checks: one problem for each kind and suggestion, which names its lines in
+    order."""
     checked = _checked_lines(text, every_pr, stack)
     grouped: dict[tuple[str, str | None], set[int]] = {}
     for error in sorted(errors, key=lambda error: error.line):
@@ -322,7 +323,8 @@ def codeowners_error_problems(
             grouped.setdefault((error.kind, error.suggestion), set()).add(error.line)
     problems: list[str] = []
     for (kind, suggestion), lines in grouped.items():
-        reported = f"GitHub reports {kind} on {_line_numbers(sorted(lines))}"
+        where = f"{_line_numbers(sorted(lines))} of .github/CODEOWNERS on {branch}"
+        reported = f"GitHub reports {kind} on {where}"
         problems.append(f"{reported}: {suggestion}" if suggestion else reported)
     return problems
 

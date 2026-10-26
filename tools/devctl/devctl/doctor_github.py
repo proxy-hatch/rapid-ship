@@ -166,7 +166,7 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
     except OwnerReadError as error:
         return _unreadable(name, "GitHub's CODEOWNERS errors", error)
     errors = _codeowners_errors(json_object(reply, "the CODEOWNERS errors reply"))
-    problems = codeowners_error_problems(errors, text, every_pr, stack)
+    problems = codeowners_error_problems(errors, text, every_pr, stack, default)
     if problems:
         return _github(name, "missing", "; ".join(problems))
     detail = (
