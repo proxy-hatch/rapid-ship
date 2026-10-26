@@ -48,6 +48,22 @@ def test_tracked_files_include_staged_paths(
     assert Repo.discover(git_repo).tracked_files() == ["committed.txt", "staged.txt"]
 
 
+def test_tracked_files_leave_out_intent_to_add_entries(
+    git_repo: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
+) -> None:
+    (git_repo / "old.txt").write_text("same\n")
+    commit_all(git_repo)
+    (git_repo / "staged.txt").write_text("x\n")
+    run_git(git_repo, "add", "staged.txt")
+    (git_repo / "new.txt").write_text("y\n")
+    # moved.txt holds old.txt's text, so rename detection would pair the two.
+    (git_repo / "old.txt").rename(git_repo / "moved.txt")
+    run_git(git_repo, "add", "-N", "new.txt", "moved.txt")
+
+    assert "new.txt" in run_git(git_repo, "ls-files").splitlines()
+    assert Repo.discover(git_repo).tracked_files() == ["old.txt", "staged.txt"]
+
+
 def test_tracked_files_list_an_unmerged_path_once(
     git_repo: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
 ) -> None:
