@@ -105,7 +105,7 @@ def test_user_invoked_skills_are_not_checked(
 def test_codex_and_agy_on_path_are_not_probed(
     doctor_ctx: DoctorContext, remote: Remote, fake_harness: FakeHarness
 ) -> None:
-    # doctor probes Claude Code alone until the Kit integrates another Harness (Spec 1 section 6).
+    # doctor probes Claude Code alone until the Kit integrates another Harness.
     commit_skills(remote.clone, "rs-tdd")
     fake_harness.install("codex")
     fake_harness.install("agy")
@@ -196,8 +196,8 @@ def test_a_session_gets_its_harness_sign_in_and_no_devctl_as_variable(
     fake_harness: FakeHarness,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Any sign-in method is ok (Spec 1 section 6), so one the owner's shell exports reaches the
-    # Session; devctl as's variables never do.
+    # Any sign-in method is ok, so one the owner's shell exports reaches the Session; devctl as's
+    # variables never do.
     commit_skills(remote.clone, "rs-tdd")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "example-value")
     monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")

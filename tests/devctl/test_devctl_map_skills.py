@@ -1,6 +1,6 @@
-"""Offline: map rule 7's SKILL.md halves in fixture repositories: each SKILL.md names its
-directory, describes itself and is a regular file. The symlinked SKILL.md is a real symlink;
-Codex's rejection of it is not run."""
+"""Offline: SKILL.md files in fixture repositories: each SKILL.md names its directory,
+describes itself and is a regular file. The symlinked SKILL.md is a real symlink; Codex's
+rejection of it is not run."""
 
 from __future__ import annotations
 

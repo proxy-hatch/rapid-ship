@@ -87,7 +87,8 @@ def test_select_lists_every_missing_code_in_floor_order() -> None:
         (["PGH"], ["PGH003", "PGH004"]),
         (["ERA001"], ["ERA001"]),
         (["ALL"], ["PGH003", "PGH004", "RUF100", "ERA001"]),
-        (["E501", "R", "PG"], []),  # E501 is another rule; R and PG are not the letters of any
+        # E501 is another rule, and no escape hatch's letters are R or PG.
+        (["E501", "R", "PG"], []),
     ],
 )
 def test_ignore_names_each_escape_hatch_it_covers(ignore: list[str], disabled: list[str]) -> None:

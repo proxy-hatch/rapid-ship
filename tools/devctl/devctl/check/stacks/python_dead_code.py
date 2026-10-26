@@ -1,8 +1,7 @@
 """The dead-code step for Python, its floor settings, and the suppressions that its tools read.
 
-vulture reports unused code and deptry reports dependencies that do not match the imports. The
-exceptions step reads each allowlist item in pyproject.toml as a suppression, so each needs its own
-line. It also reads each Python line as vulture and deptry read it, strings included.
+The exceptions step reads each allowlist item in pyproject.toml as a suppression, so each needs its
+own line. It also reads each Python line as vulture and deptry read it, strings included.
 """
 
 from __future__ import annotations
@@ -97,7 +96,6 @@ class DeadCodeStep:
 
 
 def _read(path: Path) -> Mapping[str, object]:
-    """The parsed file; an empty table when it does not exist."""
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:

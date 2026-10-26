@@ -3,8 +3,8 @@
 A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out. It carries
 `# rs-exception: EX-<n>` on its line, and .rapid-ship/exceptions.toml has one entry for that
 ID. On the Python stack, each allowlist item in the root pyproject.toml is one too, and so is a
-line that vulture or deptry reads as one, a string included. This module and the Python rows in
-stacks/ are the one definition of suppressions and their rule names.
+line that vulture or deptry reads as one, a string included. This module and the stack modules
+in stacks/ are the one definition of suppressions and their rule names.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def scan(
 
 def _allowlist_errors(root: Path, files: Sequence[str], managed: frozenset[str]) -> list[str]:
     """The root pyproject.toml's items that the scan could not place on a line, and lines that
-    hold two items. The scan reads the same file, so the file is read twice."""
+    hold two items."""
     text = _readable(root, PYPROJECT, managed) if PYPROJECT in files else None
     return toml_allowlist(text)[1] if text is not None else []
 

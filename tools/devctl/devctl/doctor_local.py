@@ -78,8 +78,7 @@ def git_item() -> Item:
 
 def settings_item(root: Path) -> Item:
     """Whether the settings files load: .rapid-ship/project.toml and exceptions.toml by devctl's
-    loaders, and the CODEOWNERS file GitHub reads, where devctl hook finds the Protected set (Spec 1
-    section 6).
+    loaders, and the CODEOWNERS file GitHub reads, where devctl hook finds the Protected set.
 
     A file that cannot be read or holds an invalid key is unknown, with the message that names the
     file and the key. No CODEOWNERS file is missing, because devctl hook then knows no Protected
@@ -228,7 +227,7 @@ def _ruff_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 def _mypy_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
     mypy = toml_table(pyproject, "tool", "mypy")
-    probe = f"{DEVCTL_DIRECTORY}/devctl/cli.py"  # plan 3's rule for `type:` references
+    probe = f"{DEVCTL_DIRECTORY}/devctl/cli.py"  # check/references.py's rule for `type:` paths
     files = (_normalised(entry) for entry in toml_strings(mypy.get("files")))
     if not any(entry in (".", probe) or probe.startswith(f"{entry}/") for entry in files):
         return []
@@ -307,9 +306,8 @@ def _uv_exclusion_gaps(pyproject: Mapping[str, object]) -> list[str]:
 def devctl_exclusion_gaps(pyproject: Mapping[str, object], *, python: bool) -> list[str]:
     """The settings that make a project's own tools read tools/devctl, one message each.
 
-    Ruff, mypy, pytest, vulture and deptry are checked only with python. The uv workspace is
-    checked for either stack: without the exclude, the project's own uv lock fails (Checked
-    facts).
+    The uv workspace is checked even without python: without the exclude, the project's own uv
+    lock fails.
     """
     return [
         *(_ruff_exclusion_gaps(pyproject) if python else []),

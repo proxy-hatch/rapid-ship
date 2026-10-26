@@ -52,10 +52,10 @@ _GOOGLE_CLOUD = (
     "GOOGLE_CLOUD_LOCATION",
     "CLOUDSDK_CONFIG",
 )
-# The variables that hold or locate each tool's sign-in, so any sign-in method is ok (Spec 1
-# section 6): a subscription, an API key, a gateway or a cloud Provider. A tool gets only its
-# own. GH_HOST and the enterprise tokens stay out, because doctor reads github.com, and devctl
-# as's RAPID_SHIP_GIT_TOKEN and GIT_ASKPASS are never passed.
+# The variables that hold or locate each tool's sign-in, so any sign-in method is ok: a
+# subscription, an API key, a gateway or a cloud Provider. A tool gets only its own. GH_HOST and
+# the enterprise tokens stay out, because doctor reads github.com, and devctl as's
+# RAPID_SHIP_GIT_TOKEN and GIT_ASKPASS are never passed.
 SIGN_IN_VARIABLES: Mapping[str, tuple[str, ...]] = {
     "gh": ("GH_TOKEN", "GITHUB_TOKEN", "GH_CONFIG_DIR"),
     "claude": (

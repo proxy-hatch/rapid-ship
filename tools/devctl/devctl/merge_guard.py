@@ -1,14 +1,11 @@
-"""The merge guard, G9 (Spec 1 section 4), and find_merge, which names each way to land a change
-on the default branch.
+"""The merge guard, and find_merge, which names each way to land a change on the default branch.
 
-Step 1 lists those ways: gh pr merge, which guard checks, and the forms that G3 denies outright,
-gh pr merge --admin, a git push to the default branch, and gh api writes through REST or GraphQL.
-A gh command run through ./devctl as <role> gh counts as the gh command it runs. Local git is read
-only for a git push, a ref path, or a gh pr merge that names no pull request.
+Those ways are gh pr merge, which guard checks, and the forms that the hook denies outright. A gh
+command run through ./devctl as <role> gh counts as the gh command it runs.
 
 guard reads GitHub only through OwnerGet, doctor's GET with the owner's gh sign-in, and only for
 gh pr merge. Once it has recognised a merge it denies every merge it cannot check, its own errors
-included, so a merge that the running guard cannot check does not pass.
+included.
 """
 
 from __future__ import annotations
@@ -73,7 +70,7 @@ _MUTATIONS = re.compile(
     r"|updateRefs?|createCommitOnBranch)\b"
 )
 
-# The guard's four denials, exactly as Spec 1 section 4, step 5 words them.
+# The guard's four denials.
 _CHECK_DENIED = (
     "merge denied: devctl check on PR #{number} at {head} is {state}; wait for it to pass or fix "
     "what it reports, then merge again"
@@ -106,7 +103,7 @@ class LocalBranches:  # read from local git only for a git push, a ref path or a
 
 @dataclass(frozen=True)
 class Merge:  # a way to land a change on the default branch, also through devctl as
-    form: MergeForm  # G3 denies all but pr-merge
+    form: MergeForm  # the hook denies every form but pr-merge
     target: str | None = None  # pr-merge: the number, URL or branch; None: the branch's PR
     repository: str | None = None  # pr-merge: the -R or --repo value
     head: str | None = None  # pr-merge: the --match-head-commit value

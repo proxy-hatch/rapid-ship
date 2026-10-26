@@ -1,13 +1,9 @@
-"""devctl hook: G1 to G5, G7 and G8, then the merge guard, on one normalised tool call (Spec 1
-section 4).
+"""devctl hook: the deny and ask rules, then the merge guard, on one normalised tool call.
 
-decide applies the rules in the order of the simple commands, and within one command G1, G2, G3,
-G7 and G8; for an edit G4, then G5. The first deny wins, and a deny beats an ask. When decide
-gives no decision, run_hook runs the merge guard on each gh pr merge of the line, in order. The
-hook only denies or asks: with no rule matched it gives no decision. G1 to G4 need no settings,
-so they apply when the settings are unreadable; G5, G7 and G8 then give no decision, and the merge
-guard denies every merge. hook_command reads the event and answers in the Harness's protocol,
-which hook_protocols.py keeps.
+The first deny wins, and a deny beats an ask; the merge guard runs only when no rule decided.
+The rules on skipped hooks, force pushes, merges outside the guard and kit.lock need no settings,
+so they apply when the settings are unreadable; the Protected-set and Agent identity rules then
+give no decision, and the merge guard denies every merge.
 """
 
 from __future__ import annotations
@@ -120,9 +116,9 @@ def run_hook(
     """The answer to one tool call, judged in the repository that holds it.
 
     An edit belongs to the repository that holds its path, a linked worktree included, and a
-    shell command to the one that holds cwd (Spec 1 section 4); each Claude Code edit writes one
-    path. Outside every repository no settings are read. owner_get is the merge guard's only way
-    to read GitHub, and clock times the hook run, whose budget every merge on the line shares.
+    shell command to the one that holds cwd; each Claude Code edit writes one path. Outside every
+    repository no settings are read. owner_get is the merge guard's only way to read GitHub, and
+    clock times the hook run, whose budget every merge on the line shares.
     Raises ValueError when shell rules cannot split the command line, unless its text holds gh,
     pr and merge in that order: the guard then denies the merge it cannot check.
     """
@@ -180,9 +176,9 @@ def work_tree_root(path: Path) -> Path | None:
 
 
 def read_settings(root: Path) -> HookSettings | str:
-    """The settings that G5, G7 and G8 read, or why they cannot be read.
+    """The settings the Protected-set and Agent identity rules read, or why they cannot be read.
 
-    An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches off all three:
+    An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches those rules off:
     this writes one stderr line and returns the reason, which the merge guard's denial carries.
     A missing CODEOWNERS is an empty Protected set, since nothing is unreadable; doctor reports it.
     """
@@ -225,7 +221,7 @@ def decide(
 def _shell_rule(
     command: Command, settings: HookSettings | None, branches: Callable[[], LocalBranches]
 ) -> str | None:
-    """Why the first of G1, G2, G3, G7 and G8 that applies denies one simple command, or None."""
+    """Why the first rule that applies denies one simple command, or None."""
     pushing = command.program == "git" and command.args[:1] == ("push",)
     if command.program == "git" and _skips_hooks(command.args):
         return G1
@@ -244,7 +240,7 @@ def _shell_rule(
 
 
 def _skips_hooks(args: tuple[str, ...]) -> bool:
-    """G1: --no-verify in any git command, or -n in git commit, in the words before "--".
+    """--no-verify in any git command, or -n in git commit, in the words before "--".
 
     Every word counts, an option's value too, so a message that is literally --no-verify is
     denied as well; the agent rewords it.
@@ -268,7 +264,7 @@ def _holds_n(word: str) -> bool:
 
 
 def _gh_writes(args: tuple[str, ...]) -> bool:
-    """G8: a gh pr or gh issue subcommand other than a read, or a gh api write."""
+    """A gh pr or gh issue subcommand other than a read, or a gh api write."""
     if args[:1] == ("api",):
         api = parse_api(args[1:])
         return api.method != "GET" or api.body
@@ -282,10 +278,12 @@ def _gh_writes(args: tuple[str, ...]) -> bool:
 def _edit_rules(
     edits: Sequence[Path], root: Path | None, settings: HookSettings | None
 ) -> tuple[Decision, str]:
-    """G4, then G5, for each path the edit writes; an edit outside root gets no decision.
+    """The kit.lock rule, then the Protected-set rule, for each path the edit writes; an edit
+    outside root gets no decision.
 
     Both compare paths in any case: macOS's default file system ignores case, so agents.md writes
-    AGENTS.md. On a file system that keeps case, G5 also asks before such a new file.
+    AGENTS.md. On a file system that keeps case, the Protected-set rule also asks before such a
+    new file.
     """
     asked: str | None = None
     for path in edits:

@@ -80,7 +80,7 @@ def owned_kit_files(root: Path, templates_root: Path | None = None) -> list[str]
 
 def test_no_kit_managed_file_is_this_repositorys_own() -> None:
     # status --strict passes a file that sync made the project's own, so this test is what holds
-    # every Kit file here to its template (spec section 3, "Who owns what").
+    # every Kit file here to its template.
     owned = owned_kit_files(ROOT)
 
     assert owned == [], (

@@ -40,10 +40,10 @@ REQUESTED: dict[str, tuple[int, dict[str, str]]] = {
     ),
     "-rs-reviewer": (12, {"pull_requests": "write", "contents": "read", "metadata": "read"}),
 }
-# What the owner's gh login reads: o owns o/r, and org/r belongs to an organisation. o also owns
-# the private Apps o-rs-worker (11) and o-rs-reviewer (12). GitHub shows gh no private App, even
-# its owner's, so apps/o-rs-worker is a 404, as every path missing here is. So is the login's
-# membership of org: the login is not a member of it.
+# What the owner's gh login reads. o owns the private Apps o-rs-worker (11) and
+# o-rs-reviewer (12). GitHub shows gh no private App, even its owner's, so apps/o-rs-worker is
+# a 404, as every path missing here is. So is the login's membership of org: the login is not a
+# member of it.
 OWNER_READS: dict[str, object] = {
     "repos/o/r": {"id": 2, "owner": {"login": "o", "id": 1, "type": "User"}},
     "repos/org/r": {"id": 3, "owner": {"login": "org", "id": 4, "type": "Organization"}},

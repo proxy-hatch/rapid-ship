@@ -90,7 +90,7 @@ def test_an_unchanged_file_is_replaced_on_a_sync_branch_and_keeps_its_mode(
         "Sync rapid-ship Kit to 9.9.9",
     )
     evidence = body.split("\n## Evidence\n", 1)[1]
-    # Plan 3's evidence step needs a "- `<command>`: <result>" item and a "Not covered:" line.
+    # devctl's evidence step needs a "- `<command>`: <result>" item and a "Not covered:" line.
     assert re.search(r"^- `[^`]+`: \S", evidence, flags=re.MULTILINE)
     assert (
         f"- `rapid-ship sync`: rapid-ship {installed_version()} to 9.9.9; 1 updated"

@@ -1,9 +1,8 @@
 """devctl as: an agent's GitHub writes, made as the Worker App or the Reviewer App.
 
-Agent identity is on when .rapid-ship/project.toml records both Apps (Spec 1 section 6). Each run
-mints one installation token, keeps it in memory and gives it to one child only: gh through
-GH_TOKEN, or git push through askpass.py. Nothing here writes the token to disk, puts it in argv
-or prints it. devctl refuses (exit 1) before it mints a token wherever it can.
+Each run mints one installation token, keeps it in memory and gives it to one child only: gh
+through GH_TOKEN, or git push through askpass.py. Nothing here writes the token to disk, puts it
+in argv or prints it. devctl refuses (exit 1) before it mints a token wherever it can.
 """
 
 from __future__ import annotations
@@ -31,8 +30,8 @@ OFF = (
     "app, install both Apps, and record each App's ID and slug under [github]"
 )
 # GitHub's reason when an App without the Workflows permission pushes its own workflow change.
-# In plan 4's trial, GitHub accepted an App's push whose only new commit merged in a workflow
-# change already on the base branch.
+# GitHub accepts an App's push whose only new commit merges in a workflow change already on the
+# base branch.
 _WORKFLOW_REFUSAL = "refusing to allow a GitHub App to create or update workflow"
 
 
@@ -44,7 +43,7 @@ def gh_refusal(arguments: Sequence[str]) -> str | None:
     """Why devctl will not run gh with these arguments, or None.
 
     gh auth can print the token, and gh alias and gh extension can run other code with it, so
-    only gh pr, gh issue and gh api run (Spec 1 section 6).
+    only gh pr, gh issue and gh api run.
     """
     if not arguments or arguments[0] not in GH_COMMANDS:
         named = f"gh {arguments[0]}" if arguments else "gh with no command"
@@ -174,7 +173,7 @@ def _act(
 def run_as(
     repo: Repo, project: ProjectSettings, role: Role, action: str, arguments: Sequence[str]
 ) -> int:
-    """Run one devctl as request and return its exit code (Spec 1 section 6).
+    """Run one devctl as request and return its exit code.
 
     2 while Agent identity is off, or when no token can be minted or the tool cannot start; 1
     when devctl refuses; otherwise the exit code of gh or git.

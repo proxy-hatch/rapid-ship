@@ -21,7 +21,7 @@ Base factual claims on inspected source, observed output or an attributable exec
 | Review | The problem, consequence and file:line. Separate observed failures from risks that still need verification. |
 | Procedure or error | The condition, exact action and observable result. Place required permissions before the affected step. |
 | Status or agent report | The result, evidence and remaining blocker. Follow any required output schema. |
-| Code comment | A contract, rationale, invariant or external constraint that the code does not adequately express. Follow the comment rule in the root `AGENTS.md`, under Writing and Development. |
+| Code comment | A contract, rationale, invariant or external constraint that the code does not adequately express. Never a citation of the document, plan, trial or decision behind the code, such as a spec section, ADR, PR or rule ID. Follow the comment rule in the root `AGENTS.md`, under Writing and Development. |
 | ADR | The accepted choice and trade-off. Keep proposals and unresolved decisions visibly distinct from accepted decisions. |
 
 Explanatory prose can use natural phrasing. Landing-page and marketing copy can keep its voice. Factual claims still need evidence. Do not force controlled-language rules onto persuasive copy.

@@ -55,7 +55,6 @@ def adjusted(context: DoctorContext, **changes: object) -> DoctorContext:
 
 
 def rendered_agnostic_seed(path: str) -> str:
-    """The Kit's seed at path as init renders it for the agnostic stack."""
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
     [template] = [t for t in render_files("agnostic", variables, ()) if t.path == path]
     assert template.content is not None
@@ -186,10 +185,9 @@ class TestSignIns:
         capsys: pytest.CaptureFixture[str],
         changes: dict[str, object],
     ) -> None:
-        # No item checks a Harness's sign-in (Spec 1 section 6). fake_run finds claude, codex and
-        # agy on PATH, and doctor without --skills runs none of them. A detail may still name a
-        # Harness's directory, as the Kit files item does here, so only an item named for a
-        # Harness counts.
+        # No item checks a Harness's sign-in. fake_run finds claude, codex and agy on PATH, and
+        # doctor without --skills runs none of them. A detail may still name a Harness's
+        # directory, as the Kit files item does here, so only an item named for a Harness counts.
         repo_files.lock(unchanged=[], missing=[], stale=[".claude/settings.json"])
         repo_files.write(".claude/settings.json", "{}\n")
         run_doctor(adjusted(ctx(), **changes))

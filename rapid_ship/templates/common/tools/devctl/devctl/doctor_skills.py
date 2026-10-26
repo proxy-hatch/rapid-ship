@@ -1,11 +1,9 @@
 """doctor --skills: the skills a Claude Code Session loads from a worktree at HEAD.
 
-When claude is on PATH, doctor adds a detached worktree at HEAD in a new temporary directory,
-starts one new headless Claude Code Session there and compares the skills it lists with the ones
-committed at HEAD. git runs with the owner's own setup; no App token is minted. The worktree is
-doctor's only local write, and it is removed again whatever the Session did. The Session spends a
-little of the owner's quota. doctor probes Claude Code alone until the Kit integrates another
-Harness (Spec 1 section 6).
+doctor starts one headless Claude Code Session in a detached worktree at HEAD and compares the
+skills it lists with the ones committed there. The Session spends a little of the owner's quota.
+The worktree, in a new temporary directory, is doctor's only local write. git runs with the
+owner's own setup, and no App token is minted.
 """
 
 from __future__ import annotations
@@ -35,7 +33,7 @@ class ProbeError(Exception):
 
 
 def _git_problem(result: ProcessResult) -> str | None:
-    """Why git's answer cannot be used, or None. A timeout or cut output is never an answer."""
+    """Why git's answer cannot be used, or None."""
     if result.timed_out:
         return f"timed out after {_GIT_TIMEOUT_SECONDS:g} seconds"
     if result.stdout_truncated or result.stderr_truncated:
@@ -100,7 +98,7 @@ def _item(name: str, status: Status, detail: str) -> Item:
 def _user_invoked(manifest: Path) -> bool:
     """True when the skill's front matter sets disable-model-invocation: true.
 
-    Front matter that cannot be read leaves the skill checked; map rule 7 reports it.
+    Front matter that cannot be read leaves the skill checked; devctl check reports it.
     """
     try:
         data = front_matter(manifest.read_text(encoding="utf-8"))
@@ -151,7 +149,7 @@ def _session(name: str, tree: Path) -> Item:
 
 
 def _harness_item(repo: Repo, name: str) -> Item:
-    """The Session in a worktree of its own, which is removed whatever the Session did."""
+    """The Session in a worktree of its own."""
     try:
         with probe_worktree(repo) as tree:
             return _session(name, tree)
@@ -160,7 +158,7 @@ def _harness_item(repo: Repo, name: str) -> Item:
 
 
 def probed_harnesses(project: ProjectSettings) -> dict[str, str]:
-    """claude with its item's name when it is on PATH, else nothing (Spec 1 section 6).
+    """claude with its item's name when it is on PATH, else nothing.
 
     doctor probes Claude Code alone until the Kit integrates another Harness. project never
     changes the answer, because the settings name no Harness.

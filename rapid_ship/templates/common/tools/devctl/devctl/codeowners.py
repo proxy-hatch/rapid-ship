@@ -99,14 +99,13 @@ def ledger_entry(path: str) -> bool:
     """Whether path is a Corrections ledger entry: a .md file below docs/corrections/, at any
     depth, other than docs/corrections/README.md.
 
-    Spec 1 says "under" the ledger, so a deeper entry counts too; a wider Protected rule fails
-    safe.
+    An entry in a subdirectory counts too, because a wider Protected rule fails safe.
     """
     return path.startswith(LEDGER) and path.endswith(".md") and path != _LEDGER_README
 
 
 def protected_changes(patterns: Sequence[str], changes: Iterable[FileChange]) -> list[str]:
-    """The sorted, unique paths of changes in the Protected set (Spec 1 sections 4 and 5).
+    """The sorted, unique paths of changes in the Protected set.
 
     A path counts when a pattern covers it, both paths of a rename included. The ledger rule adds
     each existing ledger entry that a change modifies, removes or renames away from. An added

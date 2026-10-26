@@ -1,9 +1,7 @@
 """What doctor expects of a ruleset, CODEOWNERS and an App installation.
 
-These checks are pure: they take what GitHub returned and name each way it differs from Spec 1
-section 3 (the Apps' permissions) and section 8 (the ruleset and CODEOWNERS). doctor_github.py
-reads GitHub and builds the items; plan 6's test checks rs-setup's ruleset.json with
-ruleset_problems.
+These checks are pure: they take what GitHub returned and name each way it differs.
+doctor_github.py reads GitHub and builds the items.
 """
 
 from __future__ import annotations
@@ -15,10 +13,9 @@ from devctl.doctor_local import CI_JOB_NAME
 from devctl.github.app import APP_PERMISSIONS
 from devctl.settings import Role, Stack
 
-ADMIN_ROLE_ID = 5  # the repository admin role; plan 4's live trial reads it back
+ADMIN_ROLE_ID = 5  # the repository admin role
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
-# The Protected set of the seeded CODEOWNERS (Spec 1 section 4), in its order, with the devctl
-# shim. Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/.
+# The Protected set of the seeded CODEOWNERS, in its order, with the devctl shim.
 PROTECTED_PATHS = (
     ".github/",
     ".githooks/",
@@ -72,8 +69,8 @@ def _target_problems(ruleset: Mapping[str, object], default_branch: str) -> list
 
 
 def _pull_request_problems(params: Mapping[str, object]) -> list[str]:
-    """The pull_request rule's problems. Every Mode requires code-owner review, and none requires an
-    approval count or approval of the most recent push (Spec 1 section 8, step 7)."""
+    """Every Mode requires code-owner review, and none requires an approval count or approval of
+    the most recent push."""
     holds = [
         (
             params.get("require_code_owner_review") is True,
@@ -141,7 +138,6 @@ def _rules(ruleset: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
 def _one_ruleset_problems(ruleset: Mapping[str, object], default_branch: str) -> list[str]:
     rules = _rules(ruleset)
     pull_request = rules.get("pull_request")
-    # Without the rule, its other settings have nothing to describe.
     return [
         *_target_problems(ruleset, default_branch),
         *([] if ruleset.get("enforcement") == "active" else ["the ruleset is not active"]),
@@ -161,7 +157,7 @@ def _closest(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> l
 
 
 # GitHub counts an approval only from someone with write access to the repository, and the Reviewer
-# App has Contents: read (Spec 1 section 3, and section 8, step 7.3).
+# App has Contents: read.
 _NOT_FROM_THE_REVIEWER = (
     "which GitHub takes only from someone with write access and not from the Reviewer App, so "
     "every agent PR waits for a person; set the count to 0 and approval of the most recent push "
@@ -176,9 +172,9 @@ def _requires_approval(count: object) -> bool:
 def _app_merge_problems(rulesets: Sequence[Mapping[str, object]], default_branch: str) -> list[str]:
     """The approvals that make every agent PR wait for a person in Flight with Agent identity,
     because GitHub takes neither from the Reviewer App. GitHub applies every active ruleset on the
-    branch, so a requirement in any one of them applies. In plan 4's live trial, GitHub refused the
-    Worker App's merge on the Reviewer App's approval until both were off; it did not try the
-    count alone."""
+    branch, so a requirement in any one of them applies. While approval of the most recent push is
+    on, GitHub refuses the Worker App's merge on the Reviewer App's approval even at a count of 0;
+    whether a count above 0 alone blocks it is unconfirmed."""
     params = [
         _rules(ruleset).get("pull_request", {})
         for ruleset in rulesets
@@ -205,14 +201,12 @@ def ruleset_problems(
     every_pr: bool,
     agent_identity: bool,
 ) -> list[str]:
-    """What keeps the default branch from matching Spec 1 section 8's ruleset for the Mode.
+    """What keeps the default branch from matching the ruleset the Mode needs.
 
     rulesets are in the shape GET /repos/{o}/{r}/rulesets/{id} returns. Every setup needs the same
-    ruleset, code-owner review included, in every Mode and with or without Agent identity (section
-    8, steps 7 and 8). rs-setup's ruleset requires no approval count and no approval of the most
-    recent push (step 7). Walk, and Flight without Agent identity, accept a ruleset with or without
-    them. Flight with Agent identity needs every enforced ruleset without them, because GitHub takes
-    neither approval from the Reviewer App, so every agent PR would wait for a person.
+    ruleset, code-owner review included. Walk, and Flight without Agent identity, accept a ruleset
+    with or without an approval count or approval of the most recent push. Flight with Agent
+    identity needs every enforced ruleset without them.
     """
     if not rulesets:
         return [NO_RULESET]
@@ -265,9 +259,9 @@ def _protected_set_problems(
 
 
 def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack) -> list[str]:
-    """What keeps CODEOWNERS from matching the Mode (Spec 1 section 6): the * line when every_pr
-    is true, the Protected set otherwise. code_owner is [github] code_owner, with its @: a login
-    or an organisation's team."""
+    """What keeps CODEOWNERS from matching the Mode: the * line when every_pr is true, the
+    Protected set otherwise. code_owner is [github] code_owner, with its @: a login or an
+    organisation's team."""
     lines = _active_lines(text)
     if every_pr:
         return _walk_problems(lines, code_owner)

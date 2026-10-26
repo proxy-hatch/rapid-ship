@@ -16,7 +16,6 @@ INVALID_KEY = 'stack = "python"\n[escalation]\nrevision_rounds = 0\n'
 
 
 def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
-    """Commit the rendered seeds of .rapid-ship/, .claude/settings.json and .github/CODEOWNERS."""
     wanted = {".claude/settings.json", *([".github/CODEOWNERS"] if codeowners else [])}
     for template in render_files("python", VARIABLES, ()):
         if template.path.startswith(".rapid-ship/") or template.path in wanted:
@@ -27,9 +26,6 @@ def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
 
 @pytest.fixture
 def in_workspace(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> Workspace:
-    """The workspace as the working directory, where doctor may not read GitHub or build the
-    full doctor's context."""
-
     def no_github(path: str, jq: str | None = None) -> object:
         pytest.fail(f"doctor --settings read GitHub: {path}")
 

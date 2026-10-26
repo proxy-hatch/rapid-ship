@@ -45,7 +45,8 @@ class ProcessResult:
 
 
 def safe_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Pass PATH and HOME, which tools need to start, and nothing else unless supplied."""
+    """Pass PATH and HOME, which tools need to start, and a C.UTF-8 locale; nothing else unless
+    supplied."""
     result = {"PATH": os.environ.get("PATH", os.defpath), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
     if "HOME" in os.environ:
         result["HOME"] = os.environ["HOME"]
@@ -163,7 +164,8 @@ def run_process(
     Retention is capped separately for stdout/stderr; readers keep draining after
     the cap, and the result says which stream was cut. Native execution is a
     project-authorized trust boundary, not a filesystem sandbox. The child gets PATH
-    and HOME from the caller; callers pass any other environment explicitly.
+    and HOME from the caller and a C.UTF-8 locale; callers pass any other environment
+    explicitly.
     """
     _check_arguments(argv, timeout_seconds)
     start = time.monotonic()

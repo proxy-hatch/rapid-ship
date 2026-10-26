@@ -78,7 +78,6 @@ def guarded(line: str, reader: RecordedOwner, settings: HookSettings | None = OF
 
 
 def project(tmp_path: Path, github: str = "") -> Path:
-    """A repository whose project.toml records repository = "o/r", and any more [github] keys."""
     workspace = new_workspace(tmp_path / "main")
     workspace.write(
         ".rapid-ship/project.toml", f'stack = "python"\n\n[github]\nrepository = "o/r"\n{github}'

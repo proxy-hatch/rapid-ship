@@ -1,5 +1,3 @@
-"""load_settings reads, checks and types every setting."""
-
 import pytest
 
 from {{package}}.errors import UsageError

@@ -41,7 +41,8 @@ class StatusReport:
 
     @property
     def strict_ok(self) -> bool:
-        """True when every managed file is unchanged or excluded and nothing is outdated."""
+        """True when every managed file is unchanged or excluded, and nothing is outdated or
+        not installed."""
         managed_current = all(
             item.state in ("unchanged", "excluded") for item in self.files if item.kind == "managed"
         )

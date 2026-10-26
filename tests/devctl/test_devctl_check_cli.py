@@ -101,8 +101,6 @@ def test_blocked_step_exits_two(
 
 
 class RecordingStep(FakeStep):
-    """A step that keeps the contexts it ran with."""
-
     def __init__(self) -> None:
         super().__init__("recorder", "fast")
         self.contexts: list[CheckContext] = []

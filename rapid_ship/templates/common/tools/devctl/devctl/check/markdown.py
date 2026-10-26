@@ -162,7 +162,7 @@ def navigation_links(text: str) -> list[tuple[int, str]]:
 
 
 def front_matter(text: str) -> object | None:
-    """The parsed YAML between the opening --- and the closing --- line.
+    """The parsed YAML between the opening --- line and the closing --- or ... line.
 
     None when the text does not start with ---. ValueError when the block is not closed;
     yaml.YAMLError when it is not valid YAML.
@@ -172,7 +172,7 @@ def front_matter(text: str) -> object | None:
         return None
     for index, line in enumerate(lines[1:], start=1):
         if line.strip() in ("---", "..."):
-            data: object = yaml.safe_load("\n".join(lines[1:index]))  # yaml.YAMLError propagates
+            data: object = yaml.safe_load("\n".join(lines[1:index]))
             return data
     raise ValueError("front matter is not closed with ---")
 
