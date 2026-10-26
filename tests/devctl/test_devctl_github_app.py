@@ -101,9 +101,9 @@ def test_a_missing_key_says_how_to_import_it_before_any_github_call(
     with pytest.raises(KeychainMissing) as caught:
         installation_token(role, "o/r", app_id, keychain=FakeKeychain({}), api_url=github.url)
     assert str(caught.value) == (
-        f"Keychain item rapid-ship/{role}-app/{app_id} not found; generate a private key in the "
-        f"App's settings on GitHub, then run rapid-ship app --import-key {role} with the key on "
-        "stdin"
+        f"Keychain item rapid-ship/{role}-app/{app_id} not found; in the App's settings on GitHub, "
+        "open Credentials, then Key pairs, and click New key to generate a private key; then run "
+        f"rapid-ship app --import-key {role} with the key on stdin"
     )
     assert github.calls == []
 
@@ -123,9 +123,9 @@ def test_missing_key_message_names_the_tagged_rapid_ship_command(
     assert run_guarded(read_key, root=tmp_path) == 2
     tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
     assert capsys.readouterr().err == (
-        "devctl: Keychain item rapid-ship/worker-app/5376519 not found; generate a private key "
-        f"in the App's settings on GitHub, then run {tagged} --import-key worker with the key on "
-        "stdin\n"
+        "devctl: Keychain item rapid-ship/worker-app/5376519 not found; in the App's settings on "
+        "GitHub, open Credentials, then Key pairs, and click New key to generate a private key; "
+        f"then run {tagged} --import-key worker with the key on stdin\n"
     )
 
 

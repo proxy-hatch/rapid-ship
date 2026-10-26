@@ -327,9 +327,9 @@ def test_a_missing_key_names_the_command_that_imports_it(
     items = by_name(github_items(ctx_github(keychain=keychain_without_reviewer)))
     tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
     expected = (
-        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; generate a private key "
-        f"in the App's settings on GitHub, then run {tagged} --import-key reviewer with the key "
-        "on stdin"
+        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; in the App's settings on "
+        "GitHub, open Credentials, then Key pairs, and click New key to generate a private key; "
+        f"then run {tagged} --import-key reviewer with the key on stdin"
     )
     for name in ("Reviewer App installation", "Reviewer App key"):
         assert items[name].detail == expected

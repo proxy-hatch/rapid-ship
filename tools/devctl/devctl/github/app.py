@@ -71,8 +71,9 @@ class KeychainMissing(AppError):
         # devctl reads only the Apps that [github] records, and rapid-ship app stores the key of
         # a recorded App only with --import-key.
         return (
-            f"{missing}; generate a private key in the App's settings on GitHub, then run "
-            f"{app_command} --import-key {self.role} with the key on stdin"
+            f"{missing}; in the App's settings on GitHub, open Credentials, then Key pairs, and "
+            f"click New key to generate a private key; then run {app_command} --import-key "
+            f"{self.role} with the key on stdin"
         )
 
 

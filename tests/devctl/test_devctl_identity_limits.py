@@ -87,9 +87,9 @@ def test_a_missing_key_exits_2_before_any_tool_runs(
     monkeypatch.setattr(identity, "project_access", lambda settings: no_keys)
     assert identity.run_as(Repo.discover(Path.cwd()), project, "worker", "push", []) == 2
     assert capsys.readouterr().err == (
-        f"devctl: Keychain item rapid-ship/worker-app/{WORKER_ID} not found; generate a private "
-        "key in the App's settings on GitHub, then run rapid-ship app --import-key worker with "
-        "the key on stdin\n"
+        f"devctl: Keychain item rapid-ship/worker-app/{WORKER_ID} not found; in the App's "
+        "settings on GitHub, open Credentials, then Key pairs, and click New key to generate a "
+        "private key; then run rapid-ship app --import-key worker with the key on stdin\n"
     )
 
 
