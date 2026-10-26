@@ -18,12 +18,14 @@ MISSING = (
 
 
 def run_map(workspace: Workspace) -> StepResult:
+    workspace.stage()
     return MapStep().run(workspace.context(source_roots=()))
 
 
 def root_document_and_link_errors(workspace: Workspace) -> tuple[list[str], list[str]]:
+    workspace.stage()
     context = workspace.context(source_roots=())
-    root, files = context.repo.root, context.repo.files()
+    root, files = context.repo.root, context.repo.tracked_files()
     return root_document_errors(root, files), root_link_errors(root, files)
 
 
@@ -108,3 +110,37 @@ def test_a_missing_root_guide_is_left_to_the_reachability_check(workspace: Works
     workspace.write("ARCHITECTURE.md", "# Architecture\n")
 
     assert root_document_and_link_errors(workspace) == ([], [])
+
+
+def test_an_untracked_document_must_be_staged(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", f"# Root\n\n{LINKS}")
+    workspace.write("ARCHITECTURE.md", BACK)
+    workspace.stage()
+    workspace.write("README.md", "[Gone](gone.md)\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        (
+            "AGENTS.md:3: target 'README.md' is not maintained in this checkout; "
+            "track its source or update the navigation link",
+            "README.md: not tracked; stage it with git add",
+        ),
+    )
+
+
+def test_an_untracked_root_guide_must_be_staged_and_its_links_are_not_read(
+    workspace: Workspace,
+) -> None:
+    workspace.write("README.md", "# Demo\n")
+    workspace.write("ARCHITECTURE.md", "# Architecture\n")
+    workspace.stage()
+    workspace.write("AGENTS.md", "# Root\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        ("AGENTS.md: not tracked; stage it with git add",),
+    )

@@ -88,8 +88,12 @@ class Workspace:
         alias.parent.mkdir(parents=True, exist_ok=True)
         alias.symlink_to(target, target_is_directory=True)
 
-    def commit(self, message: str = "change") -> str:
+    def stage(self) -> None:
+        """Stage every file that git does not ignore, as before a commit."""
         self.git("add", "-A")
+
+    def commit(self, message: str = "change") -> str:
+        self.stage()
         self.git("commit", "-q", "--allow-empty", "-m", message)
         return self.git("rev-parse", "HEAD")
 

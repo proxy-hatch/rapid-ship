@@ -1,6 +1,6 @@
-"""The map step's skill checks: each skill directory under .agents/skills has a SKILL.md, a
-regular file, with its name and a description, and a relative symlink in .claude/skills that
-points to it.
+"""The map step's skill checks: each skill directory under .agents/skills has a tracked
+SKILL.md, a regular file, with its name and a description, and a relative symlink in
+.claude/skills that points to it.
 
 They live apart from map.py, which runs them, so map.py stays under the file-size cap.
 """
@@ -20,7 +20,7 @@ def skill_alias_errors(root: Path, files: Sequence[str]) -> list[str]:
     present = set(files)
     canonical = _skill_names(root, files, ".agents/skills")
     aliases = _skill_names(root, files, ".claude/skills")
-    errors = [_canonical_error(root, name) for name in sorted(canonical)]
+    errors = [_canonical_error(root, present, name) for name in sorted(canonical)]
     errors += [_alias_error(root, present, name) for name in sorted(canonical)]
     errors += [
         f".claude/skills/{name}: no matching .agents/skills/{name} in Git; "
@@ -56,7 +56,7 @@ def _stray_files(root: Path, files: Sequence[str]) -> list[str]:
     )
 
 
-def _canonical_error(root: Path, name: str) -> str | None:
+def _canonical_error(root: Path, present: set[str], name: str) -> str | None:
     entry = root / ".agents/skills" / name
     if entry.is_symlink() and (
         entry.readlink().is_absolute() or not entry.resolve().is_relative_to(root.resolve())
@@ -64,7 +64,20 @@ def _canonical_error(root: Path, name: str) -> str | None:
         return f".agents/skills/{name}: make it a relative symlink inside the repository"
     if not (entry / "SKILL.md").is_file():
         return f".agents/skills/{name}: missing SKILL.md"
+    if not _skill_md_tracked(root, present, name):
+        return f".agents/skills/{name}/SKILL.md: not tracked; stage it with git add"
     return None
+
+
+def _skill_md_tracked(root: Path, present: set[str], name: str) -> bool:
+    """Whether `present` holds the skill's SKILL.md. A skill directory can be a symlink, as into
+    a package; git records the symlink and not what it holds, so SKILL.md is looked up at the
+    resolved path."""
+    directory, real_root = (root / SKILLS / name).resolve(), root.resolve()
+    return (
+        directory.is_relative_to(real_root)
+        and f"{directory.relative_to(real_root).as_posix()}/SKILL.md" in present
+    )
 
 
 def _alias_error(root: Path, present: set[str], name: str) -> str | None:
@@ -90,11 +103,12 @@ def _alias_error(root: Path, present: set[str], name: str) -> str | None:
 
 def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
     """Each SKILL.md names its directory and has a description."""
+    present = set(files)
     errors: list[str] = []
     for name in sorted(_skill_names(root, files, SKILLS)):
         path = f"{SKILLS}/{name}/SKILL.md"
-        if not (root / path).is_file():
-            continue  # skill_alias_errors reports the missing SKILL.md
+        if not (root / path).is_file() or not _skill_md_tracked(root, present, name):
+            continue  # skill_alias_errors reports a missing or untracked SKILL.md
         data = front_matter_of(root, path, "name and description")
         if isinstance(data, str):
             errors.append(data)
@@ -112,7 +126,12 @@ def skill_file_errors(root: Path, files: Sequence[str]) -> list[str]:
     It judges the last path component only; a skill directory that is itself a symlink is
     skill_alias_errors' concern.
     """
-    paths = (f"{SKILLS}/{name}/SKILL.md" for name in sorted(_skill_names(root, files, SKILLS)))
+    present = set(files)
+    paths = (
+        f"{SKILLS}/{name}/SKILL.md"
+        for name in sorted(_skill_names(root, files, SKILLS))
+        if _skill_md_tracked(root, present, name)
+    )
     return [
         f"{path}: is a symlink; make it a regular file, because Codex rejects a symlinked SKILL.md"
         for path in paths

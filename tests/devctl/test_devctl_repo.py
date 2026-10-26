@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from devctl.process import run_process
 from devctl.repo import Repo, RepoError
 
 
@@ -34,6 +35,35 @@ def test_tracked_files_lists_only_tracked_paths(
     (git_repo / "untracked.txt").write_text("y\n")
 
     assert Repo.discover(git_repo).tracked_files() == ["a file.txt"]
+
+
+def test_tracked_files_include_staged_paths(
+    git_repo: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
+) -> None:
+    (git_repo / "committed.txt").write_text("x\n")
+    commit_all(git_repo)
+    (git_repo / "staged.txt").write_text("y\n")
+    run_git(git_repo, "add", "staged.txt")
+
+    assert Repo.discover(git_repo).tracked_files() == ["committed.txt", "staged.txt"]
+
+
+def test_tracked_files_list_an_unmerged_path_once(
+    git_repo: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
+) -> None:
+    (git_repo / "f.txt").write_text("base\n")
+    commit_all(git_repo, "base")
+    run_git(git_repo, "switch", "-q", "-c", "other")
+    (git_repo / "f.txt").write_text("other\n")
+    commit_all(git_repo, "other")
+    run_git(git_repo, "switch", "-q", "main")
+    (git_repo / "f.txt").write_text("main\n")
+    commit_all(git_repo, "main")
+    merged = run_process(["git", "merge", "-q", "other"], git_repo, 60)
+
+    assert merged.returncode != 0, "the merge should conflict"
+    assert run_git(git_repo, "ls-files").splitlines() == ["f.txt"] * 3
+    assert Repo.discover(git_repo).tracked_files() == ["f.txt"]
 
 
 def test_merge_base_returns_the_shared_commit_or_none(

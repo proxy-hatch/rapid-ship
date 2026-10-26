@@ -1,4 +1,8 @@
-"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents."""
+"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents.
+
+It finds guides, directories, documents and skills among the files that git tracks, staged
+ones included, and reads them from the work tree. A link to an untracked file does not resolve.
+"""
 
 from __future__ import annotations
 
@@ -40,14 +44,14 @@ class MapStep:
 
     def run(self, context: CheckContext) -> StepResult:
         try:
-            files = context.repo.files()
+            files = context.repo.tracked_files()
         except RepoError as error:
             return blocked(self.name, str(error))
         root = context.repo.root
         found = guides(root, files, context.project)
         errors = [
             *link_errors(root, files, found),
-            *coverage_errors(files, context.project),
+            *coverage_errors(root, files, context.project),
             *reachability_errors(root, found),
             *feature_errors(context, files),
             *pattern_errors(context, files),
@@ -79,7 +83,7 @@ def _map_excluded(path: str, project: ProjectSettings) -> bool:
 
 
 def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[str]:
-    """Each local link in each guide reaches a file the checkout maintains."""
+    """Each local link in each guide reaches a file or directory among `files`."""
     maintained = set(files)
     maintained.update(parent.as_posix() for path in files for parent in PurePosixPath(path).parents)
     aliases = [root / path for path in files if (root / path).is_symlink()]
@@ -149,23 +153,29 @@ def _link_error(
     )
 
 
-def coverage_errors(files: Sequence[str], project: ProjectSettings) -> list[str]:
-    """Each top-level directory and source-root child has a guide or is unguided."""
+def coverage_errors(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
+    """Each top-level directory and source-root child has a guide among `files` or is unguided."""
     present = set(files)
     errors = [
-        f"{root}: source root has no files; fix [map] source_roots"
-        for root in project.source_roots
-        if not any(path.startswith(f"{root}/") for path in files)
+        f"{source_root}: source root has no files; fix [map] source_roots"
+        for source_root in project.source_roots
+        if not any(path.startswith(f"{source_root}/") for path in files)
     ]
     needing = {path.split("/", 1)[0] for path in files if "/" in path}
-    for root in project.source_roots:
-        needing.update(_children(files, root))
-    errors += [
-        f"{directory}/: add an AGENTS.md guide, or list the directory under [map] unguided"
-        for directory in sorted(needing)
-        if _needs_guide(directory, project) and f"{directory}/AGENTS.md" not in present
-    ]
+    for source_root in project.source_roots:
+        needing.update(_children(files, source_root))
+    hint = "add an AGENTS.md guide, or list the directory under [map] unguided"
+    for directory in sorted(needing):
+        guide = f"{directory}/AGENTS.md"
+        if _needs_guide(directory, project) and guide not in present:
+            errors.append(_untracked(root, guide) or f"{directory}/: {hint}")
     return errors
+
+
+def _untracked(root: Path, path: str) -> str | None:
+    """The error for a required `path` that git does not track but the work tree holds; None
+    when the work tree lacks it too."""
+    return f"{path}: not tracked; stage it with git add" if (root / path).is_file() else None
 
 
 def _children(files: Sequence[str], root: str) -> set[str]:
@@ -189,7 +199,10 @@ def _needs_guide(directory: str, project: ProjectSettings) -> bool:
 def reachability_errors(root: Path, found: Sequence[str]) -> list[str]:
     """Every guide is reached from the root guide by links, directly or by directory."""
     if ROOT_GUIDE not in found:
-        return [f"{ROOT_GUIDE}: add a root guide that links every other guide"]
+        return [
+            _untracked(root, ROOT_GUIDE)
+            or f"{ROOT_GUIDE}: add a root guide that links every other guide"
+        ]
     reached = {ROOT_GUIDE}
     pending = deque([ROOT_GUIDE])
     while pending:
@@ -391,14 +404,15 @@ def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
 
 
 def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """README.md and ARCHITECTURE.md exist at the repository root.
+    """README.md and ARCHITECTURE.md exist at the repository root among `files`.
 
     rapid-ship sync seeds a missing document when it upgrades a project from a Kit without the
     seed. Once the lock lists a document, sync never writes it again, so the message names git.
     """
     found = _root_documents(root, files)
     return [
-        f"{name}: missing at the repository root; restore it from git or write a new one "
+        _untracked(root, name)
+        or f"{name}: missing at the repository root; restore it from git or write a new one "
         "(rapid-ship sync seeds it only while the Kit lock does not list it)"
         for name in ROOT_DOCUMENTS
         if name not in found
@@ -407,10 +421,10 @@ def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
 
 def root_link_errors(root: Path, files: Sequence[str]) -> list[str]:
     """Each local link in the root documents resolves as link_errors checks it, and the root
-    guide links both. A missing document is root_document_errors' report, and a missing root
-    guide reachability_errors'."""
+    guide links both. A missing or untracked document is root_document_errors' report, and a
+    missing or untracked root guide reachability_errors'."""
     errors = link_errors(root, files, _root_documents(root, files))
-    if (root / ROOT_GUIDE).is_file():
+    if ROOT_GUIDE in files and (root / ROOT_GUIDE).is_file():
         targets = set(_guide_targets(root, ROOT_GUIDE))
         errors += [
             f"{ROOT_GUIDE}: does not link {name}; add it to the Find the change table"

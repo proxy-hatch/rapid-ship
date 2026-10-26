@@ -42,8 +42,10 @@ class Repo:
         return cls(Path(root), Path(common))
 
     def tracked_files(self) -> list[str]:
+        """Tracked files, staged ones included, as POSIX paths. git lists an unmerged path once
+        for each stage; it appears here once."""
         output = _git(self.root, "ls-files", "-z").stdout
-        return [os.fsdecode(name) for name in output.split(b"\0") if name]
+        return sorted({os.fsdecode(name) for name in output.split(b"\0") if name})
 
     def merge_base(self, ref: str) -> str | None:
         """The merge base of HEAD and ref; None when they share no history (git exits 1)."""

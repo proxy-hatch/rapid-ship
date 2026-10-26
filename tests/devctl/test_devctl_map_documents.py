@@ -28,8 +28,9 @@ reproduce: ./devctl check --tier fast
 
 
 def features(workspace: Workspace) -> list[str]:
+    workspace.stage()
     context = workspace.context()
-    return feature_errors(context, context.repo.files())
+    return feature_errors(context, context.repo.tracked_files())
 
 
 def test_valid_feature_and_readme_pass(workspace: Workspace) -> None:
@@ -149,9 +150,10 @@ def test_pattern_reference_and_enforcement(workspace: Workspace) -> None:
         "docs/patterns/broken.md",
         "---\nreference: src/app/gone.py\nenforced_by: [check:nope]\n---\n",
     )
+    workspace.stage()
     context = workspace.context()
 
-    errors = pattern_errors(context, context.repo.files())
+    errors = pattern_errors(context, context.repo.tracked_files())
 
     assert errors == [
         "docs/patterns/broken.md: reference names src/app/gone.py, which does not exist",
@@ -177,8 +179,9 @@ It validates every value where it enters.
 def lessons(workspace: Workspace, text: str) -> list[str]:
     workspace.write("src/app/settings.py", "")
     workspace.write("docs/patterns/settings.md", text)
+    workspace.stage()
     context = workspace.context()
-    return pattern_lesson_errors(context, context.repo.files())
+    return pattern_lesson_errors(context, context.repo.tracked_files())
 
 
 @pytest.mark.parametrize(
@@ -243,16 +246,17 @@ def test_a_front_matter_problem_is_left_to_pattern_errors(
 ) -> None:
     assert lessons(workspace, text) == []
     context = workspace.context()
-    assert pattern_errors(context, context.repo.files()) == [
+    assert pattern_errors(context, context.repo.tracked_files()) == [
         f"docs/patterns/settings.md: {message}"
     ]
 
 
 def test_the_pattern_readme_is_not_a_pattern(workspace: Workspace) -> None:
     workspace.write("docs/patterns/README.md", "# Patterns\n")
+    workspace.stage()
 
     context = workspace.context()
-    assert pattern_lesson_errors(context, context.repo.files()) == []
+    assert pattern_lesson_errors(context, context.repo.tracked_files()) == []
 
 
 def test_a_pattern_without_task_or_lessons_fails_the_map_step(workspace: Workspace) -> None:
@@ -262,6 +266,7 @@ def test_a_pattern_without_task_or_lessons_fails_the_map_step(workspace: Workspa
     workspace.write(
         "docs/patterns/settings.md", incomplete.replace("src/app/settings.py", "README.md")
     )
+    workspace.stage()
 
     result = MapStep().run(workspace.context(source_roots=()))
 
@@ -316,8 +321,9 @@ def test_rules_items_skip_nested_lists_and_code() -> None:
 
 def test_every_rule_ends_with_a_resolving_marker(workspace: Workspace) -> None:
     workspace.write("AGENTS.md", GUIDE)
+    workspace.stage()
     context = workspace.context()
-    found = guides(context.repo.root, context.repo.files(), context.project)
+    found = guides(context.repo.root, context.repo.tracked_files(), context.project)
 
     assert rule_errors(context, found) == [
         "AGENTS.md:19: end the rule with 'enforced by: <reference>' or 'advisory'",
@@ -332,6 +338,7 @@ def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Work
     workspace.write("docs/patterns/settings.md", "# Settings\n")
     workspace.write(".agents/skills/notes/SKILL.md", "# Notes\n")
     workspace.link(".claude/skills/notes", "../../.agents/skills/notes")
+    workspace.stage()
 
     result = MapStep().run(workspace.context(source_roots=()))
 
@@ -342,3 +349,14 @@ def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Work
         "AGENTS.md:5",
         ".agents/skills/notes/SKILL.md",
     ]
+
+
+def test_untracked_feature_and_pattern_files_are_not_checked(workspace: Workspace) -> None:
+    workspace.root_guide()
+    workspace.stage()
+    workspace.write("docs/features/sign-in.md", "# Sign-in\n")
+    workspace.write("docs/patterns/settings.md", "# Settings\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == ("passed", ())

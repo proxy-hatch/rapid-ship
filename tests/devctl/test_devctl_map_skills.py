@@ -17,14 +17,16 @@ def add_skill(workspace: Workspace, name: str, text: str) -> None:
 
 
 def errors(workspace: Workspace) -> list[str]:
+    workspace.stage()
     context = workspace.context()
-    return skill_errors(context.repo.root, context.repo.files())
+    return skill_errors(context.repo.root, context.repo.tracked_files())
 
 
 def test_a_project_authored_skill_passes(workspace: Workspace) -> None:
     workspace.root_guide()
     add_skill(workspace, "rs-tdd", skill_text("rs-tdd"))  # as the Kit vendors it
     add_skill(workspace, "release-notes", skill_text("release-notes"))  # not in the lock
+    workspace.stage()
 
     result = MapStep().run(workspace.context(source_roots=()))
 
@@ -72,13 +74,15 @@ def symlinked_skill(workspace: Workspace) -> None:
 
 
 def file_errors(workspace: Workspace) -> list[str]:
+    workspace.stage()
     context = workspace.context()
-    return skill_file_errors(context.repo.root, context.repo.files())
+    return skill_file_errors(context.repo.root, context.repo.tracked_files())
 
 
 def test_a_symlinked_skill_md_fails_the_map_step(workspace: Workspace) -> None:
     workspace.root_guide()
     symlinked_skill(workspace)
+    workspace.stage()
 
     result = MapStep().run(workspace.context(source_roots=()))
 
@@ -90,3 +94,34 @@ def test_a_regular_skill_md_has_no_file_error(workspace: Workspace) -> None:
     add_skill(workspace, "demo", skill_text("demo"))
 
     assert file_errors(workspace) == []
+
+
+def test_an_untracked_skill_is_not_checked(workspace: Workspace) -> None:
+    workspace.root_guide()
+    workspace.stage()
+    add_skill(workspace, "draft", "# Draft\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == ("passed", ())
+
+
+@pytest.mark.parametrize(
+    "directory", [".agents/skills/notes", "pkg/skills/notes"], ids=["in place", "in a package"]
+)
+def test_an_untracked_skill_md_must_be_staged(workspace: Workspace, directory: str) -> None:
+    workspace.root_guide()
+    workspace.write(f"{directory}/README.md", "# Notes\n")
+    if directory != ".agents/skills/notes":
+        workspace.link(".agents/skills/notes", f"../../{directory}")
+    workspace.link(".claude/skills/notes", "../../.agents/skills/notes")
+    workspace.stage()
+    # Neither front matter nor a regular file: the skill rules must not read it.
+    (workspace.root / directory / "SKILL.md").symlink_to("README.md")
+
+    result = MapStep().run(workspace.context(source_roots=(), unguided=("pkg",)))
+
+    assert (result.status, result.details) == (
+        "failed",
+        (".agents/skills/notes/SKILL.md: not tracked; stage it with git add",),
+    )
