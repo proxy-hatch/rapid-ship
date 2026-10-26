@@ -209,8 +209,8 @@ def counted_lines(context: CheckContext, base: str, changes: Sequence[Change]) -
 def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
     """A problem when the count is over the cap and no overage is declared, and the note.
 
-    A declared overage passes with a note whatever the Mode: the step does not decide who merges
-    the pull request.
+    A declared overage passes with a note in every Mode; in Flight the merge guard leaves the
+    pull request to the owner.
     """
     note = f"diff cap: {counted} of {DIFF_CAP:,} counted lines"
     if counted <= DIFF_CAP:
@@ -256,13 +256,20 @@ def _changed_tests(
     return identities, problems
 
 
+def is_unit_test(path: str, unit_patterns: Sequence[str]) -> bool:
+    """Whether [tests] unit's patterns class the test file at path as unit; every other test is
+    behavioural. The merge guard classes a declared removal with it too.
+    """
+    return any(glob_match(pattern, path) for pattern in unit_patterns)
+
+
 def _removals(
     context: CheckContext, removed: Sequence[tuple[str, str]]
 ) -> tuple[list[str], list[str]]:
     """A problem for each undeclared removal and a note for each declared one, in removed order.
 
-    A declared removal passes with a note whatever the Mode: the step does not decide who merges
-    the pull request.
+    A declared removal passes with a note in every Mode; in Flight the merge guard leaves a pull
+    request that declares a behavioural one to the owner.
     """
     body = context.pr_body
     declared = {} if body is None else removed_test_declarations(body)[0]
@@ -270,7 +277,7 @@ def _removals(
     notes: list[str] = []
     for path, name in removed:
         test = f"{path}::{name}"
-        unit = any(glob_match(pattern, path) for pattern in context.project.unit_tests)
+        unit = is_unit_test(path, context.project.unit_tests)
         removal = f"removed {'unit' if unit else 'behavioural'} test {test}"
         if test not in declared:
             problems.append(f"{removal}: {_UNDECLARED}{_NO_BODY if body is None else ''}")

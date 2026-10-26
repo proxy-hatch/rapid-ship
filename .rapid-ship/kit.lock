@@ -41,7 +41,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "bceb6a1d4ff1fa6490d5a0a2f24cdc0fbe54de53e23e21bd8b1bd83eb749c4f5"
+template_sha256 = "d58f6cf9ada8b7ed69651285449f19470c4643e47054f162d8974fab57012451"
 
 [[file]]
 path = "AGENTS.md"
@@ -106,12 +106,12 @@ sha256 = "72083a3a4a5563d658ac3bdca335f50a20ae302f7fe2b555fbf30f20cfbeac38"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "0c3c2667e09de402e85cf10b390f664f0660e53b4156ced09a36d8f510e16439"
+sha256 = "533439eb09cb952d254bc248ddc129d4dadff3aa6d2959cc76b1d4c9b4e7bea8"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
 kind = "managed"
-sha256 = "31ad697b8ffafd627f8878aa95a67727ac278ab33657733315aadebaaa65f41c"
+sha256 = "605a770b8070d1bc9761a4bc0cc56e8adb79c2f009f8f4ac4a9a708f7be9c8b4"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
@@ -251,12 +251,12 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "15eaf3b21f9616afbc1747d5872dbdedb893c14f561c0adbec2b97a7db292c36"
+sha256 = "76a3e149e5d2a865cc008f77b504796ba01cd0a86e252c6b2ae452fcfe3e8f83"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
 kind = "managed"
-sha256 = "dcd339b604692f7ca2a15461148349a7ec689af845dd09c7a9e76614f068fc41"
+sha256 = "7bb35c4e77a7bdf64a42597a8bd85bb067f80c70c4400bbaae62f9bd2792fd54"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"
@@ -266,12 +266,12 @@ sha256 = "3cceedc023ce6acf389d6057548d0f1a3be23fb736a0e3335d7fa75ff50d353b"
 [[file]]
 path = "tools/devctl/devctl/merge_guard.py"
 kind = "managed"
-sha256 = "10463b98cbb68fce71731ce83cb2bef2f6c7e518ee19cb5dcc4c9646d22eeb43"
+sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
 
 [[file]]
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
-sha256 = "2163e83b60f6b08d6b3265d7405d0b9cc95329dd4f3281b61e7a02de34a7b759"
+sha256 = "759d72b37ff4001f16dd3dda97d3358dfa13c8aa9c8551c522354a8f0fab2f2a"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"

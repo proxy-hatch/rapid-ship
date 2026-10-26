@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -15,11 +16,14 @@ from devctl.merge_guard import LocalBranches, read_branches
 ROOT = Path("/repo")
 PROTECTED = ("/.github/", "/.claude/", "/**/AGENTS.md", "/.rapid-ship/")
 OFF = HookSettings(
-    agent_identity=False, protected=PROTECTED, repository="o/r", reviewer_app_slug=None
+    agent_identity=False,
+    protected=PROTECTED,
+    repository="o/r",
+    reviewer_app_slug=None,
+    every_pr=True,
+    unit_tests=("tests/unit/**",),
 )
-ON = HookSettings(
-    agent_identity=True, protected=PROTECTED, repository="o/r", reviewer_app_slug="o-reviewer"
-)
+ON = replace(OFF, agent_identity=True, reviewer_app_slug="o-reviewer")
 TASK = LocalBranches(frozenset({"main"}), "task")
 ON_MAIN = LocalBranches(frozenset({"main"}), "main")
 
@@ -493,7 +497,9 @@ def test_a_missing_codeowners_is_an_empty_protected_set(tmp_path: Path) -> None:
     workspace = new_workspace(tmp_path / "main")
     workspace.write(".rapid-ship/project.toml", 'stack = "python"\n')
 
-    assert read_settings(workspace.root) == HookSettings(False, (), None, None)
+    assert read_settings(workspace.root) == replace(
+        OFF, protected=(), repository=None, reviewer_app_slug=None
+    )
 
 
 def test_read_settings_takes_the_reviewer_app_slug_with_agent_identity(tmp_path: Path) -> None:
@@ -506,4 +512,17 @@ def test_read_settings_takes_the_reviewer_app_slug_with_agent_identity(tmp_path:
     )
     workspace.write(".github/CODEOWNERS", "* @o\n/.github/ @o\n")
 
-    assert read_settings(workspace.root) == HookSettings(True, ("/.github/",), "o/r", "o-reviewer")
+    assert read_settings(workspace.root) == replace(ON, protected=("/.github/",))
+
+
+def test_read_settings_takes_the_mode_and_the_unit_test_patterns(tmp_path: Path) -> None:
+    workspace = new_workspace(tmp_path / "main")
+    workspace.write(
+        ".rapid-ship/project.toml",
+        'stack = "python"\n\n[escalation]\nevery_pr = false\n\n[tests]\nunit = ["tests/fast/**"]\n',
+    )
+
+    settings = read_settings(workspace.root)
+
+    assert isinstance(settings, HookSettings)
+    assert (settings.every_pr, settings.unit_tests) == (False, ("tests/fast/**",))

@@ -28,11 +28,20 @@ FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 REVIEWS = "repos/o/r/pulls/7/reviews?per_page=100&page=1"
 RUNS = f"repos/o/r/commits/{HEAD}/check-runs?check_name=devctl%20check&filter=latest&per_page=100"
 BY_BRANCH = "repos/o/r/pulls?head=o:task&state=open&per_page=100"
-PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main"}}
+# GitHub gives a pull request without a body "body": null.
+PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main"}, "body": None}
 OWNERS = base64.b64encode(b"* @o\n# /.github/ @o\n# /**/AGENTS.md @o\n").decode()
 TASK = LocalBranches(frozenset({"main"}), "task")
-OFF = HookSettings(agent_identity=False, protected=(), repository="o/r", reviewer_app_slug=None)
+OFF = HookSettings(  # Flight, with Agent identity off
+    agent_identity=False,
+    protected=(),
+    repository="o/r",
+    reviewer_app_slug=None,
+    every_pr=False,
+    unit_tests=("tests/unit/**",),
+)
 ON = replace(OFF, agent_identity=True, reviewer_app_slug="o-reviewer")
+WALK = replace(OFF, every_pr=True)
 CHECKED = f"merge denied: devctl check on PR #7 at {HEAD} is {{}}; "
 CHECKED += "wait for it to pass or fix what it reports, then merge again"
 UNAPPROVED = f"merge denied: PR #7 has no Reviewer App approval of its head {HEAD}; "
@@ -43,6 +52,11 @@ CANNOT = "merge denied: the merge guard cannot check this merge: {}; fix that, t
 NO_REPOSITORY = "no repository: set [github] repository in .rapid-ship/project.toml "
 NO_REPOSITORY += "or pass -R OWNER/NAME"
 BUDGET = "its GitHub reads would pass the 300-second budget; fix that, then merge again"
+IN_WALK = "merge denied: in Walk the owner merges every pull request; ask the owner to merge "
+IN_WALK += "PR #7"
+DECLARES = "merge denied: PR #7 declares {}, so the owner merges it"
+REMOVED_BEHAVIOURAL = "a removed behavioural test"
+OVER_CAP = "an overage of the diff cap"
 APPS = (
     'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
     'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n'
@@ -59,10 +73,25 @@ def review(state: str = "APPROVED", commit: str = HEAD, **fields: object) -> obj
     return {**found, **fields}
 
 
-def owner(files: object = None, runs: object = None, reviews: object = None) -> RecordedOwner:
+def evidence(*lines: str) -> str:
+    """A PR body whose Evidence section holds a command, these lines and Not covered."""
+    section = ["## Evidence", "", "- `uv run pytest`: 12 passed", *lines, "", "Not covered: none"]
+    return "\n".join(section) + "\n"
+
+
+REMOVES_BEHAVIOURAL = evidence(
+    "", "Removed tests:", "- `tests/test_api.py::TestApi::test_delete`: gone"
+)
+REMOVES_UNIT = evidence("", "Removed tests:", "- `tests/unit/test_core.py::test_old`: replaced")
+OVER = evidence("", "Over the diff cap: a generated client, accepted by the owner")
+
+
+def owner(
+    files: object = None, runs: object = None, reviews: object = None, body: str | None = None
+) -> RecordedOwner:
     return RecordedOwner(
         {
-            PR: PULL,
+            PR: {**PULL, "body": body},
             CODEOWNERS: {"encoding": "base64", "content": OWNERS},
             FILES: files or [{"filename": "src/app/core.py", "status": "modified"}],
             REVIEWS: [review()] if reviews is None else reviews,
@@ -77,10 +106,11 @@ def guarded(line: str, reader: RecordedOwner, settings: HookSettings | None = OF
     return guard(merge, settings, reader, lambda: TASK, lambda: 0.0)
 
 
-def project(tmp_path: Path, github: str = "") -> Path:
+def project(tmp_path: Path, github: str = "", mode: str = "every_pr = false") -> Path:
     workspace = new_workspace(tmp_path / "main")
     workspace.write(
-        ".rapid-ship/project.toml", f'stack = "python"\n\n[github]\nrepository = "o/r"\n{github}'
+        ".rapid-ship/project.toml",
+        f'stack = "python"\n\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}',
     )
     return workspace.root
 
@@ -281,7 +311,7 @@ def test_gh_prints_only_the_fields_of_the_files_that_the_guard_reads(fake_run: F
     fake_run.answer(whole, ProcessResult(whole, 0, "[", "", 0.0, stdout_truncated=True))
     page = '[{"filename": "a.py", "status": "renamed", "previous_filename": "b.py"}]'
     fake_run.answer([*whole, "--jq", FILE_FIELDS], ProcessResult(whole, 0, page, "", 0.0))
-    pull = PullRequest("o/r", 7, HEAD, "main")
+    pull = PullRequest("o/r", 7, HEAD, "main", body="")
     assert changed_files(gh_get, pull) == [FileChange("a.py", "renamed", "b.py")]
 
 
@@ -417,6 +447,106 @@ def test_the_denials_come_in_the_order_protected_check_review_head() -> None:
     assert guarded(line, failed, ON) == CHECKED.format("failure")
 
     assert guarded("gh pr merge 7 --squash", owner(reviews=[]), ON) == UNAPPROVED
+
+
+@pytest.mark.parametrize("settings", [WALK, replace(ON, every_pr=True)])
+def test_in_walk_every_merge_is_denied_once_the_pull_request_is_read(
+    settings: HookSettings,
+) -> None:
+    reader = owner()
+    assert (
+        guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader, settings) == IN_WALK
+    )
+    assert reader.paths == [PR]
+
+    by_branch = owner()
+    by_branch.serve(BY_BRANCH, [PULL])
+    assert guarded("gh pr merge task", by_branch, settings) == IN_WALK
+    assert by_branch.paths == [BY_BRANCH]
+
+
+@pytest.mark.parametrize(
+    ("body", "what"),
+    [
+        (REMOVES_BEHAVIOURAL, REMOVED_BEHAVIOURAL),
+        (OVER, OVER_CAP),
+        (
+            evidence(
+                "",
+                "Over the diff cap: a generated client, accepted by the owner",
+                "",
+                "Removed tests:",
+                "- `tests/unit/test_core.py::test_old`: replaced",
+                "- tests/test_api.py::test_delete: gone",
+            ),
+            f"{REMOVED_BEHAVIOURAL} and {OVER_CAP}",
+        ),
+    ],
+)
+@pytest.mark.parametrize("settings", [OFF, ON])
+def test_in_flight_a_body_that_declares_a_removed_behavioural_test_or_an_overage_is_denied(
+    body: str, what: str, settings: HookSettings
+) -> None:
+    reader = owner(body=body)
+    line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
+    assert guarded(line, reader, settings) == DECLARES.format(what)
+    assert reader.paths == [PR, CODEOWNERS, FILES]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        "",
+        REMOVES_UNIT,
+        evidence("", "Over the diff cap:"),
+        evidence("", "```", "Over the diff cap: a generated client", "```"),
+        # The Evidence parsers read only the Evidence section.
+        "## Notes\n\nOver the diff cap: a generated client\n\n"
+        "Removed tests:\n- `tests/test_api.py::test_delete`: gone\n",
+    ],
+)
+def test_in_flight_a_body_without_either_declaration_passes_to_the_next_rule(
+    body: str | None,
+) -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    assert guarded(line, owner(body=body, runs=[run(conclusion="failure")])) == (
+        CHECKED.format("failure")
+    )
+    assert guarded(line, owner(body=body)) is None
+
+
+def test_the_unit_patterns_decide_which_declared_removals_stop_the_merge() -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    every_test_unit = replace(OFF, unit_tests=("tests/**",))
+    assert guarded(line, owner(body=REMOVES_BEHAVIOURAL), every_test_unit) is None
+    no_unit_tests = replace(OFF, unit_tests=())
+    assert guarded(line, owner(body=REMOVES_UNIT), no_unit_tests) == (
+        DECLARES.format(REMOVED_BEHAVIOURAL)
+    )
+
+
+def test_walk_comes_first_and_the_declarations_after_the_protected_set() -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    protected = [{"filename": ".github/x", "status": "modified"}]
+    failing = [run(conclusion="failure")]
+
+    walk = owner(files=protected, reviews=[], runs=failing, body=OVER)
+    assert guarded(line, walk, replace(ON, every_pr=True)) == IN_WALK
+    flight = owner(files=protected, reviews=[], runs=failing, body=OVER)
+    assert guarded(line, flight, ON) == TOUCHES.format(".github/x")
+    declared = owner(reviews=[], runs=failing, body=OVER)
+    assert guarded(line, declared, ON) == DECLARES.format(OVER_CAP)
+
+
+def test_the_hook_reads_the_mode_and_the_unit_tests_from_project_toml(tmp_path: Path) -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    walk = owner()
+    assert hooked(project(tmp_path / "walk", mode=""), line, walk) == ("deny", IN_WALK)
+    assert walk.paths == [PR]
+
+    flight = project(tmp_path / "flight", github='\n[tests]\nunit = ["tests/**"]\n')
+    assert hooked(flight, line, owner(body=REMOVES_BEHAVIOURAL)) == (None, "")
 
 
 def test_without_agent_identity_the_guard_reads_no_review() -> None:

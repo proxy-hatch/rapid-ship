@@ -76,6 +76,8 @@ class HookSettings:
     protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
     repository: str | None  # [github] repository
     reviewer_app_slug: str | None  # [github] reviewer_app_slug when Agent identity is on, else None
+    every_pr: bool  # [escalation] every_pr: True is Walk, False is Flight
+    unit_tests: tuple[str, ...]  # [tests] unit: the patterns of the unit test files
 
 
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:

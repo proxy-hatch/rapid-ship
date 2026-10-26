@@ -14,7 +14,7 @@ reviewer_app_id = 0
 reviewer_app_slug = ""
 
 [escalation]
-# true is Walk: every pull request needs the owner. false is Flight: only the Protected set does.
+# The Mode. true is Walk: the owner merges every pull request. false is Flight.
 every_pr = true
 
 [kit]
