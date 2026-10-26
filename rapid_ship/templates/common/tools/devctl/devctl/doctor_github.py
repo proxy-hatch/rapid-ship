@@ -200,7 +200,7 @@ def _installation_item(
     problems: list[str] = []
     granted = installation_problems(found, role)
     if granted:
-        problems.append(f"permissions differ from Spec 1 section 3: {'; '.join(granted)}")
+        problems.append(f"permissions differ from those the {role} App needs: {'; '.join(granted)}")
     slug = found.get("app_slug")
     if slug != app.slug:
         # The merge guard finds the Reviewer App's approval by its slug, so a wrong one denies

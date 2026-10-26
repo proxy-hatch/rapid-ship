@@ -297,7 +297,9 @@ def test_an_extra_permission_makes_the_installation_missing(
     github.install(REVIEWER_ID, "o/r", permissions, REVIEWER_INSTALLATION)
     items = by_name(github_items(ctx_github()))
     assert items["Reviewer App installation"].status == "missing"
-    assert "workflows: write must not be granted" in items["Reviewer App installation"].detail
+    assert items["Reviewer App installation"].detail == (
+        "permissions differ from those the reviewer App needs: workflows: write must not be granted"
+    )
     assert items["Reviewer App key"].status == "ok"
     assert items["Worker App installation"].status == "ok"
 

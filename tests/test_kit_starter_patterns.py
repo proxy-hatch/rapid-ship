@@ -30,7 +30,7 @@ UV_RUN = ("uv", "run", "--locked")
 TOOLS = Path(sys.executable).parent
 
 
-def test_the_python_starter_patterns_pass_map_rule_5(
+def test_the_python_starter_patterns_pass_the_pattern_file_checks(
     git_repo: Path, kit_variables: dict[str, str], commit_all: Callable[..., None]
 ) -> None:
     init_repository(git_repo, stack="python", variables=kit_variables)
