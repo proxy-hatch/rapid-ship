@@ -303,16 +303,27 @@ def _checked_lines(text: str, every_pr: bool, stack: Stack) -> set[int]:
     return {applied[path].number for path in _protected_paths(stack) if path in applied}
 
 
+def _line_numbers(numbers: Sequence[int]) -> str:
+    if len(numbers) == 1:
+        return f"line {numbers[0]}"
+    *others, last = numbers
+    return f"lines {', '.join(map(str, others))} and {last}"
+
+
 def codeowners_error_problems(
     errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: Stack
 ) -> list[str]:
-    """GitHub's report of each error on a line of text that codeowners_problems checks."""
+    """GitHub's report of the errors on the lines of text that codeowners_problems checks: one
+    problem for each kind and suggestion, which names its lines in order."""
     checked = _checked_lines(text, every_pr, stack)
-    problems: list[str] = []
-    for error in errors:
+    grouped: dict[tuple[str, str | None], set[int]] = {}
+    for error in sorted(errors, key=lambda error: error.line):
         if error.line in checked:
-            reported = f"GitHub reports {error.kind} on line {error.line}"
-            problems.append(f"{reported}: {error.suggestion}" if error.suggestion else reported)
+            grouped.setdefault((error.kind, error.suggestion), set()).add(error.line)
+    problems: list[str] = []
+    for (kind, suggestion), lines in grouped.items():
+        reported = f"GitHub reports {kind} on {_line_numbers(sorted(lines))}"
+        problems.append(f"{reported}: {suggestion}" if suggestion else reported)
     return problems
 
 

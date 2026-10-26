@@ -117,8 +117,22 @@ def test_in_flight_only_errors_on_protected_lines_count(
     item = codeowners_item(context)
     assert (item.status, item.detail) == (
         "missing",
-        f"GitHub reports Unknown owner on line 1: {UNKNOWN_TEAM_SUGGESTION}; "
-        f"GitHub reports Unknown owner on line {len(PROTECTED_PATHS)}: {UNKNOWN_TEAM_SUGGESTION}",
+        f"GitHub reports Unknown owner on lines 1 and 13: {UNKNOWN_TEAM_SUGGESTION}",
+    )
+
+
+def test_an_error_on_every_protected_line_is_reported_once(
+    ctx_github: MakeContext, recorded: RecordedOwner
+) -> None:
+    """An unknown team in Flight is an error on every Protected line, each with one suggestion."""
+    recorded.serve(CODEOWNERS, contents(FLIGHT))
+    lines = range(1, len(PROTECTED_PATHS) + 1)
+    recorded.serve(ERRORS, {"errors": [{**UNKNOWN_TEAM, "line": line} for line in lines]})
+    item = codeowners_item(owned_by(ctx_github, TEAM, every_pr=False))
+    assert (item.status, item.detail) == (
+        "missing",
+        "GitHub reports Unknown owner on lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13: "
+        f"{UNKNOWN_TEAM_SUGGESTION}",
     )
 
 
@@ -194,6 +208,24 @@ def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
         f"GitHub reports Unknown owner on line {devctl_line}"
     ]
     assert codeowners_error_problems([], WALK, True, "agnostic") == []
+
+
+def test_errors_with_one_kind_and_suggestion_are_one_problem_in_line_order() -> None:
+    errors = [
+        CodeownersError(5, "Unknown owner", "a"),
+        CodeownersError(2, "Unknown owner", "a"),
+        CodeownersError(3, "Unknown owner", "b"),
+        CodeownersError(2, "Unknown owner", "a"),
+        CodeownersError(3, "Unknown owner", "a"),
+        CodeownersError(4, "Invalid owner", "a"),
+        CodeownersError(6, "Invalid owner", None),
+    ]
+    assert codeowners_error_problems(errors, FLIGHT, False, "agnostic") == [
+        "GitHub reports Unknown owner on lines 2, 3 and 5: a",
+        "GitHub reports Unknown owner on line 3: b",
+        "GitHub reports Invalid owner on line 4: a",
+        "GitHub reports Invalid owner on line 6",
+    ]
 
 
 @pytest.mark.parametrize("separator", ["\x0c", "\x1c", "\x85", "\u2028", "\u2029"])
