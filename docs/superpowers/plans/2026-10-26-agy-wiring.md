@@ -99,7 +99,7 @@ The item is ok when `.agents/hooks.json` is tracked and valid JSON; a named hook
 
 ### Task 5: Verification
 
-- [ ] Run `uv run pytest -q tests/devctl tests/test_kit_*.py`, `./devctl check --tier fast` and `uv run rapid-ship status --strict`, and record them below.
+- [x] Run `uv run pytest -q tests/devctl tests/test_kit_*.py`, `./devctl check --tier fast` and `uv run rapid-ship status --strict`, and record them below.
 
 ### Task 6 (Owner step): the guardrails in agy
 
@@ -108,3 +108,13 @@ The item is ok when `.agents/hooks.json` is tracked and valid JSON; a named hook
 ## Verification record
 
 Task 5 fills it. A blocked, skipped or simulated result is written as such, never as passed.
+
+| Check, at 260cd81 | Result |
+| --- | --- |
+| `uv run pytest -q tests/devctl tests/test_kit_*.py` | exit 1: `1 failed, 1925 passed in 1445.16s (0:24:05)`. The failure, `tests/devctl/test_devctl_process.py::test_tools_are_found_on_the_callers_path`, is a 5-second timeout on a one-line shell script while the machine's load average was over 20; this branch does not change `process.py`. Rerun alone, `uv run pytest -q tests/devctl/test_devctl_process.py` exited 0: `23 passed`. `tests/devctl/test_devctl_project_dogfood.py`, which needs network access, passed in the full run |
+| `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed |
+| `uv run rapid-ship status --strict` | exit 0: `45 managed files unchanged.` |
+| `./devctl doctor --settings`, in this repository | exit 0: `doctor: 4 ok, 0 missing, 0 unknown`; the agy wiring item ran the real hook through the shim and uv |
+| The `diff` step's count, `counted_lines` against `748d17c` | 1,258 counted lines, under the cap of 1,500 |
+
+Not run: `./devctl check --tier full`, which needs a PR body, and the website build, because no page under `website/` changed. Task 6, the live trial in agy, is a pending Owner step.
