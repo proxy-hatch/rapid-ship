@@ -32,7 +32,7 @@ WORKER_ID = 101
 REVIEWER_ID = 202
 WORKER_INSTALLATION = 1001
 REVIEWER_INSTALLATION = 2002
-# Spec 1 section 3's permission table, written out so tests do not compare the code with itself.
+# Each App's permissions, written out so tests do not compare the code with itself.
 WORKER_PERMISSIONS = {
     "contents": "write",
     "pull_requests": "write",

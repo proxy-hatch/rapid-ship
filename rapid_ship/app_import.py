@@ -1,8 +1,6 @@
 """rapid-ship app --import-key: store a developer's own key for an App that [github] records.
 
-Step 4 of `rapid-ship app`, in section 3 of
-docs/superpowers/specs/2026-10-14-kit-and-setup-design.md, describes the command. The key stays
-in memory and reaches `security` only on stdin.
+The key stays in memory and reaches `security` only on stdin.
 """
 
 from __future__ import annotations

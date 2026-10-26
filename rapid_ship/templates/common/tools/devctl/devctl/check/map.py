@@ -1,5 +1,4 @@
-"""The map step: map rules 1 to 8 of Spec 1 section 5, over the guides, feature files,
-Patterns, Rules, skills and root documents."""
+"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents."""
 
 from __future__ import annotations
 
@@ -28,7 +27,7 @@ from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
-ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")  # map rule 8
+ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
@@ -80,7 +79,7 @@ def _map_excluded(path: str, project: ProjectSettings) -> bool:
 
 
 def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[str]:
-    """Map rule 1: each local link in each guide reaches a file the checkout maintains."""
+    """Each local link in each guide reaches a file the checkout maintains."""
     maintained = set(files)
     maintained.update(parent.as_posix() for path in files for parent in PurePosixPath(path).parents)
     aliases = [root / path for path in files if (root / path).is_symlink()]
@@ -151,7 +150,7 @@ def _link_error(
 
 
 def coverage_errors(files: Sequence[str], project: ProjectSettings) -> list[str]:
-    """Map rule 2: each top-level directory and source-root child has a guide or is unguided."""
+    """Each top-level directory and source-root child has a guide or is unguided."""
     present = set(files)
     errors = [
         f"{root}: source root has no files; fix [map] source_roots"
@@ -188,7 +187,7 @@ def _needs_guide(directory: str, project: ProjectSettings) -> bool:
 
 
 def reachability_errors(root: Path, found: Sequence[str]) -> list[str]:
-    """Map rule 3: every guide is reached from the root guide by links, directly or by directory."""
+    """Every guide is reached from the root guide by links, directly or by directory."""
     if ROOT_GUIDE not in found:
         return [f"{ROOT_GUIDE}: add a root guide that links every other guide"]
     reached = {ROOT_GUIDE}
@@ -275,7 +274,7 @@ def _document_errors(
 
 
 def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
-    """Map rule 4: each feature file has front matter, and what it names exists."""
+    """Each feature file has front matter, and what it names exists."""
     keys = "purpose, entry_points, data, observe and reproduce"
     return _document_errors(context, files, FEATURES, keys, _feature_problems)
 
@@ -321,7 +320,7 @@ def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
 
 
 def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
-    """Map rule 5: each Pattern file has a reference that exists and enforcement that resolves."""
+    """Each Pattern file has a reference that exists and enforcement that resolves."""
     return _document_errors(
         context, files, PATTERNS, "task, reference and enforced_by", _pattern_problems
     )
@@ -345,7 +344,7 @@ def _pattern_problems(
 
 
 def pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
-    """Map rule 5's task and Lessons: each Pattern file has a task and a non-empty ## Lessons.
+    """Each Pattern file has a task and a non-empty ## Lessons.
 
     A file whose front matter is unusable is left to `pattern_errors`, which reports it.
     """
@@ -365,7 +364,7 @@ def _lesson_problems(
 
 
 def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]:
-    """Map rule 6: each rule under a Rules heading ends with a marker whose reference resolves."""
+    """Each rule under a Rules heading ends with a marker whose reference resolves."""
     errors: list[str] = []
     for guide in found:
         try:
@@ -392,7 +391,7 @@ def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
 
 
 def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 8: README.md and ARCHITECTURE.md exist at the repository root.
+    """README.md and ARCHITECTURE.md exist at the repository root.
 
     rapid-ship sync seeds a missing document when it upgrades a project from a Kit without the
     seed. Once the lock lists a document, sync never writes it again, so the message names git.
@@ -407,9 +406,9 @@ def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
 
 
 def root_link_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 8: each local link in the root documents resolves, by rule 1, and the root guide
-    links both. A missing document is root_document_errors' report, and a missing root guide
-    reachability_errors'."""
+    """Each local link in the root documents resolves as link_errors checks it, and the root
+    guide links both. A missing document is root_document_errors' report, and a missing root
+    guide reachability_errors'."""
     errors = link_errors(root, files, _root_documents(root, files))
     if (root / ROOT_GUIDE).is_file():
         targets = set(_guide_targets(root, ROOT_GUIDE))

@@ -54,8 +54,8 @@ TESTS = CommandStep(
     "tests", "full", ("uv", "run", "--locked", "pytest"), failed_codes=frozenset({1, 5})
 )
 
-# Spec 1 section 5 names pip-audit because `uv audit` is still experimental (uv 0.13.1 says so) and
-# uv 0.11.0 exits 0 with known vulnerabilities. uv 0.13.1 exits 1 for user errors too, so no
+# The step runs pip-audit, not `uv audit`: `uv audit` is still experimental (uv 0.13.1 says so)
+# and uv 0.11.0 exits 0 with known vulnerabilities. uv 0.13.1 exits 1 for user errors too, so no
 # exit code tells findings from errors. The step reads pip-audit's JSON report instead.
 PIP_AUDIT = "pip-audit==2.10.1"
 
@@ -306,7 +306,7 @@ def _dotted(node: ast.expr) -> str:
     return ""
 
 
-# The Python guardrail floor of Spec 1 section 4, which the seeded pyproject.toml meets.
+# The Python guardrail floor, which the seeded pyproject.toml meets.
 REQUIRED_RUFF = (
     "E",
     "W",
@@ -466,7 +466,7 @@ def _dev_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 
 def guardrail_gaps(pyproject: Mapping[str, object]) -> list[str]:
-    """The settings of Spec 1 section 4's Python floor that pyproject lacks, one message each."""
+    """The settings of the Python guardrail floor that pyproject lacks, one message each."""
     return [
         *_ruff_gaps(pyproject),
         *_mypy_gaps(pyproject),

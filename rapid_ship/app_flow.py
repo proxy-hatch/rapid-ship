@@ -1,7 +1,4 @@
-"""rapid-ship app's calls to GitHub as an App: the manifest flow, and GET /app under a key.
-
-Section 3 of docs/superpowers/specs/2026-10-14-kit-and-setup-design.md describes both.
-"""
+"""rapid-ship app's calls to GitHub as an App: the manifest flow, and GET /app under a key."""
 
 from __future__ import annotations
 

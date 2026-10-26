@@ -1,4 +1,5 @@
-"""Offline: map rule 8 in fixture repositories."""
+"""Offline: the root documents in fixture repositories: README.md and ARCHITECTURE.md exist at
+the repository root, their local links resolve, and the root guide links both."""
 
 from __future__ import annotations
 

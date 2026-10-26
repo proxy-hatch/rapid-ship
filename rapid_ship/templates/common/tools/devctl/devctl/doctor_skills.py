@@ -98,7 +98,7 @@ def _item(name: str, status: Status, detail: str) -> Item:
 def _user_invoked(manifest: Path) -> bool:
     """True when the skill's front matter sets disable-model-invocation: true.
 
-    Front matter that cannot be read leaves the skill checked; map rule 7 reports it.
+    Front matter that cannot be read leaves the skill checked; devctl check reports it.
     """
     try:
         data = front_matter(manifest.read_text(encoding="utf-8"))
@@ -158,7 +158,7 @@ def _harness_item(repo: Repo, name: str) -> Item:
 
 
 def probed_harnesses(project: ProjectSettings) -> dict[str, str]:
-    """claude with its item's name when it is on PATH, else nothing (Spec 1 section 6).
+    """claude with its item's name when it is on PATH, else nothing.
 
     doctor probes Claude Code alone until the Kit integrates another Harness. project never
     changes the answer, because the settings name no Harness.

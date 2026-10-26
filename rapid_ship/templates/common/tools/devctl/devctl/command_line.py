@@ -1,6 +1,6 @@
 """Shell splitting, and the git and gh forms that devctl hook's rules read.
 
-The hook follows no script, alias, sh -c string or wrapper other than devctl as (Spec 1 section 4).
+The hook follows no script, alias, sh -c string or wrapper other than devctl as.
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
-"""Map rule 7: each skill directory under .agents/skills has a SKILL.md, a regular file, with
-its name and a description, and a relative symlink in .claude/skills that points to it.
+"""The map step's skill checks: each skill directory under .agents/skills has a SKILL.md, a
+regular file, with its name and a description, and a relative symlink in .claude/skills that
+points to it.
 
-It lives apart from map.py, which runs it, so map.py stays under the file-size cap.
+They live apart from map.py, which runs them, so map.py stays under the file-size cap.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ SKILLS = ".agents/skills"
 
 
 def skill_alias_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, alias half: each skill has a SKILL.md and a symlink in .claude/skills."""
+    """Each skill has a SKILL.md and a symlink in .claude/skills."""
     present = set(files)
     canonical = _skill_names(root, files, ".agents/skills")
     aliases = _skill_names(root, files, ".claude/skills")
@@ -45,7 +46,7 @@ def _skill_names(root: Path, files: Sequence[str], surface: str) -> set[str]:
 
 
 def _stray_files(root: Path, files: Sequence[str]) -> list[str]:
-    """Files directly under .claude/skills, such as a guide; rule 7 allows only skill links."""
+    """Files directly under .claude/skills, such as a guide; only skill links belong there."""
     names = {path.split("/")[2] for path in files if path.startswith(".claude/skills/")}
     entries = {name: root / ".claude/skills" / name for name in names}
     return sorted(
@@ -88,7 +89,7 @@ def _alias_error(root: Path, present: set[str], name: str) -> str | None:
 
 
 def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, front-matter half: each SKILL.md names its directory and has a description."""
+    """Each SKILL.md names its directory and has a description."""
     errors: list[str] = []
     for name in sorted(_skill_names(root, files, SKILLS)):
         path = f"{SKILLS}/{name}/SKILL.md"
@@ -106,10 +107,10 @@ def skill_errors(root: Path, files: Sequence[str]) -> list[str]:
 
 
 def skill_file_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """Map rule 7, file half: each SKILL.md is a regular file, because Codex rejects a symlink.
+    """Each SKILL.md is a regular file, because Codex rejects a symlink.
 
-    It judges the last path component only; a skill directory that is itself a symlink is the
-    alias half's concern.
+    It judges the last path component only; a skill directory that is itself a symlink is
+    skill_alias_errors' concern.
     """
     paths = (f"{SKILLS}/{name}/SKILL.md" for name in sorted(_skill_names(root, files, SKILLS)))
     return [

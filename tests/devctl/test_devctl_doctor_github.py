@@ -34,8 +34,8 @@ from github_fakes import (
 from rapid_ship.kit.templates import render_files
 
 FIXTURES = Path(__file__).parent / "fixtures" / "github"
-# Plan 4's Task 10 Step 11a live read-back, with require_last_push_approval set to false by hand:
-# rs-setup's ruleset as GitHub reads it back.
+# rs-setup's ruleset as GitHub read it back from a real repository, with
+# require_last_push_approval set to false by hand.
 RULESET: dict[str, Any] = json.loads((FIXTURES / "ruleset.json").read_text())
 # (every_pr, agent_identity): Walk and Flight, each with Agent identity off and on.
 MODES = ((True, False), (True, True), (False, False), (False, True))
@@ -360,7 +360,7 @@ def test_every_mode_requires_code_owner_review(
         "ok",
         "an active ruleset on main has every setting rs-setup applies",
     )
-    # One ruleset in every setup: no Mode accepts it without code-owner review (Spec 1 section 8).
+    # One ruleset in every setup: no Mode accepts it without code-owner review.
     ruleset = copy.deepcopy(RULESET)
     rule(ruleset, "pull_request")["parameters"].update(require_code_owner_review=False)
     recorded.serve("repos/o/r/rulesets/9", ruleset)

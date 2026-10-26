@@ -1,4 +1,4 @@
-"""Map rule 1 (links in every AGENTS.md), map rule 7's skill discovery aliases and fences."""
+"""Links in every AGENTS.md, the skill discovery aliases in .claude/skills, and fences."""
 
 from __future__ import annotations
 
@@ -166,7 +166,7 @@ def test_rejects_invalid_skill_alias(repository: Workspace, problem: str) -> Non
     elif problem == "outside":
         alias.symlink_to("../../../", target_is_directory=True)
     elif problem == "copy":
-        # Even an identical copy fails: rule 7 asks for a symlink, and init and sync never copy.
+        # Even an identical copy fails: an alias must be a symlink, and init and sync never copy.
         repository.write(".claude/skills/example/SKILL.md", skill_text("example"))
 
     found = problems(repository)

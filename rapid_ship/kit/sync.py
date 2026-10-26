@@ -189,10 +189,10 @@ def _plan_managed(
     result: SyncResult,
     revert: Collection[str],
 ) -> None:
-    """Apply the decision table to each managed path, in path order. Nothing is written yet.
+    """Plan what sync does with each managed path, in path order. Nothing is written yet.
 
     A managed file the project edited or deleted becomes its own: sync never changes it and
-    records it as seeded (spec section 3, sync step 4). revert undoes that for the paths it names.
+    records it as seeded. revert undoes that for the paths it names.
     """
     unlocked = {p: t for p, t in new.items() if t.kind == "managed" and p not in entries}
     paths = {path for path, entry in entries.items() if entry.kind == "managed" or path in revert}

@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from devctl import process
 from devctl.process import ProcessResult
 
-# Claude Code's alias for its cheapest model, as the Checked facts of plan 4 (Doctor and Agent
-# identity) record it.
+# Claude Code's alias for its cheapest model.
 PROBE_MODEL = "haiku"
 PROBE_TIMEOUT_SECONDS = 120.0
 SKILLS_PROMPT = "List the name of every skill you can load, one name per line, and nothing else."

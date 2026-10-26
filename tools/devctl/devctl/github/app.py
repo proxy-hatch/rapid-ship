@@ -29,7 +29,7 @@ from devctl.github.api import API_URL, GitHubApi, GitHubError, json_object
 from devctl.process import ProcessResult
 from devctl.settings import ProjectSettings, Role, SettingsError
 
-# Spec 1 section 3. Every token asks for exactly these, never the installation's whole grant.
+# Every token asks for exactly these, never the installation's whole grant.
 APP_PERMISSIONS: dict[Role, dict[str, str]] = {
     "worker": {
         "contents": "write",
@@ -204,7 +204,7 @@ def installation_token(
     api_url: str = API_URL,
 ) -> str:
     # One Keychain read and one JWT per mint. An item written by `security` trusts it, so
-    # the read shows no dialog, and any process the owner runs can read it (Spec 1 section 6).
+    # the read shows no dialog, and any process the owner runs can read it.
     app = _app_client(role, app_id, keychain, api_url)
     found = _installation(app, role, repository)
     installation_id = found.get("id")
@@ -297,8 +297,7 @@ def git_environment(token: str) -> dict[str, str]:
 
 def token_options(url: str) -> tuple[str, ...]:
     # -c http.extraHeader= clears only unscoped headers; a header scoped to this URL, as
-    # actions/checkout writes, survives it. A reset scoped to the exact URL clears both
-    # (Checked facts).
+    # actions/checkout writes, survives it. A reset scoped to the exact URL clears both.
     return (*askpass.GIT_TOKEN_OPTIONS, "-c", f"http.{url}.extraHeader=")
 
 

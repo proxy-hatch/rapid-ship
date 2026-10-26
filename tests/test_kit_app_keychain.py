@@ -2,8 +2,8 @@
 and GitHub.
 
 For each role, the command uses the App that .rapid-ship/project.toml records, else an App of the
-repository's owner whose key the Keychain holds, else it creates one: Spec 1 section 3,
-`rapid-ship app`. No test reads the real Keychain or contacts GitHub.
+repository's owner whose key the Keychain holds, else it creates one. No test reads the real
+Keychain or contacts GitHub.
 """
 
 import html

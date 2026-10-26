@@ -1,9 +1,5 @@
 """rapid-ship app: find or create the owner's Worker and Reviewer Apps, and print how to install
-them.
-
-`rapid-ship app` in section 3 of docs/superpowers/specs/2026-10-14-kit-and-setup-design.md
-says which App the command uses for each role.
-"""
+them."""
 
 from __future__ import annotations
 

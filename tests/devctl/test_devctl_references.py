@@ -1,4 +1,4 @@
-"""Each reference kind in Spec 1 section 5 resolves only when its target exists."""
+"""Each reference kind resolves only when its target exists."""
 
 from __future__ import annotations
 

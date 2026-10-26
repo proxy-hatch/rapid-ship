@@ -1,5 +1,4 @@
-"""Offline: map rules 4-6 in fixture repositories: feature files, Pattern files and Rules
-bullets."""
+"""Offline: feature files, Pattern files and Rules bullets in fixture repositories."""
 
 from __future__ import annotations
 

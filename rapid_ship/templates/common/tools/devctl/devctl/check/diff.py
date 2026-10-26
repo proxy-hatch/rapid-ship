@@ -1,5 +1,5 @@
 """The diff step: what a change does to the tests, the Protected set and its size, compared
-with its base, by the diff policy of Spec 1 section 5.
+with its base.
 
 The base is the PR base in CI, or the merge base with the default branch locally. The head is
 the work tree, with untracked files that Git does not ignore.
@@ -210,7 +210,7 @@ def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
     """A problem when the count is over the cap and no overage is declared, and the note.
 
     Whether a declared overage goes to the owner is the escalation list's business, not this
-    step's (Spec 1 section 5).
+    step's.
     """
     note = f"diff cap: {counted} of {DIFF_CAP:,} counted lines"
     if counted <= DIFF_CAP:
@@ -262,7 +262,7 @@ def _removals(
     """A problem for each undeclared removal and a note for each declared one, in removed order.
 
     Whether a declared removal goes to the owner is the escalation list's business, not this
-    step's (Spec 1 section 5).
+    step's.
     """
     body = context.pr_body
     declared = {} if body is None else removed_test_declarations(body)[0]

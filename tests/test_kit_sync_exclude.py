@@ -1,5 +1,5 @@
-"""[kit] exclude during rapid-ship sync: the Project overrides group of Spec 1 section 3,
-"Who owns what" (offline)."""
+"""[kit] exclude during rapid-ship sync, which leaves each listed Kit path to the project
+(offline)."""
 
 import os
 from collections.abc import Callable

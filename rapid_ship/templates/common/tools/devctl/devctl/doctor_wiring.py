@@ -30,7 +30,7 @@ _PLACEHOLDER = re.compile(r"\$\{[^}]*\}")
 _BACKGROUND = ("async", "asyncRewake")
 _PROGRAM, *_HOOK_ARGS = HOOK_COMMAND.split()
 # The shortest timeout that leaves the merge guard its budget after the devctl shim has started
-# uv and Python, which took 2.39 seconds on the hook spike's one cold run.
+# uv and Python, which took 2.39 seconds in one measured cold run.
 _SHORTEST_TIMEOUT = GUARD_BUDGET_SECONDS + 60.0
 # A shell-form command as quoted strings, escapes and single characters, in order.
 _SHELL_PIECE = re.compile(r"""'[^']*'|"(?:\\.|[^"\\])*"|\\.|.""", re.DOTALL)
@@ -143,8 +143,8 @@ def wiring_problems(settings: object) -> list[str]:
 
 
 def wiring_item(root: Path, tracked: Sequence[str]) -> Item:
-    """Whether the tracked .claude/settings.json wires devctl hook for Claude Code (Spec 1
-    section 6). A file it cannot read is unknown; an untracked or invalid one is missing."""
+    """Whether the tracked .claude/settings.json wires devctl hook for Claude Code. A file it
+    cannot read is unknown; an untracked or invalid one is missing."""
     if WIRING_FILE not in tracked:
         return Item("guardrails", _ITEM, "missing", f"{WIRING_FILE} is not tracked")
     try:

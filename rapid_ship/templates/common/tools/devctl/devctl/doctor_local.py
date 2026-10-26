@@ -78,8 +78,7 @@ def git_item() -> Item:
 
 def settings_item(root: Path) -> Item:
     """Whether the settings files load: .rapid-ship/project.toml and exceptions.toml by devctl's
-    loaders, and the CODEOWNERS file GitHub reads, where devctl hook finds the Protected set (Spec 1
-    section 6).
+    loaders, and the CODEOWNERS file GitHub reads, where devctl hook finds the Protected set.
 
     A file that cannot be read or holds an invalid key is unknown, with the message that names the
     file and the key. No CODEOWNERS file is missing, because devctl hook then knows no Protected

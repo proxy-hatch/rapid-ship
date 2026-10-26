@@ -83,8 +83,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     )
 
 
-# devctl knows nothing about Providers (Spec 1 section 4), so it refuses a [roster] table
-# whatever it holds.
+# devctl knows nothing about Providers, so it refuses a [roster] table whatever it holds.
 @pytest.mark.parametrize(
     "roster",
     [
@@ -161,8 +160,8 @@ def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
     )
 
 
-# What each removed table's message says replaced it, or why nothing did (Spec 1 section 4),
-# written out so the test does not compare the code with itself.
+# What each removed table's message says replaced it, or why nothing did, written out so the
+# test does not compare the code with itself.
 SEVERAL_PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
 REPLACED_BY = {
     "agents": SEVERAL_PROVIDERS,
@@ -178,7 +177,7 @@ def test_every_removed_table_is_tested() -> None:
 
 
 def test_the_dispatch_message_claims_no_worker_cap() -> None:
-    # rapid-ship takes no notice of how many Sessions run (ADR 0004), so nothing caps Workers.
+    # rapid-ship takes no notice of how many Sessions run, so nothing caps Workers.
     assert "cap" not in REMOVED_TABLES["dispatch"]
 
 

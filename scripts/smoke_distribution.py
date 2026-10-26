@@ -22,8 +22,7 @@ requires-python = ">=3.12"
 [tool.uv.workspace]
 members = ["tools/*"]
 """
-# rs-setup adds this to the workspace table above (Spec 1 section 8, step 4);
-# without it the project's own uv lock fails.
+# rs-setup adds this to the workspace table above; without it the project's own uv lock fails.
 DEVCTL_EXCLUDE = 'exclude = ["tools/devctl"]\n'
 
 

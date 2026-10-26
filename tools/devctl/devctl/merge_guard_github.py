@@ -1,5 +1,5 @@
 """The merge guard's GitHub reads: the pull request, CODEOWNERS on its base branch, its files,
-its reviews and its check runs (Spec 1 section 4, steps 2 to 4).
+its reviews and its check runs.
 
 Each read goes through OwnerGet, doctor's GET with the owner's gh sign-in. A read that gh cannot
 make raises OwnerReadError, a response that is not the shape GitHub documents GitHubError, and a

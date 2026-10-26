@@ -203,7 +203,8 @@ def _installation_item(
         problems.append(f"permissions differ from Spec 1 section 3: {'; '.join(granted)}")
     slug = found.get("app_slug")
     if slug != app.slug:
-        # Spec 3 finds agent pull requests by this slug, so a wrong one hides them all.
+        # The merge guard finds the Reviewer App's approval by its slug, so a wrong one denies
+        # every agent merge; the metrics are to find agent pull requests by the Worker App's slug.
         shown = slug if isinstance(slug, str) else "unreadable"
         problems.append(f"the installed App's slug is {shown}, but {PROJECT} records {app.slug}")
     if problems:

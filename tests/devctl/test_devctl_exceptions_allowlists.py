@@ -179,8 +179,8 @@ def needs_marker(where: str, rule: str) -> str:
 
 
 def test_the_dead_code_tools_suppressions_fail_at_once(workspace: Workspace) -> None:
-    # Before GA the Kit keeps no backward compatibility (Spec 1 section 3), so a project that
-    # already holds these lines fails in the Kit version that reads them.
+    # Before GA the Kit keeps no backward compatibility, so a project that already holds these
+    # lines fails in the Kit version that reads them.
     workspace.write(
         "src/app/run.py",
         "import yaml  # deptry: ignore\n"

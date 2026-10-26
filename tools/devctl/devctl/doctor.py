@@ -1,7 +1,7 @@
 """devctl doctor: report each item as ok, missing or unknown.
 
-This module re-exports the names that tests, and plan 7's test of rs-setup's ruleset, import from
-devctl.doctor. No item checks a Harness's sign-in (Spec 1 section 6).
+This module re-exports the names that tests import from devctl.doctor, and the doctor_rules names
+that a test of rs-setup's ruleset is to import. No item checks a Harness's sign-in.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def doctor_command(args: argparse.Namespace) -> int:
             [item, settings_item(repo.root), wiring_item(repo.root, repo.tracked_files())]
         )
     project = load_project(repo.root)
-    # doctor reads the Apps only while Agent identity is on (Spec 1 section 6).
+    # doctor reads the Apps only while Agent identity is on.
     access = project_access(project) if project.agent_identity else None
     return run_doctor(DoctorContext(repo.root, project, gh_get, access), skills=args.skills)
 

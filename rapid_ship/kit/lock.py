@@ -32,7 +32,7 @@ class LockEntry:
     kind: Kind
     sha256: str | None  # managed files
     link: str | None  # managed symlinks
-    # Seeded files, including managed files the project edited or deleted (sync step 4).
+    # Seeded files, including managed files the project edited or deleted.
     template_sha256: str | None
 
 

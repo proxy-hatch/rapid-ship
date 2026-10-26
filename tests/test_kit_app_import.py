@@ -1,8 +1,8 @@
 """Offline: rapid-ship app --import-key with a simulated GitHub API and a fake `security`.
 
 GET /app, under a token that the key on stdin signs, must show the App that
-.rapid-ship/project.toml records before the key is stored: Spec 1 section 3, `rapid-ship app`,
-step 4. No test reads the real Keychain or contacts GitHub.
+.rapid-ship/project.toml records before the key is stored. No test reads the real Keychain or
+contacts GitHub.
 """
 
 import io

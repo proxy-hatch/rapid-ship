@@ -1,4 +1,4 @@
-"""Map rules 2 (every maintained directory has a guide) and 3 (every guide is reachable)."""
+"""Every maintained directory has a guide, and every guide is reachable."""
 
 from __future__ import annotations
 

@@ -160,7 +160,7 @@ def _is_regular_file(path: Path) -> bool:
 def _problem(root: Path, entry: _LockFile, kit_version: str) -> str | None:
     """What is wrong with a managed entry's path on disk, or None when it is as the lock says.
 
-    Both of Spec 1 section 5's choices are named, because sync alone keeps the deletion.
+    The message names both choices, restore and keep, because sync alone keeps the deletion.
     """
     target = root / entry.path
     if entry.link is not None:

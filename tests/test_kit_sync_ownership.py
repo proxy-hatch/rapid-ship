@@ -1,5 +1,5 @@
-"""Who owns what during rapid-ship sync (offline): files the project made its own, --revert
-and the owner groups (Spec 1 section 3). test_kit_sync_exclude.py covers [kit] exclude."""
+"""Ownership during rapid-ship sync (offline): files the project made its own, --revert and the
+owner groups. test_kit_sync_exclude.py covers [kit] exclude."""
 
 import os
 import re
@@ -54,8 +54,7 @@ def entry(root: Path, path: str) -> LockEntry:
     return {item.path: item for item in read_lock(root).entries}[path]
 
 
-# A managed file the project edited or deleted becomes the project's own (Spec 1 section 3,
-# sync step 4).
+# A managed file the project edited or deleted becomes the project's own.
 
 NEW_CLI = "one\ntwo\nthree\nfour\nFIVE\n"
 
@@ -249,8 +248,7 @@ def test_revert_refuses_a_path_it_cannot_revert_and_writes_nothing(
     assert (git_repo / CLI).read_text() == "ours\n"
 
 
-# Owner groups (Spec 1 section 3, "Who owns what"): stack Kit, stack-agnostic Kit and
-# project extensions.
+# Owner groups: stack Kit, stack-agnostic Kit and project extensions.
 
 
 def test_sync_keeps_the_stack_version_over_the_common_one(

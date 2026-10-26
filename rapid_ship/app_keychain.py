@@ -137,7 +137,7 @@ class MacKeychainStore:
     def add(self, service: str, app: StoredApp, private_key: bytes) -> None:
         # The key travels as hex on stdin, never in argv. Without -U an existing item is never
         # replaced. Without -T the item trusts /usr/bin/security alone, so devctl reads it with
-        # no dialog, and so can any process the owner runs (Spec 1 section 6).
+        # no dialog, and so can any process the owner runs.
         line = (
             f"add-generic-password -s {service} -a {app.app_id} -j {app.slug} "
             f"-X {private_key.hex()}\n"
