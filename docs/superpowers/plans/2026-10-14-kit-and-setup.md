@@ -70,7 +70,7 @@ tests/
   devctl/                        # no __init__.py, no conftest.py; files named test_devctl_*.py
     check_workspace.py           # plan 3: project_settings, Workspace, new_workspace, fake_tool
     github_fakes.py github_fixtures.py fixtures/github/   # plan 4
-    fixtures/hooks/<harness>/    # plan 5: recorded hook events, claude/ only
+    fixtures/hooks/<harness>/    # plan 5: recorded hook events, claude/ and, from its agy follow-up, agy/
 scripts/smoke_distribution.py
 devctl, tools/devctl/            # this repository's vendored Kit
 .agents/skills/rs-*, .claude/skills/rs-*   # plan 7: vendored Kit skills; rapid_ship/skills/ is gone
@@ -99,11 +99,11 @@ tools/devctl/
     check/map_skills.py          # plan 5: map rule 7, moved from check/map.py so map.py stays under the file-size cap
     check/stacks/python_dead_code.py   # plan 5: the dead-code step for Python, its floor settings, and pyproject.toml's allowlist items
     doctor.py doctor_items.py doctor_local.py doctor_github.py doctor_rules.py doctor_skills.py
-    doctor_wiring.py             # plan 5: doctor's Harness wiring item, for .claude/settings.json
+    doctor_wiring.py             # plan 5: doctor's Harness wiring items, for .claude/settings.json and .agents/hooks.json
     harness.py                   # plan 4: the Claude Code skills probe
     identity.py                  # plan 4: devctl as
     github/api.py github/app.py github/askpass.py   # plan 4: REST client, App tokens, GIT_ASKPASS helper
-    hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and Claude Code's protocol
+    hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and each wired Harness's protocol
     command_line.py              # plan 5: shell splitting, and the git and gh forms the guardrails read
     merge_guard.py merge_guard_github.py   # plan 5: the merge guard, G9, and its GitHub reads
   devctl_project/                # seeded: project verbs and extra check steps
@@ -233,7 +233,7 @@ class DoctorContext:
 
 
 # devctl/doctor_rules.py
-# Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/
+# agy's wiring widened .agents/skills/ to .agents/; Codex's adds .codex/
 PROTECTED_PATHS: tuple[str, ...]
 PYTHON_PROTECTED_PATHS: tuple[str, ...]
 TYPESCRIPT_PROTECTED_PATHS: tuple[str, ...]  # plan 6
@@ -297,10 +297,12 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 ### `devctl hook` and the merge guard (plan 5)
 
 ```python
-# devctl/hook_protocols.py: the types the rules share, and Claude Code's protocol; the exit-code
-# workaround is documented here
+# devctl/hook_protocols.py: the types the rules share, and each wired Harness's protocol; the
+# exit-code workaround is documented here
 Decision = Literal["deny", "ask"] | None  # None: no decision; the hook never allows
-WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
+WiredHarness = Literal["claude", "agy"]  # plan 5, and agy from its follow-up; Codex's adds codex
+WIRED_TOOLS: Mapping[WiredHarness, tuple[str, ...]]  # the tools each seeded wiring sends
+PROTECTED_ASK: frozenset[WiredHarness]  # the Harnesses that run G5: claude
 
 
 @dataclass(frozen=True)
@@ -321,7 +323,10 @@ class HookSettings:  # what G5, G7, G8 and the merge guard read from the reposit
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
 def answer(
     harness: WiredHarness, decision: Decision, reason: str
-) -> tuple[str, int]: ...  # stdout, exit code; never 2
+) -> tuple[str, int]: ...  # stdout, exit code 0; agy's no decision is {"decision": "allow"}
+def failure(
+    harness: WiredHarness, message: str
+) -> tuple[str, int]: ...  # devctl failed: claude exits 1, agy answers allow with exit 0
 
 
 # devctl/hook.py
@@ -330,6 +335,8 @@ def decide(
     root: Path | None,  # the repository that holds the call
     settings: HookSettings | None,  # None: unreadable; G5, G7 and G8 give no decision
     branches: Callable[[], LocalBranches],
+    *,
+    protected_ask: bool = True,  # False for a Harness outside PROTECTED_ASK: no G5
 ) -> tuple[Decision, str]: ...  # G1 to G5, G7 and G8; run_hook then runs guard on each pr-merge
 
 
@@ -370,7 +377,7 @@ def guard(
 - Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
 - The Protected set follows, commented out, as `# /<path> @<owner>` lines, in Spec 1 section 4's order. Flight uncomments them and removes the `*` line.
 - The `diff` step and `devctl hook` read `<pattern> @<owner>` lines, commented or not, and never treat `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
-- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope, plan 5 removes the comment from both CODEOWNERS templates and from this repository's CODEOWNERS, and adds no line: `/.claude/` already covers the Claude Code wiring. Codex's wiring adds `/.codex/`, and agy's widens `/.agents/skills/` to `/.agents/`, when they land. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
+- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope, plan 5 removes the comment from both CODEOWNERS templates and from this repository's CODEOWNERS, and adds no line: `/.claude/` already covers the Claude Code wiring. agy's wiring widened `/.agents/skills/` to `/.agents/`, and Codex's adds `/.codex/` when it lands. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
 - The Python seed lists its four starter Pattern files (plan 5, Task 11), commented out as `# /docs/patterns/python-<name>.md @<owner>`, right after `/.rapid-ship/`, so the set still ends with the check tools' settings files. In an existing project those files do not exist, and GitHub ignores a line for a missing file.
 - Plan 6 renders each stack's Protected lines under its directory, such as `# /frontend/package.json @<owner>`. The rule for existing Corrections ledger entries is devctl's, not a CODEOWNERS line. The ledger's format, `/docs/corrections/README.md`, is a CODEOWNERS line, which Spec 3's plan adds.
 
