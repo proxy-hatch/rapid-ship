@@ -200,7 +200,7 @@ def _guardrail_item(root: Path) -> Item:
     gaps = [*guardrail_gaps(pyproject), *dead_code_gaps(pyproject)]
     if gaps:
         return Item("guardrails", name, "missing", "; ".join(gaps))
-    return Item("guardrails", name, "ok", "meets the Python floor of spec section 4")
+    return Item("guardrails", name, "ok", "meets the Python guardrail floor")
 
 
 def _glob(pattern: str) -> re.Pattern[str]:

@@ -324,6 +324,7 @@ class TestItems:
         repo_files.write("pyproject.toml", seeded_pyproject_text())
         items = by_name(local_items(ctx()))
         assert items["Python guardrail settings"].status == "ok"
+        assert items["Python guardrail settings"].detail == "meets the Python guardrail floor"
         assert items["tools/devctl exclusions"].status == "ok"
         assert "not checked" not in items["tools/devctl exclusions"].detail
 

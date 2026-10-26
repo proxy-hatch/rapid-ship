@@ -25,7 +25,7 @@ REMOVED_TABLES = {
     "agents": _PROVIDERS,
     "dispatch": "rapid-ship no longer starts Workers; delete the table",
     "linear": "devctl never talks to the issue tracker; delete the table",
-    "release": "a project defines its own deploy metrics (Spec 3); delete the table",
+    "release": "a project defines its own deploy metrics; delete the table",
     "roster": _PROVIDERS,
 }
 

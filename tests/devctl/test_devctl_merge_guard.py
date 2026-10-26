@@ -382,7 +382,7 @@ def test_only_gh_pr_merge_reads_github(tmp_path: Path) -> None:
     assert reader.paths[:1] == [PR]
 
 
-def test_with_agent_identity_a_direct_merge_meets_g8_before_the_guard(tmp_path: Path) -> None:
+def test_with_agent_identity_a_direct_merge_is_denied_before_the_guard_runs(tmp_path: Path) -> None:
     root = project(tmp_path, APPS)
     decision, reason = hooked(root, "gh pr merge 7", unread_github)
     assert (decision, reason[:4]) == ("deny", "G8: ")

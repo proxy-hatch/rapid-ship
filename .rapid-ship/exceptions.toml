@@ -76,7 +76,7 @@ remove_when = "Ruff stops reporting S603 for list arguments without a shell"
 id = "EX-12"
 path = "rapid_ship/templates/common/tools/devctl/devctl/merge_guard.py"
 rule = "BLE001"
-reason = "Once the merge guard has recognised a merge, any error while it checks must deny that merge, never let it through (Spec 1 section 4)"
+reason = "Once the merge guard has recognised a merge, any error while it checks must deny that merge, never let it through"
 remove_when = "The guard's reads and parsers raise only OwnerReadError, GitHubError and ValueError, so a narrow except covers them"
 
 [[exception]]
