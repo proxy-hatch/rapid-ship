@@ -189,26 +189,32 @@ def test_a_failed_read_of_the_errors_leaves_the_item_unknown(
     assert items["ruleset"].status == "ok"
 
 
+NO_LIST = "the CODEOWNERS error list is not a JSON list"
+NO_LINE = "a CODEOWNERS error has no numeric line"
+NO_KIND = "a CODEOWNERS error has no kind"
+
+
 @pytest.mark.parametrize(
-    "reply",
+    ("reply", "detail"),
     [
-        [],
-        {},
-        {"errors": {}},
-        {"errors": ["Unknown owner"]},
-        {"errors": [{"kind": "Unknown owner"}]},
-        {"errors": [{"line": "2", "kind": "Unknown owner"}]},
-        {"errors": [{"line": True, "kind": "Unknown owner"}]},
-        {"errors": [{"line": 2}]},
-        {"errors": [{"line": 2, "kind": " "}]},
+        ([], "the CODEOWNERS errors reply is not a JSON object"),
+        ({}, NO_LIST),
+        ({"errors": {}}, NO_LIST),
+        ({"errors": ["Unknown owner"]}, "a CODEOWNERS error is not a JSON object"),
+        ({"errors": [{"kind": "Unknown owner"}]}, NO_LINE),
+        ({"errors": [{"line": "2", "kind": "Unknown owner"}]}, NO_LINE),
+        ({"errors": [{"line": True, "kind": "Unknown owner"}]}, NO_LINE),
+        ({"errors": [{"line": 2}]}, NO_KIND),
+        ({"errors": [{"line": 2, "kind": " "}]}, NO_KIND),
     ],
 )
 def test_a_reply_not_in_githubs_shape_leaves_the_item_unknown(
-    ctx_github: MakeContext, recorded: RecordedOwner, reply: object
+    ctx_github: MakeContext, recorded: RecordedOwner, reply: object, detail: str
 ) -> None:
     recorded.serve(CODEOWNERS, contents(WALK))
     recorded.serve(ERRORS, reply)
-    assert codeowners_item(owned_by(ctx_github, TEAM)).status == "unknown"
+    item = codeowners_item(owned_by(ctx_github, TEAM))
+    assert (item.status, item.detail) == ("unknown", f"GitHub request failed: {detail}")
 
 
 def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:

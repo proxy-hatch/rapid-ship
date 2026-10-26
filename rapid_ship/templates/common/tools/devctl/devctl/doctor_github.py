@@ -125,11 +125,11 @@ def decoded_contents(contents: Mapping[str, object]) -> str:
 def _codeowners_errors(reply: Mapping[str, object]) -> list[CodeownersError]:
     """The errors in GitHub's reply to GET /repos/{o}/{r}/codeowners/errors. Raises GitHubError."""
     found: list[CodeownersError] = []
-    for entry in json_list(reply.get("errors"), "the CODEOWNERS errors"):
+    for entry in json_list(reply.get("errors"), "the CODEOWNERS error list"):
         error = json_object(entry, "a CODEOWNERS error")
         line, kind = error.get("line"), error.get("kind")
         if isinstance(line, bool) or not isinstance(line, int):
-            raise GitHubError(None, "a CODEOWNERS error has no line number")
+            raise GitHubError(None, "a CODEOWNERS error has no numeric line")
         if not isinstance(kind, str) or not first_line(kind):
             raise GitHubError(None, "a CODEOWNERS error has no kind")
         suggestion = error.get("suggestion")
