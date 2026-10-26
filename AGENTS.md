@@ -49,7 +49,7 @@ Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writin
 
 Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Keep exact commands, limits and safety conditions.
 
-Prefer clear names, types, and simple control flow. Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. Keep local explanations beside the relevant code and broader design reasoning in linked documentation. Update comments with behaviour changes, and investigate existing constraint comments before removing them. The Kit seeds this rule and the Development bullets on workarounds, tests and refactors as Rules in each project's root guide.
+Prefer clear names, types, and simple control flow. Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. Keep local explanations beside the relevant code and broader design reasoning in linked documentation; a comment never cites the plan, spec, ADR, PR or rule ID behind the code, because documentation points to code, not the reverse. Update comments with behaviour changes, and investigate existing constraint comments before removing them. The Kit seeds this rule and the Development bullets on workarounds, tests and refactors as Rules in each project's root guide.
 
 ## Development
 

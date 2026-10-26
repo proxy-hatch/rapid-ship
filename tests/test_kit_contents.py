@@ -350,6 +350,8 @@ COMMENT_RULES = (
     "Delete commented-out code.",
     "Keep local explanations beside the relevant code and broader design reasoning in linked "
     "documentation.",
+    "Do not cite the document, plan or decision behind the code in a comment; documentation points "
+    "to code, not the reverse.",
     "A comment does not make a workaround acceptable. Fix the root cause within scope, or "
     "explicitly report the limitation.",
     "A necessary workaround must have a verified reason, appropriate validation, and a tracked "

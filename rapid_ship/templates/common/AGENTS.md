@@ -29,6 +29,7 @@ Add a row for each directory guide.
 - Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. advisory
 - Delete commented-out code. advisory
 - Keep local explanations beside the relevant code and broader design reasoning in linked documentation. advisory
+- Do not cite the document, plan or decision behind the code in a comment; documentation points to code, not the reverse. advisory
 - A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. advisory
 - A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. advisory
 - Give each TODO its author and the issue that tracks it. advisory
