@@ -320,10 +320,10 @@ def _unconfirmed(role: str, service: str, app: StoredApp, target: _Target, reaso
         "GitHub does not show that App to gh, as it shows no private App, and the key cannot "
         f"confirm whose App it is: {reason}. If the App is {target.owner.login}'s and still "
         f"exists, first record its ID and slug under [github] in {_SETTINGS}. Then, if GitHub no "
-        "longer has this key, delete the item; in the App's settings on GitHub, open Credentials, "
-        "then Key pairs, and click New key to generate a new private key; then run rapid-ship app "
+        "longer has this key, delete the item, generate a new private key and run rapid-ship app "
         f"--import-key {role} with the new key on stdin. If GitHub has no such App any more, "
-        "delete the item and record nothing. Delete the item with: security "
+        "delete the item and record nothing. To generate a key in the App's settings on GitHub, "
+        "open Credentials, then Key pairs, and click New key. Delete the item with: security "
         f"delete-generic-password -s {service}"
     )
 

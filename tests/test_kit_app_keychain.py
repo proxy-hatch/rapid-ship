@@ -402,11 +402,11 @@ def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
             f"({app.slug}). GitHub does not show that App to gh, as it shows no private App, and "
             f"the key cannot confirm whose App it is: {reason}. If the App is o's and still "
             "exists, first record its ID and slug under [github] in .rapid-ship/project.toml. "
-            "Then, if GitHub no longer has this key, delete the item; in the App's settings on "
-            "GitHub, open Credentials, then Key pairs, and click New key to generate a new private "
-            f"key; then run rapid-ship app --import-key {role} with the new key on stdin. If "
-            "GitHub has no such App any more, delete the item and record nothing. Delete the item "
-            f"with: security delete-generic-password -s {service}\n"
+            "Then, if GitHub no longer has this key, delete the item, generate a new private key "
+            f"and run rapid-ship app --import-key {role} with the new key on stdin. If GitHub has "
+            "no such App any more, delete the item and record nothing. To generate a key in the "
+            "App's settings on GitHub, open Credentials, then Key pairs, and click New key. Delete "
+            f"the item with: security delete-generic-password -s {service}\n"
         )
 
     assert err == stop(worker, "Worker App", "worker") + stop(reviewer, "Reviewer App", "reviewer")
