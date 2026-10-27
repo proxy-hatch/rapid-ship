@@ -19,8 +19,8 @@ reproduce: ./devctl seed-account demo@example.com
 | Key | Value | `./devctl check` requires |
 | --- | --- | --- |
 | `purpose` | One sentence on what the feature does for its user | Present and not empty |
-| `entry_points` | Paths where the feature is entered | A non-empty list; each path exists |
-| `data` | Paths of the data it reads or writes, or `[]` | A list, possibly empty; each path exists |
+| `entry_points` | Paths where the feature is entered | A non-empty list; git tracks each path |
+| `data` | Paths of the data it reads or writes, or `[]` | A list, possibly empty; git tracks each path |
 | `observe` | How to see the feature working | Present and not empty |
 | `reproduce` | A `./devctl` command that exercises the feature | The word after `./devctl` is a registered devctl verb |
 

@@ -76,12 +76,12 @@ template_sha256 = "cc763e5f352e3220543f9b599c2e72d60af1981123b984347bd9f42bf18ba
 [[file]]
 path = "docs/features/README.md"
 kind = "seeded"
-template_sha256 = "3d4abe860c984f3078e442ce15f345c033abb60c0fedd313ec6dbe7c95245312"
+template_sha256 = "f8f1cccc549128e32b8297c09b9e0d00f231b1df5a4c9f2b7cb17486eab75f78"
 
 [[file]]
 path = "docs/patterns/README.md"
 kind = "seeded"
-template_sha256 = "fbda2c2ee348abbeba8a01b8779318879444b7637eee092f532a90128b03bded"
+template_sha256 = "b7139dc989eaf8aa73ec733841cb8691359cef4bec1091c25da613e07e443c02"
 
 [[file]]
 path = "tools/AGENTS.md"
