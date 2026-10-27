@@ -449,20 +449,30 @@ def test_the_denials_come_in_the_order_protected_check_review_head() -> None:
     assert guarded("gh pr merge 7 --squash", owner(reviews=[]), ON) == UNAPPROVED
 
 
+@pytest.mark.parametrize(
+    ("line", "read"),
+    [
+        (f"gh pr merge 7 --squash --match-head-commit {HEAD}", PR),
+        ("gh pr merge https://github.com/o/r/pull/7", PR),
+        ("gh pr merge task", BY_BRANCH),
+        ("gh pr merge", BY_BRANCH),
+    ],
+)
 @pytest.mark.parametrize("settings", [WALK, replace(ON, every_pr=True)])
 def test_in_walk_every_merge_is_denied_once_the_pull_request_is_read(
-    settings: HookSettings,
+    line: str, read: str, settings: HookSettings
 ) -> None:
     reader = owner()
-    assert (
-        guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader, settings) == IN_WALK
-    )
-    assert reader.paths == [PR]
+    reader.serve(BY_BRANCH, [PULL])
+    assert guarded(line, reader, settings) == IN_WALK
+    assert reader.paths == [read]
 
-    by_branch = owner()
-    by_branch.serve(BY_BRANCH, [PULL])
-    assert guarded("gh pr merge task", by_branch, settings) == IN_WALK
-    assert by_branch.paths == [BY_BRANCH]
+
+def test_in_walk_with_agent_identity_a_merge_through_devctl_as_is_denied(tmp_path: Path) -> None:
+    root = project(tmp_path, APPS, mode="every_pr = true")
+    reader = owner()
+    assert hooked(root, "./devctl as worker gh pr merge 7", reader) == ("deny", IN_WALK)
+    assert reader.paths == [PR]
 
 
 @pytest.mark.parametrize(
