@@ -105,6 +105,7 @@ The item is ok when `.agents/hooks.json` is tracked and valid JSON; a named hook
 
 - [ ] In a scratch repository that holds the wiring, in an agy lead Session in `accept-edits` mode and in a subagent it starts, the owner runs plan 5's Task 8 Step 4 list without the G5 edit and the Monitor line, and records each decision and message in a trial record. A difference is fixed before this PR merges.
 - [ ] In the same Session, the owner asks for `git status` run in a subdirectory and in a second repository outside the workspace, and records whether `run_command`'s arguments carry a `Cwd` and in which form. If agy runs a command elsewhere without a `Cwd`, the limit in Spec 1 section 4 stands; if its `Cwd` takes another form, `read_event` follows it before this PR merges.
+- [ ] Before the runs above, in a scratch repository whose `.agents/hooks.json` runs the hook spike's stand-in with the matcher `*`, the owner asks an agy lead Session in `accept-edits` mode to write several files, edit one, move one, delete one and run a command, and lists every tool name the stand-in's events carry. The spike asked only for a command, a write and an edit, so other tools that write or run a command were never seen. Each such tool, with the argument that names its path or command, joins the seed's matcher and `_WIRED["agy"]` before this PR merges; a tool that reaches no rule stays out, because every wired call starts devctl.
 
 ## Verification record
 
