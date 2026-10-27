@@ -1,6 +1,6 @@
 # Hook spike (PRO-139)
 
-Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). The owner ran Steps 2 to 5 on 2026-10-21 from 22:02 to 22:18 and on 2026-10-22 from 19:45 to 20:18, in UTC+8. At 20:18 the results file recorded "unsure" for each of Step 6's decisions; the owner made them later that day, after the runs ([Decisions](#decisions)). Step 7 filled Versions, Results, Events, Timing, Decisions and Limits on 2026-10-22 from the owner's results file, the kept event files and the headless output.
+Status: prepared on 2026-10-21 as Task 1 Step 1 of [plan 5](../superpowers/plans/2026-10-21-kit-standards-and-guardrails.md). The owner ran Steps 2 to 5 on 2026-10-21 from 22:02 to 22:18 and on 2026-10-22 from 19:45 to 20:18, in UTC+8. At 20:18 the results file recorded "unsure" for each of Step 6's decisions; the owner made them later that day, after the runs ([Decisions](#decisions)). Step 7 filled Versions, Results, Events, Timing, Decisions and Limits on 2026-10-22 from the owner's results file, the kept event files and the headless output. On 2026-10-26 a Worker ran agy's lead and subagent runs of Steps 2 and 3 by script, on agy 1.4.7, for backlog item PRO-143, and filled agy's rows ([agy's interactive runs](#agys-interactive-runs-pro-143)).
 
 ## Purpose
 
@@ -34,11 +34,11 @@ Conditions, from Steps 2 and 3:
 - User-level hooks, plugins and mods that stayed on, for each Harness:
   - Claude Code: two user-level `PreToolUse` hooks in the owner's `~/.claude/settings.json`, an iTerm2 status script and an inline shell command.
   - Codex: one `PreToolUse` hook besides the spike's. `/hooks` listed two `PreToolUse` hooks, the spike's and one other, both installed and active. Each `codex exec` output shows both running on each shell call: the spike's ends `Blocked` in `codex-headless-deny` and `Failed` in `codex-headless-ask`, and the other ends `Completed`. The owner described the plugins as "quite a few".
-  - agy: none besides `spike`.
+  - agy: none besides `spike`, in the owner's answer. agy's log for each headless run shows `loaded 2 named hooks from 2 hooks.json file(s)`: `spike` and the user-level `orca-status` in `~/.gemini/config/hooks.json`, which answers `{"decision":"ask"}` on every `PreToolUse` ([agy's interactive runs](#agys-interactive-runs-pro-143)).
 - Permission mode or approval policy of each Harness's lead Session:
   - Claude Code: the owner gave none. Every lead and subagent event carries `permission_mode` `auto`, the `bypassPermissions` run carries `bypassPermissions`, and the headless runs carry `acceptEdits`.
   - Codex: the interactive events carry `permission_mode` `default`. The `codex exec` events carry `bypassPermissions`, and the output header of each `codex exec` run shows `approval: never` and `sandbox: workspace-write`.
-  - agy: not recorded, because its interactive Sessions did not run.
+  - agy: not recorded on 2026-10-22, because its interactive Sessions did not run. The runs of 2026-10-26 used `accept-edits` ([agy's interactive runs](#agys-interactive-runs-pro-143)).
 - Saved allow rules found before Step 3: none in each Harness, in the owner's answers.
 - Models named in the events: Codex used `gpt-6.1-sol` in its first lead Session and `gpt-6-luna` after it, and agy used `gemini-3.8-flash-high`. Claude Code's events name no model; each carries `effort` `{"level": "max"}`.
 
@@ -419,7 +419,7 @@ The owner ran Steps 2 to 5 through a guide script kept outside this repository, 
    | `_stray-195944` | One Codex lead `Bash` event and six subagent `Bash` events with `agent_id`; `none` | `codex-subagent-none` | The guide kept that run 21 seconds before the first event; all seven events have one `session_id` |
 
 2. **An invalid run.** `claude-lead-exit1` saved no event, and no Claude Code lead event has the mode `exit1`. The owner's answers for it describe the `ask` prompt of `_stray-221622`. This record counts the run as invalid. `claude-subagent-exit1` shows what Claude Code does with exit 1.
-3. **Runs that did not happen.** The owner skipped agy's interactive Sessions. Every `agy-lead-*` and `agy-subagent-*` folder is empty, and the guide kept each one within seconds of the one before it. The owner answered "yes" to "Did agy's none runs show hook errors or blocked calls?" only to move on, so the answer is not an observation. It started the `allow` runs, and of those only the headless run ran.
+3. **Runs that did not happen.** The owner skipped agy's interactive Sessions. Every `agy-lead-*` and `agy-subagent-*` folder is empty, and the guide kept each one within seconds of the one before it. The owner answered "yes" to "Did agy's none runs show hook errors or blocked calls?" only to move on, so the answer is not an observation. It started the `allow` runs, and of those only the headless run ran. PRO-143's runs of 2026-10-26 filled agy's lead and subagent rows ([agy's interactive runs](#agys-interactive-runs-pro-143)).
 4. **Codex worktrees.** `codex-subagent-none` and each Codex lead and subagent run of Step 3 ran in a worktree that Codex made outside the scratch repository (path `<redacted>`). The hook there ran that worktree's `standin.sh`, which the wiring finds with `git rev-parse --show-toplevel`, and saved its events in the same `SPIKE_DIR`. `codex-lead-none`, the `codex exec` runs and `codex-changed-none` ran in the scratch repository.
 
 ### Event matrix (Step 2)
@@ -434,12 +434,14 @@ Each cell names the tool of the event that the run saved for that call. Where no
 | Codex | lead (`codex-lead-none`) | `Bash` | `Bash`: `printf x > spike.txt` | `Bash`: a `python3` heredoc | `apply_patch` | n/a | Eight events: seven `Bash`, among them reads of plugin skill files, and one `apply_patch`. No prompt |
 | Codex | subagent (`codex-subagent-none`, in `_stray-195944`) | `Bash` | `Bash`: `printf 'x' > spike.txt` | `Bash`: `printf 'y' > spike.txt` | `Bash`: `python3 -c` | n/a | The six subagent events carry `agent_id` and `agent_type` `worker`. No prompt |
 | Codex | headless (`codex-headless-none`) | `Bash`: `git status --short --branch && rg --files …` | `Bash`: one `python3 -c` wrote both files | the same call | the same call | n/a | Exit 0. Three `Bash` events |
-| agy | lead | not run | not run | not run | not run | n/a | Skipped by the owner |
-| agy | subagent | not run | not run | not run | not run | n/a | Skipped by the owner |
+| agy | lead (`agy-lead-none`, 2026-10-26) | `run_command` | `write_file` | `edit_file` | `edit_file` on `spike.ipynb` | n/a | Eleven events: four `run_command`, one `write_file`, three `edit_file` and three `read_file`. agy's own command prompt before each command, approved once; no prompt for the write and the edits. Nothing about the hook |
+| agy | lead, mode `allow` (`agy-lead-allow`) | `run_command` | `write_file` | `edit_file` | `edit_file` | n/a | Fourteen events. As in `none`: four command prompts, approved once, and nothing about the hook |
+| agy | subagent (`agy-subagent-none`) | `run_command` | `write_file` | `edit_file` | `edit_file` | n/a | The lead's events: two `read_file` of agy's bundled docs, outside the workspace, then `invoke_subagent` with `TypeName` `self` and `Workspace` `inherit`. The subagent's twelve events carry its own `conversationId`. Each of its three commands showed `self needs approval for Bash`, approved once; no prompt for the writes |
+| agy | subagent, mode `allow` (`agy-subagent-allow`) | `run_command` | `write_file` | `edit_file` | `edit_file` | n/a | The lead made eighteen `read_file` calls over five minutes before `invoke_subagent`. The subagent's ten events and three command approvals went as in `none` |
 | agy | headless (`agy-headless-none`) | `run_command` | not reached | not reached | not reached | n/a | Exit 0. The stand-in gave no answer, then agy soft-denied the shell command: `a tool required the "command" permission that headless mode cannot prompt for`. The run ended with no output |
 | agy | headless, mode `allow` (`agy-headless-allow`) | `run_command` | not reached | not reached | not reached | n/a | Exit 0. The stand-in answered `allow`, and agy soft-denied the shell command, as in `none` |
 
-agy's `allow` runs in a lead Session and in a subagent did not run.
+agy's lead and subagent rows ran on 2026-10-26 on agy 1.4.7, and its headless rows on 2026-10-22 on agy 1.4.3.
 
 ### Fixture events (Step 2)
 
@@ -458,7 +460,7 @@ The other Claude Code events all have `cwd` `/repo`. Their `Bash` events have `c
 
 ### Answers (Step 3)
 
-"Reason appeared" gives the owner's answer to the guide's question: to the agent, to the owner, or nowhere. Where the owner answered in free text, the cell says how it reads the answer. For a headless run it comes from the output. A quoted Session message is the owner's copy of it, or the headless output.
+"Reason appeared" gives the owner's answer to the guide's question: to the agent, to the owner, or nowhere. Where the owner answered in free text, the cell says how it reads the answer. For a headless run it comes from the output. A quoted Session message is the owner's copy of it, or the headless output. agy's lead and subagent rows ran on 2026-10-26: a script gave each answer by the Procedure's rules, and their cells come from the screen and agy's transcript.
 
 | Harness | Session | Mode | Call ran | Session showed | Reason appeared | Ask prompt | Owner's answer | `end_ms` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -483,20 +485,22 @@ The other Claude Code events all have `cwd` `/repo`. Their `Bash` events have `c
 | Codex | subagent | `exit1` | yes | nothing about the hook | nowhere | n/a | no prompt | yes, exit 1. The subagent ran `git status --short --branch` |
 | Codex | headless | `deny` | no | Exit 0. The error line `Command blocked by PreToolUse hook: spike: deny. Command: git status`, then `hook: PreToolUse Blocked`, and the agent's reply that the hook blocked the command | in the output, and to the agent | n/a | n/a | yes |
 | Codex | headless | `ask` | yes | Exit 0. `hook: PreToolUse Failed`, then `git status` ran and succeeded | nowhere | no | n/a | yes |
-| agy | lead | `deny` | not run | | | n/a | | |
-| agy | lead | `ask` | not run | | | | | |
-| agy | lead | `exit1` | not run | | | n/a | | |
-| agy | lead | `exit2` | not run | | | n/a | | |
-| agy | lead | `sleep` | not run | | | n/a | | |
-| agy | subagent | `deny` | not run | | | n/a | | |
-| agy | subagent | `ask` | not run | | | | | |
-| agy | subagent | `exit1` | not run | | | n/a | | |
+| agy | lead | `deny` | no | `● Ran (git status) failed`, then the agent's reply quoting `tool call denied by pre-tool hook: spike: deny` | to the agent, as the tool's error | n/a | no prompt | yes, exit 0 |
+| agy | lead | `ask` | yes: `spike.txt` holds `x` | `● Edited 1 file (spike.txt)` and the agent's reply "Created spike.txt containing x." | nowhere | no | no prompt | yes |
+| agy | lead | `exit1` | no | The agent's reply that a pre-tool hook blocked the call: `JSON hook "jsonhook__spike_PreToolUse_0_0" failed: command failed: exit status 1, stderr: spike: exit 1` | to the agent | n/a | no prompt | yes, exit 1 |
+| agy | lead | `exit2` | no | The same message, with `exit status 2, stderr: spike: exit 2` | to the agent | n/a | no prompt | yes, exit 2 |
+| agy | lead | `sleep` | no | The call failed 5 seconds after it started, at 13:28:21, with `JSON hook "jsonhook__spike_PreToolUse_0_0" failed: command failed: signal: killed, stderr: `. The agent's next call, a `read_file` of the workspace, failed the same way 5 seconds later | the kill notice, to the agent | n/a | no prompt | no: agy killed the hook |
+| agy | subagent | `deny` | no | The subagent's `git status` and its `send_message` both failed with `tool call denied by pre-tool hook: spike: deny`. The lead reported the subagent's result, quoting the message | to the subagent, which the lead relayed | n/a | no prompt | yes |
+| agy | subagent | `ask` | yes: `spike.txt` holds `x` | No prompt for the write. The subagent's two commands, `pwd && ls -la` and `git status`, each showed `self needs approval for Bash` with no reason, as in mode `none` | nowhere | no | approved each command once | yes |
+| agy | subagent | `exit1` | no | Three subagent calls, `run_command`, `send_message` and `read_file`, failed with the exit-1 message. The lead relayed it | to the subagent, which the lead relayed | n/a | no prompt | yes, exit 1 |
+| agy | subagent | `exit2` | no | As in `exit1`, with `exit status 2, stderr: spike: exit 2` | to the subagent, which the lead relayed | n/a | no prompt | yes, exit 2 |
+| agy | subagent | `sleep` | no | Three subagent calls each failed 5 seconds after they started, with `signal: killed` | to the subagent, which the lead relayed | n/a | no prompt | no: agy killed the hook |
 | agy | headless | `deny` | no: no `spike.txt` | Exit 0. `tool call denied by pre-tool hook: spike: deny`. The hook also answered deny to the agent's next three calls: `run_command` `ls -la` and two `read_file` | in the output, and to the agent | n/a | n/a | yes, four events |
 | agy | headless | `ask` | no: no `spike.txt` | Exit 0. agy's notice that the `write_file` permission cannot be prompted for in headless mode, so it was auto-denied | nowhere | no prompt; agy denied the call | n/a | yes |
 
-agy's `ask` rows and its headless `deny` row are runs of the write prompt. agy's lead and subagent rows did not run, so the stand-in's allowance of `invoke_subagent` was not exercised.
+agy's `ask` rows and its headless `deny` row are runs of the write prompt; its other lead and subagent rows are runs of the shell prompt. The stand-in allowed each `invoke_subagent`, so every subagent started.
 
-Inference, not observed: agy's headless page says that writes inside the workspace are allowed without a prompt. The hook's `ask` is therefore the likely cause of the soft-deny of `write_file` in `agy-headless-ask`, but its output does not name the hook.
+Inference, not observed: agy's headless page says that writes inside the workspace are allowed without a prompt. The hook's `ask` is therefore the likely cause of the soft-deny of `write_file` in `agy-headless-ask`, but its output does not name the hook. The headless runs of 2026-10-26, on agy 1.4.7, contradict this inference: with no hook enabled, `agy -p` soft-denied the same write ([agy's interactive runs](#agys-interactive-runs-pro-143)).
 
 The edit inside the linked worktree, in Claude Code (`claude-worktree-none`):
 
@@ -522,6 +526,78 @@ A lead Session started in the main checkout wrote `.worktrees/wt/spike.txt` with
 - Codex's events carry `session_id`, `turn_id`, `transcript_path`, `cwd`, `hook_event_name`, `model`, `permission_mode`, `tool_name`, `tool_input` and `tool_use_id`. A subagent's events also carry `agent_id` and `agent_type`. The `tool_input.command` of `apply_patch` holds the patch.
 - agy's events carry `artifactDirectoryPath`, `conversationId`, `modelName`, `stepIdx`, `toolCall`, `transcriptPath` and `workspacePaths`. Its tools were `run_command` (`args.CommandLine`), `write_file` (`args.Path` and `args.Content`) and `read_file` (`args.Path`). agy's hooks page names the write tool `write_to_file`.
 - In Codex, the agent wrote and edited files with shell commands in every Session kind, and used `apply_patch` once, for the notebook. A Codex wiring sees such writes only as shell commands.
+
+### agy's interactive runs (PRO-143)
+
+A Worker ran agy's lead and subagent runs of Steps 2 and 3 on 2026-10-26 from 13:21 to 13:55, in UTC+8, and filled agy's rows above. A script drove each Session in tmux 3.6b with `send-keys` and `capture-pane`, so no answer in these runs is the owner's. The script and the kept files are in `$HOME/hook-spike/.spike/kept/pro-143/` on the owner's machine.
+
+#### Versions and conditions
+
+| Item | Value |
+| --- | --- |
+| agy | 1.4.7. `agy --version` printed 1.4.5 at 13:14. The first `agy -p` run, a sign-in check at 13:17, started agy's updater (`Spawned background update process` in agy's log), which replaced the binary. Each run's start banner shows `Antigravity CLI 1.4.7` |
+| Sign-in | a Google AI Pro subscription, from the start banner |
+| Model | `gemini-3.8-flash-high`, in every event |
+| Mode | `accept-edits`, from `agy --mode=accept-edits`; the status bar showed `accept-edits`. agy's log shows the preset `toolPermission=request-review` |
+| Saved rules | none: `/permissions` showed `allowlist (0)    denylist (0)    asklist (0)` in its Project, Shared with Antigravity and Global scopes |
+| Other hooks | none: `/hooks` listed only `[spike] *    1 hook  (workspace)`, because of the scratch `HOME` below |
+| Operating system | Darwin 24.6.0 |
+
+The owner's `~/.gemini/config/hooks.json`, dated 2026-10-19, holds the hook `orca-status`, which the Orca app installed. Its `PreToolUse` handler matches `*` and prints `{"decision":"ask"}` on every tool call, whether its script exists or not. With the owner's `HOME`, `/hooks` listed `[orca-status] *    1 hook  (global)` beside `[spike]`, both on. An entry `"orca-status": {"enabled": false}` in the scratch repository's `.agents/hooks.json` did not turn it off. To keep the owner's file unchanged, each run except `agy-headless-orca-none` set `HOME` to a scratch folder whose `.gemini/` links every entry of the owner's `~/.gemini/` except `config/hooks.json`. Sign-in, settings, plugins and permission rules still came from the owner's files.
+
+#### How the runs went
+
+1. The scratch repository came from the Setup block, unchanged, with `SPIKE_REPO` in a scratch directory outside any repository; this record writes it as `/repo`. On the first start agy asked "Do you trust the contents of this project?"; the script chose "Yes, I trust this folder", and removed the folder from `trustedWorkspaces` in agy's settings after the runs.
+2. Each run started a new Session: `cd /repo && HOME=<scratch home> agy --mode=accept-edits`. The script typed the prompt with `tmux send-keys -l`, pressed Enter, and waited until the screen stopped changing.
+3. The script followed the Procedure's rules for prompts. It approved each prompt once with option 1, such as `1. Yes, run command`, and each subagent request once with `ctrl+k`. A subagent request's full view offers only `1. Yes, approve` and `2. No, deny`. In the `ask` runs it would have declined the write of `spike.txt`, but no prompt appeared for it.
+4. For each run, the script kept the stand-in's events, the screen, a log of each prompt with the script's answer, and agy's `transcript_full.jsonl` for each conversation that the events name. The quotes in this record come from those files.
+5. Before it started a subagent, the lead read agy's bundled `agy-customizations` docs: two reads in `agy-subagent-none`, and eighteen over five minutes in `agy-subagent-allow`, the stand-in among them. Each read outside the workspace showed `Reason: outside workspace` and `Allow access to this file?`, approved once. Each read went through the hook.
+
+#### Extra runs
+
+These runs go beyond Steps 2 and 3. Each answers a question about G5 that the rows above leave open.
+
+| Run | Session and mode | Prompt | Hook's answer | What agy did |
+| --- | --- | --- | --- | --- |
+| `agy-lead-ask-shell` | lead, `accept-edits` | shell | `ask` | agy's command prompt, with `Reason: spike: ask` above `Requesting permission for: git status`. Declined with `4. No, cancel`: `git status` did not run, and the agent read `permission check failed for unsandboxed "git status": user denied permission to run command` |
+| `agy-lead-deny-write` | lead, `accept-edits` | write | `deny` | No prompt and no `spike.txt`. The agent read `tool call denied by pre-tool hook: spike: deny` |
+| `agy-lead-force_ask` | lead, `accept-edits` | write | `{"decision":"force_ask","reason":"spike: force_ask"}` | No prompt. agy wrote `spike.txt`, and the tool result read `Created file.` |
+| `agy-lead-default-ask` | lead, `default` (`agy` with no `--mode`) | write | `ask` | agy's `Create file` panel, with `Reason: spike: ask` above the diff and `Allow creation of this file?`. Declined with `2. No, deny creation`: no `spike.txt`, and the agent read `permission check failed for write_file "/repo/spike.txt": user denied permission for write_file(...)` |
+| `agy-lead-default-none` | lead, `default` | write | none | The same panel with no `Reason` line. Approved once: `spike.txt` holds `x` |
+
+For `agy-lead-force_ask`, the stand-in's case line became `deny | ask | force_ask)`, the one change to the stand-in. The runs after it used the changed stand-in, which answers as before in every other mode.
+
+Headless runs of the write prompt separate the stand-in's answer from `orca-status` and from agy's own policy. Each exited 0.
+
+| Run | Command | Hooks loaded | Hook's answer | Output | `spike.txt` |
+| --- | --- | --- | --- | --- | --- |
+| `agy-headless-nohook-none` | `agy -p "<write prompt>"` | `spike`, set to `"enabled": false`; it saved no event | none | stderr: the soft-deny notice | absent |
+| `agy-headless-iso-none` | `agy -p "<write prompt>"` | `spike` | none | stderr: the soft-deny notice | absent |
+| `agy-headless-iso-ask` | `agy -p "<write prompt>"` | `spike` | `ask` | stderr: the soft-deny notice | absent |
+| `agy-headless-orca-none` | `agy -p "<write prompt>"`, with the owner's `HOME` | `spike` and `orca-status` | none from `spike` | stderr: the soft-deny notice | absent |
+| `agy-headless-acceptedits-none` | `agy --mode=accept-edits -p "<write prompt>"` | `spike` | none | stdout: ``Created [spike.txt](file:///repo/spike.txt) with `x`.`` | `x` |
+| `agy-headless-acceptedits-ask` | `agy --mode=accept-edits -p "<write prompt>"` | `spike` | `ask` | stdout: ``Created [spike.txt](file:///repo/spike.txt) containing `x`.`` | `x` |
+
+The soft-deny notice reads `jetski: no output produced — a tool required the "write_file" permission that headless mode cannot prompt for, so it was auto-denied.`, followed by advice to add an allow rule or to use `--dangerously-skip-permissions`.
+
+#### What the runs show
+
+Each run happened once, on agy 1.4.7.
+
+- `PreToolUse` fired for every tool the agent called, in the lead and in a subagent: `run_command`, `write_file`, `edit_file`, `read_file`, `invoke_subagent` and `send_message`. agy has no notebook tool; the agent edited `spike.ipynb` as JSON with `edit_file`.
+- A deny held in the lead and in a subagent, for a shell command and for a write, and the agent read the reason.
+- Exit 1, exit 2 and a hook that outlived its timeout blocked the call in the lead and in a subagent, with no prompt. The agent read the hook's stderr, or `signal: killed`. In Claude Code and Codex, exit 1 and a timeout let the call through (Answers).
+- A hook's `ask` added its reason to a prompt that agy shows anyway: before a shell command, and before a write in `default` mode. Declining that prompt blocked the call.
+- In `accept-edits` mode, neither `ask` nor `force_ask` on a write produced a prompt: in the lead, in a subagent (`ask` only) and headless. agy wrote the file each time.
+- With no hook enabled, headless `agy -p` soft-denied a write inside the workspace, which the headless page says is auto-allowed. `--mode=accept-edits` let it through.
+- A subagent's events carry the subagent's own `conversationId` and an empty `lastUserInput`. No field names the parent Session.
+- `"enabled": false` on the workspace hook stopped it. A workspace entry with a global hook's name did not stop the global hook.
+
+Other observations:
+
+- The hook ran with `pwd` `/repo/.agents` in every run, lead and subagent, as on 2026-10-22.
+- Each event carries `lastUserInput`, which agy's changelog adds in 1.4.7, besides the fields of 2026-10-22. `edit_file`'s arguments are `Path`, `Target` and `Replacement`. `invoke_subagent`'s are `Model`, `Prompt`, `Role`, `TypeName` and `Workspace`, at the top level.
+- agy's hooks page, read again on 2026-10-26 as Markdown from `https://antigravity.google/docs/hooks.md`, still names `write_to_file`, `replace_file_content`, `multi_replace_file_content` and `view_file`, and gives `invoke_subagent` a `Subagents` array. A matcher written from the page would miss every write in these runs. The page now says that hooks in `~/.gemini/antigravity-cli/settings.json` are not loaded, and documents `enabled`. It still documents no exit codes and no timeout behaviour.
 
 ## Events
 
@@ -692,6 +768,141 @@ From the run `claude-lead-none`. Plan 5 wires `Monitor` after this spike ([Decis
 }
 ```
 
+### agy events
+
+From agy's runs of 2026-10-26, for a follow-up that wires agy; Task 4 does not copy them. Each block is pretty-printed with two-space indents, with its keys in the order agy sent them. `conversationId`, `transcriptPath` and `artifactDirectoryPath` became `"<redacted>"`, and the scratch repository's path became `/repo`. No other value held a home or temporary path.
+
+#### agy-run-command.json
+
+From the run `agy-lead-none`.
+
+```json
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`.",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "CommandLine": "git status",
+      "WaitMsBeforeAsync": 5000,
+      "toolSummary": "Git status check"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
+```
+
+#### agy-write-file.json
+
+From the run `agy-lead-none`.
+
+```json
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`.",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 4,
+  "toolCall": {
+    "args": {
+      "Content": "x\n",
+      "Path": "/repo/spike.txt"
+    },
+    "name": "write_file"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
+```
+
+#### agy-edit-file.json
+
+From the run `agy-lead-none`.
+
+```json
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`.",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 7,
+  "toolCall": {
+    "args": {
+      "Path": "/repo/spike.txt",
+      "Replacement": "y",
+      "Target": "x"
+    },
+    "name": "edit_file"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
+```
+
+#### agy-invoke-subagent.json
+
+From the run `agy-subagent-none`: the lead's call that started the subagent.
+
+```json
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "Start one subagent and give it this task word for word. Do none of it yourself: Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`. Use the inherit workspace.",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 6,
+  "toolCall": {
+    "args": {
+      "Model": "inherit",
+      "Prompt": "Run `git status` in the shell. Write `spike.txt` containing `x`, then edit it so it contains `y`. Replace cell 0 of `spike.ipynb` with `print(1)`.",
+      "Role": "Task Runner",
+      "TypeName": "self",
+      "Workspace": "inherit"
+    },
+    "name": "invoke_subagent"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
+```
+
+#### agy-run-command-subagent.json
+
+From the run `agy-subagent-none`: the subagent's first call.
+
+```json
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "CommandLine": "git status",
+      "WaitMsBeforeAsync": 5000,
+      "toolSummary": "Git status check"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
+```
+
 ## Timing
 
 Claude Code's documented default `timeout` for a command hook is 600 seconds ([hooks reference](https://code.claude.com/docs/en/hooks), read 2026-10-21). The spike's wiring set 5 seconds. In both `sleep` runs the Harness ended the hook before it finished, and the call ran; Codex reported the timeout, and Claude Code showed nothing about the hook (Answers).
@@ -717,7 +928,7 @@ G1 to G4 stay in the hook. A warm `./devctl --version` took 0.10 seconds at the 
 ### Codex and agy wiring
 
 - Codex: a follow-up wires Codex after plan 5, without G5, because Codex ran the call with no prompt on the hook's ask (backlog item PRO-142).
-- agy: no decision yet. The owner decides after agy's interactive runs, a lead Session and a subagent, which this spike did not run (backlog item PRO-143).
+- agy: no decision yet. agy's interactive runs, a lead Session and a subagent, ran on 2026-10-26 ([agy's interactive runs](#agys-interactive-runs-pro-143)), and the owner decides from them (backlog item PRO-143).
 
 ### What the record changes in plan 5
 
@@ -730,9 +941,10 @@ Task 1 Step 9 of plan 5 compares the record with what Tasks 3 to 8 assume:
 
 ## Limits
 
-- Each run happened once, on one machine, with one version of each Harness (Versions). A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
+- Each run happened once, on one machine, with one version of each Harness (Versions), except agy: its headless runs used 1.4.3, and its runs of 2026-10-26 used 1.4.7. A model can skip or reorder a requested call, so the event files, not the Session's summary, show what the hook saw.
 - The stand-in is not `devctl hook`. It answers by mode, not by rules, and it starts `sh`, not uv and Python. Step 5 times `./devctl --version` instead, which runs no rule; Task 8 times the real hook.
-- agy's lead and subagent Sessions did not run. The record has nothing on agy's interactive hooks, its subagents, its exit codes or its timeout, and nothing on agy's `invoke_subagent` or its `accept-edits` mode. agy's own soft-deny of a shell command hid the hook's answer in its headless `none` and `allow` runs.
+- agy's lead and subagent Sessions ran on 2026-10-26 without the owner's `orca-status` hook, which the headless runs of 2026-10-22 loaded. agy's own soft-deny of a shell command hid the hook's answer in its headless `none` and `allow` runs.
+- Not covered for agy: the `auto` and `plan` modes; a subagent in the `branch` or `share` workspace; `force_ask` in a subagent, or in `default` mode; a declined request inside a subagent; the answers `auto_approve` and `deny_unless_prior_grant`, and the answer fields `overwrite` and `permissionOverrides`; how agy combines two hooks' answers, beyond one headless run with `orca-status`; and the Antigravity app and IDE.
 - Claude Code's lead `exit1` run is invalid. Exit 1 in Claude Code is observed only in a subagent.
 - In the interactive `ask` runs, the owner approved Claude Code's prompts, where the Procedure asked to decline the call under test. The spike shows that the prompt appears and that an approved call runs. It does not show a declined ask in an interactive Session. The headless runs show Claude Code denying an ask that nobody can answer.
 - Some answers are the owner's own words, quoted as given. For `claude-lead-sleep`'s wait the owner answered 0 seconds. The event's missing `end_ms` shows only that Claude Code ended the hook before its 10-second sleep finished, not when; that the 5-second timeout ended it is an inference.
