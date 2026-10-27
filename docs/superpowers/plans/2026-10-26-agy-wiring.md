@@ -113,12 +113,13 @@ The item is ok when `.agents/hooks.json` is tracked and valid JSON; a named hook
 
 Task 5 fills it. A blocked, skipped or simulated result is written as such, never as passed.
 
-| Check, at 260cd81 | Result |
+| Check, at f9f4254, after the review fixes | Result |
 | --- | --- |
-| `uv run pytest -q tests/devctl tests/test_kit_*.py` | exit 1: `1 failed, 1925 passed in 1445.16s (0:24:05)`. The failure, `tests/devctl/test_devctl_process.py::test_tools_are_found_on_the_callers_path`, is a 5-second timeout on a one-line shell script while the machine's load average was over 20; this branch does not change `process.py`. Rerun alone, `uv run pytest -q tests/devctl/test_devctl_process.py` exited 0: `23 passed`. `tests/devctl/test_devctl_project_dogfood.py`, which needs network access, passed in the full run |
+| `uv run pytest -q tests/devctl tests/test_kit_*.py` | exit 0: `1935 passed in 301.81s (0:05:01)`, `tests/devctl/test_devctl_project_dogfood.py`, which needs network access, included. At 260cd81 the same run had one failure, a 5-second timeout in `tests/devctl/test_devctl_process.py` while the load average was over 20, which passed when rerun alone |
 | `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed |
 | `uv run rapid-ship status --strict` | exit 0: `45 managed files unchanged.` |
 | `./devctl doctor --settings`, in this repository | exit 0: `doctor: 4 ok, 0 missing, 0 unknown`; the agy wiring item ran the real hook through the shim and uv |
-| The `diff` step's count, `counted_lines` against `748d17c` | 1,258 counted lines, under the cap of 1,500 |
+| The real hook from `.agents/` on a `run_command` whose argument is spelled `commandLine` | exit 0 with `{"decision": "deny", "reason": "devctl hook: internal error: run_command's input has no CommandLine string; devctl hook denies the call until this is fixed"}` |
+| The `diff` step's count, `counted_lines` against `748d17c` | 1,355 counted lines, under the cap of 1,500 |
 
 Not run: `./devctl check --tier full`, which needs a PR body, and the website build, because no page under `website/` changed. Task 6, the live trial in agy, is a pending Owner step.
