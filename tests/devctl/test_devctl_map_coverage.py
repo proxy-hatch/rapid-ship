@@ -55,7 +55,20 @@ def test_missing_source_root_is_reported(workspace: Workspace) -> None:
 
     errors = coverage_errors(tracked, project_settings(source_roots=("src/other",)))
 
-    assert "src/other: source root has no files; fix [map] source_roots" in errors
+    assert "src/other: source root holds no tracked files; fix [map] source_roots" in errors
+
+
+def test_a_source_root_of_untracked_files_must_be_staged(workspace: Workspace) -> None:
+    layout(workspace)
+    workspace.write("src/other/__init__.py", "")
+    tracked = TrackedFiles.read(workspace.context().repo)
+
+    errors = coverage_errors(tracked, project_settings(source_roots=("src/other",)))
+
+    assert (
+        "src/other: source root holds no tracked files; stage its files with git add, "
+        "or fix [map] source_roots"
+    ) in errors
 
 
 def test_every_guide_is_reachable_from_the_root(workspace: Workspace) -> None:

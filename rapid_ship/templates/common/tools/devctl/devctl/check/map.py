@@ -141,7 +141,7 @@ def coverage_errors(tracked: TrackedFiles, project: ProjectSettings) -> list[str
     """Each top-level directory and source-root child has a tracked guide or is unguided."""
     files, present = tracked.files, set(tracked.files)
     errors = [
-        f"{source_root}: source root has no files; fix [map] source_roots"
+        _empty_source_root(tracked, source_root)
         for source_root in project.source_roots
         if not any(path.startswith(f"{source_root}/") for path in files)
     ]
@@ -154,6 +154,13 @@ def coverage_errors(tracked: TrackedFiles, project: ProjectSettings) -> list[str
         if _needs_guide(directory, project) and guide not in present:
             errors.append(_required(tracked, guide, f"{directory}/: {hint}"))
     return errors
+
+
+def _empty_source_root(tracked: TrackedFiles, source_root: str) -> str:
+    fix = "fix [map] source_roots"
+    if any(path.startswith(f"{source_root}/") for path in tracked.untracked):
+        fix = f"stage its files with git add, or {fix}"
+    return f"{source_root}: source root holds no tracked files; {fix}"
 
 
 def _required(tracked: TrackedFiles, path: str, missing: str) -> str:
