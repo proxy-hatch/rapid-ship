@@ -511,9 +511,12 @@ def test_in_flight_a_body_that_declares_a_removed_behavioural_test_or_an_overage
         REMOVES_UNIT,
         evidence("", "Over the diff cap:"),
         evidence("", "```", "Over the diff cap: a generated client", "```"),
+        evidence("", "Removed tests:", ""),
+        evidence("", "```", "Removed tests:", "- `tests/test_api.py::test_delete`: gone", "```"),
         # The Evidence parsers read only the Evidence section.
         "## Notes\n\nOver the diff cap: a generated client\n\n"
         "Removed tests:\n- `tests/test_api.py::test_delete`: gone\n",
+        evidence() + "\n## Notes\n\nOver the diff cap: a generated client\n",
     ],
 )
 def test_in_flight_a_body_without_either_declaration_passes_to_the_next_rule(
