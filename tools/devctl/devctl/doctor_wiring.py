@@ -50,8 +50,8 @@ _LITERAL_DOLLAR = "\x00"  # a $ that the shell keeps as it is, which no path to 
 # in that word, and the shell then runs something else. A space survives only inside quotes.
 _PATH_CHARACTERS = r"(?:[\w./~ -]|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})*"
 _PATH_WORD = re.compile(_PATH_CHARACTERS)
-# agy runs its hooks in .agents/, so its program word may start with git's top level, the one
-# command substitution either item accepts.
+# agy runs its hooks in .agents/, so its program word may start with git's top level. No other
+# command substitution passes the agy item, and the Claude Code item accepts none.
 _AGY_PATH_WORD = re.compile(r"(?:\$\(git rev-parse --show-toplevel\))?" + _PATH_CHARACTERS)
 
 
