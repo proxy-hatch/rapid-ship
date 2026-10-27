@@ -1,6 +1,6 @@
 # Spec 3: Metrics and gardening
 
-**Status: revised on 2026-10-19 with the owner's decisions from the second review, and on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row, so that `metrics.toml` follows Spec 1's rule for settings comments, and so that `sync` proposes no migration (Spec 1 section 3).** Section 17 lists what is still open, and a plan for this spec comes later. This is the third of the three specs listed in the [rapid-ship design](2026-10-14-rapid-ship-design.md), and it replaces the earlier plan for a third spec, "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
+**Status: revised on 2026-10-19 with the owner's decisions from the second review; on 2026-10-25 for Spec 1's `dead-code` check step, which narrows the audit's dead-code row, so that `metrics.toml` follows Spec 1's rule for settings comments, and so that `sync` proposes no migration (Spec 1 section 3); and on 2026-10-26 for the owner's descope of Spec 2, so that this spec depends on Spec 1 alone and is part of GA (section 15).** GA, the documentation release, therefore comes after this spec is built. Section 17 lists what is still open, and this spec's plan is not written yet. This is one of the two specs that the [rapid-ship design](2026-10-14-rapid-ship-design.md) lists, beside Spec 1, and it keeps the name Spec 3. It replaces the earlier plan for a spec called "Metrics and the gate". Terms follow `GLOSSARY.md` at the repository root.
 
 ## 1. Scope and outcome
 
@@ -9,7 +9,7 @@ When this spec is built, an owner can:
 - run `./devctl metrics` and read the basic metrics for the last 30 merged PRs, computed from GitHub and git without a model, with each Suggested threshold marked ok, breached or unknown;
 - turn on a scheduled GitHub Action that posts the same report to one issue in the repository, using only `GITHUB_TOKEN`;
 - add the project's own metrics, such as Alarms, incidents or deploy rollbacks, through settings or a few lines of Python in `devctl_project`;
-- run `rs-preflight` before widening the Mode toward Flight: an advisory review of this project's metrics, Alarms, incident integrations, gardening, escalation list and enforcement, with guided setup for what is missing;
+- run `rs-preflight` before widening the Mode toward Flight: an advisory review of this project's metrics, Alarms, incident integrations, gardening, what still needs the owner in Flight and how that is enforced, with guided setup for what is missing;
 - keep a Corrections ledger in the repository that agents write and the owner signs off, with the rung or rungs that would have prevented each Correction and what was done about it;
 - run `rs-garden`, by hand or on a schedule, to add new Corrections from reviews and incidents, find drift, propose rule changes as tasks and fix doc-only drift in one PR per pass.
 
@@ -19,9 +19,9 @@ rapid-ship reports and never acts on a report. A breached Suggested threshold ch
 
 Out of scope here:
 
-- [Spec 1](2026-10-14-kit-and-setup-design.md) covers Agent identity and when to set it up, and the thin devctl command that runs `gh` and `git push` as an App. It also covers the merge guard in `devctl hook`, the starter Patterns, `rs-health` and the audit it shares with `rs-garden`, and the `rs-setup` steps that record thresholds and offer the metrics Action.
-- [Spec 2](2026-10-16-delivery-skills-design.md) covers how the Reviewer posts its findings, the Lead brief's request to add in-session Corrections to the ledger, the escalation list and how `rs-lead` changes it, and the shape of a task.
-- Section 13 lists what this spec needs from both.
+- [Spec 1](2026-10-14-kit-and-setup-design.md) covers Agent identity and when to set it up, and the thin devctl command that runs `gh` and `git push` as an App. It also covers the Mode, the merge guard in `devctl hook`, the seeded root AGENTS.md with its Pull requests section, the starter Patterns, `rs-health` with the audit and the task shape it shares with `rs-garden`, and the `rs-setup` steps that record thresholds and offer the metrics Action.
+- Skills that design, break down, lead, implement or review work. The owner descoped them on 2026-10-26: the owner starts and manages their own Sessions ([ADR 0004](../../adr/0004-team-management-boundary.md)).
+- Section 13 lists what this spec needs from Spec 1.
 
 ## 2. Where the numbers come from
 
@@ -29,7 +29,7 @@ Out of scope here:
 
 **Read-only.** devctl reads GitHub through `gh api` with the token `gh` has: the owner's `gh` login on the owner's machine, `GITHUB_TOKEN` in the Action. It reads git from the local `origin/<default branch>` and never fetches. Its only write is the Action's post (section 8), which runs only inside GitHub Actions.
 
-**Agent identity.** Agent identity is on when `[github]` in `project.toml` records both Apps, each with its ID and slug (Spec 1). An agent PR is then a PR authored by the Worker App, the App that opens and merges PRs; its bot account is `<slug>[bot]`. In a team, every developer's agents act as the same two Apps (Spec 1), so this holds whoever ran the agent. devctl reads the slug from the settings and never needs an App's key. With Agent identity off, agents open PRs under the account of the person who runs them, and GitHub cannot tell an agent PR from a person's. A metric that needs that distinction reports `unknown: needs Agent identity`. The others count every PR and say so.
+**Agent identity.** Agent identity is on when `[github]` in `project.toml` records both Apps, each with its ID and slug (Spec 1). An agent PR is then a PR authored by the Worker App, the App that opens and merges PRs; its bot account is `<slug>[bot]`. In a team, every developer's agents act as the same two Apps (Spec 1), so this holds whoever ran the agent. devctl reads the slug from the settings and never needs an App's key. An agent's PR is authored by the Worker App only when the agent pushed and opened it through `./devctl as worker`, as the Pull requests section of the seeded root AGENTS.md tells it to (Spec 1). In a Harness the Kit wires, the guardrails also deny an agent's `git push` and `gh` writes made as the owner. In any other Harness, an agent that pushes as the owner opens a PR that counts as a person's. With Agent identity off, agents open PRs under the account of the person who runs them, and GitHub cannot tell an agent PR from a person's. A metric that needs that distinction reports `unknown: needs Agent identity`. The others count every PR and say so.
 
 **Population.** Each metric names what it counts:
 
@@ -68,9 +68,11 @@ For each PR in the window, devctl counts the distinct head commits that received
 2. Add each dismissed review that requested changes. A dismissed review has state `DISMISSED`; the PR's `review_dismissed` event records the state it had before.
 3. Count the distinct `commit_id` values. Several reviewers requesting changes on one head are one Revision, and a second review of the same head adds none.
 
-Any reviewer counts: the Reviewer App or a person. The value is the window's total divided by the number of PRs in it. The report lists the PRs with the most Revisions. Spec 2's `revision_rounds` escalation kind also counts distinct head commits, but the Lead reads each verdict's first line, `rapid-ship review: changes requested`, and people's reviews that requested changes, so the kind works without Agent identity.
+Any reviewer counts: the Reviewer App or a person. The value is the window's total divided by the number of PRs in it. The report lists the PRs with the most Revisions.
 
-This metric needs Agent identity for two reasons. Without it, devctl cannot select agent PRs. And a Reviewer acting as the account that opened a PR cannot request changes on it, so it posts its verdict as a comment review (Spec 2), which no Revision counts.
+Only change requests posted as GitHub reviews count, dismissed ones included (steps 1 and 2). A review whose findings stay inside a Session, or one posted as a comment, is not counted. The Pull requests section of the seeded root AGENTS.md tells a Session how to request changes as the Reviewer App (Spec 1). A low value can still mean that reviewers send work back without posting a change request.
+
+This metric needs Agent identity for two reasons. Without it, devctl cannot select agent PRs. And an agent that reviews as the account that opened a PR cannot request changes on it, because GitHub never lets a PR's author do so. Its review can only be a comment, which no Revision counts.
 
 ### Reverts
 
@@ -80,7 +82,7 @@ A PR in the window counts as reverted when any of these holds at the time of the
 2. A PR merged into the default branch after it has the body line `Reverts <owner>/<repo>#<number>`. GitHub's Revert button writes this line.
 3. Later commits undid all or part of the PR, by the content check under "Partial reverts" below. This finds a revert made by hand, whole or partial.
 
-A PR reverted more than once counts once, and a whole revert outranks a partial one. A revert made by hand that writes neither line and that the content check does not match is missed; `rs-work` undoes a merged commit only with `git revert` (Spec 2). The Kit's ruleset allows squash merges only, so each PR is one commit on the default branch. Under other merge methods only reverts of the commit GitHub records as `merge_commit_sha` are detected. Recent PRs have had less time to be reverted; the count shows what happened up to the report.
+A PR reverted more than once counts once, and a whole revert outranks a partial one. A revert made by hand that writes neither line and that the content check does not match is missed. The Pull requests section of the seeded root AGENTS.md tells agents to undo a merged change only with `git revert` (Spec 1). The Kit's ruleset allows squash merges only, so each PR is one commit on the default branch. Under other merge methods only reverts of the commit GitHub records as `merge_commit_sha` are detected. Recent PRs have had less time to be reverted; the count shows what happened up to the report.
 
 ### Partial reverts
 
@@ -105,15 +107,15 @@ Spec 1's CI template gives each push run on the default branch its own concurren
 
 PRs of the population that are closed and not merged at the time of the report, and whose `closed_at` falls in the span. A PR closed and later reopened counts only if it is closed again.
 
-With Agent identity, a PR counts only when a person closed it: the actor of its last `closed` event is neither App. A PR the Lead closed itself, for example one it replaced with a new PR, does not count. Without Agent identity, devctl cannot tell who closed a PR, so every PR closed unmerged counts.
+With Agent identity, a PR counts only when a person closed it: the actor of its last `closed` event is neither App. A PR that an agent closed as the Worker App, for example one it replaced with a new PR, does not count. Without Agent identity, devctl cannot tell who closed a PR, so every PR closed unmerged counts.
 
 ### Corrections
 
 The value counts ledger entries (section 9) at the tip of `origin/<default branch>` dated on or after the day the span starts. It also counts entries per rung: an entry that names two rungs counts once in the total and once under each rung. The report also counts repeats: entries whose `category` already had an earlier entry anywhere in the ledger.
 
-Corrections is agent-reported. devctl counts the entries exactly, but agents decide which Corrections reach the ledger, and the report says so (section 9).
+Corrections is agent-reported. devctl counts the entries exactly, but agents decide which Corrections reach the ledger, and the report says so (section 9). A Correction the owner gives inside a Session reaches the ledger only when the corrected agent adds an entry, as an advisory Rule in the seeded root AGENTS.md asks (section 9).
 
-The ledger is complete only up to the last gardening pass, which `docs/corrections/last-pass.toml` records. A PR in the window whose merge commit is not an ancestor of that file's `through` commit is not gardened yet, and the count is then a lower bound. Without the file, no PR is gardened yet. An entry the Lead added for an in-session Correction counts as soon as it merges.
+The ledger is complete only up to the last gardening pass, which `docs/corrections/last-pass.toml` records. A PR in the window whose merge commit is not an ancestor of that file's `through` commit is not gardened yet, and the count is then a lower bound. Without the file, no PR is gardened yet. An entry that an agent added for a Correction given in a Session counts as soon as it merges.
 
 ## 4. Status of a Suggested threshold
 
@@ -262,7 +264,7 @@ The seeded `gate.toml` of plans 1 to 3 recorded 1.0 Revisions per PR, 1 Rollback
 
 | Threshold | Default | Why |
 | --- | --- | --- |
-| `revisions` | 1.0 per PR | A mean of 3 would equal the default escalation at 3 Revision rounds (Spec 2), so most PRs would reach the owner before the threshold said anything |
+| `revisions` | 1.0 per PR | On average, review should send a PR back at most once. A mean of 3 would let every PR take three rounds of changes before the threshold said anything |
 | `reverts` | 1 in the window | One revert, whole or partial, in 30 merged PRs. Deploy rollbacks are project-defined, so they no longer share this count |
 | `red_merges` | 1 in the window | A merge that breaks the default branch should be rare |
 | `closed_unmerged` | 3 in the window | One closed PR in ten merged ones |
@@ -275,7 +277,7 @@ The seeded `gate.toml` of plans 1 to 3 recorded 1.0 Revisions per PR, 1 Rollback
 
 | `gate.toml` key | Now |
 | --- | --- |
-| `mode`, `flight_lease_until` and `owner_approves_behavioural_test_removal` | Gone. The escalation list, `[escalation]` in `project.toml`, sets the Mode and names behavioural-test removals; there is no lease |
+| `mode`, `flight_lease_until` and `owner_approves_behavioural_test_removal` | Gone. `[escalation] every_pr` in `project.toml` sets the Mode, and there is no lease. In Flight the merge guard denies an agent's merge of a PR that declares a removed behavioural test, one whose path matches none of `[tests] unit`'s patterns, so the owner merges it (Spec 1, section 4) |
 | `[thresholds.promotion]` and `[thresholds.demotion]` | Replaced by `window` and `[thresholds]` in `metrics.toml` |
 
 Spec 1's plan 4 stops seeding and reading `gate.toml`; this spec seeds `metrics.toml`. In an existing project, `rapid-ship sync` adds `metrics.toml` with the defaults, because it is a new seeded file. `gate.toml` belongs to the project and nothing reads it any more, so `sync` leaves it in place: `sync` never changes a seeded file (Spec 1, section 3), and nothing requires `gate.toml` to go. Until the owner deletes it, `devctl metrics` notes the old file, and the owner can carry any of its values into `metrics.toml`.
@@ -353,7 +355,7 @@ The ledger is the directory `docs/corrections/`: one Markdown file per Correctio
 
 ### Agent-reported, signed off by the owner
 
-Agents write the ledger: `rs-garden` from reviews and incident records, and the Lead from its Session. Corrections is therefore an agent-reported metric. devctl counts the entries exactly, but an agent can miss a Correction or misjudge one, and nothing checks what it left out.
+Agents write the ledger: `rs-garden` from reviews and incident records, and an agent the owner corrected in a Session, which an advisory Rule asks to add an entry (below). Corrections is therefore an agent-reported metric. devctl counts the entries exactly, but an agent can miss a Correction or misjudge one, and nothing checks what it left out.
 
 The owner signs off on what happens to each Correction. Adding an entry is free, so an agent's PR can record a Correction without the owner. Changing what is already recorded needs the owner:
 
@@ -364,13 +366,13 @@ The owner signs off on what happens to each Correction. Adding an entry is free,
 | Editing, renaming or removing an existing entry, including any change of status | Yes | devctl's ledger rule |
 | Any change to `README.md`, the ledger's format | Yes | Its line in CODEOWNERS |
 
-devctl does not read an added entry's status. An agent could therefore add an entry that is already `implemented`, `rejected` or `closed`, which skips the owner's sign-off. The owner accepts that limit; `rs-garden` and the Lead add entries as `open` or `proposed` only.
+devctl does not read an added entry's status. An agent could therefore add an entry that is already `implemented`, `rejected` or `closed`, which skips the owner's sign-off. The owner accepts that limit. `rs-garden` adds entries as `open` or `proposed` only, and the Rule for Corrections given in a Session asks for an `open` entry.
 
-The diff step lists each change to an existing entry with the Protected paths, and the merge guard counts it as Protected (Spec 1). The Protected set is on the escalation list in every Mode, so the merge guard denies an agent's merge of such a PR, and the owner merges it in GitHub's web interface. CODEOWNERS matches paths only, so it holds `README.md` but cannot tell a new entry from a changed one: GitHub cannot enforce the entry rule, even with Agent identity and a ruleset. The merge guard is a guardrail, which a misbehaving agent could get around.
+The diff step lists each change to an existing entry with the Protected paths, and the merge guard counts it as Protected (Spec 1). In every Mode, the merge guard denies an agent's merge of a PR that touches the Protected set, so the owner merges such a PR in GitHub's web interface. CODEOWNERS matches paths only, so it holds `README.md` but cannot tell a new entry from a changed one: GitHub cannot enforce the entry rule, even with Agent identity and a ruleset. The merge guard is a guardrail, which a misbehaving agent could get around.
 
 ### What counts
 
-A Correction is a change that a human, the Reviewer or an incident required of an agent's work: a blocking finding the agent fixed, a person's request for a change that the agent made, or an incident whose report names an agent's PR or commit as its cause. A nit is not a Correction. Neither is a question, or a suggestion that was discussed and not taken.
+A Correction is a change that a human, a Reviewer or an incident required of an agent's work: a review comment or request that the agent changed its work for, a change the owner asked for in a Session, or an incident whose report names an agent's PR or commit as its cause. A suggestion the agent did not take is not a Correction, and neither is a comment its author marked optional, or a question. The Kit prescribes no format for reviews, so `rs-garden` judges each case from the thread.
 
 ### An entry
 
@@ -389,13 +391,13 @@ prevention: Read configuration only through settings, and ban os.environ elsewhe
 status: open
 ---
 
-The Worker read `LINKS_URL` with `os.environ` inside `links.py`. The Reviewer required it to come from `settings`.
+The agent read `LINKS_URL` with `os.environ` inside `links.py`. The review required it to come from `settings`.
 ```
 
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `date` | yes | The day the Correction was made, UTC |
-| `by` | yes | `reviewer`, `human` or `incident` |
+| `by` | yes | `reviewer` for a review or comment the Reviewer App posted; `human` for a person's review or comment, or for a Correction the owner gave in a Session; `incident` for an incident record. Without Agent identity, an agent's review comes from a person's account, so it is `human` |
 | `source` | yes | The URL of the review, thread, comment or incident record, or `session` for a Correction the owner gave in a Session |
 | `pr` | no | The PR whose work was corrected |
 | `path` | no | The file the Correction is about |
@@ -403,7 +405,7 @@ The Worker read `LINKS_URL` with `os.environ` inside `links.py`. The Reviewer re
 | `rungs` | yes | One or more distinct rungs from 1 to 4 that would have prevented it. A Correction that needs a safe interface and a check names both |
 | `prevention` | yes | One sentence naming the mechanism that would prevent a repeat |
 | `status` | yes | One of the statuses below |
-| `task` | when `proposed` | The proposed task in the tracker |
+| `task` | when `proposed` | The URL of the proposed task in the owner's tracker |
 | `prevented_by` | when `implemented` | References that resolve, or repository paths that exist, for the mechanism that now prevents it |
 | `reason` | when `rejected` or `closed` | Why the owner chose no prevention, or why none is needed any more |
 
@@ -422,11 +424,17 @@ The rungs are the four in the [design](2026-10-14-rapid-ship-design.md): safe in
 | Writer | When | `source` |
 | --- | --- | --- |
 | `rs-garden` | On each pass, from the reviews, review threads and comments on PRs in its range, and from the incident records dated since its last pass, when the project has an incident metric | The URL on GitHub, or the incident record's URL |
-| The Lead | When the owner corrects it in the Session. The Lead brief asks for this (Spec 2); whether the Lead does it is up to its Harness | `session` |
+| An agent the owner corrected | When the owner corrects it in a Session. An advisory Rule in the seeded root AGENTS.md asks for this; whether the agent does it is up to the agent and its Harness | `session` |
 | The PR that lands a prevention | Sets `status: implemented` and `prevented_by` on the entries it prevents. This change is Protected, so the owner signs it off | Unchanged |
 | The owner | At any time, for example to reject or close an entry | Unchanged |
 
-The Lead adds a `session` entry to the open PR the Correction concerns, or to its next PR when none is open. `rs-garden` skips any thread, review, comment or incident record whose URL is already a `source`.
+This spec's plan adds the Rule to the Rules that Spec 1's root AGENTS.md skeleton seeds:
+
+| Rule | Marker |
+| --- | --- |
+| When the owner corrects you in a Session, add an open entry to the Corrections ledger with `source: session`. | `advisory` |
+
+Most correcting happens in the owner's own Sessions, where GitHub cannot see it. No check can see a Session either, so an advisory Rule is the only rung that can carry this. The agent adds the entry to the open PR the Correction concerns, or to its next PR when none is open, as the ledger's README says. `rs-garden` skips any thread, review, comment or incident record whose URL is already a `source`.
 
 ### `last-pass.toml`
 
@@ -457,15 +465,15 @@ Gardening is routine upkeep of a repository's standards, done in passes. Review 
 
 1. New entries in the Corrections ledger.
 2. One PR with those entries, the doc-only drift fixes and an updated `last-pass.toml`.
-3. Proposed tasks for rule changes, created in the backlog of the owner's tracker through the Harness's connection to it. devctl never talks to the tracker.
+3. Proposed tasks for rule changes, created in the backlog of whatever tracker the owner's Harness reaches, for example through an MCP server or `gh issue`. devctl never talks to the tracker, and the Kit has no tracker setting.
 
 ### What it never does
 
 - It never merges, and never pushes to the default branch.
 - It never sets an entry to `implemented`, `rejected` or `closed`. Those are the owner's sign-off; the pass PR lists the entries that look ready for one.
-- It never changes a Protected path except a doc-only fix inside its own PR. The Protected set is on the escalation list in every Mode. The merge guard in `devctl hook` therefore denies an agent's merge of that PR, and the owner merges it in GitHub's web interface. With Agent identity and a ruleset, GitHub requires the owner's approval too. The merge guard is a guardrail, which a misbehaving agent could get around (Spec 1).
+- It never changes a Protected path except a doc-only fix inside its own PR. That PR then touches the Protected set, so in every Mode the merge guard in `devctl hook` denies an agent's merge of it, and the owner merges it in GitHub's web interface. With Agent identity and a ruleset, GitHub requires the owner's approval too. The merge guard is a guardrail, which a misbehaving agent could get around (Spec 1).
 - It never changes CI, guardrail settings, devctl, a skill, an existing Pattern file, `exceptions.toml` or any other Protected setting. It proposes a task instead.
-- It never starts, schedules or stops an agent, and never puts a task in a started state.
+- It never starts, schedules or stops an agent, and never starts work on a task: each proposed task stays in the backlog.
 
 A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md file or `docs/features/` to match what the repository already does. It adds, removes or changes no Rule, Pattern, check, setting, skill or code. Anything else is a rule change and becomes a proposed task.
 
@@ -473,17 +481,17 @@ A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md
 
 1. **Preconditions.** The work tree is clean. Fetch `origin/<default branch>`. If an open PR already changes `docs/corrections/last-pass.toml`, the previous pass is still waiting: stop and point to it. When devctl reports unreadable settings, stop and pass on its message and fix; never work around it.
 2. **Range.** The range starts at `through` from `last-pass.toml` and ends at the tip of `origin/<default branch>`. On the first pass it starts just before the oldest PR in the window that `./devctl metrics --json` reports. When the default branch has not moved since `through` and no incident record is dated since the last pass, read as in step 4, report that there is nothing to garden and stop.
-3. **Corrections from PRs.** Read the reviews, review threads and comments of every PR merged in the range, and of every PR closed unmerged since the `date` in `last-pass.toml`. With Agent identity, read agent PRs only. Without it, read every PR, because agent PRs cannot be told apart; the ledger then includes Corrections of people's work too. Write one entry per Correction (section 9). When the Correction is a blocking finding in a Reviewer's verdict (Spec 2, section 3.6), copy its rungs and prevention. Otherwise assign them by the ladder.
+3. **Corrections from PRs.** Read the reviews, review threads and comments of every PR merged in the range, and of every PR closed unmerged since the `date` in `last-pass.toml`. With Agent identity, read agent PRs only. Without it, read every PR, because agent PRs cannot be told apart; the ledger then includes Corrections of people's work too. Write one entry per Correction (section 9). Assign each entry's rungs and prevention by the ladder; where the review already names a rung or a prevention, start from it. When the mistake repeats an entry already in the ledger, reuse that entry's `category`, so that step 5 finds the repeat.
 4. **Corrections from incidents.** The project has an incident metric when `./devctl metrics --json` lists a metric whose `kind` is `incident` (sections 5 and 7). Read the records it returns that are dated since the `date` in `last-pass.toml`, or since the range's start on the first pass. It returns only the records in the window's span, which starts at `window.since`. When the span starts after that date, rerun `./devctl metrics --json --window <n>` with a larger `n`, such as twice the last one, until the span starts on or before it. A larger window cannot help once the window is not full. A run can also leave the incident metric unknown, for example when the GitHub API allowance runs out. In either case, use the widest run that read the metric, and list in the PR body the interval that no run covered. When a record names its cause and the cause is an agent PR, or a commit of one, write one entry with `by: incident` and the record's URL as `source`. Without Agent identity, any PR counts as a cause. List each record that names no cause in the PR body, and record nothing for it. Without an incident metric, record no incident Corrections, and say so in the PR body.
 5. **Repeats.** Group the whole ledger by `category`. Two or more entries in one category, at least one of them `open`, are a repeat. A new entry in a category whose earlier entries are `implemented` means the prevention did not hold. Say so in the PR body.
-6. **Proposals.** Propose one task for each repeat, and for each severe first Correction. A Correction is severe when it is a risk of data loss, exposure or a security hole, as `rs-review`'s table names it (Spec 2), or when it came from an incident. Propose the task on the rung that fits: a safe interface for structural misuse, a check for local or stylistic problems, or both; a skill or advisory Rule only when neither can carry the fix. For a prevention that did not hold, propose a task that moves the fix to a rung that can hold it. Before creating a task, search the tracker for an open task for the same category, and reuse it if one exists. A task follows Spec 2's task shape and links the entries it would prevent. Its acceptance criteria include setting those entries to `implemented`. Write each new entry it covers as `proposed`, with `task`, and set each existing one to `proposed`; changing an existing entry makes the pass PR Protected (section 9). Without a tracker connection, leave the entries `open` and put each task draft in the PR body.
+6. **Proposals.** Propose one task for each repeat, and for each severe first Correction. A Correction is severe when it is a risk of data loss, exposure or a security hole, or when it came from an incident. Propose the task on the rung that fits: a safe interface for structural misuse, a check for local or stylistic problems, or both; a skill or advisory Rule only when neither can carry the fix. For a prevention that did not hold, propose a task that moves the fix to a rung that can hold it. Before creating a task, search the tracker for an open task for the same category, and reuse it if one exists. A task follows the task shape in `rs-health`'s references, which `rs-health`'s proposed tasks follow too (Spec 1, section 9): one PR within the diff cap, with acceptance criteria, a test plan and the tasks it waits on. It names the prevention and its rung, and links the entries it would prevent. Its acceptance criteria include setting those entries to `implemented`, with `prevented_by`; that change is Protected, so the owner signs it off. Write each new entry it covers as `proposed`, with `task`, and set each existing one to `proposed`; changing an existing entry makes the pass PR Protected (section 9). Create the tasks in the tracker that the owner's Harness reaches; when it reaches more than one, use the one that the owner's request, or the scheduler's prompt, names. When the Harness reaches no tracker, leave the entries `open` and put each task draft in the PR body.
 7. **Drift.** Run the shared audit over the files changed in the range, with the base rule and the starter Patterns (below). Fix doc-only drift in the pass's branch; propose a task for everything else.
 8. **The pass PR.** Write `last-pass.toml` with the range's end. Run `./devctl check --tier fast`. Open one PR from a new branch based on `origin/<default branch>`: with Agent identity through `devctl as worker push` and `devctl as worker gh pr create` (Spec 1), without it with `git push` and `gh pr create`. The body states the range, the new entries, the repeats with their proposals, and the drift with where each item went. It also names any prevention that did not hold, the incident records that name no cause, any interval whose incident records it could not read, and the entries that look ready for the owner's sign-off. It ends with the Evidence section that `devctl check` requires. The diff cap leaves out `.md` files (Spec 1), so ledger entries and doc-only fixes do not count toward it.
 9. **Report** to whoever ran the pass: the PR, the tasks proposed and anything skipped.
 
 ### The shared audit
 
-`rs-health` and `rs-garden` run one audit, kept once in `.agents/skills/rs-health/references/audit.md` (Spec 1). `rs-health` runs it over the whole repository at adoption and returns a standards milestone. `rs-garden` reads the same file and runs each item over the files changed in its range. The audit must cover at least the drift that gardening finds:
+`rs-health` and `rs-garden` run one audit, kept once in `.agents/skills/rs-health/references/audit.md` (Spec 1). `rs-health` runs it over the whole repository at adoption and returns proposed tasks (Spec 1, section 9). `rs-garden` reads the same file and runs each item over the files changed in its range. The audit must cover at least the drift that gardening finds:
 
 | Drift | Output in `rs-garden` |
 | --- | --- |
@@ -517,12 +525,12 @@ One option carries a warning, which the skill gives. A Harness's own GitHub Acti
 
 ## 11. `rs-preflight`
 
-**Purpose.** Run a Pre-flight: an advisory operational-readiness review before the owner widens the Mode toward Flight, like a readiness review before a product's general release. In Flight the owner reads fewer PRs, so metrics, Alarms and incident reports become the owner's main view of what agents ship. Each project and team sets these up differently, so rapid-ship cannot ship one setup. `rs-preflight` advises and guides the owner through this project's own. It never gates anything and never changes the Mode.
+**Purpose.** Run a Pre-flight: an advisory operational-readiness review before the owner widens the Mode toward Flight, like a readiness review before a product's general release. The Mode is `[escalation] every_pr` with a matching CODEOWNERS (Spec 1, section 4). In Walk the owner merges every PR. In Flight agents merge the PRs that the merge guard allows, so the owner reads fewer PRs, and metrics, Alarms and incident reports become the owner's main view of what agents ship. Each project and team sets these up differently, so rapid-ship cannot ship one setup. `rs-preflight` advises and guides the owner through this project's own. It never gates anything and never changes the Mode.
 
 **When the owner runs it.** It is user-invoked, typically:
 
 - before the first step from Walk toward Flight, once the project has merged PRs to measure;
-- before each further step, when the owner shortens the escalation list again;
+- before each further step toward Flight, such as taking a path that the owner added out of the Protected set;
 - after a change in how the project runs, such as a new deploy target, a new monitoring tool or a team joining;
 - after an incident, to check that it reached the metrics and the ledger.
 
@@ -530,26 +538,26 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 
 **Inputs:**
 
-- `[escalation]`, `[github]` and `[kit] optional` from `.rapid-ship/project.toml`, and `.rapid-ship/metrics.toml`.
+- `[escalation] every_pr`, `[github]` and `[kit] optional` from `.rapid-ship/project.toml`, the Protected set from CODEOWNERS, and `.rapid-ship/metrics.toml`.
 - The output of `./devctl doctor`: the ruleset, CODEOWNERS, both Apps' installations and the Harness guardrail wiring.
 - `./devctl metrics --json`: the window, each value, each unknown with its reason, and the PRs not gardened yet.
 - The ledger in `docs/corrections/` and its `last-pass.toml`.
 - README.md and ARCHITECTURE.md, for what the project is and how it runs.
 - The owner's answers to what those files leave open.
-- The owner's tracker, through the Harness's connection, only to propose tasks.
+- The tracker that the owner's Harness reaches, only to propose tasks.
 
 **Steps:**
 
-1. **Preconditions.** Work in any clean checkout at `origin/<default branch>`, on any branch. Run `./devctl doctor` first, as `rs-lead` does (Spec 2, section 6.1). When doctor reports unreadable settings, stop and show its message and fix.
+1. **Preconditions.** Work in any clean checkout at `origin/<default branch>`, on any branch. Run the full `./devctl doctor` first (Spec 1, section 6). When doctor reports unreadable settings, stop and show its message and fix.
 2. **Context.** Read README.md and ARCHITECTURE.md. Ask the owner only what they leave open: solo or team; what the project ships and where it runs; which monitoring, alerting and error tracking exist; and how incidents are reported today.
 3. **Metrics to watch, and why.** Run `./devctl metrics --json`. If it exits 2, show its message and fix, and record the gap. For each metric, show its value and say what it tells the owner in Flight:
 
    | Metric | What it tells the owner in Flight |
    | --- | --- |
-   | `revisions` | How often review sends work back. The Reviewer now judges most PRs without the owner, so rising Revisions mean Workers miss the bar more often |
+   | `revisions` | How often a review posted on GitHub sends an agent's work back. In Flight agents' reviews judge most PRs without the owner, so rising Revisions mean agents' first attempts miss the bar more often. A review whose findings stay inside a Session, or one posted as a comment, is not counted, so a low value can also mean that no change requests are posted |
    | `reverts` | Merged work that had to be undone, in whole or in part: what got past review |
    | `red_merges` | Merges that broke the default branch although each PR's own check passed |
-   | `closed_unmerged` | Work the owner threw away, often a task sliced too large or specified too loosely |
+   | `closed_unmerged` | Work the owner threw away, often a change scoped too large or specified too loosely |
    | `corrections` | Where people still hold the bar. Repeats point to a missing rung. Agents report it (section 9) |
    | Alarms, incidents, deploy rollbacks and failures | What users saw. These matter most once the owner reads fewer PRs |
 
@@ -564,11 +572,11 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 
    A signal that cannot reach GitHub is a gap in the review, not a zero.
 5. **Scheduled gardening.** Read `last-pass.toml` and the PRs not gardened yet; until a pass covers them, the Corrections count is a lower bound. Advise running `rs-garden` on a schedule and before each Pre-flight (section 10); how to schedule it is the owner's choice. Check whether the metrics Action is on. Without it, ask how the owner will see the report regularly.
-6. **The escalation list.** Show `[escalation]` and the kinds that always apply, such as the Protected set (Spec 1). Ask which kinds of change the owner still wants to see in Flight, such as migrations, public API changes, authentication or billing. Suggest kinds that fit this project from ARCHITECTURE.md. When a kind is a set of paths, note that adding them to the Protected set lets the merge guard enforce it, and GitHub too with Agent identity and a ruleset (Spec 2, section 6.2).
-7. **Agent identity, ruleset and guardrails.** From doctor's output, state whether Agent identity is on with both Apps installed, and whether the default branch has the ruleset. State whether CODEOWNERS matches the Mode, and whether the Harness wiring that carries the merge guard is in place. Give the advice that Spec 1 sets out for this owner's case: solo with a public repository or a paid plan, solo with a GitHub Free private repository, or a team. Explain what holds the Protected set in Flight here: the merge guard in every setup, and GitHub as well with Agent identity and a ruleset. Say plainly that the merge guard is a guardrail, which a misbehaving agent could get around. Without Agent identity, say that Revisions stay unknown, and that in Flight a solo owner merges a Protected-set PR, which their own account opened, through the admin bypass in GitHub's web interface (Spec 2, section 6.5). Where the Lead runs on a Harness that the Kit has no wiring for, such as pi, or Codex and agy until their wiring lands (Spec 1), say that the guardrails, the merge guard included, do not run there, so only the pre-commit hook, CI and any ruleset hold.
+6. **What still needs the owner.** Show `every_pr` and the Protected set from CODEOWNERS. Say what still comes to the owner in Flight: each PR that touches the Protected set, or that declares a removed behavioural test or an overage of the diff cap, because the merge guard denies an agent's merge of it (Spec 1, section 4). Ask which other kinds of change the owner still wants to see in Flight, such as migrations, public API changes, authentication or billing. Suggest kinds that fit this project from ARCHITECTURE.md. When a kind is a set of paths, note that adding them to the Protected set lets the merge guard enforce it, and GitHub too with Agent identity and a ruleset (Spec 1, section 4). When no path names a kind, say that nothing in the Kit holds that kind in Flight.
+7. **Agent identity, ruleset and guardrails.** From doctor's output, state whether Agent identity is on with both Apps installed, and whether the default branch has the ruleset. State whether CODEOWNERS matches the Mode, and whether the Harness wiring that carries the merge guard is in place. Give the advice that Spec 1 sets out for this owner's case: solo with a public repository or a paid plan, solo with a GitHub Free private repository, or a team. Explain what holds each Mode here. The merge guard holds it in every setup: in Walk it denies every agent merge, and in Flight it denies an agent's merge of a PR that touches the Protected set or declares a removed behavioural test or an overage of the diff cap. With Agent identity and a ruleset, GitHub holds the Mode's CODEOWNERS as well: every PR in Walk, the Protected set in Flight. Say plainly that the merge guard is a guardrail, which a misbehaving agent could get around. Without Agent identity, say that Revisions stay unknown, and that in Flight a solo owner merges a Protected-set PR, which their own account opened, through the admin bypass in GitHub's web interface (Spec 1, section 8, step 8.6). Where the owner's Sessions run on a Harness that the Kit has no wiring for, such as pi, or Codex and agy until their wiring lands (Spec 1), say that the guardrails, the merge guard included, do not run there, so only the pre-commit hook, CI and any ruleset hold. There, unless Agent identity and a ruleset hold Walk, it rests on the seeded root guide's Pull requests section and the owner's instruction, which are advice (Spec 1, section 4).
 8. **The review.** Show the owner, area by area, what is in place, what is missing and the advice. End with the list of gaps. Give no verdict: whether and when to widen the Mode is the owner's call.
 9. **Agreed changes.** With the owner's yes, open one PR with the repository changes they agreed to: thresholds and project-defined metrics in `metrics.toml`, and the metrics Action in `[kit] optional` installed with `rapid-ship sync --in-place`. All of these files are in the Protected set, so the owner approves and merges the PR. Run `./devctl check` first. With Agent identity, push and open the PR through `devctl as worker` (Spec 1). When the PR adds the Action under `.github/workflows/`, neither App may push it, so the owner pushes the branch and opens the PR in a terminal (Spec 1). Propose a task in the tracker for each change that needs code.
-10. **Next.** When the owner decides to widen the Mode, point to `rs-lead`, which prepares that PR (Spec 2, section 6.5).
+10. **Next.** When the owner decides to widen the Mode, say what that takes: one Protected PR that sets `every_pr = false`, and in CODEOWNERS removes the `*` line and uncomments the Protected set, with any paths the owner keeps (Spec 1, section 4). The owner makes that PR, by hand or through any Session, and merges it. `./devctl doctor` then checks that CODEOWNERS and the ruleset match the Mode. A step back toward Walk is the reverse PR.
 
 **Outputs:** the review, in the conversation; optionally one PR with the agreed settings; optionally proposed tasks in the tracker. `rs-preflight` keeps no record of a review beyond the conversation and that PR.
 
@@ -586,21 +594,20 @@ The owner may change the Mode without running it, and nothing runs it on a sched
 | Path | Kind | Change |
 | --- | --- | --- |
 | `.rapid-ship/metrics.toml` | seeded | New: window, Suggested thresholds and settings-sourced metrics, documented inline |
-| `docs/corrections/README.md` | seeded | New: the ledger format, the statuses and which changes need the owner |
+| `docs/corrections/README.md` | seeded | New: the ledger format, the statuses, which changes need the owner, and where a `session` entry goes |
 | `.github/workflows/rapid-ship-metrics.yml` | managed, optional | New: the scheduled Action |
 | `.agents/skills/rs-garden/` and its `.claude/skills/rs-garden` link | managed | New skill |
 | `.agents/skills/rs-preflight/` and its `.claude/skills/rs-preflight` link | managed | New skill |
 | `tools/devctl/devctl/` | managed | New `metrics` command; the ledger's map rule; the ledger's Protected rule in the matcher that the diff step and the merge guard share |
 | `tools/devctl/devctl_project/__init__.py` | seeded | New projects get a `metrics()` stub |
 | `docs/AGENTS.md` | seeded | Points to `docs/corrections/` |
+| `AGENTS.md` at the root | seeded | New advisory Rule for a Correction the owner gives in a Session (section 9) |
 
-Every path above is in the Protected set by its path: through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md, and `docs/corrections/README.md` through its own line, `/docs/corrections/README.md`, which this spec's plan adds to the seeded CODEOWNERS (Spec 1). In an existing project, `rapid-ship sync` lists CODEOWNERS among the seeded files whose template changed, so the owner can add that line (Spec 1, section 3). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer (Spec 1). It leaves `gate.toml` in place (section 6).
+Every path above is in the Protected set by its path: through `.github/`, `.agents/`, `.claude/`, `tools/devctl/`, `.rapid-ship/` and every AGENTS.md, and `docs/corrections/README.md` through its own line, `/docs/corrections/README.md`, which this spec's plan adds to the seeded CODEOWNERS (Spec 1). In an existing project, `rapid-ship sync` lists CODEOWNERS among the seeded files whose template changed, so the owner can add that line (Spec 1, section 3). Spec 1's plan 4 already stopped seeding and reading `.rapid-ship/gate.toml`. In an existing project, `rapid-ship sync` adds the new seeded files where they are missing, and lists `docs/AGENTS.md` and the root `AGENTS.md` among the seeded files whose template changed, so the owner can add the pointer and the Rule (Spec 1). It leaves `gate.toml` in place (section 6).
 
-A plan for this spec can build it in six independent slices: `metrics.toml` with the basic metrics; project-defined metrics; the Action; the ledger with its map rule and Protected rule; `rs-garden`; `rs-preflight`.
+A plan for this spec can build it in six independent slices: `metrics.toml` with the basic metrics; project-defined metrics; the Action; the ledger with its map rule, Protected rule and `session` Rule; `rs-garden`; `rs-preflight`.
 
-## 13. What this spec needs from Specs 1 and 2
-
-From Spec 1:
+## 13. What this spec needs from Spec 1
 
 - The Agent identity settings in `project.toml` record each App's slug as well as its ID, so metrics can match bot authors without an App's key.
 - `[kit] optional` can name a Kit file, here the metrics Action, not only a skill.
@@ -609,19 +616,14 @@ From Spec 1:
 - The CI template gives each push run on the default branch its own concurrency group, so a later merge never cancels an earlier merge's run (section 3).
 - The diff step's list of Protected changes and the merge guard share one matcher, which also applies the ledger's Protected rule (section 9). CODEOWNERS lists `/docs/corrections/README.md` in the Protected set.
 - The diff cap leaves out `.md` files, so ledger entries and doc-only fixes do not count toward it.
-- `rapid-ship sync` leaves a leftover `gate.toml` in place, and lists `docs/AGENTS.md` as a seeded file whose template changed (section 6).
+- `rapid-ship sync` leaves a leftover `gate.toml` in place, and lists `docs/AGENTS.md` and the root `AGENTS.md` as seeded files whose template changed (section 6).
 - The starter Patterns for each stack, and the audit in `rs-health`'s `references/audit.md`, which covers the drift in section 10, the base rule and settings entries that match nothing.
-- `devctl doctor` reports the ruleset, CODEOWNERS, both Apps and the Harness wiring, which `rs-preflight` reads.
+- The task shape in `rs-health`'s references, which its proposed tasks follow and `rs-garden` reuses (section 10). The Kit has no tracker setting: both write tasks to whatever tracker the owner's Harness reaches.
+- `[escalation]` holds `every_pr` alone, which sets the Mode with a matching CODEOWNERS. The merge guard enforces each Mode: in Walk it denies every agent merge, and in Flight it denies an agent's merge of a PR that touches the Protected set or declares a removed behavioural test or an overage of the diff cap. The owner widens the Mode in one Protected PR (section 11).
+- `devctl doctor` reports the ruleset, CODEOWNERS against `every_pr`, both Apps and the Harness wiring, which `rs-preflight` reads.
+- The Pull requests section of the seeded root AGENTS.md tells agents to push and open PRs through `./devctl as worker` while Agent identity is on, which puts their PRs in the `agent PRs` population. It tells them to request changes as the Reviewer App, which Revisions count, and to undo a merged change only with `git revert`, whose line the Reverts count reads (sections 2 and 3).
+- The seeded root AGENTS.md takes this spec's advisory Rule for a Correction the owner gives in a Session, which this spec's plan adds to the skeleton's Rules (section 9). Adding an entry needs no Protected PR.
 - `project.toml` has no `[release]` table.
-
-From Spec 2:
-
-- `rs-review` posts each verdict in the format of Spec 2's section 3.6, with each blocking finding's rungs and prevention, so `rs-garden` can read them from GitHub.
-- The Lead brief asks the Lead to add Corrections the owner gives in the Session to the ledger, as `open` entries in the format of section 9. Adding an entry needs no Protected PR.
-- A task that prevents a repeated Correction sets its ledger entries to `implemented`. That change is Protected, so the owner signs it off.
-- The `revision_rounds` escalation kind counts rounds by distinct head commit, as section 3 counts Revisions, but reads each verdict's first line, so that it works without Agent identity.
-- `rs-lead` prepares the PR that widens the Mode once the owner decides, after `rs-preflight` or without it.
-- `rs-work` undoes a merged commit only with `git revert`.
 
 ## 14. Dog-fooding
 
@@ -630,6 +632,14 @@ From Spec 2:
 ## 15. What changed
 
 The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them round 2c, settled what this spec states. The open questions are in section 17. The owner's decision of 2026-10-25 added Spec 1's `dead-code` check step, so the audit's dead-code row covers only what that step cannot see.
+
+The owner's decisions of 2026-10-26 descoped Spec 2's delivery skills, `rs-design`, `rs-breakdown`, `rs-lead`, `rs-work` and `rs-review`, and deleted Spec 2's document: the owner starts and manages their own Sessions. This spec therefore depends on Spec 1 alone. It is part of GA, which now comes after this spec is built. The same decisions settled what replaced Spec 2's parts here:
+
+- `[escalation]` keeps only `every_pr`, and the merge guard enforces each Mode (section 11).
+- The Pull requests section of the seeded root AGENTS.md says how agents open, review and merge PRs, and Revisions count only the change requests posted on GitHub (section 3).
+- An advisory Rule in the seeded root AGENTS.md asks an agent that the owner corrects in a Session to add a `session` entry (section 9).
+- `rs-garden` judges each Correction and assigns its rungs itself, and its proposed tasks follow the task shape in `rs-health`'s references (section 10).
+- Widening the Mode is the owner's one Protected PR, which doctor checks; `rs-preflight` stays advisory (section 11).
 
 ## 16. Testing
 
@@ -653,14 +663,14 @@ The owner's reviews of PR #27 on 2026-10-16 and 2026-10-19, the last of them rou
 
 **Integration tests**, offline and labelled as such:
 
-- `init` on scratch repositories for each stack, and for one with two stacks, seeds `metrics.toml` and `docs/corrections/README.md`, and `./devctl check` passes.
-- `sync` on a project that has `gate.toml` adds `metrics.toml`, leaves `gate.toml` in place, and lists `docs/AGENTS.md` as a seeded file whose template changed (Spec 1).
+- `init` on scratch repositories for each stack, and for one with two stacks, seeds `metrics.toml`, `docs/corrections/README.md` and the root AGENTS.md's `session` Rule, and `./devctl check` passes.
+- `sync` on a project that has `gate.toml` adds `metrics.toml`, leaves `gate.toml` in place, and lists `docs/AGENTS.md` and the root `AGENTS.md` as seeded files whose template changed (Spec 1).
 
 **Live trials**, recorded under `docs/trials/`:
 
 - `devctl metrics` against a scratch repository on GitHub that has: a PR reverted with the Revert button and one with `git revert`, a PR partly reverted by restoring one file and another by undoing one section, a red merge, two quick merges whose push runs both complete, a PR closed unmerged, and a dismissed review that requested changes. The trial confirms the GitHub behaviour this spec relies on, including what the `review_dismissed` event records and the Revert button's body line. It records each partial revert that the content check missed or invented, including sections undone with small edits, and tunes the similarity threshold from that. It runs with and without Agent identity.
 - The Action on the same repository: its permissions suffice, it opens the issue, replaces the body and comments only on a change.
-- `rs-garden` on a scratch repository with prepared PRs: a blocking finding that was fixed, a nit that was skipped, a request from the owner, two Corrections in one category, a severe first Correction, an incident record, returned by a project's incident metric, that names its cause PR, another incident record dated after the last pass but before the window's span, which the pass reaches only by widening the window, a swallowed exception, a stale README command, a function that only a test calls, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
+- `rs-garden` on a scratch repository with prepared PRs: a review comment the agent fixed, an optional suggestion it did not take, a request from the owner, a `session` entry that an agent added, two Corrections in one category, a severe first Correction, an incident record, returned by a project's incident metric, that names its cause PR, another incident record dated after the last pass but before the window's span, which the pass reaches only by widening the window, a swallowed exception, a stale README command, a function that only a test calls, a departure from a starter Pattern, and an exception whose removal condition holds. The trial records the entries, proposals and doc-only fixes it produced against the expected list, in at least two Harnesses, such as Claude Code and Codex. The output comes from a model, so the trial records a result; it is not a pass or fail test.
 - One unattended, scheduled `rs-garden` pass, which confirms what the Harness must allow in advance.
 - `rs-preflight` on hello-rapid-ship with and without Agent identity, and on a scratch service that records GitHub deployments. The trial records the review, the settings PR, the tasks it proposed and the outside steps it guided. A model writes the review, so the trial records a result, not a pass or fail.
 
