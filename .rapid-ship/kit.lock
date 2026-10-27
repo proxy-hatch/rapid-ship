@@ -251,7 +251,7 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "76a3e149e5d2a865cc008f77b504796ba01cd0a86e252c6b2ae452fcfe3e8f83"
+sha256 = "384c9b86049f7c407096f17f9fe67c795a18253d5271393fbf201030e1baeeba"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
