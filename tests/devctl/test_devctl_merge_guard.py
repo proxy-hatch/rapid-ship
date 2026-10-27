@@ -284,6 +284,15 @@ def test_a_pr_the_guard_cannot_identify_or_read_is_denied() -> None:
     assert loose.paths == []
 
 
+def test_a_pull_request_body_that_is_not_text_is_denied() -> None:
+    reader = owner()
+    reader.serve(PR, {**PULL, "body": 12})
+    assert guarded("gh pr merge 7", reader) == CANNOT.format(
+        "the guard failed: GitHubError: GitHub request failed: the pull request's body is not text"
+    )
+    assert reader.paths == [PR]
+
+
 def test_an_error_inside_the_guard_is_denied() -> None:
     reader = owner()
     reader.serve(PR, [])
