@@ -11,6 +11,7 @@ from devctl.check import core_steps
 from devctl.check.map import MapStep, guides, link_errors
 from devctl.check.map_skills import skill_alias_errors
 from devctl.check.markdown import fenced_blocks, without_code, without_fences
+from devctl.check.tracked import TrackedFiles
 
 
 @pytest.fixture
@@ -30,10 +31,9 @@ def problems(workspace: Workspace) -> str:
 def tracked_problems(workspace: Workspace) -> str:
     """The link and skill alias errors for the files git tracks now, without staging any."""
     context = workspace.context()
-    files = context.repo.tracked_files()
-    root = context.repo.root
-    found = guides(root, files, context.project)
-    return "\n".join([*link_errors(root, files, found), *skill_alias_errors(root, files)])
+    tracked = TrackedFiles.read(context.repo)
+    found = guides(tracked, context.project)
+    return "\n".join([*link_errors(tracked, found), *skill_alias_errors(tracked)])
 
 
 def test_accepts_existing_file_and_directory_navigation(repository: Workspace) -> None:

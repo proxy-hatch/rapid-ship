@@ -6,6 +6,7 @@ from __future__ import annotations
 from check_workspace import Workspace
 from devctl.check.map import MapStep, root_document_errors, root_link_errors
 from devctl.check.steps import StepResult
+from devctl.check.tracked import TrackedFiles
 
 LINKS = "[README](README.md) [Architecture](ARCHITECTURE.md)\n"
 BACK = "Start at [AGENTS.md](AGENTS.md).\n"
@@ -25,8 +26,8 @@ def run_map(workspace: Workspace) -> StepResult:
 def root_document_and_link_errors(workspace: Workspace) -> tuple[list[str], list[str]]:
     workspace.stage()
     context = workspace.context(source_roots=())
-    root, files = context.repo.root, context.repo.tracked_files()
-    return root_document_errors(root, files), root_link_errors(root, files)
+    tracked = TrackedFiles.read(context.repo)
+    return root_document_errors(tracked), root_link_errors(tracked)
 
 
 def test_both_documents_linked_from_the_root_guide_pass_the_map_step(

@@ -9,6 +9,7 @@ import pytest
 from check_workspace import Workspace, skill_text
 from devctl.check.map import MapStep
 from devctl.check.map_skills import skill_errors, skill_file_errors
+from devctl.check.tracked import TrackedFiles
 
 
 def add_skill(workspace: Workspace, name: str, text: str) -> None:
@@ -19,7 +20,7 @@ def add_skill(workspace: Workspace, name: str, text: str) -> None:
 def errors(workspace: Workspace) -> list[str]:
     workspace.stage()
     context = workspace.context()
-    return skill_errors(context.repo.root, context.repo.tracked_files())
+    return skill_errors(TrackedFiles.read(context.repo))
 
 
 def test_a_project_authored_skill_passes(workspace: Workspace) -> None:
@@ -76,7 +77,7 @@ def symlinked_skill(workspace: Workspace) -> None:
 def file_errors(workspace: Workspace) -> list[str]:
     workspace.stage()
     context = workspace.context()
-    return skill_file_errors(context.repo.root, context.repo.tracked_files())
+    return skill_file_errors(TrackedFiles.read(context.repo))
 
 
 def test_a_symlinked_skill_md_fails_the_map_step(workspace: Workspace) -> None:

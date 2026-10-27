@@ -6,6 +6,7 @@ import pytest
 
 from check_workspace import Workspace
 from devctl.check.references import resolve
+from devctl.check.tracked import TrackedFiles
 
 PYPROJECT = """
 [tool.ruff.lint]
@@ -33,6 +34,18 @@ def test_top(): pass
 class TestCore:
     def test_runs(self): pass
 """
+
+
+def resolved(workspace: Workspace, reference: str, stack: str = "python") -> str | None:
+    """None when `reference` resolves once every file is staged, else why it does not."""
+    workspace.stage()
+    return tracked_resolved(workspace, reference, stack)
+
+
+def tracked_resolved(workspace: Workspace, reference: str, stack: str = "python") -> str | None:
+    """None when `reference` resolves against the files git tracks now, else why it does not."""
+    context = workspace.context(stack=stack)
+    return resolve(reference, context, TrackedFiles.read(context.repo))
 
 
 @pytest.mark.parametrize(
@@ -65,7 +78,7 @@ def test_python_references(workspace: Workspace, reference: str, resolves: bool)
     workspace.write("scripts/run.py", "")
     workspace.write("tests/test_core.py", TESTS)
 
-    reason = resolve(reference, workspace.context())
+    reason = resolved(workspace, reference)
 
     assert (reason is None) is resolves, reason
     if reason is not None:
@@ -75,14 +88,14 @@ def test_python_references(workspace: Workspace, reference: str, resolves: bool)
 def test_python_only_kinds_do_not_resolve_for_the_agnostic_stack(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", PYPROJECT)
 
-    reason = resolve("ruff:S603", workspace.context(stack="agnostic"))
+    reason = resolved(workspace, "ruff:S603", stack="agnostic")
 
     assert reason == "ruff:S603: unknown reference kind ruff for the agnostic stack"
 
 
 @pytest.mark.parametrize("reference", [":x", "check:", "test:tests/test_core.py", "test:::x"])
 def test_incomplete_references_say_how_to_write_them(workspace: Workspace, reference: str) -> None:
-    reason = resolve(reference, workspace.context())
+    reason = resolved(workspace, reference)
 
     assert reason is not None
     assert reason.startswith(f"{reference}: write ")
@@ -91,7 +104,7 @@ def test_incomplete_references_say_how_to_write_them(workspace: Workspace, refer
 def test_a_reference_cannot_leave_the_repository(workspace: Workspace) -> None:
     workspace.write("tests/test_core.py", TESTS)
 
-    reason = resolve("test:../repo/tests/test_core.py::test_top", workspace.context())
+    reason = resolved(workspace, "test:../repo/tests/test_core.py::test_top")
 
     assert (
         reason
@@ -102,7 +115,7 @@ def test_a_reference_cannot_leave_the_repository(workspace: Workspace) -> None:
 def test_a_test_file_that_does_not_parse_does_not_resolve(workspace: Workspace) -> None:
     workspace.write("tests/test_core.py", "def test_top(:\n")
 
-    reason = resolve("test:tests/test_core.py::test_top", workspace.context())
+    reason = resolved(workspace, "test:tests/test_core.py::test_top")
 
     assert reason is not None
     assert "tests/test_core.py does not parse" in reason
@@ -116,17 +129,16 @@ def test_agnostic_stack_matches_a_test_name_as_a_whole_word(
 ) -> None:
     workspace.write("tests/run.sh", "checks_run() { :; }\n")
 
-    reason = resolve(f"test:tests/run.sh::{name}", workspace.context(stack="agnostic"))
+    reason = resolved(workspace, f"test:tests/run.sh::{name}", stack="agnostic")
 
     assert (reason is None) is resolves, reason
 
 
 def test_python_kinds_name_a_missing_or_invalid_pyproject(workspace: Workspace) -> None:
-    context = workspace.context()
-    assert resolve("ruff:F401", context) == "ruff:F401: pyproject.toml is missing"
+    assert resolved(workspace, "ruff:F401") == "ruff:F401: pyproject.toml is missing"
 
     workspace.write("pyproject.toml", "[tool.ruff\n")
-    reason = resolve("ruff:F401", context)
+    reason = resolved(workspace, "ruff:F401")
 
     assert reason is not None
     assert reason.startswith("ruff:F401: pyproject.toml: ")
@@ -135,7 +147,7 @@ def test_python_kinds_name_a_missing_or_invalid_pyproject(workspace: Workspace) 
 def test_a_malformed_setting_is_named_not_raised(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", '[tool.ruff.lint]\nselect = "E"\nignore = [1]\n')
 
-    reason = resolve("ruff:E501", workspace.context())
+    reason = resolved(workspace, "ruff:E501")
 
     assert reason == "ruff:E501: [tool.ruff.lint] ignore must be a list of strings"
 
@@ -159,13 +171,13 @@ def test_ruff_selection_follows_prefix_length(
 ) -> None:
     workspace.write("pyproject.toml", f"[tool.ruff.lint]\n{settings}\n")
 
-    assert (resolve(f"ruff:{reference}", workspace.context()) is None) is resolves
+    assert (resolved(workspace, f"ruff:{reference}") is None) is resolves
 
 
 def test_ruff_falls_back_to_the_top_level_settings(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", '[tool.ruff]\nselect = ["S"]\n')
 
-    assert resolve("ruff:S603", workspace.context()) is None
+    assert resolved(workspace, "ruff:S603") is None
 
 
 @pytest.mark.parametrize(
@@ -193,13 +205,41 @@ def test_type_reference_follows_mypy_files_and_exclude(
     ):
         workspace.write(name, "")
 
-    assert (resolve(f"type:{path}", workspace.context()) is None) is resolves
+    assert (resolved(workspace, f"type:{path}") is None) is resolves
 
 
 def test_an_invalid_mypy_exclude_is_named(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", '[tool.mypy]\nfiles = ["src"]\nexclude = ["("]\n')
     workspace.write("src/app/core.py", "")
 
-    reason = resolve("type:src/app/core.py", workspace.context())
+    reason = resolved(workspace, "type:src/app/core.py")
 
     assert reason == "type:src/app/core.py: [tool.mypy] exclude '(' is not a regular expression"
+
+
+@pytest.mark.parametrize(
+    ("reference", "path"),
+    [
+        ("type:src/app/core.py", "src/app/core.py"),
+        ("test:tests/test_core.py::test_top", "tests/test_core.py"),
+    ],
+)
+def test_a_file_that_git_does_not_track_does_not_resolve(
+    workspace: Workspace, reference: str, path: str
+) -> None:
+    workspace.write("pyproject.toml", PYPROJECT)
+    workspace.stage()
+    workspace.write("src/app/core.py", "")
+    workspace.write("tests/test_core.py", TESTS)
+
+    assert tracked_resolved(workspace, reference) == (
+        f"{reference}: {path} is not tracked; stage it with git add"
+    )
+
+
+def test_an_untracked_pyproject_is_not_read(workspace: Workspace) -> None:
+    workspace.write("pyproject.toml", PYPROJECT)
+
+    assert tracked_resolved(workspace, "ruff:S603") == (
+        "ruff:S603: pyproject.toml is not tracked; stage it with git add"
+    )

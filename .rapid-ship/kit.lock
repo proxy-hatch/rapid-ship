@@ -131,12 +131,12 @@ sha256 = "298ed84380646f740f447bf043622a9c7dda61cc058ea7ca3092fed1961aa314"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "780205e68e586a67a5dedf33fc2b8fa3945870620d24a44b206b5f43be804e28"
+sha256 = "9665ee262235f12613833e9e22e10a08ee812a845b97c918f826fa242fcef2b3"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
 kind = "managed"
-sha256 = "b21a424cb2d585e921e720ecc0f9dcd53eab93518bfa3f386fa79c11f3145563"
+sha256 = "4990db74d87d60dc357f7213d28183f3f7f0bf40673eb94a5623bebbfa9afea6"
 
 [[file]]
 path = "tools/devctl/devctl/check/markdown.py"
@@ -146,7 +146,7 @@ sha256 = "29f1a0aee0e5a0322b5b104a1fc27b8bba2a856b2f82ba53d91584186383390e"
 [[file]]
 path = "tools/devctl/devctl/check/references.py"
 kind = "managed"
-sha256 = "974b3e6c8c25348da0264d5c3e840261b6a98874bd43f24e65a42446bc31b7d6"
+sha256 = "10efa8e8dbf5bd0d819c8e1f2219b6423130c21ae3fbc8b134d837ed08a79744"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"
@@ -172,6 +172,11 @@ sha256 = "4988dcc2f2e35555324c4b365465c3cccf1451647adb84cf59c3d215fb8ddbf4"
 path = "tools/devctl/devctl/check/steps.py"
 kind = "managed"
 sha256 = "c965ab705d7b32e733766292c5163776d05d5f739df6a70195ec805957074322"
+
+[[file]]
+path = "tools/devctl/devctl/check/tracked.py"
+kind = "managed"
+sha256 = "8d0a00bd309ab371da8951442a7f7a1b32934fe5e27521bef2ff079252c2f3b8"
 
 [[file]]
 path = "tools/devctl/devctl/cli.py"

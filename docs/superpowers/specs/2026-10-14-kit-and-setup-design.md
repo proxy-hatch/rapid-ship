@@ -585,13 +585,13 @@ A file belongs to the stack whose directory contains it, the innermost one when 
 
 ### Map rules
 
-The map rules find guides, link targets, maintained directories, feature files, Patterns, skills and root documents among the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds. An untracked file is none of these, even when git does not ignore it.
+The map rules read only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds. A guide, link target, maintained directory, feature file, Pattern, skill or root document counts only when git tracks it, and so does each path that a feature file, Pattern or reference names, and the `pyproject.toml` that references read. An untracked file does not count, even when git does not ignore it.
 
 1. Every Markdown link in every AGENTS.md resolves to a tracked file or to a directory that holds one. A link that starts with `/` resolves against the repository root, as GitHub resolves it.
 2. Every maintained directory has a tracked AGENTS.md. Maintained directories are the top-level directories and the immediate children of each source root that hold a tracked file, except hidden directories and those listed in `[map] unguided`. AGENTS.md files under a `[map] exclude` directory are template content: the map rules ignore them.
 3. Every AGENTS.md is reachable by links from the root AGENTS.md.
-4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names exists. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.
-5. Every file in `docs/patterns/` other than its README has front matter with a non-empty `task`, a `reference` that exists and a non-empty `enforced_by` list whose references resolve, and the file has a non-empty `## Lessons` section. Plan 5 adds `task` and the Lessons section.
+4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names is a tracked file or a directory that holds one. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.
+5. Every file in `docs/patterns/` other than its README has front matter with a non-empty `task`, a `reference` that is a tracked file or a directory that holds one, and a non-empty `enforced_by` list whose references resolve, and the file has a non-empty `## Lessons` section. Plan 5 adds `task` and the Lessons section.
 6. Every bullet under a `Rules` heading in any AGENTS.md ends with `enforced by: <reference>` or `advisory`. Each reference resolves.
 7. Every skill directory under `.agents/skills/`, from the Kit or the project, has a `SKILL.md` whose front matter `name` equals the directory name and whose `description` is not empty, and a relative symlink at `.claude/skills/<name>` that points to it. No other entry exists under `.claude/skills/`. A skill directory that is itself a symlink must be relative and stay inside the repository. Plan 5 adds: `SKILL.md` is a regular file, not a symlink.
 8. Plan 5: `README.md` and `ARCHITECTURE.md` exist at the repository root, every local link in them resolves, and the root AGENTS.md links to both.
@@ -607,11 +607,11 @@ A reference names the check that enforces a Rule or Pattern. The stack defines t
 | Reference | Resolves when |
 | --- | --- |
 | `check:<step>` | The devctl check step exists |
-| `test:<path>::<name>` | The test exists |
+| `test:<path>::<name>` | The test exists in a tracked file |
 | `ruff:<code>` | The rule is selected in the Ruff settings (Python) |
 | `banned:<module.member>` | The member is in Ruff's `banned-api` table (Python) |
 | `contract:<name>` | An import-linter contract has that name (Python) |
-| `type:<path>` | The file exists and the stack's type checker checks it: mypy (Python), or `tsc` through `tsconfig.json` (TypeScript, plan 6) |
+| `type:<path>` | The file is tracked and the stack's type checker checks it: mypy (Python), or `tsc` through `tsconfig.json` (TypeScript, plan 6) |
 | `eslint:<rule>` | The rule is on, as an error, in the configuration that `eslint --print-config` computes for the stack (TypeScript, plan 6) |
 
 These map to the four Pattern enforcement types: import contract, banned-API rule, type fixture and architecture test.

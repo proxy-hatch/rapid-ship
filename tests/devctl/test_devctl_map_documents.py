@@ -15,6 +15,7 @@ from devctl.check.map import (
     rule_errors,
 )
 from devctl.check.markdown import rules_items
+from devctl.check.tracked import TrackedFiles
 
 FEATURE = """---
 purpose: Sign users in
@@ -29,8 +30,13 @@ reproduce: ./devctl check --tier fast
 
 def features(workspace: Workspace) -> list[str]:
     workspace.stage()
+    return tracked_features(workspace)
+
+
+def tracked_features(workspace: Workspace) -> list[str]:
+    """The feature file errors for the files git tracks now, without staging any."""
     context = workspace.context()
-    return feature_errors(context, context.repo.tracked_files())
+    return feature_errors(context, TrackedFiles.read(context.repo))
 
 
 def test_valid_feature_and_readme_pass(workspace: Workspace) -> None:
@@ -137,6 +143,72 @@ def test_feature_paths_cannot_leave_the_repository(workspace: Workspace) -> None
     ]
 
 
+@pytest.mark.parametrize(
+    ("untracked", "key"), [("src/app/auth.py", "entry_points"), ("src/app/models.py", "data")]
+)
+def test_a_feature_path_that_git_does_not_track_fails(
+    workspace: Workspace, untracked: str, key: str
+) -> None:
+    workspace.write("src/app/auth.py", "")
+    workspace.write("src/app/models.py", "")
+    workspace.write("docs/features/sign-in.md", FEATURE)
+    workspace.stage()
+    workspace.git("rm", "-q", "--cached", untracked)
+
+    assert tracked_features(workspace) == [
+        f"docs/features/sign-in.md: {key} names {untracked}, which is not tracked; "
+        "stage it with git add"
+    ]
+
+
+def test_a_feature_directory_needs_a_tracked_file(workspace: Workspace) -> None:
+    workspace.write("src/app/models.py", "")
+    workspace.write("docs/features/sign-in.md", FEATURE.replace("src/app/auth.py", "src/app/api/"))
+    workspace.stage()
+    workspace.write("src/app/api/routes.py", "")
+
+    assert tracked_features(workspace) == [
+        "docs/features/sign-in.md: entry_points names src/app/api/, which is not tracked; "
+        "stage it with git add"
+    ]
+
+
+def test_a_feature_path_may_pass_through_a_tracked_symlink(workspace: Workspace) -> None:
+    workspace.write("lib/auth.py", "")
+    workspace.write("src/app/models.py", "")
+    workspace.link("src/app/lib", "../../lib")
+    workspace.write(
+        "docs/features/sign-in.md", FEATURE.replace("src/app/auth.py", "src/app/lib/auth.py")
+    )
+    assert features(workspace) == []
+
+    workspace.git("rm", "-q", "--cached", "lib/auth.py")
+
+    assert tracked_features(workspace) == [
+        "docs/features/sign-in.md: entry_points names src/app/lib/auth.py, which is not "
+        "tracked; stage it with git add"
+    ]
+
+
+def test_a_pattern_reference_and_test_that_git_does_not_track_fail(workspace: Workspace) -> None:
+    workspace.write("src/app/settings.py", "")
+    workspace.write("tests/test_settings.py", "def test_reads(): pass\n")
+    workspace.write(
+        "docs/patterns/settings.md",
+        "---\nreference: src/app/settings.py\n"
+        "enforced_by: [test:tests/test_settings.py::test_reads]\n---\n",
+    )
+    workspace.git("add", "docs/patterns/settings.md")
+    context = workspace.context()
+
+    assert pattern_errors(context, TrackedFiles.read(context.repo)) == [
+        "docs/patterns/settings.md: reference names src/app/settings.py, which is not tracked; "
+        "stage it with git add",
+        "docs/patterns/settings.md: test:tests/test_settings.py::test_reads: "
+        "tests/test_settings.py is not tracked; stage it with git add",
+    ]
+
+
 def test_pattern_reference_and_enforcement(workspace: Workspace) -> None:
     workspace.write("src/app/settings.py", "")
     workspace.write(
@@ -153,7 +225,7 @@ def test_pattern_reference_and_enforcement(workspace: Workspace) -> None:
     workspace.stage()
     context = workspace.context()
 
-    errors = pattern_errors(context, context.repo.tracked_files())
+    errors = pattern_errors(context, TrackedFiles.read(context.repo))
 
     assert errors == [
         "docs/patterns/broken.md: reference names src/app/gone.py, which does not exist",
@@ -181,7 +253,7 @@ def lessons(workspace: Workspace, text: str) -> list[str]:
     workspace.write("docs/patterns/settings.md", text)
     workspace.stage()
     context = workspace.context()
-    return pattern_lesson_errors(context, context.repo.tracked_files())
+    return pattern_lesson_errors(context, TrackedFiles.read(context.repo))
 
 
 @pytest.mark.parametrize(
@@ -246,7 +318,7 @@ def test_a_front_matter_problem_is_left_to_pattern_errors(
 ) -> None:
     assert lessons(workspace, text) == []
     context = workspace.context()
-    assert pattern_errors(context, context.repo.tracked_files()) == [
+    assert pattern_errors(context, TrackedFiles.read(context.repo)) == [
         f"docs/patterns/settings.md: {message}"
     ]
 
@@ -256,7 +328,7 @@ def test_the_pattern_readme_is_not_a_pattern(workspace: Workspace) -> None:
     workspace.stage()
 
     context = workspace.context()
-    assert pattern_lesson_errors(context, context.repo.tracked_files()) == []
+    assert pattern_lesson_errors(context, TrackedFiles.read(context.repo)) == []
 
 
 def test_a_pattern_without_task_or_lessons_fails_the_map_step(workspace: Workspace) -> None:
@@ -323,12 +395,32 @@ def test_every_rule_ends_with_a_resolving_marker(workspace: Workspace) -> None:
     workspace.write("AGENTS.md", GUIDE)
     workspace.stage()
     context = workspace.context()
-    found = guides(context.repo.root, context.repo.tracked_files(), context.project)
+    tracked = TrackedFiles.read(context.repo)
+    found = guides(tracked, context.project)
 
-    assert rule_errors(context, found) == [
+    assert rule_errors(context, tracked, found) == [
         "AGENTS.md:19: end the rule with 'enforced by: <reference>' or 'advisory'",
         "AGENTS.md:20: check:nope: no devctl check step is named nope",
     ]
+
+
+def test_a_rule_enforced_by_an_untracked_test_fails_the_map_step(workspace: Workspace) -> None:
+    workspace.root_guide(
+        "# Root\n\n## Rules\n\n- Settings load once. "
+        "enforced by: test:tests/test_settings.py::test_reads\n"
+    )
+    workspace.stage()
+    workspace.write("tests/test_settings.py", "def test_reads(): pass\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        (
+            "AGENTS.md:5: test:tests/test_settings.py::test_reads: tests/test_settings.py "
+            "is not tracked; stage it with git add",
+        ),
+    )
 
 
 def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Workspace) -> None:
