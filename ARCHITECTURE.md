@@ -128,7 +128,7 @@ Agent identity is optional ([ADR 0002](docs/adr/0002-github-gates-merges-reviews
 | G5 | Ask the owner before an edit of a Protected path |
 | G7 | With Agent identity on, deny `git push`, and name `./devctl as worker push` |
 | G8 | With Agent identity on, deny a `gh pr`, `gh issue` or `gh api` write made as the owner, and name `./devctl as <role> gh` |
-| G9, the merge guard | Deny `gh pr merge` until it has checked the pull request on GitHub (below) |
+| G9, the merge guard | In Walk, deny every `gh pr merge`; in Flight, deny it until it has checked the pull request on GitHub (below) |
 
 The modules are in `tools/devctl/devctl/`:
 
