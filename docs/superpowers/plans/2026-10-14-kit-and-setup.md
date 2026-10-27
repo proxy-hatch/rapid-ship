@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6 is not started. Plan 7 is planned in [its plan document](2026-10-26-rs-setup-and-rs-health.md), which lands in PR 7.1a; its skill PRs run alongside plan 6. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). [Spec 2](../specs/2026-10-16-delivery-skills-design.md) and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) get their own plans later.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6 is not started. Plan 7 is planned in [its plan document](2026-10-26-rs-setup-and-rs-health.md), which lands in PR 7.1a; its skill PRs run alongside plan 6 and Spec 3's plan. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -179,9 +179,8 @@ class App:
 
 
 @dataclass(frozen=True)
-class Escalation:  # revision_rounds is checked, not kept: rs-lead reads it from the file
-    every_pr: bool  # default True: Walk
-    kinds: tuple[str, ...]  # plain text for the Lead
+class Escalation:
+    every_pr: bool  # default True: Walk; False: Flight
 
 
 @dataclass(frozen=True)
@@ -207,7 +206,7 @@ def load_project(root: Path) -> ProjectSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
 ```
 
-Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. Its follow-ups added `[github] code_owner`, and removed the `[roster]` table that plan 4 first built, with its `Agent` type (follow-up 7). devctl refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and from the follow-ups `[roster]`. Each message says why the table went and to delete it: for `[agents]` and `[roster]`, "rapid-ship does not run agents across several Providers; delete the table". Plan 6 replaces `stack` with `[[stack]]`; devctl then rejects the old key, and the project rewrites it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3). Spec 2's plan adds `[tracker]` and `[design]`.
+Plan 4 removed `GateSettings`, `load_gate`, `Mode`, `CheckContext.gate` and `release_method`. Its follow-ups added `[github] code_owner`, and removed the `[roster]` table that plan 4 first built, with its `Agent` type (follow-up 7). devctl refuses `[agents]`, `[linear]`, `[dispatch]` and `[release]`, and from the follow-ups `[roster]`. Each message says why the table went and to delete it: for `[agents]` and `[roster]`, "rapid-ship does not run agents across several Providers; delete the table". Plan 6 replaces `stack` with `[[stack]]`; devctl then rejects the old key, and the project rewrites it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3). By the owner's decision of 2026-10-26, `[escalation]` keeps only `every_pr`, and devctl rejects `kinds` and `revision_rounds` like any other unknown key.
 
 ### doctor (plan 4; plans 5 and 6 add items)
 
@@ -490,7 +489,7 @@ If review finds a PR too large, it splits at a task boundary.
 6. The seeded `.claude/settings.json`, `kit.toml`, doctor's wiring item, and this repository's wiring through `sync`.
 7. The placeholder comment about Harness settings, removed from both CODEOWNERS templates and from this repository's CODEOWNERS. `/.claude/` already covers the wiring, so doctor's `PROTECTED_PATHS` stays as it is.
 8. Live trial, an Owner step: each rule in Claude Code, in the lead Session and inside a subagent; the merge guard on real PRs through `gh pr merge` and `devctl as worker gh pr merge`, with Agent identity on also before and after the Reviewer App approves, and G3 denying a merge through `gh api` and a `git push` to the default branch.
-9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. `./devctl doctor --settings`, which reads and validates only the settings, and makes no GitHub request. The root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-lead` and `rs-preflight` do (Spec 1 section 6).
+9. The README.md and ARCHITECTURE.md seeds, the root guide's new rows, and map rule 8. `./devctl doctor --settings`, which reads and validates only the settings, and makes no GitHub request. The root guide asks each Session to run it first unless the Session runs the full doctor, as `rs-preflight` does (Spec 1 section 6).
 10. The Pattern `task` key and `## Lessons` section: the seeded README and map rule 5.
 11. The Python starter Patterns, for error handling, configuration and input validation, with reference code and tests in the new-project skeleton, passing map rule 5 and `./devctl check` on a new project; and the Python performance Pattern, which documents py-spy, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
 12. The `SKILL.md` rule in map rule 7.
@@ -548,13 +547,13 @@ If review finds a PR too large, it splits at a task boundary.
 | 7.3 | 7 and 8 | `rs-health` with the shared audit, and `rs-contribute` |
 | 7.4 | 11 | The documentation site |
 
-Tasks 9 and 10 are Owner steps after 7.3, and 7.4 follows them.
+Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows them and lands, as one PR, once Spec 3 is built.
 
 **Files:**
 
 - 7.1: Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-codebase-design/`, `rs-pr/`, `rs-writing-for-agents/`, `rs-writing/`, `rs-ponytail/`. `rapid_ship/upstream.lock`, `rapid_ship/templates/kit.toml`. Removed: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated: the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`. Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`.
 - 7.2: `rs-setup/` with `ruleset.json` and its references: the advice table on Agent identity, the stylistic options of each tool, and each step's known failures with the fix it offers. Tests: `tests/devctl/test_devctl_ruleset_json.py`.
-- 7.3: `rs-health/` with `references/audit.md`, `rs-contribute/`, and `kit.toml`.
+- 7.3: `rs-health/` with `references/audit.md` and its reference on the shape of a proposed task; `rs-contribute/`; and `kit.toml`.
 - 7.4: `website/` (config, sidebar, home page), the site's pages under `docs/`, and `README.md`; `docs/getting-started.md` is deleted.
 - Docs, in each PR: `ARCHITECTURE.md` and the trial record under `docs/trials/`.
 
@@ -564,11 +563,11 @@ Tasks 9 and 10 are Owner steps after 7.3, and 7.4 follows them.
 2. The patched forks, `rs-tdd`, `rs-diagnosing-bugs` and `rs-pr`, whose Evidence follows Spec 1 section 5.
 3. `rs-writing` and `rs-ponytail`, from this repository's engineering references.
 4. Retire `rapid-ship-engineering`, and point this repository's root AGENTS.md to `rs-writing` and `rs-ponytail`.
-5. `rs-setup`: Spec 1 section 8's steps, with the stacks, the starter Patterns, the advice table, the tool-settings PR and guided rectifying, and `ruleset.json` checked by `ruleset_problems`. Steps 10 (tracker) and 11 (metrics) come later, with Spec 2's and Spec 3's plans.
+5. `rs-setup`: Spec 1 section 8's steps, with the stacks, the starter Patterns, the advice table, the tool-settings PR and guided rectifying, and `ruleset.json` checked by `ruleset_problems`. The metrics step comes with Spec 3's plan.
 6. `rs-setup`'s references: the stylistic options of each tool, and each step's known failures with the explanation and the fix it offers.
-7. `rs-health` and its `references/audit.md`: Spec 1 section 9, with the base rule on hidden or obscured errors.
+7. `rs-health` and its references: Spec 1 section 9, with the base rule on hidden or obscured errors. `references/audit.md` holds the audit, another reference holds the shape of a proposed task, and `rs-garden` reuses both. `rs-health` returns proposed tasks and writes the ones the owner picks to whatever tracker the owner's Harness reaches; otherwise it leaves them in the conversation.
 8. `rs-contribute`, listed under `optional_skills`.
-9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on hello-rapid-ship, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on hello-rapid-ship, ending with a standards milestone in its tracker.
+9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on hello-rapid-ship, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on hello-rapid-ship, ending with the tasks the owner picks in a tracker that the Harness reaches.
 10. Owner step: apply `rs-setup`'s GitHub settings to `proxy-hatch/rapid-ship`.
 11. The documentation site. It teaches why a reader needs rapid-ship before how to use it. Only the home page sells, with the owner's tagline of 2026-10-20: "Becoming a 100x developer starts with agents that earn your trust." and the line "Agents that prove their work earn autonomy, so you can stop watching every one of them." Everywhere else it is plain and professional. The sidebar is Start (Home, Why rapid-ship, Get started around `rs-setup`, The journey), Concepts, Guides titled by outcome, and Reference, with the design records collapsed under Project. Every page carries a Built or Designed status, shows a concrete case before it names a concept, and ends each step with output from a real run. `README.md` becomes a lean GitHub front page, and "Ship more. Supervise less." is retired. Maintainers keep the full proposal, with the page list, page templates and style rules, in Linear, in the rapid-ship project's documents.
 
