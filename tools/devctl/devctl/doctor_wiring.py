@@ -45,14 +45,14 @@ _PROBE_COMMAND = "git push --force"
 _SHELL_PIECE = re.compile(r"""'[^']*'|"(?:\\.|[^"\\])*"|\\.|.""", re.DOTALL)
 _ESCAPE = re.compile(r"\\(.)", re.DOTALL)
 _LITERAL_DOLLAR = "\x00"  # a $ that the shell keeps as it is, which no path to devctl holds
-# A shell-form program word after quote removal: path characters, $NAME, ${NAME} and git's top
-# level, the one command substitution, which the agy seed needs because agy runs its hooks in
-# .agents/. shlex.split does not split at an operator, so false&&, #, X= or other punctuation can
-# stand before the path in that word, and the shell then runs something else. A space survives
-# only inside quotes.
-_PATH_WORD = re.compile(
-    r"(?:[\w./~ -]|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\}|\$\(git rev-parse --show-toplevel\))*"
-)
+# A shell-form program word after quote removal: path characters, $NAME and ${NAME}. shlex.split
+# does not split at an operator, so false&&, #, X= or other punctuation can stand before the path
+# in that word, and the shell then runs something else. A space survives only inside quotes.
+_PATH_CHARACTERS = r"(?:[\w./~ -]|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})*"
+_PATH_WORD = re.compile(_PATH_CHARACTERS)
+# agy runs its hooks in .agents/, so its program word may start with git's top level, the one
+# command substitution either item accepts.
+_AGY_PATH_WORD = re.compile(r"(?:\$\(git rev-parse --show-toplevel\))?" + _PATH_CHARACTERS)
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -88,7 +88,7 @@ def _runs_the_hook(hook: Mapping[str, object]) -> bool:
         return False
     if any(hook.get(field) is True for field in _BACKGROUND):
         return False
-    words = _exec_words(hook) if "args" in hook else _shell_words(hook.get("command"))
+    words = _exec_words(hook) if "args" in hook else _shell_words(hook.get("command"), _PATH_WORD)
     return _names_the_hook(words, _HOOK_ARGS)
 
 
@@ -121,11 +121,11 @@ def _exec_words(hook: Mapping[str, object]) -> list[str] | None:
     return text
 
 
-def _shell_words(command: object) -> list[str] | None:
+def _shell_words(command: object, program_word: re.Pattern[str]) -> list[str] | None:
     """The words of a shell-form command, split and unquoted as the shell does; None when it
-    cannot be split, or when its program word is not _PATH_WORD. A $ in single quotes or after a
-    backslash becomes _LITERAL_DOLLAR, which no path holds. An operator or a redirection after the
-    program stays a word, so the hook's command must stand alone."""
+    cannot be split, or when its program word does not match program_word. A $ in single quotes
+    or after a backslash becomes _LITERAL_DOLLAR, which no path holds. An operator or a
+    redirection after the program stays a word, so the hook's command must stand alone."""
     if not isinstance(command, str):
         return None
     pieces = (piece[0] for piece in _SHELL_PIECE.finditer(command))
@@ -133,7 +133,7 @@ def _shell_words(command: object) -> list[str] | None:
         words = shlex.split("".join(map(_literal_dollars, pieces)))
     except ValueError:
         return None
-    return words if words and _PATH_WORD.fullmatch(words[0]) else None
+    return words if words and program_word.fullmatch(words[0]) else None
 
 
 def _literal_dollars(piece: str) -> str:
@@ -207,7 +207,7 @@ def _runs_agy_hook(hook: Mapping[str, object]) -> bool:
     timeout blocks a merge that the guard is still checking."""
     if hook.get("type") != "command" or not _waits(hook, _AGY_DEFAULT_TIMEOUT):
         return False
-    return _names_the_hook(_shell_words(hook.get("command")), _AGY_HOOK_ARGS)
+    return _names_the_hook(_shell_words(hook.get("command"), _AGY_PATH_WORD), _AGY_HOOK_ARGS)
 
 
 def _agy_handlers(hooks: object) -> list[tuple[object, str]]:

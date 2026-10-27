@@ -98,6 +98,10 @@ def test_agy_wiring_problems_for_the_matcher(hooks: object, problems: list[str])
             wired(command='"$(git rev-parse --show-toplevel; true)/devctl" hook agy pre-tool'),
             [GAP + EVERY_TOOL],
         ),
+        (
+            wired(command='"/x$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool'),
+            [GAP + EVERY_TOOL],
+        ),
         (wired(command=f"{COMMAND}; true"), [GAP + EVERY_TOOL]),
         (wired(command=f"{COMMAND} --verbose"), [GAP + EVERY_TOOL]),
         ({}, [GAP + EVERY_TOOL]),

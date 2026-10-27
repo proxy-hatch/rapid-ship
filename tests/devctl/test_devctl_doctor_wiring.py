@@ -137,6 +137,10 @@ def test_wiring_problems_in_other_shapes(settings: object, problems: list[str]) 
         (args_form("${CLAUDE_PROJECT_DIR}/mydevctl", PRE_TOOL), [GAP + EVERY_TOOL]),
         (args_form("devctl", [*PRE_TOOL, "--verbose"]), [GAP + EVERY_TOOL]),
         # Shell form: the words after quote removal, and a $ the shell keeps literal.
+        (
+            wired(command='"$(git rev-parse --show-toplevel)/devctl" hook claude pre-tool'),
+            [GAP + EVERY_TOOL],
+        ),
         (wired(command="'$CLAUDE_PROJECT_DIR/devctl' hook claude pre-tool"), [GAP + EVERY_TOOL]),
         (wired(command="\\$CLAUDE_PROJECT_DIR/devctl hook claude pre-tool"), [GAP + EVERY_TOOL]),
         (wired(command='"\\$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'), [GAP + EVERY_TOOL]),
