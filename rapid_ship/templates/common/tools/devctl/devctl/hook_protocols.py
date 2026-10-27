@@ -14,8 +14,10 @@ that resolves it, and devctl hook never exits 2:
   call goes through.
 - agy blocks the call when its hook exits 1 or 2 or outlives its timeout. Every answer is one
   line of JSON with exit 0. No decision is "allow", which hands the call to agy's next hook or
-  its own permission flow; it approves nothing. An internal error writes one stderr line and
-  answers "allow" with that line as its reason, so the call goes through as in Claude Code.
+  its own permission flow; it approves nothing. An internal error, an event the hook cannot
+  parse included, writes one stderr line and answers "deny" with that line as its reason. agy
+  shows an allow's reason to nobody, so an allow would switch the guardrails off without a
+  trace, for example after agy changes its event format; a deny's reason reaches the agent.
 - A missing or unknown Harness exits 1, because the hook cannot tell which protocol to answer
   in: register declares the Harness and the event as optional strings, because argparse would
   exit 2 on a choice it does not know.
@@ -74,6 +76,11 @@ WIRED_TOOLS: Mapping[WiredHarness, tuple[str, ...]] = {
 }
 HOOK_COMMANDS: Mapping[WiredHarness, str] = {
     harness: f"devctl hook {harness} pre-tool" for harness in WIRED_HARNESSES
+}
+# What a failure of devctl's own does to the tool call, as its stderr line says.
+FAILURE_OUTCOMES: Mapping[WiredHarness, str] = {
+    "claude": "the tool call goes through",
+    "agy": "devctl hook denies the call until this is fixed",
 }
 # The Harnesses whose wiring runs G5. In agy's accept-edits mode an ask before a write shows no
 # prompt and the write goes ahead.
@@ -183,9 +190,10 @@ def answer(harness: WiredHarness, decision: Decision, reason: str) -> tuple[str,
 
 
 def failure(harness: WiredHarness, message: str) -> tuple[str, int]:
-    """The hook's stdout and exit code when devctl cannot decide, so that the call goes through."""
+    """The hook's stdout and exit code when devctl cannot decide: exit 1, which lets the call
+    through in Claude Code, and in agy a deny whose reason is message."""
     if harness == "agy":
-        return _agy_answer("allow", message), 0
+        return _agy_answer("deny", message), 0
     return "", 1
 
 

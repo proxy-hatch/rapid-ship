@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Run the Kit's Harness guardrails in agy, as in Claude Code: a seeded `.agents/hooks.json` that wires agy's `PreToolUse` event to `devctl hook agy pre-tool`, a protocol that answers in agy's format and never lets a failure of devctl's own block agy, doctor's item for that wiring, and the Protected set widened from `/.agents/skills/` to `/.agents/`. G5 is omitted for agy, because in `accept-edits` mode agy wrote the file without a prompt when a hook answered `ask`.
+**Goal:** Run the Kit's Harness guardrails in agy, as in Claude Code: a seeded `.agents/hooks.json` that wires agy's `PreToolUse` event to `devctl hook agy pre-tool`, a protocol that answers in agy's format, so that a failure of devctl's own never blocks agy without saying why, doctor's item for that wiring, and the Protected set widened from `/.agents/skills/` to `/.agents/`. G5 is omitted for agy, because in `accept-edits` mode agy wrote the file without a prompt when a hook answered `ask`.
 
 **Architecture:** One PR, a plan 5 follow-up (backlog item PRO-155), on branch `agy-wiring`. devctl changes only in its template under `rapid_ship/templates/common/tools/devctl/devctl/`, and `uv run rapid-ship sync --in-place` vendors it. `hook_protocols.py` gains agy's event, answer and failure answer beside Claude Code's; `hook.py` passes the Harness through and skips G5 for agy; `doctor_wiring.py` gains the agy item, which also runs the wired command once on a probe event.
 
@@ -17,7 +17,7 @@
 - Wiring, seeded at `.agents/hooks.json`: one hook named `devctl`, whose `PreToolUse` entry has the matcher `run_command|write_file|edit_file` and one command handler, `"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool`, with `"timeout": 600`. agy runs the hook in the folder that holds `hooks.json`, so the command finds the shim from git's top level. These are the tool names agy 1.4.7 sent; its hooks page names others, which no recorded event used.
 - agy's event has no `cwd`: the first of `workspacePaths` stands in for it. `run_command` gives `toolCall.args.CommandLine` as the shell command; `write_file` and `edit_file` give `toolCall.args.Path` as the edited path. Any other tool gives a call that no rule matches.
 - agy's answer is one line of JSON with exit 0: `{"decision": "deny", "reason": "<reason>"}`, or `{"decision": "allow"}` for no decision, which hands the call to agy's next hook or its own permission flow. The hook never answers `auto_approve`.
-- agy blocks the call on exit 1, exit 2 and a timeout. So for agy, every failure that `devctl hook` sees, a usage error, an event it cannot read and an exception included, writes one stderr line and answers `{"decision": "allow", "reason": "devctl hook: <message>"}` with exit 0: the call goes through, as it does in Claude Code. Failures before devctl runs, such as the shim's exit 127 or uv's exit 2, still block every wired call; doctor's agy item runs the hook to catch them.
+- agy blocks the call on exit 1, exit 2 and a timeout. So for agy, every failure that `devctl hook` sees, a usage error, an event it cannot read and an exception included, writes one stderr line and answers `{"decision": "deny", "reason": "devctl hook: <message>"}` with exit 0. agy shows an `allow`'s reason to nobody and a deny's to the agent, so an `allow` would switch the guardrails off without a trace, for example after an agy update changes the event format; the deny blocks every wired call until the cause is fixed, and says why. An invalid `project.toml` is no such failure: it writes its stderr line, G1 to G4 and the merge guard still decide, and a call that no rule matches gets `allow`. Failures before devctl runs, such as the shim's exit 127 or uv's exit 2, still block every wired call; doctor's agy item runs the hook to catch them.
 - G5 is omitted for agy. G1 to G4, G7, G8 and the merge guard apply.
 - Claude Code's protocol keeps its exit codes: an internal error exits 1, now with one stderr line for an unexpected exception too, in place of a traceback. An unknown or missing Harness still exits 1, because the hook cannot tell which protocol to answer in.
 - doctor's items: `Harness wiring` becomes `Claude Code wiring`, and `agy wiring` follows it, in the full doctor and in `--settings`.
@@ -28,7 +28,7 @@
 
 ## Review Focus
 
-1. **A failure of devctl's own blocks every agy call.** Inputs: bytes that are not JSON, an event without `toolCall` or `workspacePaths`, a wired tool without its argument, `devctl hook agy` without an event, an invalid `project.toml`, and an exception inside the rules. Expected: each exits 0 with an `allow` whose reason starts `devctl hook: `. Task 2's `test_the_agy_hook_always_exits_0_with_a_decision` pins it.
+1. **A failure of devctl's own switches the agy guardrails off without a trace, or blocks agy without a reason.** Inputs: bytes that are not JSON, an event without `toolCall` or `workspacePaths`, a wired tool without its argument, `devctl hook agy` without an event, and an exception inside the rules. Expected: each exits 0 with a `deny` whose reason is the stderr line, starting `devctl hook: `. An invalid `project.toml` is no failure: it writes the stderr line and answers `allow` with no reason, because the rules still decide. Task 2's `test_the_agy_hook_always_exits_0_with_a_decision` pins it.
 2. **G5 asks where agy cannot.** Expected: an agy edit of a Protected path gets `allow`, while G4 still denies an edit of `.rapid-ship/kit.lock`, and Claude Code still asks. Task 2's `test_g5_does_not_run_for_agy` pins it.
 3. **The wiring and the protocol disagree on a tool.** Expected: the seed's matcher names each tool in `WIRED_TOOLS["agy"]`, and doctor reports a matcher that misses one. Tasks 2 and 3 pin it.
 4. **doctor runs a command from a tracked file.** Expected: doctor runs it only when its words are `<path>/devctl hook agy pre-tool` and nothing more, the same parse as the Claude Code item, plus `$(git rev-parse --show-toplevel)` as a program-word prefix.
@@ -57,7 +57,7 @@ PROTECTED_ASK: frozenset[WiredHarness]  # the Harnesses that run G5: claude
 
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
 def answer(harness: WiredHarness, decision: Decision, reason: str) -> tuple[str, int]: ...
-def failure(harness: WiredHarness, message: str) -> tuple[str, int]: ...  # the call goes through
+def failure(harness: WiredHarness, message: str) -> tuple[str, int]: ...  # exit 1; agy: deny
 
 
 # devctl/hook.py
@@ -71,7 +71,7 @@ def decide(call, root, settings, branches, *, protected_ask: bool = True): ...
   - `answer("agy", ...)`: a deny is one JSON line with its reason; no decision is `{"decision": "allow"}`; both exit 0.
   - `test_each_rule_decides_through_the_agy_protocol`, through `cli.main(["hook", "agy", "pre-tool"])`: G1, G2, G3, G4, G7 and G8 deny with their prefixes, and the merge guard denies `gh pr merge 1` under invalid settings. `test_a_harmless_agy_call_gets_allow_and_no_reason`: `git status` gets `{"decision": "allow"}` and no stderr.
   - `test_g5_does_not_run_for_agy`: a `write_file` of `AGENTS.md` under `# /**/AGENTS.md @o` gets `allow` for agy, and the same edit gets an ask in Claude Code. `test_without_the_protected_ask_g4_still_denies`: `decide(..., protected_ask=False)` still denies `kit.lock` with G4 and gives no decision for `AGENTS.md`.
-  - `test_the_agy_hook_always_exits_0_with_a_decision`: the inputs of Review Focus 1, each exit 0 with one stderr line and an `allow` whose reason is that line; with an invalid `project.toml` the call is no failure, so its `allow` has no reason. `test_an_exception_inside_the_rules_lets_the_agy_call_through` and `test_a_usage_error_names_the_agy_command`.
+  - `test_the_agy_hook_always_exits_0_with_a_decision`: the inputs of Review Focus 1, each exit 0 with one stderr line and a `deny` whose reason is that line; with an invalid `project.toml` the call is no failure, so it gets an `allow` with no reason. `test_an_exception_inside_the_rules_denies_the_agy_call` and `test_a_usage_error_names_the_agy_command`.
   - In `test_devctl_hook_protocol.py`: `WIRED_TOOLS` becomes `WIRED_TOOLS["claude"]`, the unknown Harness message names `claude and agy`, and an exception inside the rules exits 1 for Claude Code with one stderr line.
 - [x] **Step 2: run** them; expected FAIL on the missing names. They failed at collection, because `WIRED_TOOLS` was a tuple.
 - [x] **Step 3: implement.** `hook_command` catches every exception, since any traceback would block agy, and answers through `failure`.

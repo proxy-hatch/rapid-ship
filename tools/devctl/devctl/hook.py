@@ -29,6 +29,7 @@ from devctl.command_line import (
 )
 from devctl.doctor_items import OwnerGet, gh_get
 from devctl.hook_protocols import (
+    FAILURE_OUTCOMES,
     HOOK_COMMANDS,
     PROTECTED_ASK,
     WIRED_HARNESSES,
@@ -91,9 +92,9 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
         help="Answer a Harness's hook event with the Kit's guardrails",
         description="devctl hook <harness> pre-tool reads the Harness's pre-tool event on stdin "
         "and answers in its hook protocol with a deny, an ask or no decision. It never exits 2, "
-        "which Claude Code reads as block. When devctl itself fails, the tool call goes through: "
-        "for claude it exits 1, and for agy, which blocks the call on any other exit code, it "
-        "answers allow with exit 0.",
+        "which Claude Code reads as block. When devctl itself fails, it writes one stderr line: "
+        "for claude it exits 1, so the tool call goes through, and for agy, which blocks the call "
+        "on any other exit code, it answers deny with that line as the reason and exit 0.",
     )
     # Optional strings, not choices: argparse exits 2 on a missing or unknown choice, and the
     # Harness would then block every wired call.
@@ -119,7 +120,7 @@ def hook_command(args: argparse.Namespace) -> int:
         call = read_event(harness, sys.stdin.buffer.read())
         decision, reason = run_hook(call, gh_get, protected_ask=harness in PROTECTED_ASK)
     except Exception as error:  # noqa: BLE001  # rs-exception: EX-30
-        return _fail(harness, f"internal error: {error}; the tool call goes through")
+        return _fail(harness, f"internal error: {error}; {FAILURE_OUTCOMES[harness]}")
     stdout, code = answer(harness, decision, reason)
     sys.stdout.write(stdout)
     return code

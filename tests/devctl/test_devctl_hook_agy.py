@@ -226,7 +226,8 @@ def invalid_settings_call(tmp_path: Path) -> bytes:
     return calling("run_command", project(tmp_path, INVALID).root, CommandLine="git status")
 
 
-# argv after hook, the payload, and whether the answer carries the failure as its reason.
+# argv after hook, the payload, and whether devctl failed, so that the answer is a deny whose reason
+# is the stderr line.
 FAILURES: list[tuple[tuple[str, ...], Callable[[Path], bytes], bool]] = [
     (("agy", "pre-tool"), lambda _: b"\xffnot json", True),
     (("agy", "pre-tool"), lambda _: b"[]", True),
@@ -241,7 +242,7 @@ FAILURES: list[tuple[tuple[str, ...], Callable[[Path], bytes], bool]] = [
 
 
 @pytest.mark.parametrize(
-    ("argv", "payload", "carries_reason"),
+    ("argv", "payload", "failed"),
     FAILURES,
     ids=[
         "not-json",
@@ -257,7 +258,7 @@ FAILURES: list[tuple[tuple[str, ...], Callable[[Path], bytes], bool]] = [
 def test_the_agy_hook_always_exits_0_with_a_decision(
     argv: tuple[str, ...],
     payload: Callable[[Path], bytes],
-    carries_reason: bool,
+    failed: bool,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -266,13 +267,12 @@ def test_the_agy_hook_always_exits_0_with_a_decision(
 
     out, err = capsys.readouterr()
     [line] = err.splitlines()
-    output = one_answer(out)
     assert line.startswith("devctl hook: ")
-    assert output["decision"] == "allow"
-    assert output.get("reason") == (line if carries_reason else None)
+    denied = {"decision": "deny", "reason": line}
+    assert one_answer(out) == (denied if failed else {"decision": "allow"})
 
 
-def test_an_exception_inside_the_rules_lets_the_agy_call_through(
+def test_an_exception_inside_the_rules_denies_the_agy_call(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     raise_inside_the_rules(monkeypatch)
@@ -280,9 +280,9 @@ def test_an_exception_inside_the_rules_lets_the_agy_call_through(
     payload = calling("run_command", project(tmp_path).root, CommandLine="git status")
     assert hook(monkeypatch, payload, "agy", "pre-tool") == 0
 
-    reason = "devctl hook: internal error: boom; the tool call goes through"
+    reason = "devctl hook: internal error: boom; devctl hook denies the call until this is fixed"
     assert capsys.readouterr() == (
-        json.dumps({"decision": "allow", "reason": reason}) + "\n",
+        json.dumps({"decision": "deny", "reason": reason}) + "\n",
         reason + "\n",
     )
 
@@ -293,4 +293,7 @@ def test_a_usage_error_names_the_agy_command(
     assert hook(monkeypatch, recorded(), "agy") == 0
 
     reason = "devctl hook: usage: devctl hook agy pre-tool"
-    assert capsys.readouterr().err == reason + "\n"
+    assert capsys.readouterr() == (
+        json.dumps({"decision": "deny", "reason": reason}) + "\n",
+        reason + "\n",
+    )

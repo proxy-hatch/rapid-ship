@@ -326,7 +326,7 @@ def answer(
 ) -> tuple[str, int]: ...  # stdout, exit code 0; agy's no decision is {"decision": "allow"}
 def failure(
     harness: WiredHarness, message: str
-) -> tuple[str, int]: ...  # devctl failed: claude exits 1, agy answers allow with exit 0
+) -> tuple[str, int]: ...  # devctl failed: claude exits 1, agy answers deny with exit 0
 
 
 # devctl/hook.py

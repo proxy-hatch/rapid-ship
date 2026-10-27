@@ -225,7 +225,16 @@ def test_a_gap_names_the_file_and_the_tools_and_runs_nothing(
             ),
         ),
         (
-            '{"decision": "allow", "reason": "devctl hook: internal error: x"}\n',
+            '{"decision": "allow"}\n',
+            0,
+            {},
+            (
+                "missing",
+                ".agents/hooks.json: its hook did not deny a probe git push --force with G2",
+            ),
+        ),
+        (
+            '{"decision": "deny", "reason": "devctl hook: internal error: x"}\n',
             0,
             {},
             (
@@ -252,7 +261,7 @@ def test_a_gap_names_the_file_and_the_tools_and_runs_nothing(
             ),
         ),
     ],
-    ids=["exit-127", "allow", "not-json", "timed-out"],
+    ids=["exit-127", "allow", "devctl-failure", "not-json", "timed-out"],
 )
 def test_a_hook_that_does_not_deny_the_probe_does_not_count(
     tmp_path: Path,
