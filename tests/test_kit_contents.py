@@ -240,6 +240,17 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
 
 
+@pytest.mark.parametrize("stack", STACKS)
+def test_codeowners_moves_to_flight_with_every_pr_in_one_pull_request(stack: Stack) -> None:
+    lines = text(stack, ".github/CODEOWNERS").splitlines()
+    comment = " ".join(line.removeprefix("# ") for line in lines if line.startswith("# "))
+    assert (
+        "Flight: in one pull request the owner merges, set [escalation] every_pr = false in "
+        ".rapid-ship/project.toml and replace the Walk line with the Protected set below, "
+        "uncommented."
+    ) in comment
+
+
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
 def test_codeowners_has_no_placeholder_for_harness_settings(stack: Stack) -> None:
     assert "Harness settings" not in text(stack, ".github/CODEOWNERS")
