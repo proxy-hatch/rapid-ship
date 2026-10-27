@@ -276,6 +276,31 @@ def test_a_hook_that_does_not_deny_the_probe_does_not_count(
     assert item_for(tmp_path, json.dumps(SEED)) == expected
 
 
+def test_every_wired_command_must_answer_the_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gone = '"$(git rev-parse --show-toplevel)/gone/devctl" hook agy pre-tool'
+    hooks = named(
+        a={"matcher": "run_command"},
+        b={"matcher": "write_file|edit_file", "hooks": [{**HANDLER, "command": gone}]},
+    )
+    answers = {COMMAND: (DENY + "\n", 0), gone: ("", 127)}
+    commands: list[str] = []
+
+    def run_process(argv: Sequence[str], *args: object, **kwargs: object) -> ProcessResult:
+        commands.append(argv[-1])
+        return ProcessResult([], answers[argv[-1]][1], answers[argv[-1]][0], "", 0.1)
+
+    monkeypatch.setattr(process, "run_process", run_process)
+
+    assert item_for(tmp_path, json.dumps(hooks)) == (
+        "missing",
+        ".agents/hooks.json: its hook exited 127 on a probe event, so agy would block every call "
+        "it is wired for",
+    )
+    assert commands == [COMMAND, gone]
+
+
 def test_a_hook_that_cannot_start_is_unknown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

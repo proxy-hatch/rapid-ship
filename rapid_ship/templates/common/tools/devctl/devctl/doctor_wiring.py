@@ -236,17 +236,18 @@ def agy_wiring_problems(hooks: object) -> list[str]:
 
 
 def agy_wiring_item(root: Path, tracked: Sequence[str]) -> Item:
-    """Whether the tracked .agents/hooks.json wires devctl hook for agy, and whether its hook
-    denies a probe force push. agy blocks every wired call while the hook fails, so doctor runs
-    it as agy does."""
+    """Whether the tracked .agents/hooks.json wires devctl hook for agy, and whether each of its
+    wired commands denies a probe force push. agy blocks every call a failing hook is wired for,
+    so doctor runs each command as agy does, and the first that does not deny decides."""
     hooks = _load(root, AGY_WIRING_FILE, tracked, _AGY_ITEM)
     if isinstance(hooks, Item):
         return hooks
     problems = agy_wiring_problems(hooks)
     if problems:
         return Item("guardrails", _AGY_ITEM, "missing", f"{AGY_WIRING_FILE}: {'; '.join(problems)}")
-    [(_, command), *_] = _agy_handlers(hooks)
-    return _probe_item(root, command)
+    commands = dict.fromkeys(command for _, command in _agy_handlers(hooks))
+    items = [_probe_item(root, command) for command in commands]
+    return next((item for item in items if item.status != "ok"), items[0])
 
 
 def _probe_item(root: Path, command: str) -> Item:
