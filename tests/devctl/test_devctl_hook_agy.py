@@ -94,6 +94,17 @@ def test_a_relative_path_is_resolved_against_the_first_workspace_path() -> None:
     assert read_event("agy", json.dumps(event).encode()) == ToolCall(None, (REPO / "a.txt",), REPO)
 
 
+@pytest.mark.parametrize(
+    ("cwd", "expected"),
+    [("sub/../other", REPO / "other"), ("/elsewhere", Path("/elsewhere")), ("", REPO)],
+    ids=["relative", "absolute", "empty"],
+)
+def test_a_cwd_argument_resolves_against_the_first_workspace_path(cwd: str, expected: Path) -> None:
+    call = read_event("agy", calling("run_command", CommandLine="git status", Cwd=cwd))
+
+    assert call == ToolCall("git status", (), expected)
+
+
 @pytest.mark.parametrize("tool", WIRED_TOOLS["agy"])
 def test_every_wired_agy_tool_is_read_into_a_call_a_rule_can_match(tool: str) -> None:
     call = read_event("agy", calling(tool, CommandLine="git status", Path="/repo/x.txt"))
@@ -113,6 +124,9 @@ def test_every_wired_agy_tool_is_read_into_a_call_a_rule_can_match(tool: str) ->
         pytest.param(calling("run_command", toolSummary="x"), id="run-command-no-command-line"),
         pytest.param(calling("write_file", Content="x"), id="write-file-no-path"),
         pytest.param(calling("edit_file", Path=3), id="edit-file-path-not-a-string"),
+        pytest.param(
+            calling("run_command", CommandLine="git status", Cwd=3), id="cwd-not-a-string"
+        ),
         pytest.param(recorded(workspacePaths=None), id="no-workspace-paths"),
         pytest.param(recorded(workspacePaths=[]), id="empty-workspace-paths"),
         pytest.param(recorded(workspacePaths=["repo"]), id="relative-workspace-path"),
@@ -170,6 +184,19 @@ def test_each_rule_decides_through_the_agy_protocol(
     assert code == 0
     assert output["decision"] == "deny"
     assert str(output["reason"]).startswith(prefix)
+
+
+def test_a_command_is_judged_in_the_repository_that_holds_its_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = new_workspace(tmp_path / "other")
+    other.write(".rapid-ship/project.toml", IDENTITY)
+    payload = calling(
+        "run_command", project(tmp_path).root, CommandLine="git push origin t", Cwd=str(other.root)
+    )
+
+    assert hook(monkeypatch, payload, "agy", "pre-tool") == 0
+    assert str(one_answer(capsys.readouterr().out)["reason"]).startswith("G7: ")
 
 
 def test_a_harmless_agy_call_gets_allow_and_no_reason(

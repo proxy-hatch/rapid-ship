@@ -151,8 +151,11 @@ def _claude_call(event: Mapping[str, object]) -> tuple[Path, str, Mapping[str, o
 
 
 def _agy_call(event: Mapping[str, object]) -> tuple[Path, str, Mapping[str, object]]:
-    """agy's event: the first of workspacePaths, which stands in for the cwd agy does not send,
-    and toolCall's name and args."""
+    """agy's event: its working directory, and toolCall's name and args.
+
+    agy sends no cwd. A Cwd argument, when a call carries one, resolves against the first of
+    workspacePaths, and without one that path stands in.
+    """
     paths = event.get("workspacePaths")
     if not isinstance(paths, list) or not paths or not isinstance(paths[0], str):
         raise ValueError("the event has no workspacePaths string")
@@ -163,7 +166,10 @@ def _agy_call(event: Mapping[str, object]) -> tuple[Path, str, Mapping[str, obje
     args = call.get("args")
     if not isinstance(args, dict):
         raise ValueError("the event's toolCall has no args object")
-    return Path(paths[0]), tool, args
+    cwd = args.get("Cwd")
+    if cwd is not None and not isinstance(cwd, str):
+        raise ValueError("the event's toolCall has a Cwd that is not a string")
+    return Path(paths[0], cwd or ""), tool, args
 
 
 def _text(fields: Mapping[str, object], key: str, where: str) -> str:
