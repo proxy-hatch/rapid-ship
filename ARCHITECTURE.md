@@ -169,7 +169,7 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 ## Designed, not built
 
-[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142), and agy waits for its interactive runs (PRO-143).
+[Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142). agy's interactive runs are recorded too, and the owner decides on its wiring (PRO-143).
 
 Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines two more plans, not started:
 
