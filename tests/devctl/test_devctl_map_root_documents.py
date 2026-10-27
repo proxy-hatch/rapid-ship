@@ -131,6 +131,26 @@ def test_an_untracked_document_must_be_staged(workspace: Workspace) -> None:
     )
 
 
+def test_a_document_tracked_in_another_case_is_named(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", f"# Root\n\n{LINKS}")
+    workspace.write("ARCHITECTURE.md", BACK)
+    workspace.write("Readme.md", "# Demo\n")
+    workspace.stage()
+    tracked = TrackedFiles.read(workspace.context(source_roots=()).repo)
+
+    if (workspace.root / "README.md").is_file():  # a case-insensitive file system, as on macOS
+        expected = (
+            "README.md: not tracked in that case; git tracks Readme.md, "
+            "so make the two names' case match"
+        )
+    else:
+        expected = (
+            "README.md: missing at the repository root; restore it from git or write a new one "
+            "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+        )
+    assert root_document_errors(tracked) == [expected]
+
+
 def test_an_untracked_root_guide_must_be_staged_and_its_links_are_not_read(
     workspace: Workspace,
 ) -> None:

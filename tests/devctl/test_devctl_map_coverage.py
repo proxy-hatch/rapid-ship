@@ -211,6 +211,24 @@ def test_an_untracked_guide_does_not_cover_its_directory(workspace: Workspace) -
     )
 
 
+def test_an_ignored_guide_points_to_the_gitignore_rule(workspace: Workspace) -> None:
+    workspace.root_guide("[Tools](tools/)\n")
+    workspace.write(".gitignore", "/tools/AGENTS.md\n")
+    workspace.write("tools/devctl/x.py", "")
+    workspace.stage()
+    workspace.write("tools/AGENTS.md", "# Tools\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        (
+            "tools/AGENTS.md: not tracked, and git add cannot stage it; if git check-ignore -v "
+            "tools/AGENTS.md names a .gitignore rule, narrow or remove that rule, then stage it",
+        ),
+    )
+
+
 def test_a_staged_guide_counts_before_its_commit(workspace: Workspace) -> None:
     workspace.root_guide("[Tools](tools/)\n")
     workspace.write("tools/devctl/x.py", "")

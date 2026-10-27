@@ -108,9 +108,16 @@ def test_an_untracked_skill_is_not_checked(workspace: Workspace) -> None:
 
 
 @pytest.mark.parametrize(
-    "directory", [".agents/skills/notes", "pkg/skills/notes"], ids=["in place", "in a package"]
+    ("directory", "hint"),
+    [
+        (".agents/skills/notes", "stage it with git add"),
+        ("pkg/skills/notes", "stage pkg/skills/notes/SKILL.md with git add"),
+    ],
+    ids=["in place", "in a package"],
 )
-def test_an_untracked_skill_md_must_be_staged(workspace: Workspace, directory: str) -> None:
+def test_an_untracked_skill_md_must_be_staged(
+    workspace: Workspace, directory: str, hint: str
+) -> None:
     workspace.root_guide()
     workspace.write(f"{directory}/README.md", "# Notes\n")
     if directory != ".agents/skills/notes":
@@ -124,5 +131,5 @@ def test_an_untracked_skill_md_must_be_staged(workspace: Workspace, directory: s
 
     assert (result.status, result.details) == (
         "failed",
-        (".agents/skills/notes/SKILL.md: not tracked; stage it with git add",),
+        (f".agents/skills/notes/SKILL.md: not tracked; {hint}",),
     )

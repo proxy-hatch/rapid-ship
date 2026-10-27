@@ -186,7 +186,7 @@ def test_a_feature_path_may_pass_through_a_tracked_symlink(workspace: Workspace)
 
     assert tracked_features(workspace) == [
         "docs/features/sign-in.md: entry_points names src/app/lib/auth.py, which is not "
-        "tracked; stage it with git add"
+        "tracked; stage lib/auth.py with git add"
     ]
 
 
