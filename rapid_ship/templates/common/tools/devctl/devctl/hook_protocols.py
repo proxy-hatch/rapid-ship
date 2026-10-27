@@ -63,8 +63,8 @@ _WIRED: dict[WiredHarness, dict[str, _Input]] = {
         "NotebookEdit": _Input("notebook_path", is_shell=False),
         "Monitor": _Input("command", is_shell=True),
     },
-    # The names and arguments agy 1.4.7 sends. Its hooks page names write_to_file and
-    # replace_file_content instead, which agy did not send.
+    # The tools agy 1.4.7 sends that run a command or write a file, with their arguments. Its
+    # hooks page names write_to_file and replace_file_content instead, which agy did not send.
     "agy": {
         "run_command": _Input("CommandLine", is_shell=True),
         "write_file": _Input("Path", is_shell=False),
