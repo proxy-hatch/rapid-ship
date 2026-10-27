@@ -6,7 +6,7 @@ Plans 1 to 5 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devc
 
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
-- [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`. Its plan is written next. GA includes Spec 3, so plan 7's PR 7.4 lands after it.
+- [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`, planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md). GA includes Spec 3, so plan 7's PR 7.4 lands after it.
 
 The settings hold the code owner, the Mode (`[escalation] every_pr`) and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built. rapid-ship does not run agents across several Providers, so nothing replaces `[agents]` or `[roster]`. The Kit no longer seeds or reads `gate.toml`. The design sets no cap on the number of agents; it only advises at most 3 agents at work at once in Walk.
 

@@ -182,7 +182,7 @@ Two specs remain. Spec 2, the delivery skills, was descoped on 2026-10-26, and S
   - Plan 7 builds `rs-setup` and `rs-health`, which need to know the stacks.
 - **Spec 3, [Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden` and `rs-preflight`.
 
-Spec 3 gets its own plan. Plan 7's last PR rewrites the documentation site and is GA, the documentation release. It lands after Spec 3 is built, so GA includes Spec 3. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, and Windows.
+Spec 3 gets its own plan, [Metrics and gardening](../plans/2026-10-26-metrics-and-gardening.md). Plan 7's last PR rewrites the documentation site and is GA, the documentation release. It lands after Spec 3 is built, so GA includes Spec 3. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, and Windows.
 
 [ADR 0002](../../adr/0002-github-gates-merges-reviews-run-locally.md) and [ADR 0004](../../adr/0004-team-management-boundary.md) record decisions with lasting trade-offs. ADR 0003 was withdrawn before merge.
 
