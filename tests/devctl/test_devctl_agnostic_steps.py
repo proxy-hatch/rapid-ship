@@ -164,6 +164,7 @@ def test_workflows_exit_codes(workspace: Workspace, tools: Path, code: int, stat
     assert argv(tools, "uv") == [
         "tool",
         "run",
+        "--isolated",
         "--from",
         "zizmor==1.30.1",
         "zizmor",

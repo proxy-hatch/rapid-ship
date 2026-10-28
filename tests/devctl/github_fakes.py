@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import ssl
 import tempfile
 import threading
 from collections.abc import Callable, Mapping, Sequence
@@ -81,7 +82,8 @@ class FakeGitHub:
     route it needs with route().
     """
 
-    def __init__(self) -> None:
+    def __init__(self, tls: ssl.SSLContext | None = None) -> None:
+        """With tls, it answers https on localhost with that server context."""
         self.calls: list[Call] = []
         self.routes: list[tuple[str, re.Pattern[str], Handler]] = []
         self.apps: dict[int, FakeApp] = {}
@@ -118,6 +120,9 @@ class FakeGitHub:
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self.url = f"http://127.0.0.1:{self.server.server_port}"
+        if tls is not None:
+            self.server.socket = tls.wrap_socket(self.server.socket, server_side=True)
+            self.url = f"https://localhost:{self.server.server_port}"
         # A short poll interval makes close() return at once; the default 0.5 s costs every test.
         serve = self.server.serve_forever
         threading.Thread(target=serve, kwargs={"poll_interval": 0.01}, daemon=True).start()

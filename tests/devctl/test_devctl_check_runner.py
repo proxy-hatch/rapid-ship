@@ -21,6 +21,7 @@ from devctl.check.steps import (
     failed,
     not_applicable,
     passed,
+    run_tool,
     tool_environment,
 )
 from devctl.repo import Repo
@@ -250,6 +251,20 @@ def test_tools_get_only_the_listed_variables(monkeypatch: pytest.MonkeyPatch) ->
     assert tool_environment() == {"TMPDIR": "/scratch", "UV_CACHE_DIR": "/cache"}
 
 
+def test_tools_get_the_proxy_and_certificate_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in PASSED_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:3128")
+    monkeypatch.setenv("no_proxy", "localhost")
+    monkeypatch.setenv("SSL_CERT_DIR", "/certs")
+
+    assert tool_environment() == {
+        "HTTPS_PROXY": "http://127.0.0.1:3128",
+        "no_proxy": "localhost",
+        "SSL_CERT_DIR": "/certs",
+    }
+
+
 def test_pull_request_body_file_outranks_the_event_body(workspace: Workspace) -> None:
     workspace.write("a.txt", "one\n")
     base_sha = workspace.commit("base")
@@ -331,3 +346,41 @@ def test_a_pull_request_with_unrelated_history_asks_for_full_history(
 
     with pytest.raises(ChangeError, match=r"fetch-depth: 0"):
         resolve_change(Repo.discover(workspace.root), None, None, environ)
+
+
+def test_check_tools_receive_only_safe_and_explicit_environment(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Offline: run a real child through the check runner, with fake environment values."""
+    for name in PASSED_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    names = (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "NO_PROXY",
+        "no_proxy",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "NODE_EXTRA_CA_CERTS",
+        "UV_TOOL_DIR",
+        "UV_TOOL_BIN_DIR",
+        "UV_CACHE_DIR",
+        "TMPDIR",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+    )
+    expected = {name: f"setting-{name}" for name in names}
+    for name, value in expected.items():
+        monkeypatch.setenv(name, value)
+    for name in ("GH_TOKEN", "GITHUB_TOKEN", "GIT_TRACE", "GIT_CONFIG_COUNT", "PYTHONPATH"):
+        monkeypatch.setenv(name, "must-not-reach-child")
+    result = run_tool(workspace.root, ["/usr/bin/env"], 30)
+    assert result is not None
+    assert result.returncode == 0
+    received = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    assert {name: received.get(name) for name in names} == expected
+    assert set(received) <= {"PATH", "HOME", "LANG", "LC_ALL", *names}
