@@ -6,6 +6,7 @@ from __future__ import annotations
 from check_workspace import Workspace
 from devctl.check.map import MapStep, root_document_errors, root_link_errors
 from devctl.check.steps import StepResult
+from devctl.check.tracked import TrackedFiles
 
 LINKS = "[README](README.md) [Architecture](ARCHITECTURE.md)\n"
 BACK = "Start at [AGENTS.md](AGENTS.md).\n"
@@ -18,13 +19,15 @@ MISSING = (
 
 
 def run_map(workspace: Workspace) -> StepResult:
+    workspace.stage()
     return MapStep().run(workspace.context(source_roots=()))
 
 
 def root_document_and_link_errors(workspace: Workspace) -> tuple[list[str], list[str]]:
+    workspace.stage()
     context = workspace.context(source_roots=())
-    root, files = context.repo.root, context.repo.files()
-    return root_document_errors(root, files), root_link_errors(root, files)
+    tracked = TrackedFiles.read(context.repo)
+    return root_document_errors(tracked), root_link_errors(tracked)
 
 
 def test_both_documents_linked_from_the_root_guide_pass_the_map_step(
@@ -108,3 +111,57 @@ def test_a_missing_root_guide_is_left_to_the_reachability_check(workspace: Works
     workspace.write("ARCHITECTURE.md", "# Architecture\n")
 
     assert root_document_and_link_errors(workspace) == ([], [])
+
+
+def test_an_untracked_document_must_be_staged(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", f"# Root\n\n{LINKS}")
+    workspace.write("ARCHITECTURE.md", BACK)
+    workspace.stage()
+    workspace.write("README.md", "[Gone](gone.md)\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        (
+            "AGENTS.md:3: target 'README.md' is not maintained in this checkout; "
+            "track its source or update the navigation link",
+            "README.md: not tracked; stage it with git add",
+        ),
+    )
+
+
+def test_a_document_tracked_in_another_case_is_named(workspace: Workspace) -> None:
+    workspace.write("AGENTS.md", f"# Root\n\n{LINKS}")
+    workspace.write("ARCHITECTURE.md", BACK)
+    workspace.write("Readme.md", "# Demo\n")
+    workspace.stage()
+    tracked = TrackedFiles.read(workspace.context(source_roots=()).repo)
+
+    if (workspace.root / "README.md").is_file():  # a case-insensitive file system, as on macOS
+        expected = (
+            "README.md: not tracked in that case; git tracks Readme.md, "
+            "so make the two names' case match"
+        )
+    else:
+        expected = (
+            "README.md: missing at the repository root; restore it from git or write a new one "
+            "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+        )
+    assert root_document_errors(tracked) == [expected]
+
+
+def test_an_untracked_root_guide_must_be_staged_and_its_links_are_not_read(
+    workspace: Workspace,
+) -> None:
+    workspace.write("README.md", "# Demo\n")
+    workspace.write("ARCHITECTURE.md", "# Architecture\n")
+    workspace.stage()
+    workspace.write("AGENTS.md", "# Root\n")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == (
+        "failed",
+        ("AGENTS.md: not tracked; stage it with git add",),
+    )

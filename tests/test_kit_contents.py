@@ -466,7 +466,10 @@ def test_feature_and_pattern_formats_name_every_key() -> None:
     for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
         assert f"`{key}`" in features
     # devctl's map check requires at least one entry point.
-    assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
+    assert (
+        "| Paths where the feature is entered | A non-empty list; git tracks each path |"
+        in features
+    )
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
         "`task`",

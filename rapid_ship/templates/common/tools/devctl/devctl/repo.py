@@ -28,6 +28,11 @@ def _git(
     return result
 
 
+def _names(output: bytes) -> set[str]:
+    """The paths in git's NUL-separated output."""
+    return {os.fsdecode(name) for name in output.split(b"\0") if name}
+
+
 @dataclass(frozen=True)
 class Repo:
     root: Path
@@ -42,8 +47,18 @@ class Repo:
         return cls(Path(root), Path(common))
 
     def tracked_files(self) -> list[str]:
-        output = _git(self.root, "ls-files", "-z").stdout
-        return [os.fsdecode(name) for name in output.split(b"\0") if name]
+        """Tracked files, staged ones included, as POSIX paths: the files a commit would record.
+
+        git lists an unmerged path once for each stage; it appears here once. An intent-to-add
+        entry (git add -N) is left out, because a commit leaves it out.
+        """
+        listed = _git(self.root, "ls-files", "-z").stdout
+        # Against the index, git diff shows each intent-to-add entry as added. Without
+        # --no-renames, rename detection can pair one with a deleted file and hide it.
+        intended = _git(
+            self.root, "diff", "--no-renames", "--name-only", "--diff-filter=A", "-z"
+        ).stdout
+        return sorted(_names(listed) - _names(intended))
 
     def merge_base(self, ref: str) -> str | None:
         """The merge base of HEAD and ref; None when they share no history (git exits 1)."""
@@ -57,7 +72,7 @@ class Repo:
         output = _git(
             self.root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"
         ).stdout
-        return sorted({os.fsdecode(name) for name in output.split(b"\0") if name})
+        return sorted(_names(output))
 
     def git(self, *args: str) -> str:
         """Run git in the work tree and return its output; RepoError when it fails."""

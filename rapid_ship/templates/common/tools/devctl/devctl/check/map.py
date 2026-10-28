@@ -1,4 +1,9 @@
-"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents."""
+"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents.
+
+Every rule reads only the files that git tracks, staged ones included (`TrackedFiles`), and
+reads their text from the work tree. A path that a guide, feature file, Pattern or reference
+names resolves only when git tracks it.
+"""
 
 from __future__ import annotations
 
@@ -21,8 +26,9 @@ from devctl.check.markdown import (
     section,
     text_value,
 )
-from devctl.check.references import path_exists, resolve
+from devctl.check.references import path_problem, resolve
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
+from devctl.check.tracked import TrackedFiles
 from devctl.repo import RepoError
 from devctl.settings import ProjectSettings
 
@@ -40,35 +46,34 @@ class MapStep:
 
     def run(self, context: CheckContext) -> StepResult:
         try:
-            files = context.repo.files()
+            tracked = TrackedFiles.read(context.repo)
         except RepoError as error:
             return blocked(self.name, str(error))
-        root = context.repo.root
-        found = guides(root, files, context.project)
+        found = guides(tracked, context.project)
         errors = [
-            *link_errors(root, files, found),
-            *coverage_errors(files, context.project),
-            *reachability_errors(root, found),
-            *feature_errors(context, files),
-            *pattern_errors(context, files),
-            *pattern_lesson_errors(context, files),
-            *rule_errors(context, found),
-            *skill_alias_errors(root, files),
-            *skill_errors(root, files),
-            *skill_file_errors(root, files),
-            *root_document_errors(root, files),
-            *root_link_errors(root, files),
+            *link_errors(tracked, found),
+            *coverage_errors(tracked, context.project),
+            *reachability_errors(tracked, found),
+            *feature_errors(context, tracked),
+            *pattern_errors(context, tracked),
+            *pattern_lesson_errors(context, tracked),
+            *rule_errors(context, tracked, found),
+            *skill_alias_errors(tracked),
+            *skill_errors(tracked),
+            *skill_file_errors(tracked),
+            *root_document_errors(tracked),
+            *root_link_errors(tracked),
         ]
         return failed(self.name, *errors) if errors else passed(self.name)
 
 
-def guides(root: Path, files: Sequence[str], project: ProjectSettings) -> list[str]:
-    """The AGENTS.md files among `files` that exist as files, less those under [map] exclude."""
+def guides(tracked: TrackedFiles, project: ProjectSettings) -> list[str]:
+    """The tracked AGENTS.md files that exist as files, less those under [map] exclude."""
     return [
         path
-        for path in files
+        for path in tracked.files
         if PurePosixPath(path).name == "AGENTS.md"
-        and (root / path).is_file()
+        and (tracked.root / path).is_file()
         and not _map_excluded(path, project)
     ]
 
@@ -78,20 +83,17 @@ def _map_excluded(path: str, project: ProjectSettings) -> bool:
     return any(path == entry or path.startswith(f"{entry}/") for entry in project.map_exclude)
 
 
-def link_errors(root: Path, files: Sequence[str], found: Sequence[str]) -> list[str]:
-    """Each local link in each guide reaches a file the checkout maintains."""
-    maintained = set(files)
-    maintained.update(parent.as_posix() for path in files for parent in PurePosixPath(path).parents)
-    aliases = [root / path for path in files if (root / path).is_symlink()]
+def link_errors(tracked: TrackedFiles, found: Sequence[str]) -> list[str]:
+    """Each local link in each guide reaches a tracked file or a directory that holds one."""
     errors: list[str] = []
     for guide in found:
         try:
-            links = _links(root, guide)
+            links = _links(tracked.root, guide)
         except (OSError, ValueError) as error:
             errors.append(f"{guide}:{error}")
             continue
         for line, target in links:
-            if problem := _link_error(root, guide, line, target, maintained, aliases):
+            if problem := _link_error(tracked, guide, line, target):
                 errors.append(problem)
     return errors
 
@@ -119,29 +121,15 @@ def _from_root(guide: str, path: str) -> str:
     return posixpath.normpath(posixpath.join(directory, path.lstrip("/")))
 
 
-def _link_error(
-    root: Path,
-    guide: str,
-    line: int,
-    target: str,
-    maintained: set[str],
-    aliases: Sequence[Path],
-) -> str | None:
+def _link_error(tracked: TrackedFiles, guide: str, line: int, target: str) -> str | None:
     path = _local_path(target)
     if path is None:
         return None
+    root = tracked.root
     dependency = Path(os.path.normpath(root / _from_root(guide, path)))
     if not dependency.exists():
         return f"{guide}:{line}: missing target {target!r}; update the navigation link"
-    relative = dependency.relative_to(root).as_posix() if dependency.is_relative_to(root) else None
-    # Git records directory aliases, not their descendants. Both the navigation
-    # path (or its alias) and the resolved destination must belong to the checkout.
-    resolved, real_root = dependency.resolve(), root.resolve()
-    if (
-        (relative in maintained or any(dependency.is_relative_to(alias) for alias in aliases))
-        and resolved.is_relative_to(real_root)
-        and resolved.relative_to(real_root).as_posix() in maintained
-    ):
+    if dependency.is_relative_to(root) and tracked.holds(dependency.relative_to(root).as_posix()):
         return None
     return (
         f"{guide}:{line}: target {target!r} is not maintained in this checkout; "
@@ -149,23 +137,38 @@ def _link_error(
     )
 
 
-def coverage_errors(files: Sequence[str], project: ProjectSettings) -> list[str]:
-    """Each top-level directory and source-root child has a guide or is unguided."""
-    present = set(files)
+def coverage_errors(tracked: TrackedFiles, project: ProjectSettings) -> list[str]:
+    """Each top-level directory and source-root child has a tracked guide or is unguided."""
+    files, present = tracked.files, set(tracked.files)
     errors = [
-        f"{root}: source root has no files; fix [map] source_roots"
-        for root in project.source_roots
-        if not any(path.startswith(f"{root}/") for path in files)
+        _empty_source_root(tracked, source_root)
+        for source_root in project.source_roots
+        if not any(path.startswith(f"{source_root}/") for path in files)
     ]
     needing = {path.split("/", 1)[0] for path in files if "/" in path}
-    for root in project.source_roots:
-        needing.update(_children(files, root))
-    errors += [
-        f"{directory}/: add an AGENTS.md guide, or list the directory under [map] unguided"
-        for directory in sorted(needing)
-        if _needs_guide(directory, project) and f"{directory}/AGENTS.md" not in present
-    ]
+    for source_root in project.source_roots:
+        needing.update(_children(files, source_root))
+    hint = "add an AGENTS.md guide, or list the directory under [map] unguided"
+    for directory in sorted(needing):
+        guide = f"{directory}/AGENTS.md"
+        if _needs_guide(directory, project) and guide not in present:
+            errors.append(_required(tracked, guide, f"{directory}/: {hint}"))
     return errors
+
+
+def _empty_source_root(tracked: TrackedFiles, source_root: str) -> str:
+    fix = "fix [map] source_roots"
+    if any(path.startswith(f"{source_root}/") for path in tracked.untracked):
+        fix = f"stage its files with git add, or {fix}"
+    return f"{source_root}: source root holds no tracked files; {fix}"
+
+
+def _required(tracked: TrackedFiles, path: str, missing: str) -> str:
+    """The error for a required file that git does not track; `missing` when the work tree
+    lacks it too."""
+    if (tracked.root / path).is_file():
+        return f"{path}: {tracked.why_untracked(path)}"
+    return missing
 
 
 def _children(files: Sequence[str], root: str) -> set[str]:
@@ -186,15 +189,16 @@ def _needs_guide(directory: str, project: ProjectSettings) -> bool:
     return directory not in project.unguided and not _map_excluded(directory, project)
 
 
-def reachability_errors(root: Path, found: Sequence[str]) -> list[str]:
+def reachability_errors(tracked: TrackedFiles, found: Sequence[str]) -> list[str]:
     """Every guide is reached from the root guide by links, directly or by directory."""
     if ROOT_GUIDE not in found:
-        return [f"{ROOT_GUIDE}: add a root guide that links every other guide"]
+        missing = f"{ROOT_GUIDE}: add a root guide that links every other guide"
+        return [_required(tracked, ROOT_GUIDE, missing)]
     reached = {ROOT_GUIDE}
     pending = deque([ROOT_GUIDE])
     while pending:
         guide = pending.popleft()
-        targets = set(_guide_targets(root, guide))
+        targets = set(_guide_targets(tracked.root, guide))
         for other in found:
             holder = posixpath.dirname(other) or "."
             if other not in reached and (other in targets or holder in targets):
@@ -237,50 +241,60 @@ def _string_list(data: dict[str, object], key: str, *, allow_empty: bool) -> lis
     return value
 
 
-def _documents(root: Path, files: Sequence[str], directory: str) -> list[str]:
-    """The Markdown files under `directory`, other than its README, that exist as files."""
+def _documents(tracked: TrackedFiles, directory: str) -> list[str]:
+    """The tracked Markdown files under `directory`, other than its README, that exist as
+    files."""
     return [
         path
-        for path in files
+        for path in tracked.files
         if path.startswith(f"{directory}/")
         and path.endswith(".md")
         and path != f"{directory}/README.md"
-        and (root / path).is_file()
+        and (tracked.root / path).is_file()
     ]
+
+
+_Problems = Callable[[CheckContext, TrackedFiles, str, dict[str, object], str], list[str]]
 
 
 def _document_errors(
     context: CheckContext,
-    files: Sequence[str],
+    tracked: TrackedFiles,
     directory: str,
     keys: str | None,
-    problems: Callable[[CheckContext, str, dict[str, object], str], list[str]],
+    problems: _Problems,
 ) -> list[str]:
-    """`problems(context, path, front matter, text)` for each document under `directory`.
+    """`problems(context, tracked, path, front matter, text)` for each document under
+    `directory`.
 
     A document whose front matter is unusable is reported as one error; when it has none, the
     message names `keys`. With `keys` None it is skipped, because another rule already reports
     it.
     """
-    root = context.repo.root
+    root = tracked.root
     errors: list[str] = []
-    for path in _documents(root, files, directory):
+    for path in _documents(tracked, directory):
         data = front_matter_of(root, path, keys or "")
         if isinstance(data, dict):
-            errors += problems(context, path, data, (root / path).read_text(encoding="utf-8"))
+            text = (root / path).read_text(encoding="utf-8")
+            errors += problems(context, tracked, path, data, text)
         elif keys is not None:
             errors.append(data)
     return errors
 
 
-def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
-    """Each feature file has front matter, and what it names exists."""
+def feature_errors(context: CheckContext, tracked: TrackedFiles) -> list[str]:
+    """Each feature file has front matter, and git tracks what it names."""
     keys = "purpose, entry_points, data, observe and reproduce"
-    return _document_errors(context, files, FEATURES, keys, _feature_problems)
+    return _document_errors(context, tracked, FEATURES, keys, _feature_problems)
 
 
 def _feature_problems(
-    context: CheckContext, path: str, data: dict[str, object], _text: str
+    _context: CheckContext,
+    tracked: TrackedFiles,
+    path: str,
+    data: dict[str, object],
+    _text: str,
 ) -> list[str]:
     problems: list[str] = []
     if text_value(data, "purpose") is None:
@@ -291,9 +305,9 @@ def _feature_problems(
             problems.append(f"{path}: {key} is missing or empty")
             continue
         problems += [
-            f"{path}: {key} names {item}, which does not exist"
+            f"{path}: {key} names {item}, which {problem}"
             for item in items
-            if not path_exists(context.repo.root, item)
+            if (problem := path_problem(item, tracked))
         ]
     if text_value(data, "observe") is None:
         problems.append(f"{path}: observe is missing or empty")
@@ -319,40 +333,48 @@ def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
     return None
 
 
-def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
-    """Each Pattern file has a reference that exists and enforcement that resolves."""
+def pattern_errors(context: CheckContext, tracked: TrackedFiles) -> list[str]:
+    """Each Pattern file has a tracked reference and enforcement that resolves."""
     return _document_errors(
-        context, files, PATTERNS, "task, reference and enforced_by", _pattern_problems
+        context, tracked, PATTERNS, "task, reference and enforced_by", _pattern_problems
     )
 
 
 def _pattern_problems(
-    context: CheckContext, path: str, data: dict[str, object], _text: str
+    context: CheckContext,
+    tracked: TrackedFiles,
+    path: str,
+    data: dict[str, object],
+    _text: str,
 ) -> list[str]:
     problems: list[str] = []
     reference = text_value(data, "reference")
     if reference is None:
         problems.append(f"{path}: reference is missing or empty")
-    elif not path_exists(context.repo.root, reference):
-        problems.append(f"{path}: reference names {reference}, which does not exist")
+    elif problem := path_problem(reference, tracked):
+        problems.append(f"{path}: reference names {reference}, which {problem}")
     enforced = _string_list(data, "enforced_by", allow_empty=False)
     if enforced is None:
         problems.append(f"{path}: enforced_by is missing or empty")
         return problems
-    reasons = (resolve(item, context) for item in enforced)
+    reasons = (resolve(item, context, tracked) for item in enforced)
     return problems + [f"{path}: {reason}" for reason in reasons if reason is not None]
 
 
-def pattern_lesson_errors(context: CheckContext, files: Sequence[str]) -> list[str]:
+def pattern_lesson_errors(context: CheckContext, tracked: TrackedFiles) -> list[str]:
     """Each Pattern file has a task and a non-empty ## Lessons.
 
     A file whose front matter is unusable is left to `pattern_errors`, which reports it.
     """
-    return _document_errors(context, files, PATTERNS, None, _lesson_problems)
+    return _document_errors(context, tracked, PATTERNS, None, _lesson_problems)
 
 
 def _lesson_problems(
-    context: CheckContext, path: str, data: dict[str, object], text: str
+    _context: CheckContext,
+    _tracked: TrackedFiles,
+    path: str,
+    data: dict[str, object],
+    text: str,
 ) -> list[str]:
     problems: list[str] = []
     if text_value(data, "task") is None:
@@ -363,54 +385,64 @@ def _lesson_problems(
     return problems
 
 
-def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]:
+def rule_errors(context: CheckContext, tracked: TrackedFiles, found: Sequence[str]) -> list[str]:
     """Each rule under a Rules heading ends with a marker whose reference resolves."""
     errors: list[str] = []
     for guide in found:
         try:
-            items = rules_items((context.repo.root / guide).read_text(encoding="utf-8"))
+            items = rules_items((tracked.root / guide).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue  # link_errors reports a guide that cannot be read
-        errors += [problem for item in items if (problem := _rule_problem(context, guide, item))]
+        errors += [
+            problem for item in items if (problem := _rule_problem(context, tracked, guide, item))
+        ]
     return errors
 
 
-def _rule_problem(context: CheckContext, guide: str, item: ListItem) -> str | None:
+def _rule_problem(
+    context: CheckContext, tracked: TrackedFiles, guide: str, item: ListItem
+) -> str | None:
     ending = _RULE_END.search(item.text)
     if ending is None:
         return f"{guide}:{item.line}: end the rule with 'enforced by: <reference>' or 'advisory'"
     reference = ending.group("reference")
-    reason = resolve(reference, context) if reference else None
+    reason = resolve(reference, context, tracked) if reference else None
     return f"{guide}:{item.line}: {reason}" if reason else None
 
 
-def _root_documents(root: Path, files: Sequence[str]) -> list[str]:
-    """The ROOT_DOCUMENTS that exist as files the checkout maintains."""
-    present = set(files)
-    return [name for name in ROOT_DOCUMENTS if name in present and (root / name).is_file()]
+def _root_documents(tracked: TrackedFiles) -> list[str]:
+    """The ROOT_DOCUMENTS that git tracks and that exist as files."""
+    return [
+        name for name in ROOT_DOCUMENTS if name in tracked.files and (tracked.root / name).is_file()
+    ]
 
 
-def root_document_errors(root: Path, files: Sequence[str]) -> list[str]:
-    """README.md and ARCHITECTURE.md exist at the repository root.
+def root_document_errors(tracked: TrackedFiles) -> list[str]:
+    """README.md and ARCHITECTURE.md are tracked at the repository root.
 
     rapid-ship sync seeds a missing document when it upgrades a project from a Kit without the
     seed. Once the lock lists a document, sync never writes it again, so the message names git.
     """
-    found = _root_documents(root, files)
+    found = _root_documents(tracked)
     return [
-        f"{name}: missing at the repository root; restore it from git or write a new one "
-        "(rapid-ship sync seeds it only while the Kit lock does not list it)"
+        _required(
+            tracked,
+            name,
+            f"{name}: missing at the repository root; restore it from git or write a new one "
+            "(rapid-ship sync seeds it only while the Kit lock does not list it)",
+        )
         for name in ROOT_DOCUMENTS
         if name not in found
     ]
 
 
-def root_link_errors(root: Path, files: Sequence[str]) -> list[str]:
+def root_link_errors(tracked: TrackedFiles) -> list[str]:
     """Each local link in the root documents resolves as link_errors checks it, and the root
-    guide links both. A missing document is root_document_errors' report, and a missing root
-    guide reachability_errors'."""
-    errors = link_errors(root, files, _root_documents(root, files))
-    if (root / ROOT_GUIDE).is_file():
+    guide links both. A missing or untracked document is root_document_errors' report, and a
+    missing or untracked root guide reachability_errors'."""
+    root = tracked.root
+    errors = link_errors(tracked, _root_documents(tracked))
+    if ROOT_GUIDE in tracked.files and (root / ROOT_GUIDE).is_file():
         targets = set(_guide_targets(root, ROOT_GUIDE))
         errors += [
             f"{ROOT_GUIDE}: does not link {name}; add it to the Find the change table"

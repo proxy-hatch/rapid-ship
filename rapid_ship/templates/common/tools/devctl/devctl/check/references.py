@@ -1,7 +1,8 @@
 """Resolve references: the names of the checks that enforce a Rule or a Pattern.
 
 A reference is `<kind>:<value>`. `check` and `test` work for every stack. `ruff`, `banned`,
-`contract` and `type` read pyproject.toml and exist only for the Python stack.
+`contract` and `type` read pyproject.toml and exist only for the Python stack. A file that a
+reference reads or names counts only when git tracks it.
 """
 
 from __future__ import annotations
@@ -9,10 +10,11 @@ from __future__ import annotations
 import re
 import tomllib
 from collections.abc import Callable, Iterable
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 
 from devctl.check.stacks.python import test_identities
 from devctl.check.steps import CheckContext
+from devctl.check.tracked import TrackedFiles
 
 # Ruff selects these when `select` is not set.
 _RUFF_DEFAULT_SELECT = ["E4", "E7", "E9", "F"]
@@ -23,15 +25,28 @@ class _Unreadable(Exception):
     """pyproject.toml is missing or invalid. The message names what is wrong."""
 
 
-def path_exists(root: Path, path: str) -> bool:
-    """Whether `path` names a file or directory inside the repository at `root`."""
+def _inside(path: str) -> bool:
+    """Whether `path` is relative and cannot leave the repository."""
     parts = PurePosixPath(path).parts
-    if not parts or PurePosixPath(path).is_absolute() or ".." in parts or "\\" in path:
-        return False
-    return (root / path).exists()
+    return bool(parts) and not (PurePosixPath(path).is_absolute() or ".." in parts or "\\" in path)
 
 
-def resolve(reference: str, context: CheckContext) -> str | None:
+def path_problem(path: str, tracked: TrackedFiles) -> str | None:
+    """None when `path` names a tracked file, or a directory that holds one, inside the
+    repository; else why not, as a phrase: "does not exist" or "is not tracked; ..."."""
+    if not _inside(path) or not (tracked.root / path).exists():
+        return "does not exist"
+    return None if tracked.holds(path) else f"is {tracked.why_untracked(path)}"
+
+
+def _file_problem(path: str, tracked: TrackedFiles) -> str | None:
+    """None when `path` is a tracked file inside the repository; else why not, as a phrase."""
+    if not _inside(path) or not (tracked.root / path).is_file():
+        return "is not a file"
+    return None if tracked.holds(path) else f"is {tracked.why_untracked(path)}"
+
+
+def resolve(reference: str, context: CheckContext, tracked: TrackedFiles) -> str | None:
     """None when the reference resolves, else why it does not."""
     kind, _, value = reference.partition(":")
     if not kind or not value:
@@ -39,14 +54,14 @@ def resolve(reference: str, context: CheckContext) -> str | None:
     if kind == "check":
         return _check(reference, value, context)
     if kind == "test":
-        return _test(reference, value, context)
+        return _test(reference, value, context, tracked)
     if kind not in _PYTHON_KINDS:
         return f"{reference}: unknown reference kind {kind}"
     if context.project.stack != "python":
         return f"{reference}: unknown reference kind {kind} for the {context.project.stack} stack"
     try:
-        data = _pyproject(context.repo.root)
-        return _PYTHON_RESOLVERS[kind](reference, value, context, data)
+        data = _pyproject(tracked)
+        return _PYTHON_RESOLVERS[kind](reference, value, tracked, data)
     except _Unreadable as error:
         return f"{reference}: {error}"
 
@@ -59,14 +74,14 @@ def _check(reference: str, step: str, context: CheckContext) -> str | None:
     return f"{reference}: no devctl check step is named {step}"
 
 
-def _test(reference: str, value: str, context: CheckContext) -> str | None:
+def _test(reference: str, value: str, context: CheckContext, tracked: TrackedFiles) -> str | None:
     path, separator, name = value.partition("::")
     if not path or not separator or not name:
         return f"{reference}: write test:<path>::<name>"
-    if not path_exists(context.repo.root, path) or not (context.repo.root / path).is_file():
-        return f"{reference}: {path} is not a file"
+    if problem := _file_problem(path, tracked):
+        return f"{reference}: {path} {problem}"
     try:
-        text = (context.repo.root / path).read_text(encoding="utf-8")
+        text = (tracked.root / path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         return f"{reference}: cannot read {path}: {error}"
     if context.project.stack == "python":
@@ -79,9 +94,12 @@ def _test(reference: str, value: str, context: CheckContext) -> str | None:
     return None if found else f"{reference}: {path} has no test named {name}"
 
 
-def _pyproject(root: Path) -> dict[str, object]:
+def _pyproject(tracked: TrackedFiles) -> dict[str, object]:
+    path = tracked.root / "pyproject.toml"
+    if path.is_file() and not tracked.holds("pyproject.toml"):
+        raise _Unreadable(f"pyproject.toml is {tracked.why_untracked('pyproject.toml')}")
     try:
-        return tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        return tomllib.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise _Unreadable("pyproject.toml is missing") from None
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -134,7 +152,7 @@ def _ruff_setting(data: dict[str, object], key: str) -> list[str] | None:
     return lint if lint is not None else _strings(_table(data, "tool", "ruff"), key, "[tool.ruff]")
 
 
-def _ruff(reference: str, code: str, context: CheckContext, data: dict[str, object]) -> str | None:
+def _ruff(reference: str, code: str, _tracked: TrackedFiles, data: dict[str, object]) -> str | None:
     select = _ruff_setting(data, "select")
     selected = _RUFF_DEFAULT_SELECT if select is None else select
     selected = [*selected, *(_ruff_setting(data, "extend-select") or [])]
@@ -148,7 +166,7 @@ def _ruff(reference: str, code: str, context: CheckContext, data: dict[str, obje
 
 
 def _banned(
-    reference: str, member: str, context: CheckContext, data: dict[str, object]
+    reference: str, member: str, _tracked: TrackedFiles, data: dict[str, object]
 ) -> str | None:
     banned = _table(data, "tool", "ruff", "lint", "flake8-tidy-imports", "banned-api")
     if member in banned:
@@ -157,7 +175,7 @@ def _banned(
 
 
 def _contract(
-    reference: str, name: str, context: CheckContext, data: dict[str, object]
+    reference: str, name: str, _tracked: TrackedFiles, data: dict[str, object]
 ) -> str | None:
     contracts = _table(data, "tool", "importlinter").get("contracts", [])
     if isinstance(contracts, list) and any(
@@ -167,9 +185,9 @@ def _contract(
     return f"{reference}: no [[tool.importlinter.contracts]] entry is named {name}"
 
 
-def _type(reference: str, path: str, context: CheckContext, data: dict[str, object]) -> str | None:
-    if not path_exists(context.repo.root, path) or not (context.repo.root / path).is_file():
-        return f"{reference}: {path} is not a file"
+def _type(reference: str, path: str, tracked: TrackedFiles, data: dict[str, object]) -> str | None:
+    if problem := _file_problem(path, tracked):
+        return f"{reference}: {path} {problem}"
     mypy = _table(data, "tool", "mypy")
     covered = _strings(mypy, "files", "[tool.mypy]", split_commas=True) or []
     if not any(_is_under(path, entry) for entry in covered):
@@ -190,7 +208,7 @@ def _is_under(path: str, entry: str) -> bool:
     return entry in ("", ".") or path == entry or path.startswith(f"{entry}/")
 
 
-_PYTHON_RESOLVERS: dict[str, Callable[[str, str, CheckContext, dict[str, object]], str | None]] = {
+_PYTHON_RESOLVERS: dict[str, Callable[[str, str, TrackedFiles, dict[str, object]], str | None]] = {
     "ruff": _ruff,
     "banned": _banned,
     "contract": _contract,

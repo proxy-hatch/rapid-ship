@@ -11,6 +11,7 @@ from devctl.check import core_steps
 from devctl.check.map import MapStep, guides, link_errors
 from devctl.check.map_skills import skill_alias_errors
 from devctl.check.markdown import fenced_blocks, without_code, without_fences
+from devctl.check.tracked import TrackedFiles
 
 
 @pytest.fixture
@@ -22,11 +23,17 @@ def repository(workspace: Workspace) -> Workspace:
 
 
 def problems(workspace: Workspace) -> str:
+    """Stage every file, as before a commit, then list the link and skill alias errors."""
+    workspace.stage()
+    return tracked_problems(workspace)
+
+
+def tracked_problems(workspace: Workspace) -> str:
+    """The link and skill alias errors for the files git tracks now, without staging any."""
     context = workspace.context()
-    files = context.repo.files()
-    root = context.repo.root
-    found = guides(root, files, context.project)
-    return "\n".join([*link_errors(root, files, found), *skill_alias_errors(root, files)])
+    tracked = TrackedFiles.read(context.repo)
+    found = guides(tracked, context.project)
+    return "\n".join([*link_errors(tracked, found), *skill_alias_errors(tracked)])
 
 
 def test_accepts_existing_file_and_directory_navigation(repository: Workspace) -> None:
@@ -42,16 +49,36 @@ def test_accepts_a_link_to_the_repository_root(repository: Workspace) -> None:
     assert problems(repository) == ""
 
 
-def test_reports_moved_navigation_target_from_untracked_guide(repository: Workspace) -> None:
+def test_reports_moved_navigation_target_from_staged_guide(repository: Workspace) -> None:
     repository.write("docs/AGENTS.md", "# Docs\n\n[Start](start.md)\n")
     target = repository.write("docs/start.md", "Start here\n")
+    repository.stage()
     target.rename(repository.root / "docs/moved.md")
 
-    found = problems(repository)
+    found = tracked_problems(repository)
 
     assert "docs/AGENTS.md:3" in found
     assert "start.md" in found
     assert "update" in found.lower()
+
+
+def test_an_untracked_guide_is_not_checked(repository: Workspace) -> None:
+    repository.stage()
+    repository.write("docs/AGENTS.md", "# Docs\n\n[Start](start.md)\n")
+
+    assert tracked_problems(repository) == ""
+
+
+@pytest.mark.parametrize("target", ["docs/draft.md", "docs/"])
+def test_a_link_to_an_untracked_file_is_unresolved(repository: Workspace, target: str) -> None:
+    repository.write("AGENTS.md", f"[Draft]({target})\n")
+    repository.stage()
+    repository.write("docs/draft.md", "Draft\n")
+
+    assert tracked_problems(repository) == (
+        f"AGENTS.md:1: target {target!r} is not maintained in this checkout; "
+        "track its source or update the navigation link"
+    )
 
 
 def test_supports_markdown_paths_titles_and_reference_links(repository: Workspace) -> None:
@@ -209,6 +236,24 @@ def test_rejects_extra_alias_but_allows_parent_guide(repository: Workspace) -> N
     assert ".claude/skills/unpackaged" in found
     assert "remove" in found.lower()
     assert "AGENTS.md" not in found
+
+
+def test_an_untracked_skill_needs_no_alias(repository: Workspace) -> None:
+    repository.stage()
+    repository.write(".agents/skills/draft/SKILL.md", skill_text("draft"))
+
+    assert tracked_problems(repository) == ""
+
+
+def test_an_untracked_alias_does_not_count(repository: Workspace) -> None:
+    (repository.root / ".claude/skills/example").unlink()
+    repository.stage()
+    repository.link(".claude/skills/example", "../../.agents/skills/example")
+
+    assert tracked_problems(repository) == (
+        ".claude/skills/example: add a relative symlink to ../../.agents/skills/example "
+        "and track it in Git"
+    )
 
 
 def test_required_alias_must_be_maintained_in_git(repository: Workspace) -> None:
