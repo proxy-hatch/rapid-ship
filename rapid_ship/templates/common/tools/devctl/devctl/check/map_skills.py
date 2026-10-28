@@ -78,7 +78,7 @@ def _skill_md_tracked(tracked: TrackedFiles, name: str) -> bool:
     directory, real_root = (tracked.root / SKILLS / name).resolve(), tracked.root.resolve()
     return (
         directory.is_relative_to(real_root)
-        and f"{directory.relative_to(real_root).as_posix()}/SKILL.md" in tracked.files
+        and (directory.relative_to(real_root) / "SKILL.md").as_posix() in tracked.files
     )
 
 

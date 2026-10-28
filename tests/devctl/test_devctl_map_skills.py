@@ -160,3 +160,24 @@ def test_a_tracked_skill_md_symlink_to_a_missing_target_is_reported(workspace: W
 
     assert skill_file_errors(TrackedFiles.read(workspace.context().repo)) == [SYMLINK]
     assert (result.status, result.details) == ("failed", (SYMLINK,))
+
+
+@pytest.mark.parametrize("target", ["tracked", "untracked", "missing"])
+def test_a_root_linked_skill_reports_its_tracked_skill_md_symlink(
+    workspace: Workspace, target: str
+) -> None:
+    workspace.root_guide()
+    workspace.stage()
+    if target != "missing":
+        workspace.write("real.md", skill_text("demo"))
+    (workspace.root / "SKILL.md").symlink_to("real.md")
+    workspace.link(".agents/skills/demo", "../..")
+    workspace.link(".claude/skills/demo", "../../.agents/skills/demo")
+    workspace.git("add", "SKILL.md", ".agents/skills/demo", ".claude/skills/demo")
+    if target == "tracked":
+        workspace.git("add", "real.md")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert skill_file_errors(TrackedFiles.read(workspace.context().repo)) == [SYMLINK]
+    assert (result.status, result.details) == ("failed", (SYMLINK,))
