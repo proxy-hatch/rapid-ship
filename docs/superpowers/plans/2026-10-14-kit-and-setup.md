@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plans 6 and 7 are not started. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plans 6 and 7 are not started. Each gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan, [Metrics and gardening](2026-10-26-metrics-and-gardening.md), builds it in nine PRs, which [its section below](#spec-3-metrics-and-gardening) outlines. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit and the task shape that PR 7.3 builds.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -28,8 +28,9 @@ This index fixes the layout and the names, signatures and formats that more than
   - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH] [--install]`; `--install` from plan 6
   - `devctl doctor [--skills | --settings]` (`--settings` from plan 5; the two exclude each other), `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
+  - `devctl metrics [--window N] [--json] [--post]` (Spec 3)
   - `devctl hook claude pre-tool` (plan 5); each later wiring adds its Harness
-- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2.
+- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2. `devctl metrics` exits 1 on a breached Suggested threshold, never on an unknown one; a used-up API allowance leaves metrics unknown rather than exiting 2; with `--post` a posted breach exits 0.
 - Every refusal and error names the problem, what it blocks and the next step (guided rectifying), and still stops at the first error and shows its cause.
 - A settings file the Kit ships comments a key only where its format allows a comment and the key's name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint (Spec 1 section 4). devctl's loaders reject unknown keys, wrong types, numbers out of range and values outside their allowed set (plan 5; plan 6 for the TypeScript files).
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed.
@@ -106,6 +107,9 @@ tools/devctl/
     hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and each wired Harness's protocol
     command_line.py              # plan 5: shell splitting, and the git and gh forms the guardrails read
     merge_guard.py merge_guard_github.py   # plan 5: the merge guard, G9, and its GitHub reads
+    ledger.py                    # Spec 3: a Corrections ledger entry and last-pass.toml
+    check/map_ledger.py          # Spec 3: map rule 9, the ledger's format
+    metrics/                     # Spec 3: devctl metrics, its settings, window, metrics, report and post
   devctl_project/                # seeded: project verbs and extra check steps
     __init__.py
 ```
@@ -396,6 +400,12 @@ Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `ta
 - `check` runs the common steps once and each stack's steps in its directory. A stack step's name gains its directory in parentheses, such as `lint (frontend)`, unless the repository has one stack at the root.
 - `devctl/check/stacks/<name>.py` supplies each stack's steps, suppression forms, reference kinds and source extensions.
 
+### `rs-health`'s references (plan 7; Spec 3's `rs-garden` reads them)
+
+- `.agents/skills/rs-health/references/audit.md` holds the audit that `rs-health` runs over the whole repository and `rs-garden` over the files changed in its range.
+- `.agents/skills/rs-health/references/proposed-task.md` holds the shape of a proposed task: one PR within the diff cap, with acceptance criteria, a test plan and the tasks it waits on. Both skills' tasks follow it.
+- `rs-garden` names both files by their repository paths as code spans, not as Markdown links, because a Kit skill's links stay inside its own directory.
+
 ## Plan 4: Doctor and Agent identity
 
 **State:** built and merged in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`). Its plan document, [`2026-10-16-doctor-and-agent-identity.md`](2026-10-16-doctor-and-agent-identity.md), holds the tasks and the verification record. The follow-ups below are built on the same PRs. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is the plan as written, without what follow-ups 7 and 9 removed.
@@ -579,6 +589,30 @@ Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows the
 9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on hello-rapid-ship, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on hello-rapid-ship, ending with the tasks the owner picks in a tracker that the Harness reaches.
 10. Owner step: apply `rs-setup`'s GitHub settings to `proxy-hatch/rapid-ship`.
 11. The documentation site. It teaches why a reader needs rapid-ship before how to use it. Only the home page sells, with the owner's tagline of 2026-10-20: "Becoming a 100x developer starts with agents that earn your trust." and the line "Agents that prove their work earn autonomy, so you can stop watching every one of them." Everywhere else it is plain and professional. The sidebar is Start (Home, Why rapid-ship, Get started around `rs-setup`, The journey), Concepts, Guides titled by outcome, and Reference, with the design records collapsed under Project. Every page carries a Built or Designed status, shows a concrete case before it names a concept, and ends each step with output from a real run. `README.md` becomes a lean GitHub front page, and "Ship more. Supervise less." is retired. Maintainers keep the full proposal, with the page list, page templates and style rules, in Linear, in the rapid-ship project's documents.
+
+## Spec 3: Metrics and gardening
+
+Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md), lands as its own document-only PR before the nine implementation PRs below. PR 3.1 branches from merged `main`. Its "Order and parallel work" section recommends Spec 3-only waves, states the plan 6/7 prerequisites per wave, and lists shared files. The owner confirms the waves on the planning PR; plans 6 and 7 keep their own order.
+
+**State:** planned on 2026-10-27; not started.
+
+**Goal:** `./devctl metrics` with `.rapid-ship/metrics.toml`, the basic metrics and their Suggested thresholds, project-defined metrics and the scheduled metrics Action; the Corrections ledger with map rule 9, its seeded README and the Rule for Corrections given in a Session; `rs-garden`, `rs-preflight` and `rs-setup`'s metrics step; then the live trials, this repository's dog-food and the site's Spec 3 pages.
+
+| PR | Content | Counted lines, estimated |
+| --- | --- | --- |
+| 3.1 | `metrics.toml`, its loader and the status rule | about 700 |
+| 3.2 | The ledger's parser, map rule 9, its seeds and the `session` Rule | about 800 |
+| 3.3 | The GitHub reader with the API allowance, and the window | about 900 |
+| 3.4 | Revisions, Red merges, and `devctl metrics` with its text, JSON and exit codes | about 1,150 |
+| 3.5 | Reverts, whole and partial; Closed unmerged; Corrections | about 1,200 |
+| 3.6 | Project-defined metrics | about 800 |
+| 3.7 | `[kit] optional` for Kit files, `--post` and the Action | about 750 |
+| 3.8 | `rs-garden`, `rs-preflight` and `rs-setup`'s metrics step | about 200 |
+| 3.9 | The integration tests, the trial records and the site's Spec 3 pages | about 150 |
+
+3.7 alone renames `optional_skills` to `optional` and the reader/settings names, including all entries then present. Plan 7 uses current names until then; whichever lands second updates shared callers and fixtures.
+
+3.8 waits for 3.5, 3.6, 3.7, plan 7's PRs 7.1a, 7.2 and 7.3, and the Harness wiring (PRO-155 and PRO-142). 3.9 waits for the live trials, PR 6.3 and plan 7's merged document, including its Shared interfaces entry for documentation pages. PR 7.4, GA, lands after 3.9.
 
 ## Plan style
 

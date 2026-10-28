@@ -182,7 +182,7 @@ Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) define
 - **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
 
-Spec 3 gets its plan next, and GA includes it:
+Spec 3 is planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md), and GA includes it:
 
 - **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden`, and `rs-preflight`, the advisory readiness review before the owner widens the Mode toward Flight.
 

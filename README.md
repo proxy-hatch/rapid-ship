@@ -19,7 +19,7 @@ rapid-ship is being rebuilt. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-
 - Plan 6 adds the TypeScript stack and several stacks in one repository.
 - Plan 7 adds the setup skills, `rs-setup` and `rs-health`.
 
-[Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) adds the metrics, gardening and `rs-preflight`, and GA includes it. Its plan comes next.
+[Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md) adds the metrics, gardening and `rs-preflight`, and GA includes it. [Its plan](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md) builds it in nine PRs.
 
 *Dog-fooding:* this repository is built with its own Kit, tracks its own tasks in Linear, and records its own Worker App and Reviewer App for Agent identity.
 
