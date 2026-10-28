@@ -197,3 +197,10 @@ path = "pyproject.toml"
 rule = "vulture.ignore_names:pytestmark"
 reason = "pytest reads pytestmark from a test module by name; three devctl test modules set it"
 remove_when = "No test module sets pytestmark"
+
+[[exception]]
+id = "EX-30"
+path = "rapid_ship/templates/common/tools/devctl/devctl/hook.py"
+rule = "BLE001"
+reason = "agy documents a hook's answer only as JSON on stdout, so any error of devctl hook's own must become that answer, a deny that names the error, rather than an exit 1 or a traceback"
+remove_when = "agy documents how it treats a hook that exits 1, or the hook's code can raise only errors that a narrow except names"
