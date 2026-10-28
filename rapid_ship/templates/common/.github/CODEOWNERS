@@ -16,7 +16,7 @@
 # /.githooks/ @{{owner}}
 # /devctl @{{owner}}
 # /tools/devctl/ @{{owner}}
-# /.agents/skills/ @{{owner}}
+# /.agents/ @{{owner}}
 # /.claude/ @{{owner}}
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
