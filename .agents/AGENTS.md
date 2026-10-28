@@ -16,5 +16,6 @@ Edit its template and sync; do not edit this generated copy.
 Doctor checks direct and shell launch from root and `.agents/`, including a synthetic G2 deny.
 These are deterministic checks, not agy/ACP Sessions; other launch directories remain unsupported by the relative command.
 Each new worktree still requires explicit hook trust.
-The [trial](../docs/trials/2026-10-28-agy-hook-outside-repository.md) records working CLI-mode probes and unresolved original ACP failures.
-Live ACP verification is blocked on quota; no guardrail or tool `Cwd` policy changes with this launcher.
+The [trial](../docs/trials/2026-10-28-agy-hook-outside-repository.md) distinguishes successful wrapper `/bin/sh -c` probes from a failed direct legacy-seed CLI launch and successful direct new-seed acceptance.
+That supports a shell-syntax diagnosis; original raw subprocess argv and stderr are absent.
+Live ACP verification is quota-blocked, and the original ACP cause remains unverified; no guardrail or tool `Cwd` policy changes with this launcher.

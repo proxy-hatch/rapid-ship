@@ -3,13 +3,16 @@
 The Kit now seeds `./devctl hook agy pre-tool`, removing shell expansion from the configured command.
 Managed `.agents/devctl` forwards to canonical root `devctl` by its own location.
 Deterministic tests cover direct and shell invocation from root and `.agents/`, including spaces, arguments, stdin and real allow/G2-deny decisions.
+A delegated T3 agy Session using the new seed passed [CLI-mode acceptance](#live-cli-mode-acceptance).
 No agy protocol, tool `Cwd` policy or guardrail changes with this launcher.
 
-This is not a verified fix for the original ACP failures.
-CLI-mode probes succeeded with the old launcher after trust; both original failed Workers also received delivered trust answers.
-Their hook subprocess diagnostics remain unavailable.
+Direct legacy-seed launch failed in a confirmed T3 CLI-mode Worker after explicit trust; the new seed passed direct live CLI-mode acceptance.
+Earlier probes succeeded only when agy launched an absolute wrapper that ran the old seed through `/bin/sh -c`.
+This supports a diagnosis that agy's T3 hook launcher does not support the old seed's shell syntax, including in CLI mode.
+The original raw subprocess argv and stderr remain unavailable; this is a supported diagnosis, not direct syscall evidence.
+Both original failed Workers also received delivered trust answers.
 The original ACP profile is quota-blocked until approximately 2026-11-04; live ACP verification remains pending.
-Shellless ACP invocation is an unverified hypothesis, not an established cause.
+The original ACP cause remains unverified, so this is not a verified ACP fix.
 
 ## Revision and environment record
 
@@ -65,7 +68,7 @@ A launcher change cannot repair a trust or initialization failure that prevents 
 
 The coordinator supplied three private scratch-project records from agy 1.4.7.
 Raw events, local paths, accounts, profile paths and request identifiers remain private.
-Probes 2 and 3 wrapped the unchanged seed from `3a4fc85`:
+In probes 2 and 3, agy launched an absolute wrapper; that wrapper ran the unchanged seed from `3a4fc85` through `/bin/sh -c`:
 
 ```sh
 "$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool
@@ -76,13 +79,14 @@ Probes 2 and 3 wrapped the unchanged seed from `3a4fc85`:
 | Explicit trust | Required before hook ran | Required before hook ran | Required before hook ran |
 | Hook cwd and Git top level | Repository root | Worktree root | Worktree root |
 | Tool `Cwd` | Key present; value not captured | Global skills directory | Missing global skills directory |
-| Old launcher | Not invoked by capture hook | Exit 0, `allow`, empty stderr; 2.42 s | Exit 0, `allow`; 1.32 s |
+| Old seed through wrapper `/bin/sh -c` | Not invoked by capture hook | Exit 0, `allow`, empty stderr; 2.42 s | Exit 0, `allow`; 1.32 s |
 | Tool execution | First `pwd` failed; retry printed root | Wrapper denied; nothing executed | Hook allowed; command failed because requested directory did not exist |
 
 Probe 3's separate file read worked and invoked no hook, as the seed's matcher specifies.
-The successful delegated probes used CLI mode; the original failures used ACP mode, which these probes did not reach.
-A missing tool directory is therefore an observed command error separate from devctl's successful launch.
-It does not establish the original ACP hook failure's cause.
+The delegated probes used CLI mode, but did not test agy directly launching the old seed's shell syntax.
+The original failures used ACP mode, which these probes did not reach.
+A missing tool directory is an observed command error separate from devctl's successful launch through the wrapper's shell.
+Neither observation establishes the original ACP hook failure's cause.
 
 Each fresh worktree prompted for hook trust. No implementation here answers trust automatically.
 The hook cwd differs from both tool `args.Cwd` and environment `PWD`.
@@ -91,6 +95,19 @@ The four project/Git variables `AGY_PROJECT_DIR`, `CLAUDE_PROJECT_DIR`, `GIT_DIR
 Captures listed the root before skills folders in `workspacePaths`; command argument keys included `CommandLine`, `Cwd` and `WaitMsBeforeAsync`.
 These observations are not a universal Harness contract.
 The earlier [interactive hook spike](2026-10-21-hook-spike.md#agys-interactive-runs-pro-143) observed `.agents/` as hook cwd.
+
+## Later direct legacy-seed CLI failure
+
+The coordinator confirmed a later delegated Worker used T3's CLI profile on 2026-10-28 at 10:27 UTC.
+Its worktree stayed at the unchanged review base `3a4fc85`, with the old seed configured directly as agy's hook command.
+After an explicit `trust` answer, its first `./devctl doctor --settings` call failed with `External hook 'devctl' failed to execute`.
+That command set `Cwd` to the correct worktree root.
+The Worker made no changes, and its source revision never moved to the new implementation.
+This failed direct legacy-seed launch differs from probes 2 and 3, where agy launched an absolute wrapper that supplied `/bin/sh -c`.
+Together with the new seed's direct CLI-mode acceptance below, it supports the shell-syntax diagnosis; original raw subprocess argv and stderr are absent.
+It does not test the new launcher or establish the original ACP cause.
+The earlier CLI success cannot be generalized to every delegated configuration.
+The manager withdrew the temporary relaxation: no agy Workers until the PR merges.
 
 ## Offline old-launcher evidence
 
@@ -148,17 +165,41 @@ Recorded implementation checks:
 Logs are private under `/tmp/rs-pro-172/worker-3/`.
 Historical checks apply only to their original revisions: first investigation 276 focused tests and fast tier passed; second investigation 145 focused tests, 14 synthetic cases and fast tier passed.
 
-## Remaining limits and live proof
+## Live CLI-mode acceptance
+
+On 2026-10-28, the coordinator exported `e343ca97befac72d8eb6e48e8584e553d0b9eeeb` with `git archive`.
+From that export, `rapid-ship init --stack agnostic --owner probe --repository probe/probe --name probe` rendered a fresh repository with no remote.
+The committed implementation was used; later documentation-only corrections were absent from the export.
+The seeded `.agents/hooks.json` blob was `d2c3bf2`, mode `100644`, with command `./devctl hook agy pre-tool`.
+The managed `.agents/devctl` blob was `bcc8a11`, mode `100755`.
+Both blobs matched the implementation commit; no capture wrapper replaced the hook.
+
+A Codex parent delegated a real agy Session with worktree isolation in T3's CLI mode.
+agy directly launched the new shell-free seed.
+The new workspace asked for hook trust; the coordinator answered `trust` once.
+Each command explicitly set `Cwd` to that worktree's root:
+
+- `./devctl doctor --settings`: exit 0, `4 ok, 0 missing, 0 unknown`. The agy item denied its synthetic force-push probes in deterministic direct/shell checks from root and `.agents/`.
+- `pwd`: exit 0 and printed the worktree root.
+- `git push --force`: the pre-tool hook denied it with G2's force-push message. No remote existed, so nothing could have been published if the probe had failed.
+
+These are live CLI-mode results using the new seed, separate from the earlier deterministic tests.
+They are not ACP proof.
+
+The coordinator also observed T3 displaying the G2 message on an earlier `Read` activity item.
+That appears to be an attribution error because the seed does not hook Read; whether it explains the original Read-labelled failures remains unverified.
+The scratch T3 project and worktree were removed after the run.
+
+## Remaining limits
 
 Existing projects must update their seeded `.agents/hooks.json` command manually after sync adds the managed forwarder.
-This worktree's hook file was copied byte for byte from the new template; no owner or global hook was changed.
+The implementation worktree's hook file was copied byte for byte from the new template; no owner or global hook was changed.
 The relative command cannot launch from arbitrary other directories, even with valid stdin workspace context.
 Each new worktree still needs explicit hook trust. No automatic approval or fail-open behavior was added.
 The launcher sacrifices no additional guardrail; the existing G5 omission and outside-repository settings/Cwd limits remain.
 
-The Task lead must arrange a real T3 agy probe at the fixed implementation revision, recording CLI or ACP mode explicitly.
-It should capture the hook cwd, same-call `Cwd`, ordered workspace paths, launcher exit/stdout/stderr, and harmless tool output after explicit trust.
-Read should be checked separately for whether a hook fires. Keep credentials, prompts and personal identifiers private.
-ACP verification remains blocked until its quota recovers, approximately 2026-11-04.
+ACP verification remains blocked until its quota recovers, approximately 2026-11-04; the original ACP cause remains unverified.
+The CLI evidence supports the shell-syntax diagnosis, but original raw subprocess argv and stderr are absent.
 A CLI-mode success cannot substitute for that ACP result or complete the original agy plan's full guardrail trial.
-The lead also owns independent review, heavy checks and the documentation build; none is claimed here.
+Independent source review and the scoped documentation re-review approved the implementation and corrections.
+The lead's final-head review, full check and documentation build are recorded separately.
