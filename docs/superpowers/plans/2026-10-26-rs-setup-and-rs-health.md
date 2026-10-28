@@ -30,6 +30,7 @@
 - **7.1a first.** Task 1 rewrites skill discovery before Kit skills are vendored. Other code PRs may branch from its reviewed head.
 - **Parallel work.** The owner accepted parallel work on 2026-10-27. Start 7.1b, 7.2 and 7.3 once 7.1a's head exists. Task 11 Steps 1 and 2 may start independently. No fixed cap or wave barrier applies; per-task prerequisites still hold.
 - **Merged prerequisites.** Task 4's Pull requests pointer and Task 7's `HookSettings` tests require merged PRO-166 (`escalation-and-pr-guide`). Merge `origin/main` normally before those steps. PRO-155 supplies agy wiring; PRO-172's executable-hook fix must merge before agy trials. PRO-142 supplies Codex wiring and must merge before GA and its trial.
+- **7.2's Health dependency.** Prepare 7.2 and 7.3 in parallel. Before Task 5's green test run and 7.2's final validation, merge `origin/main` containing merged 7.3. Its `rs-health` skill and `references/proposed-task.md` must be present. Land 7.3 before 7.2.
 - **7.2's quotations.** Task 5 writes all Setup skill content from the dependency tables. Task 6 owns references and reconciles quotation drift. Approved pending wiring may be described conditionally; no live claim precedes the wiring's merge and trial.
 - **Owner steps.** Task 10's early application was approved on 2026-10-28. The manager prepared an owner-run ruleset and fork-approval script; execution and results remain unverified. Task 10 records actual full-doctor output. Task 9 waits for its named prerequisites and the owner's repository decision.
 - **GA.** 7.4 lands as one PR after Spec 3 and Tasks 9 and 10. Task 12 rechecks all site pages and guides after Spec 3. The owner confirms the GA version before Task 12 sets or tags it.
@@ -148,7 +149,7 @@ These three decisions remain open for the standalone plan PR. Recommendations ar
   - `./devctl check --tier full --base <PR base> --pr-body <body file>`: exit 0, every step passed, `diff` noting `diff cap: <n> of 1,500 counted lines`, and `evidence` passed;
   - when docs change, `npm --prefix website run build`: exit 0, `[SUCCESS] Generated static files in "build".`
 
-  Before 7.1a merges, the PR base of the other PRs is `origin/plan7-upstream`.
+  Before 7.1a merges, 7.1b, 7.2 and 7.3 use `origin/plan7-upstream` as their PR base. 7.4 retains `main` as its PR and check base.
 - Commit trailer: `Co-Authored-By: <the model that writes the commit>`, such as `Co-Authored-By: GPT-6.1 Sol <noreply@openai.com>`.
 
 ## Review Focus
@@ -246,7 +247,7 @@ status = "patched"  # verbatim or patched
 - [ ] **Step 4: write the forks and the lock.** Copy each fixture to its fork path and `LICENSE` to each `LICENSE.txt`; change only each `SKILL.md`'s `name`. Add the seven rows. `git add` the templates, then run `uv run rapid-ship sync --in-place`.
 - [ ] **Step 5: run** `uv run pytest tests/test_kit_upstream.py tests/test_skill_discovery.py tests/test_kit_skills.py -q`; expected exit 0, `<n> passed`. Then `uv run rapid-ship status --strict` and `./devctl check --tier fast`; both exit 0.
 - [ ] **Step 6: commit** `feat: fork rs-codebase-design and rs-writing-for-agents, pinned in an upstream lock`.
-- [ ] **Step 7: verify.** Run the five checks with `--base main` and record them. Evidence: `Not covered: the patched forks, rs-writing and rs-ponytail, which 7.1b adds`. Commit `docs: record PR 7.1a's verification`. 7.1b, 7.2, 7.3 and 7.4 branch from this head.
+- [ ] **Step 7: verify.** Run the five checks with `--base main` and record them. Evidence: `Not covered: the patched forks, rs-writing and rs-ponytail, which 7.1b adds`. Commit `docs: record PR 7.1a's verification`. 7.1b, 7.2 and 7.3 branch from this head. 7.4 starts independently from `main` and keeps `main` as its PR and check base.
 
 ## PR 7.1b: the engineering skills (`plan7-engineering`, on 7.1a's head)
 
@@ -418,7 +419,7 @@ status = "patched"  # verbatim or patched
   - Agent identity, doctor and the PRs: `rapid-ship app` exiting 1 for each of Spec 1 section 3's causes; `claude` not on `PATH` for `--skills`; a skill that the probe misses; G7 denying the push; the Worker App refused a workflow push; a `sync` conflict; linter findings past the cap in the tool-settings PR.
   - TypeScript: the rows of "Where 7.2 depends on plan 6".
 
-- [ ] **Step 1: write the failing text-contract test.** Add `test_known_failures_quote_what_the_kit_prints` to `tests/devctl/test_devctl_ruleset_json.py`. Import `G7` and `G8` from `devctl.hook`. Assert `G7`, `G8.partition("{arguments}")[0]`, `merge denied: in Walk the owner merges every pull request; ask the owner to merge PR #`, and `, so the owner merges it` occur in `known-failures.md`. The last two are exact fragments from `devctl/merge_guard.py`; changing or deleting a quotation must fail the test. This tests quotation drift, not live behavior.
+- [ ] **Step 1: write the failing text-contract test.** Add `test_known_failures_quote_what_the_kit_prints` to `tests/devctl/test_devctl_ruleset_json.py`. Import `G7` and `G8` from `devctl.hook`. Assert `G7`, `G8.partition("{arguments}")[0]`, `merge denied: in Walk the owner merges every pull request; ask the owner to merge PR #`, and `, so the owner merges it` occur in `known-failures.md`. Also import `devctl.merge_guard` and read its actual source with `inspect.getsource(merge_guard)`. Assert both merge-denial fragments occur in that source as well as `known-failures.md`. A change to either source message or its quotation must fail the test. This tests quotation drift, not live behavior.
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_ruleset_json.py -q`; expected failure because `known-failures.md` does not exist.
 - [ ] **Step 3: write the references and reconcile.** Task 5 owns every `SKILL.md` section. Link the three references and correct only drifted quotations there. Normally merge `origin/main` after PRO-166, PRO-155, PRO-147/148 and available wiring/sandbox fixes land. Map every dependency row to the exact source file/constant or literal fragment; preserve conditional wording for unmerged work. Quote the merged messages, then sync. Never merge an unmerged dependency branch or assign its spec edits here.
 - [ ] **Step 4: verify references.** Run `uv run pytest tests/test_skill_discovery.py tests/devctl/test_devctl_ruleset_json.py -q`; expected exit 0, `<n> passed`. Run `uv run rapid-ship status --strict`; expected exit 0, `<n> managed files unchanged.` Run `./devctl check --tier fast`; expected exit 0. Commit `feat: add rs-setup references and pin their error quotations`.

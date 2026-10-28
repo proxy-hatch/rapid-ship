@@ -571,6 +571,8 @@ Its plan document, [`2026-10-26-rs-setup-and-rs-health.md`](2026-10-26-rs-setup-
 | 7.3 | 7 and 8 | `rs-health` with `references/audit.md` and `references/proposed-task.md`, and the optional `rs-contribute` |
 | 7.4 | 11 and 12 | The documentation site, the trial records of Tasks 9 and 10, and GA (proposed `v1.0.0`, pending owner confirmation) |
 
+Prepare 7.2 and 7.3 in parallel, but land 7.3 before 7.2: Setup consumes Health's proposed-task reference. Merge `origin/main` containing 7.3 before 7.2's green tests and final validation.
+
 Tasks 9 and 10 are Owner steps. Early Task 10 application was approved on 2026-10-28; its manager-prepared script has no recorded execution result. GA includes Spec 3, so 7.4 lands as one PR once Spec 3 is built and Tasks 9 and 10 are recorded.
 
 **Files:**
