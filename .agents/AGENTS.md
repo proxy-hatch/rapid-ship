@@ -7,3 +7,5 @@ The [.claude](../.claude/AGENTS.md) surface points to that same source.
 Before changing skill behavior or references, read the packaged [skills guide](../rapid_ship/skills/AGENTS.md).
 Keep maintainer navigation outside individual skill bundles.
 After changing discovery paths or bundled references, run `uv run pytest tests/test_skill_discovery.py` from the repository root.
+
+[hooks.json](hooks.json) wires `devctl hook` for agy; it is seeded, in the Protected set, and doctor checks it and runs its hook.

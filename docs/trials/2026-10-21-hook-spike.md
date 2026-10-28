@@ -928,7 +928,7 @@ G1 to G4 stay in the hook. A warm `./devctl --version` took 0.10 seconds at the 
 ### Codex and agy wiring
 
 - Codex: a follow-up wires Codex after plan 5, without G5, because Codex ran the call with no prompt on the hook's ask (backlog item PRO-142).
-- agy: no decision yet. agy's interactive runs, a lead Session and a subagent, ran on 2026-10-26 ([agy's interactive runs](#agys-interactive-runs-pro-143)), and the owner decides from them (backlog item PRO-143).
+- agy: after its interactive runs, a lead Session and a subagent, on 2026-10-26 ([agy's interactive runs](#agys-interactive-runs-pro-143), backlog item PRO-143), the owner decided that day to wire agy before GA, without G5, because in `accept-edits` mode an ask on a write gave no prompt (backlog item PRO-155). [Plan 5's agy follow-up](../superpowers/plans/2026-10-26-agy-wiring.md) builds it.
 
 ### What the record changes in plan 5
 
