@@ -2,6 +2,8 @@
 
 import json
 import re
+import shlex
+import sys
 import tomllib
 from pathlib import Path
 
@@ -537,3 +539,64 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
 def test_askpass_is_written_executable() -> None:
     # init and sync set the executable bit only for paths kit.toml lists.
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable
+
+
+def agy_launch_files(root: Path, stack: Stack, shim: str) -> str:
+    """Render real launch files; replace only canonical devctl with a controlled stand-in."""
+    executable = load_manifest().executable
+    for path, template in rendered(stack).items():
+        if path in (".agents/hooks.json", ".agents/devctl"):
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content(template))
+            target.chmod(0o755 if path in executable else 0o644)
+    (root / "devctl").write_text(shim)
+    (root / "devctl").chmod(0o755)
+    hooks = json.loads((root / ".agents/hooks.json").read_text())
+    return str(hooks["devctl"]["PreToolUse"][0]["hooks"][0]["command"])
+
+
+def echo_shim() -> str:
+    script = "import json, sys; print(json.dumps([sys.argv[1:], sys.stdin.read()]))"
+    return f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -c {shlex.quote(script)} "$@"\n'
+
+
+@pytest.mark.parametrize("stack", STACKS)
+@pytest.mark.parametrize("directory", [".", ".agents"])
+@pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
+def test_agy_seed_launch_preserves_arguments_and_stdin(
+    tmp_path: Path, stack: Stack, directory: str, shell: bool
+) -> None:
+    root = tmp_path / "project with spaces"
+    command = agy_launch_files(root, stack, echo_shim())
+    assert run_process(["git", "init", "--quiet"], root, 10).returncode == 0
+    payload = ' {"CommandLine": "git push --force; $(touch never)"}\n\n'
+    argv = ["/bin/sh", "-c", command] if shell else shlex.split(command)
+
+    result = run_process(argv, root / directory, 10, input_text=payload)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [["hook", "agy", "pre-tool"], payload]
+    assert not (root / "never").exists()
+
+
+@pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
+def test_agy_forwarder_uses_its_location_and_preserves_shell_arguments(
+    tmp_path: Path, shell: bool
+) -> None:
+    root = tmp_path / "project with spaces"
+    agy_launch_files(root, "agnostic", echo_shim())
+    forwarder = root / ".agents/devctl"
+    assert forwarder.is_file()
+    assert rendered("agnostic")[".agents/devctl"].kind == "managed"
+    args = ["", "two words", "line\nbreak", "$(touch never)", "*", "'quoted'"]
+    argv = [str(forwarder), *args]
+    if shell:
+        argv = ["/bin/sh", "-c", shlex.join(argv)]
+    payload = "unicode: λ\n\n"
+
+    result = run_process(argv, tmp_path, 10, input_text=payload)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [args, payload]
+    assert not (tmp_path / "never").exists()
