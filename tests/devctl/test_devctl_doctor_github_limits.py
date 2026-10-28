@@ -11,6 +11,7 @@ import pytest
 
 from devctl.doctor import (
     PROTECTED_PATHS,
+    PYTHON_PROTECTED_PATHS,
     Item,
     OwnerReadError,
     codeowners_problems,
@@ -153,6 +154,20 @@ def test_codeowners_is_checked_against_the_code_owner_not_the_repository_owner(
         "missing",
         f"the one active CODEOWNERS line is not * {code_owner}",
     )
+
+
+def test_codeowners_that_names_the_protected_set_matches_flight(
+    ctx_github: MakeContext, recorded: RecordedOwner
+) -> None:
+    context = ctx_github()
+    escalation = dataclasses.replace(context.project.escalation, every_pr=False)
+    flight = dataclasses.replace(
+        context, project=dataclasses.replace(context.project, escalation=escalation)
+    )
+    protected = (*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS)
+    recorded.serve(CODEOWNERS, contents("".join(f"/{path} @o\n" for path in protected)))
+    item = by_name(github_items(flight))["CODEOWNERS"]
+    assert (item.status, item.detail) == ("ok", ".github/CODEOWNERS on main matches Flight")
 
 
 def test_codeowners_is_missing_while_no_code_owner_is_recorded(

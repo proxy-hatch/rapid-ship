@@ -32,7 +32,7 @@ def project_settings(**changes: object) -> ProjectSettings:
         code_owner=None,
         worker_app=None,
         reviewer_app=None,
-        escalation=Escalation(every_pr=True, kinds=()),
+        escalation=Escalation(every_pr=True),
         optional_skills=(),
         excluded=(),
         source_roots=("src/app",),

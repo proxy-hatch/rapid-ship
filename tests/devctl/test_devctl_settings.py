@@ -25,10 +25,6 @@ from rapid_ship.kit.templates import KitError, load_manifest, render_files
 ROOT = Path(__file__).resolve().parents[2]
 VARIABLES = {"project_name": "demo-app", "package": "demo_app", "owner": "", "repository": ""}
 LOADERS = {PROJECT: load_project, EXCEPTIONS: load_exceptions}
-SEEDED_KINDS = (
-    "a pull request that removes a behavioural test",
-    "a pull request that declares Over the diff cap:",
-)
 APPS = (
     '[github]\nrepository = "o/r"\n'
     'worker_app_id = 101\nworker_app_slug = "o-rs-worker"\n'
@@ -56,7 +52,7 @@ def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
         code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
         reviewer_app=None,
-        escalation=Escalation(every_pr=True, kinds=SEEDED_KINDS),
+        escalation=Escalation(every_pr=True),
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),
@@ -74,7 +70,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
 
     project = load_project(tmp_path)
 
-    assert project.escalation == Escalation(every_pr=True, kinds=())
+    assert project.escalation == Escalation(every_pr=True)
     assert project.unit_tests == ("tests/unit/**",)
     assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
         None,
@@ -147,16 +143,28 @@ def test_an_invalid_code_owner_names_the_file_the_key_and_both_forms(
     assert '"@login" or "@organisation/team"' in message
 
 
-def test_an_escalation_list_for_flight_loads(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        PROJECT,
-        'stack = "python"\n[escalation]\nevery_pr = false\n'
-        'kinds = ["a database migration", "a public API change"]\nrevision_rounds = 2\n',
-    )
+def test_every_pr_false_loads_as_flight(tmp_path: Path) -> None:
+    write(tmp_path, PROJECT, 'stack = "python"\n[escalation]\nevery_pr = false\n')
 
-    assert load_project(tmp_path).escalation == Escalation(
-        every_pr=False, kinds=("a database migration", "a public API change")
+    assert load_project(tmp_path).escalation == Escalation(every_pr=False)
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        'kinds = ["a pull request that removes a behavioural test"]',
+        "revision_rounds = 3",
+    ],
+)
+def test_escalation_accepts_only_every_pr(tmp_path: Path, setting: str) -> None:
+    write(tmp_path, PROJECT, f'stack = "python"\n[escalation]\nevery_pr = true\n{setting}\n')
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    key = setting.split(" = ")[0]
+    assert str(raised.value) == (
+        f"{PROJECT} [escalation]: unknown key {key!r}; it accepts every_pr"
     )
 
 
@@ -299,8 +307,7 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
         (
             PROJECT,
             'stack = "python"\n[escalation]\nevery_prs = true\n',
-            ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; "
-            "it accepts every_pr, kinds, revision_rounds",
+            ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; it accepts every_pr",
         ),
         (
             PROJECT,
@@ -352,16 +359,6 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
             PROJECT,
             'stack = "python"\n[escalation]\nevery_pr = "no"\n',
             "every_pr: expected true or false",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[escalation]\nrevision_rounds = 0\n',
-            "revision_rounds: expected an integer of at least 1",
-        ),
-        (
-            PROJECT,
-            'stack = "python"\n[escalation]\nkinds = ["", "x"]\n',
-            "kinds: expected a list of non-empty strings",
         ),
         (PROJECT, 'stack = "python"\n[escalation]\nmode = "flight"\n', "unknown key 'mode'"),
         (

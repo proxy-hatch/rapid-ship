@@ -208,10 +208,12 @@ def work_tree_root(path: Path) -> Path | None:
 
 
 def read_settings(root: Path) -> HookSettings | str:
-    """The settings the Protected-set and Agent identity rules read, or why they cannot be read.
+    """The settings the Protected-set and Agent identity rules and the merge guard read, or why
+    they cannot be read.
 
-    An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches those rules off:
-    this writes one stderr line and returns the reason, which the merge guard's denial carries.
+    An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches the
+    Protected-set and Agent identity rules off: this writes one stderr line and returns the
+    reason, and the merge guard denies every merge with that reason.
     A missing CODEOWNERS is an empty Protected set, since nothing is unreadable; doctor reports it.
     """
     try:
@@ -227,6 +229,8 @@ def read_settings(root: Path) -> HookSettings | str:
         protected=tuple(patterns or ()),
         repository=project.repository,
         reviewer_app_slug=reviewer.slug if reviewer else None,
+        every_pr=project.escalation.every_pr,
+        unit_tests=project.unit_tests,
     )
 
 

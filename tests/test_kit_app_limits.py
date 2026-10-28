@@ -593,6 +593,17 @@ def test_the_app_name_fits_github_34_characters(login: str, name: str) -> None:
     assert manifest["url"] == "https://github.com/proxy-hatch/rapid-ship"
 
 
+def test_each_app_description_says_what_agents_do_as_that_app() -> None:
+    callback = "http://127.0.0.1:1/callback"
+    assert app_manifest("worker", "o", callback)["description"] == (
+        "Agents acting through rapid-ship's devctl push branches, open pull requests and merge "
+        "approved ones."
+    )
+    assert app_manifest("reviewer", "o", callback)["description"] == (
+        "Agents acting through rapid-ship's devctl post pull request reviews."
+    )
+
+
 @pytest.mark.parametrize(
     ("stderr", "not_found"),
     [("gh: Not Found (HTTP 404)", True), ("gh: Bad credentials (HTTP 401)", False)],

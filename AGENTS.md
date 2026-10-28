@@ -62,6 +62,15 @@ Prefer clear names, types, and simple control flow. Add comments only when they 
 - Put each rule that prevents a repeated Correction on the rung that fits its purpose. A safe interface removes structural misuse; a check catches local or stylistic problems; one bad pattern can need both. Use a skill or advisory Rule only for what neither can carry.
 - A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
 
+## Pull requests
+
+- Run `./devctl check` and fix what it reports before you open a pull request.
+- With Agent identity on, push with `./devctl as worker push` and open the pull request with `./devctl as worker gh pr create`.
+- Review a change from a Session that did not write it. With Agent identity on, approve with `./devctl as reviewer gh pr review <number> --approve`, or request changes with `./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. Never approve a change you wrote.
+- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`, or with Agent identity on `./devctl as worker gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
+- Declare `Over the diff cap:` in the pull request body only after the owner accepted the overage.
+- Undo a merged change only with `git revert`.
+
 ## This repository's own rules
 
 These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
@@ -71,6 +80,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
+- This repository is in Walk (`[escalation] every_pr = true` in [project.toml](.rapid-ship/project.toml)), so the merge guard denies every agent merge and the owner merges each pull request.
 
 ## Safety
 
