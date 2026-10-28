@@ -64,11 +64,22 @@ def _canonical_error(tracked: TrackedFiles, name: str) -> str | None:
     ):
         return f"{SKILLS}/{name}: make it a relative symlink inside the repository"
     skill_md = f"{SKILLS}/{name}/SKILL.md"
+    if (root / skill_md).is_symlink() and _skill_md_tracked(tracked, name):
+        return None
     if not (root / skill_md).is_file():
         return f"{SKILLS}/{name}: missing SKILL.md"
     if not tracked.holds(skill_md):
         return f"{skill_md}: {tracked.why_untracked(skill_md)}"
     return None
+
+
+def _skill_md_tracked(tracked: TrackedFiles, name: str) -> bool:
+    """Whether git tracks SKILL.md itself, resolving its directory but not its last component."""
+    directory, real_root = (tracked.root / SKILLS / name).resolve(), tracked.root.resolve()
+    return (
+        directory.is_relative_to(real_root)
+        and f"{directory.relative_to(real_root).as_posix()}/SKILL.md" in tracked.files
+    )
 
 
 def _alias_error(root: Path, present: set[str], name: str) -> str | None:
@@ -116,9 +127,13 @@ def skill_file_errors(tracked: TrackedFiles) -> list[str]:
     It judges the last path component only; a skill directory that is itself a symlink is
     skill_alias_errors' concern.
     """
-    paths = (f"{SKILLS}/{name}/SKILL.md" for name in sorted(_skill_names(tracked, SKILLS)))
+    paths = (
+        f"{SKILLS}/{name}/SKILL.md"
+        for name in sorted(_skill_names(tracked, SKILLS))
+        if _skill_md_tracked(tracked, name)
+    )
     return [
         f"{path}: is a symlink; make it a regular file, because Codex rejects a symlinked SKILL.md"
         for path in paths
-        if tracked.holds(path) and (tracked.root / path).is_symlink()
+        if (tracked.root / path).is_symlink()
     ]

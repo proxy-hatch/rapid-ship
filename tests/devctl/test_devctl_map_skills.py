@@ -133,3 +133,30 @@ def test_an_untracked_skill_md_must_be_staged(
         "failed",
         (f".agents/skills/notes/SKILL.md: not tracked; {hint}",),
     )
+
+
+def test_a_tracked_skill_md_symlink_to_an_untracked_target_is_reported(
+    workspace: Workspace,
+) -> None:
+    workspace.root_guide()
+    workspace.stage()
+    symlinked_skill(workspace)
+    workspace.git("add", ".agents/skills/demo/SKILL.md", ".claude/skills/demo")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert skill_file_errors(TrackedFiles.read(workspace.context().repo)) == [SYMLINK]
+    assert (result.status, result.details) == ("failed", (SYMLINK,))
+
+
+def test_a_tracked_skill_md_symlink_to_a_missing_target_is_reported(workspace: Workspace) -> None:
+    workspace.root_guide()
+    workspace.stage()
+    symlinked_skill(workspace)
+    (workspace.root / ".agents/skills/demo/real.md").unlink()
+    workspace.git("add", ".agents/skills/demo/SKILL.md", ".claude/skills/demo")
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert skill_file_errors(TrackedFiles.read(workspace.context().repo)) == [SYMLINK]
+    assert (result.status, result.details) == ("failed", (SYMLINK,))
