@@ -1,4 +1,4 @@
-"""Offline: doctor's Harness wiring item on written settings files."""
+"""Offline: doctor's Claude Code wiring item on written settings files."""
 
 import json
 
@@ -43,7 +43,7 @@ def rendered_seed() -> str:
 
 
 def harness_wiring_item(ctx: MakeContext) -> Item:
-    [item] = [i for i in local_items(ctx()) if i.name == "Harness wiring"]
+    [item] = [i for i in local_items(ctx()) if i.name == "Claude Code wiring"]
     assert item.area == "guardrails"
     return item
 
@@ -137,6 +137,10 @@ def test_wiring_problems_in_other_shapes(settings: object, problems: list[str]) 
         (args_form("${CLAUDE_PROJECT_DIR}/mydevctl", PRE_TOOL), [GAP + EVERY_TOOL]),
         (args_form("devctl", [*PRE_TOOL, "--verbose"]), [GAP + EVERY_TOOL]),
         # Shell form: the words after quote removal, and a $ the shell keeps literal.
+        (
+            wired(command='"$(git rev-parse --show-toplevel)/devctl" hook claude pre-tool'),
+            [GAP + EVERY_TOOL],
+        ),
         (wired(command="'$CLAUDE_PROJECT_DIR/devctl' hook claude pre-tool"), [GAP + EVERY_TOOL]),
         (wired(command="\\$CLAUDE_PROJECT_DIR/devctl hook claude pre-tool"), [GAP + EVERY_TOOL]),
         (wired(command='"\\$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'), [GAP + EVERY_TOOL]),

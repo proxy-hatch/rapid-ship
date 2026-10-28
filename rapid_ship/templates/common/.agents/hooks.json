@@ -1,0 +1,16 @@
+{
+  "devctl": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|write_file|edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/devctl\" hook agy pre-tool",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
