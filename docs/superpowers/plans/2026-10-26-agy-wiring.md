@@ -32,7 +32,7 @@
 1. **A failure of devctl's own switches the agy guardrails off without a trace, or blocks agy without a reason.** Inputs: bytes that are not JSON, an event without `toolCall` or `workspacePaths`, a wired tool without its argument, `devctl hook agy` without an event, and an exception inside the rules. Expected: each exits 0 with a `deny` whose reason is the stderr line, starting `devctl hook: `. An invalid `project.toml` is no failure: it writes the stderr line and answers `allow` with no reason, because the rules still decide. Task 2's `test_the_agy_hook_always_exits_0_with_a_decision` pins it.
 2. **G5 asks where agy cannot.** Expected: an agy edit of a Protected path gets `allow`, while G4 still denies an edit of `.rapid-ship/kit.lock`, and Claude Code still asks. Task 2's `test_g5_does_not_run_for_agy` pins it.
 3. **The wiring and the protocol disagree on a tool.** Expected: the seed's matcher names each tool in `WIRED_TOOLS["agy"]`, and doctor reports a matcher that misses one. Tasks 2 and 3 pin it.
-4. **doctor runs a command from a tracked file.** Expected: doctor runs it only when its words are `<path>/devctl hook agy pre-tool` and nothing more, the same parse as the Claude Code item, plus `$(git rev-parse --show-toplevel)` as a program-word prefix.
+4. **doctor runs a command from a tracked file.** Expected: doctor runs it only when its words are `devctl`, or a static path ending in `/devctl`, then exactly `hook agy pre-tool`. Quoted static paths are accepted; shell expansion, extra commands and newline, carriage-return or NUL characters are rejected. Each accepted command must deny the synthetic G2 event in direct and shell launches from both root and `.agents/`. These are deterministic checks, not a live agy Session.
 
 ## Tasks
 
