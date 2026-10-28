@@ -19,7 +19,7 @@
 | PR | Branch | Base | Tasks | Builds | Counted lines, estimated |
 | --- | --- | --- | --- | --- | --- |
 | 3.1 | `spec3-settings` | `main` | 1 | `metrics.toml` and its loader, the status rule | about 700 |
-| 3.2 | `spec3-ledger` | `main` | 2, 3 | the ledger's parser and map rule 9, its seeds, the `session` Rule | about 800 |
+| 3.2 | `spec3-ledger` | `main` after 6.1a | 2, 3 | the ledger's parser and map rule 9, its seeds, the `session` Rule | about 800 |
 | 3.3 | `spec3-window` | `main` after 3.1 | 4 | the GitHub reader with the API allowance, the window | about 900 |
 | 3.4 | `spec3-command` | `main` | 5, 6 | Revisions, Red merges, and `devctl metrics` with its text, JSON and exit codes | about 1,150 |
 | 3.5 | `spec3-reverts` | `main` | 7, 8 | Reverts, whole and partial; Closed unmerged; Corrections | about 1,200 |
@@ -34,13 +34,15 @@ The diff cap leaves out `.md` files and Kit-managed files, so the skills, the pa
 
 | Wave | Spec 3 work | Prerequisites, including plans 6 and 7 |
 | --- | --- | --- |
-| 1 | 3.1, 3.2 | The document-only planning PR and the Mode/Pull requests implementation (PRO-166). No plan 6/7 prerequisite; adapt seed locations if 6.1b has landed |
+| 1 | 3.1; 3.2 when its dependency lands | The document-only planning PR and the Mode/Pull requests implementation (PRO-166). 3.1 has no plan 6/7 prerequisite; 3.2 waits for plan 6's 6.1a reference resolver. Adapt seed locations if 6.1b has landed |
 | 2 | 3.3 | 3.1; no plan 6/7 prerequisite |
 | 3 | 3.4 | 3.1, 3.3; no plan 6/7 prerequisite |
 | 4 | 3.5, 3.6, 3.7 | 3.2, 3.4; no plan 6/7 prerequisite. Reconcile shared files after each merge |
 | 5 | 3.8 | 3.5, 3.6, 3.7; plan 7's 7.1a, 7.2, 7.3; merged Harness wiring: PRO-155 and PRO-142 |
 | Owner | Task 14 | 3.5 to 3.8; plan 6's 6.3 for the finished stacks; plan 7's merged document and setup references; approved sandbox fixes PRO-156/PRO-157 |
 | 6 | 3.9 | Task 14; plan 6's 6.3; plan 7's merged document and the index's shared documentation interfaces |
+
+3.2 consumes plan 6's `resolve(reference, context, tracked, holder)` and waits for its 6.1a implementation. Use the plan index's Shared interfaces as plan 6 defines them, including `ProjectSettings.owners`, `codeowners_problems(..., stacks)`, the typed `KitManifest.new_project` and per-directory `stack_variables`; this plan redefines none of them.
 
 3.8 consumes 3.5's Corrections JSON, 3.6's incident API and 3.7's optional Action. It also consumes plan 7's skill tests, `rs-setup`, and `rs-health`'s `references/audit.md` and `references/proposed-task.md`. None of those dependencies may be replaced with placeholders.
 
@@ -126,7 +128,7 @@ The diff cap leaves out `.md` files and Kit-managed files, so the skills, the pa
 4. **A project's code metric misbehaves.** Inputs: `measure` raises, sleeps past 60 seconds, returns `None`, returns a negative or NaN value, or returns plain items from an `IncidentMetric`; `metrics()` raises or returns a duplicate ID. Expected: each misbehaving metric is unknown with a reason and the rest of the report is unaffected; a broken `metrics()` exits 2 naming `devctl_project`. Task 9's tests pin it.
 5. **Front matter that YAML reads unexpectedly.** Inputs: `rungs: [1, 1]`, `rungs: 2`, `rungs: [true]`, `date: 2026-10-16T05:00:00`, `pr: "42"`, `status: Open`, `source: http://...`, and a field outside the table. Expected: each fails the map rule with the file, the field and the allowed values, and Corrections counts the entry as unknown. Task 2's `test_each_invalid_field_names_what_it_accepts` pins it.
 6. **The issue the Action keeps.** Inputs: a person edited the body and removed its JSON; two open issues carry the marker; an issue with the marker opened by another account. Expected: devctl takes the lowest-numbered open issue that `github-actions[bot]` opened; a body without readable JSON counts as no previous statuses. Task 11's `test_the_issue_is_github_actions_lowest_open_one` and `test_a_body_without_json_has_no_previous_statuses` pin it.
-7. **First guardrail/workflow implementation and review require the challenging software-engineering tier.** This document revision is medium; it does not lower that later floor. Preserve the existing shared ledger matcher. Review workflow permissions, triggers, issue ownership, JSON comment escaping, the same-issue update, the two coherent lock states and owner-only workflow pushes. No permission widening or automatic approval is authorized.
+7. **First guardrail/workflow implementation and review require the challenging software-engineering tier.** This document revision is medium; it does not lower that later floor. The first implementation and review of measurement-scope admission, closure and in-flight request handling also use the challenging tier for concurrency invariants. Preserve the existing shared ledger matcher. Review workflow permissions, triggers, issue ownership, JSON comment escaping, the same-issue update, the two coherent lock states and owner-only workflow pushes. No permission widening or automatic approval is authorized.
 8. **A long history with no population PRs.** Walk to the root, one commit-pulls read per first-parent commit, with no invented cap. Task 4 pins the full walk; Task 6 exhausts the allowance inside it and before branch discovery. Both return honest unknowns, retain only known branch/tip fields and start no later API read, including from code metrics. Decision 6 carries the latency/allowance cost to the owner.
 
 ## File Structure
@@ -280,7 +282,7 @@ def judge(
 - Modify: `devctl/check/map.py` (`MapStep.run` adds `*ledger_errors(context, files)`); through `sync`: the vendored copies and the lock
 
 **Interfaces:**
-- Consumes: `codeowners.ledger_entry(path) -> bool`; `check.markdown.front_matter(text)`; `check.references.resolve(reference, context) -> str | None` and `path_exists(root, path) -> bool`.
+- Consumes: `codeowners.ledger_entry(path) -> bool`; `check.markdown.front_matter(text)`; plan 6's `check.references.resolve(reference, context, tracked, holder) -> str | None` and `path_exists(root, path) -> bool`. PR 3.2 waits for plan 6's 6.1a resolver; pass the repository's tracked files as `tracked` and the ledger entry's own path (`entry.file`), not its optional corrected-code `path` field, as `holder`.
 - Produces:
 
 ```python
@@ -324,7 +326,7 @@ def ledger_errors(context: CheckContext, files: Sequence[str]) -> list[str]: ...
 ```
 
 - Each problem starts `<file>: <field>:` and says what is wrong and what the field accepts, such as `docs/corrections/a.md: rungs: [1, 1] repeats a rung; use distinct integers from 1 to 4`. Rulings: `date` is a YAML date or a string that `datetime.date.fromisoformat` reads, never a date with a time; `category` matches `[a-z0-9]+(?:-[a-z0-9]+)*`; a boolean is not an integer; `pr` is an integer of at least 1; `task` is non-empty text; `source` is `session` or starts with `https://`.
-- `ledger_errors` checks each file in `files` for which `ledger_entry` holds and that exists, at any depth below `docs/corrections/`, as the ledger's Protected rule does. For an `implemented` entry, each `prevented_by` item passes when `resolve(item, context)` is `None` or `path_exists(root, item)`; otherwise it fails with resolve's message and `or a repository path that exists`. For `last-pass.toml`, `through` must name a commit: `context.repo.git("cat-file", "-e", f"{through}^{{commit}}")` must not raise `RepoError`. It reads the work tree; the Corrections metric reads `origin/<default branch>`.
+- `ledger_errors` checks each file in `files` for which `ledger_entry` holds and that exists, at any depth below `docs/corrections/`, as the ledger's Protected rule does. For an `implemented` entry, each `prevented_by` item passes when `resolve(item, context, files, entry.file)` is `None` or `path_exists(root, item)`; otherwise it fails with resolve's message and `or a repository path that exists`. A stack-scoped reference such as `ruff:`, `banned:` or `contract:` resolves against the one stack that can own it. When several stacks can own it, preserve the guided failure naming the candidate stacks and the existing unambiguous forms `test:<path>::<name>` and `check:<step>` with its directory-qualified step name, such as `check:lint (backend)`. Add no reference syntax. A one-stack repository keeps its existing behavior. For `last-pass.toml`, `through` must name a commit: `context.repo.git("cat-file", "-e", f"{through}^{{commit}}")` must not raise `RepoError`. It reads the work tree; the Corrections metric reads `origin/<default branch>`.
 
 - [ ] **Step 1: write the failing tests.** `test_devctl_ledger.py`, docstring `Offline: ledger entries and last-pass.toml from literal texts.`:
   - `test_a_valid_entry_reads_every_field`: Spec 3 section 9's example entry gives `Entry(file=..., date=date(2026, 10, 16), by="reviewer", ..., rungs=(1, 2), pr=42, path="src/app/links.py", status="open")`.
@@ -335,6 +337,8 @@ def ledger_errors(context: CheckContext, files: Sequence[str]) -> list[str]: ...
   - `test_a_valid_ledger_passes`: two entries, the README and a `last-pass.toml` whose `through` is the workspace's first commit; the map step passes.
   - `test_an_invalid_entry_fails_the_map_step`: the step fails with the entry's problem in its details.
   - `test_prevented_by_resolves_a_reference_or_a_path`: `check:map` and `CODEOWNERS` pass; `check:nonesuch` and `docs/missing.md` fail.
+  - `test_ledger_references_use_the_entry_as_holder`: pass `entry.file` and the tracked-file set to the shared resolver, even when the optional `path` field points inside a stack. A ledger outside all stack directories resolves a Python-only kind when exactly one stack can own it.
+  - `test_an_ambiguous_ledger_reference_names_stacks_and_unambiguous_forms`: two Python stacks make `ruff:` ownership ambiguous; the guided error names both candidates, `test:<path>::<name>` and directory-qualified `check:<step>`. Verify explicit test/check references resolve and the one-stack case is unchanged.
   - `test_through_must_name_a_commit`: 40 zeros fail with `through names no commit in this repository`.
   - `test_the_readme_and_other_files_are_not_entries` and `test_an_entry_in_a_subdirectory_is_checked`.
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_ledger.py tests/devctl/test_devctl_map_ledger.py -q`; expected FAIL with `ModuleNotFoundError: No module named 'devctl.ledger'`.
@@ -391,6 +395,7 @@ class AllowanceUsedUp(Exception):
 class GitHubReader:
     requests: int
 
+    def measurement_get(self, deadline: float) -> MeasurementGet: ...
     def __init__(self, repository: str, get: OwnerGet = gh_get) -> None: ...
     def get(self, path: str, jq: str | None = None) -> object: ...  # "/x": absolute API path x
     def pages(
@@ -400,6 +405,14 @@ class GitHubReader:
         jq: str,
         until: Callable[[Mapping[str, object]], bool] | None = None,
     ) -> Iterator[Mapping[str, object]]: ...
+
+
+class MeasurementClosed(Exception): ...
+
+
+class MeasurementGet(Protocol):
+    def __call__(self, path: str, jq: str | None = None) -> object: ...
+    def close(self) -> None: ...
 
 
 # devctl/metrics/window.py
@@ -441,32 +454,35 @@ def commit_exists(repo: Repo, sha: str) -> bool: ...  # git cat-file -e <sha>^{c
 def is_ancestor(repo: Repo, commit: str, of: str) -> bool: ...  # check existence separately
 ```
 
-- `get` prefixes relative paths with `repos/<repository>/`; a leading `/` names a full API path. It forwards `jq` to `OwnerGet(path, jq=jq)`, so filtering happens inside `gh` before the 1 MiB output limit. `pages` requires a filter, adds `per_page=100&page=<n>` with `?` or `&`, and stops after fewer than 100 items or before the first item selected by `until`. Each filter retains one object per input item, with no `select`, so cardinality and stop predicates stay correct. Apply population/time/bot filters afterward in Python.
+- `get` prefixes relative paths with `repos/<repository>/`; a leading `/` names a full API path. It forwards `jq` to `OwnerGet(path, jq=jq)`, so filtering happens inside `gh` before the 1 MiB output limit. `pages` requires a filter and starts with `per_page=64&page=1`. Track the number of items already yielded. If a projected page exceeds the output limit, yield none of that page, halve the page size and retry at `page = yielded // per_page + 1`. Sizes are powers of two down to 1, so completed offsets remain aligned; retain the smaller size for later pages. Retry only this explicit read-output overflow, never another error or allowance exhaustion. At size 1, raise the path-specific output-size error and suggest narrowing that item's projection. Stop on a page shorter than the current size or before the first item selected by `until`. Each filter retains one object per input item, with no `select`, so cardinality and stop predicates stay correct. Apply population/time/bot filters afterward in Python; never raise the output cap.
 
 | Reads | jq passed to `gh_get` |
 | --- | --- |
-| `commits/<sha>/pulls`, `pulls?...` | `[.[] | {number, user: {login: .user.login}, merged_at, closed_at, updated_at, merge_commit_sha, body, html_url}]` |
+| `commits/<sha>/pulls` (Revert-body consumer) | `[.[] | {number, user: {login: .user.login}, merged_at, closed_at, updated_at, merge_commit_sha, body, html_url}]` |
+| `pulls?...` (unfetched/closed counts) | `[.[] | {number, user: {login: .user.login}, merged_at, closed_at, updated_at, merge_commit_sha, html_url}]` |
 | `pulls/<n>/reviews` | `[.[] | {id, state, commit_id, submitted_at}]` |
 | `issues/<n>/events` | `[.[] | {id, event, created_at, actor: {login: .actor.login}, dismissed_review}]` |
 | workflow runs | `[.workflow_runs[] | {id, run_number, run_attempt, created_at, conclusion}]` |
-| `issues?...` (source or post lookup) | `[.[] | {number, title, body, user: {login: .user.login}, state, created_at, updated_at, html_url, pull_request}]` |
+| `issues?...` (settings source) | `[.[] | {number, user: {login: .user.login}, state, created_at, updated_at, html_url, pull_request}]` |
+| `issues?...` (post lookup) | `[.[] | {number, user: {login: .user.login}, html_url, pull_request, has_marker: ((.body // "") | startswith("<!-- rapid-ship-metrics -->"))}]` |
 | `deployments?...` | `[.[] | {id, sha, created_at, environment, statuses_url}]` |
 | `deployments/<id>/statuses` | `[.[] | {id, state, created_at, target_url}]` |
 
-The issues projection always includes `pull_request`, null for an issue; consumers test its value, not key presence. Single-object reads project only needed fields too: repository `{default_branch}` and run attempt `{conclusion}`. Test that fake `gh` honours `--jq` and a raw PR list over 1 MiB succeeds after projection; never raise the output cap.
-- The allowance: an `OwnerReadError` with status 403 or 429 whose message contains `rate limit`, in any case. The reader then reads `/rate_limit` once through the underlying `OwnerGet`, for `resources.core.reset`, in epoch seconds, and raises `AllowanceUsedUp`; when that read fails, `reset` is `None` and the reason ends `; its reset time could not be read`. Latch exhaustion before that single reset-time lookup; never recurse through `get` to read the reset time. Serialize reader requests and latch/reset handling with a lock so a timed-out code thread cannot start another read. From then on, `get` raises the same `AllowanceUsedUp` without a call.
+Both issues projections include `pull_request`, null for an issue; consumers test its value, not key presence. They omit full bodies. After selecting the lowest matching report issue, fetch only that issue with `GET issues/<n>` and jq `{body}` to recover previous statuses. Single-object reads project only needed fields too: repository `{default_branch}` and run attempt `{conclusion}`. Full PR bodies remain only where Revert detection needs them; adaptive pages handle their combined size. Test both raw-output overflow removed by projection and projected-output overflow recovered by smaller pages.
+- The allowance: an `OwnerReadError` with status 403 or 429 whose message contains `rate limit`, in any case. The reader then reads `/rate_limit` once through the underlying `OwnerGet`, for `resources.core.reset`, in epoch seconds, and raises `AllowanceUsedUp`; when that read fails, `reset` is `None` and the reason ends `; its reset time could not be read`. Latch exhaustion before that single reset-time lookup; never recurse through `get` to read the reset time. Serialize reader requests and latch/reset handling. From then on, `get` raises the same `AllowanceUsedUp` without a call. Timeout closure is a separate condition: each measurement getter also checks its own open state and monotonic deadline at request admission, after waiting for the reader's serialization lock. Admission and closure are atomic with respect to one another; waiting before expiry grants no right to start a request afterward.
 - Any other `OwnerReadError` becomes `GitHubError` with the same `.status`. Only `gh could not start` suggests installing gh and `gh auth login`. A timeout names the path and asks to check connectivity and rerun; an output-size error names the path and asks to narrow its projection; malformed JSON asks to inspect the response. Never label those as missing gh. 401 gives `GitHub refused <path> (HTTP 401): <message>; check gh auth status`; any other gives `GitHub refused <path> (HTTP <status>): <message>`.
 - `resolve_tip`: resolve the tip with `git rev-parse --verify --quiet refs/remotes/origin/<branch>^{commit}`; when it is missing, raise `MetricsError("origin/<branch> is missing: run git fetch origin")`. The command stores the resolved tip before passing it to `build_window`.
-- `build_window`: walk `git rev-list --first-parent <tip>` to the root, without a cap. For each commit, page `commits/<sha>/pulls` with the pulls projection and keep the PR whose `merge_commit_sha` is that commit; add it to `merged`, and to `prs` when `agent_login` is `None` or equals its author. Stop when `prs` holds `size` PRs or the history ends. `not_fetched` counts the population's PRs from paged `pulls?state=closed&base=<branch>&sort=updated&direction=desc` (pulls projection; stop at list end) that GitHub shows as merged and whose merge commit is absent (`commit_exists` is false) or is not an ancestor of the tip. Do not invent a time boundary when the window is empty. `AllowanceUsedUp` propagates.
+- `build_window`: walk `git rev-list --first-parent <tip>` to the root, without a cap. For each commit, page `commits/<sha>/pulls` with the pulls projection and keep the PR whose `merge_commit_sha` is that commit; add it to `merged`, and to `prs` when `agent_login` is `None` or equals its author. Stop when `prs` holds `size` PRs or the history ends. `not_fetched` counts the population's PRs from paged `pulls?state=closed&base=<branch>&sort=updated&direction=desc` (body-free pulls projection; stop at list end) that GitHub shows as merged and whose merge commit is absent (`commit_exists` is false) or is not an ancestor of the tip. Do not invent a time boundary when the window is empty. `AllowanceUsedUp` propagates.
 - `default_branch` reads `default_branch` from the repository.
 - `metrics_fakes.MergedHistory(path)` builds a local repository with `merge(number, files, author="o-worker[bot]", body="", *, parents=1)`, which commits on `main` and serves `commits/<sha>/pulls` through a `RecordedOwner`; `push(files)`, which commits with no PR; and `publish()`, which sets `refs/remotes/origin/main`. `fake_gh(directory, served)` writes a `gh` executable with `check_workspace.fake_tool` that answers `gh api --method GET <path> [--jq <filter>]` from `served` using the filter before output, answers an error entry with gh's stderr and exit 1, and logs each argv.
 
 - [ ] **Step 1: write the failing tests.** `test_devctl_metrics_github.py`, docstring `Offline: the metrics reader against a recorded owner_get.`:
-  - `test_pages_reads_until_a_short_page`: 100 items, then 3, give 103 items from `...?per_page=100&page=1` and `&page=2`; `test_pages_stops_before_the_item_until_selects`.
+  - `test_pages_reads_until_a_short_page`: 64 items, then 3, give 67 items from `...?per_page=64&page=1` and `&page=2`; `test_pages_stops_before_the_item_until_selects`.
+  - `test_projected_page_overflow_reduces_size_without_losing_or_repeating_items`: bodies make the prescribed projection itself exceed 1 MiB, including on a later page after items were yielded. Expect smaller aligned page reads, each item once and the stop predicate preserved. `test_a_single_projected_item_overflow_names_the_path_and_fix` reaches size 1 without raising the cap. `test_page_overflow_does_not_retry_an_allowance_or_other_error` preserves the exhaustion latch and error semantics.
   - `test_the_allowance_stops_every_later_read`: a read fails with `OwnerReadError(403, "API rate limit exceeded for installation ID 1.")`, and `rate_limit` serves `resources.core.reset` for 2026-10-16 06:12 UTC; `AllowanceUsedUp.reason()` is `GitHub API allowance used up; it resets at 06:12 UTC`, and a later `get` raises it with `RecordedOwner.paths` unchanged.
   - `test_a_429_is_the_allowance_too` and `test_without_a_reset_time_the_reason_says_so`.
   - `test_other_errors_name_the_path_and_the_fix`: missing gh, timeout, malformed JSON, output-size error, 401 and 500; assert HTTP `.status` survives and only missing gh suggests installation.
-  - `test_list_projection_happens_before_the_output_limit`: fake `gh` serves 100 large PRs, raw output over 1 MiB; projected output succeeds. `test_list_filters_keep_cardinality_and_stop_fields` covers every list filter, full/short pages and workflow envelope unwrapping.
+  - `test_list_projection_happens_before_the_output_limit`: fake `gh` serves 64 large PRs, raw output over 1 MiB from fields the body-free projection omits; projected output succeeds. `test_list_filters_keep_cardinality_and_stop_fields` covers every list filter, full/short pages and workflow envelope unwrapping.
 
   `test_devctl_metrics_window.py`, docstring `Offline: the window over a local repository and recorded GitHub responses.`:
   - `test_the_walk_follows_first_parents_and_skips_direct_pushes`: three squash merges, a direct push, and a PR merged with a two-parent merge commit; `prs` holds the four PRs, newest first, and no commit of the merged branch is read.
@@ -695,7 +711,7 @@ class MetricContext:
     since: datetime
     until: datetime
     prs: tuple[int, ...]
-    get: OwnerGet  # full API path, optional jq; same allowance latch as basic metrics
+    get: OwnerGet  # measurement-scoped; full API path, optional jq, shared allowance latch
 
 
 class Metric(ABC):
@@ -716,7 +732,10 @@ MEASURE_SECONDS = 60.0
 
 def project_metrics() -> tuple[Metric, ...]: ...
 def measure(
-    metric: Metric, context: MetricContext, timeout: float = MEASURE_SECONDS
+    metric: Metric,
+    context: MetricContext,
+    reader: GitHubReader,
+    timeout: float = MEASURE_SECONDS,
 ) -> Measured: ...
 
 
@@ -735,9 +754,9 @@ def count_deployments(
 ```
 
 - `project_metrics` returns `devctl_project.metrics()` when the function exists, else `()`. It raises `MetricsSettingsError`, prefixed `devctl_project.metrics():`, when `metrics()` raises or returns something other than `Metric` instances, or when a code ID is invalid, repeats another code ID, or matches a basic metric. It cannot validate settings collisions; `load_metrics(root, code_metric_ids)` alone owns that check. The command calls it before `load_metrics`, with its IDs as `code_metric_ids`.
-- `measure` runs `metric.measure` in a daemon thread and waits `timeout` seconds; a metric still running is unknown with `measure ran longer than 60 seconds`. An exception gives unknown with `<type>: <message>`, and `AllowanceUsedUp` its own reason. A result is unknown when it is not a `MetricResult`, has no reason with a `None` value, has a value that is not a finite number of at least 0, or, for an `IncidentMetric`, holds an item that is not an `Incident`. Items become `{"label", "url", "time", "state": "counted"}`, or for an incident `{"url", "time", "cause", "state": "counted"}`. Its kind is `incident` when the metric is an `IncidentMetric`, whatever it returned.
-- `MetricContext.get(path, jq=None)` adapts a full path to `reader.get("/" + path.lstrip("/"), jq=jq)`. It shares the reader's allowance latch, including across timed-out code threads; no independent `gh_get` is exposed. Once exhausted, later metrics are unknown without invoking their measurement, and a still-running thread's next read raises the latched exception without an API request.
-- The command runs the settings sources through the same guard as `measure`: a `GitHubError` inside a project-defined metric makes that metric unknown with the error as its reason, and never exits 2.
+- `measure` creates a fresh `reader.measurement_get(time.monotonic() + timeout)`. It replaces `context.get` with that getter before giving the context to the metric; a code metric never receives the shared unscoped getter. It runs `metric.measure` in a daemon thread and waits `timeout` seconds. Close the getter in every exit path: successful completion, error, invalid result or timeout. A metric still running is unknown with `measure ran longer than 60 seconds`; ignore any later result. An exception gives unknown with `<type>: <message>`, and `AllowanceUsedUp` its own reason. A result is unknown when it is not a `MetricResult`, has no reason with a `None` value, has a value that is not a finite number of at least 0, or, for an `IncidentMetric`, holds an item that is not an `Incident`. Items become `{"label", "url", "time", "state": "counted"}`, or for an incident `{"url", "time", "cause", "state": "counted"}`. Its kind is `incident` when the metric is an `IncidentMetric`, whatever it returned.
+- The scoped getter adapts full paths as `reader.get("/" + path.lstrip("/"), jq=jq)` does and shares the basic reader's exhaustion latch. Once its scope closes or its monotonic deadline passes, an attempted or queued read raises `MeasurementClosed` locally before request admission, even when allowance remains healthy. Closing is immediate and does not wait for the metric thread or acquire a lock held across network I/O. A request admitted before closure is already in flight: it finishes under `gh_get`'s existing 60-second bound, cannot be retried by the closed scope, and its result cannot change the metric's timeout result. Reader serialization lets later reads wait for that bounded in-flight request; any exhaustion it observes still latches globally. Once exhausted, later metrics are unknown without invoking their measurement. Python cannot stop arbitrary daemon code; the scope prevents its later use of the supplied reader, not arbitrary side effects by project code.
+- Settings-source loops run synchronously through the same reader. The command converts a `GitHubError` inside a settings source or code metric to that metric's unknown result, with the error as its reason, never exit 2. Update all `measure` callers to pass the shared reader.
 - `count_issues` pages `issues?labels=<label, URL-encoded>&state=all&sort=created&direction=desc` until an item's `created_at` is before `since`. It counts items created in the span whose projected `pull_request` is null, excluding PRs client-side.
 - `count_deployments` pages `deployments?environment=<environment>`, newest first, using the deployments projection. It pages until it has passed `since` and found one earlier deployment with a `success` status, or the list ends. It pages `deployments/<id>/statuses` with the statuses projection for those it needs. Check both commits with `commit_exists` before `is_ancestor`; missing commits are unknown, never merely non-ancestors. Rollbacks: a deployment created in the span that has a `success` status, whose commit `is_ancestor` of the commit of the latest earlier deployment that has one, and is not the same commit. Failures: a deployment created in the span whose newest status is `failure` or `error`. A deployment whose commit is not in local history is an unknown item.
 - The seeded stub returns `[]`. Its docstring says each metric must be deterministic and must not run a model, which devctl cannot check, and that a metric needing another credential reads it from the environment.
@@ -745,6 +764,9 @@ def count_deployments(
 - [ ] **Step 1: write the failing tests.** `test_devctl_metrics_project.py`, docstring `Offline: code metrics with monkeypatched devctl_project.metrics.`: `test_a_code_metric_returns_a_value`; `test_a_code_metric_returns_unknown_with_a_reason`; `test_a_raising_metric_is_unknown_and_the_rest_stands`; `test_a_metric_past_its_timeout_is_unknown` (with `timeout=0.1`); `test_a_bad_result_is_unknown`, parametrized over `None`, `MetricResult(-1)`, `MetricResult(float("nan"))`, `MetricResult(None)` and an `IncidentMetric` that returns an `Item`; `test_an_incident_metric_returns_records_with_and_without_a_cause`; `test_an_incident_metric_is_marked_incident_when_empty_and_when_unknown`; `test_metrics_that_raises_or_repeats_an_id_exits_2`; `test_a_project_without_metrics_has_none`; `test_a_threshold_may_name_a_code_metric`.
 
   - `test_exhaustion_latches_code_metric_reads_too`: the context uses the same reader; later code metrics are not invoked and a timed-out thread cannot start another API read.
+  - `test_a_timed_out_metric_cannot_resume_reads_with_healthy_allowance`: coordinate with `threading.Event`, let the metric time out, run a subsequent successful metric, then release the old thread. Its attempted read raises `MeasurementClosed`, starts no recorded request and changes neither result. Join the test thread before returning.
+  - `test_a_completed_metric_cannot_reuse_its_getter` covers success, error and invalid-result closure. `test_a_queued_measurement_read_rechecks_its_deadline` expires while waiting behind another request; no API read starts afterward.
+  - `test_an_in_flight_read_finishes_without_reopening_a_timed_out_scope`: an admitted request spans the deadline, closes without blocking the timeout result, then completes; discard its late result, start no second request from that scope and preserve the shared allowance latch. A later metric can read after the bounded in-flight operation settles. Use Events and an injected short request timeout, not a 60-second sleep.
 
   `test_devctl_metrics_sources.py`, docstring `Offline: the issues and deployments sources against recorded GitHub responses and a local repository.`: `test_issues_count_only_labelled_issues_opened_in_the_span`; `test_pull_requests_are_not_issues`; `test_a_deployment_of_an_older_commit_is_a_rollback`; `test_redeploying_the_same_commit_is_not_a_rollback`; `test_failures_count_the_last_status`; `test_a_deployment_outside_local_history_is_unknown` (missing current or previous-success commit); `test_the_previous_success_can_be_before_the_span_on_a_later_page`; `test_a_source_github_refuses_is_unknown_not_exit_2`.
 
@@ -810,7 +832,7 @@ def render_markdown(report: Report) -> str: ...
 
 - `--post` refuses with exit 2 and `--post runs only in GitHub Actions with GH_TOKEN set; run ./devctl metrics without it to read the report` unless `GITHUB_ACTIONS == "true"` and `GH_TOKEN` is set.
 - `gh_write` runs `gh api --method <method> <path> --input -` with the JSON body on stdin, through `run_process` and `owner_environment("gh")`; `post` passes paths below `repos/<repository>/`. A failure raises `GitHubError`, which exits 2.
-- After the environment/repository checks, `prepare_post` uses that same reader before `build_report` to cache the issue and previous statuses. It pages to list end using the issues projection and finds the lowest-numbered issue in `issues?state=open&creator=github-actions%5Bbot%5D` whose body starts with `MARKER`. Also verify `user.login == ACTIONS_LOGIN` client-side and reject PR entries, regardless of the server's `creator` filter. `post` appends `render_markdown` to `GITHUB_STEP_SUMMARY` and performs no GET: with a cached number, it sets the body with `PATCH issues/<n>`; without one, it opens one with `POST issues`. Measurement exhaustion therefore still posts the unknown report with no later API read. A failed target lookup is a failed post (exit 2, never permission to create a duplicate); do not retry after an uncertain write. The body is `MARKER`, the Markdown report, then `<!-- rapid-ship-metrics-json` and the report's JSON, with every `>` written as the literal JSON escape `\u003e`, which `json.loads` reads back as `>`, then `-->`. It comments with `POST issues/<n>/comments` when `status_changes` is not empty, comparing with the statuses in the previous body's JSON; a body without readable JSON has none. On a new issue it comments only when a status is `breached` or `unknown`, listing each. It returns the issue's URL, which the command prints with each change.
+- After the environment/repository checks, `prepare_post` uses that same reader before `build_report` to cache the issue and previous statuses. It pages to list end using the body-free post-lookup projection and finds the lowest-numbered issue in `issues?state=open&creator=github-actions%5Bbot%5D` with `has_marker == true`. Also verify `user.login == ACTIONS_LOGIN` client-side and reject PR entries, regardless of the server's `creator` filter. Fetch only the selected issue's body through that reader, with `GET issues/<n>` and jq `{body}`, and parse its previous statuses before measurement starts. `post` appends `render_markdown` to `GITHUB_STEP_SUMMARY` and performs no GET: with a cached number, it sets the body with `PATCH issues/<n>`; without one, it opens one with `POST issues`. Measurement exhaustion therefore still posts the unknown report with no later API read. A failed target lookup is a failed post (exit 2, never permission to create a duplicate); do not retry after an uncertain write. The body is `MARKER`, the Markdown report, then `<!-- rapid-ship-metrics-json` and the report's JSON, with every `>` written as the literal JSON escape `\u003e`, which `json.loads` reads back as `>`, then `-->`. It comments with `POST issues/<n>/comments` when `status_changes` is not empty, comparing with the statuses in the previous body's JSON; a body without readable JSON has none. On a new issue it comments only when a status is `breached` or `unknown`, listing each. It returns the issue's URL, which the command prints with each change.
 - `status_changes` lists `<id>: <old> -> <new> (<value>, at most <threshold>)`, such as `closed_unmerged: ok -> breached (4, at most 3)`, with `none` for a status the previous report lacked.
 - The workflow, whose action pins equal `devctl-check.yml`'s:
 
@@ -858,6 +880,7 @@ jobs:
   - `test_a_later_run_replaces_the_body_and_comments_only_on_a_change`.
   - `test_the_issue_is_github_actions_lowest_open_one`: the marker on an issue opened by `octo`, and two issues opened by `github-actions[bot]`.
   - `test_a_body_without_json_has_no_previous_statuses`.
+  - `test_lookup_omits_bodies_and_fetches_only_the_selected_issue`: long issue bodies never reach the list output; select the lowest valid bot issue and read its body exactly once before measurement. A failed detail read exits 2 without creating a duplicate.
   - `test_the_job_summary_gets_the_markdown_report`.
   - `test_exhaustion_after_target_lookup_posts_unknown_without_another_get`: cached issue, allowance exhausted before branch discovery or mid-window, same unknown JSON posted, exit 0. `test_a_failed_target_lookup_never_opens_a_duplicate`: exit 2 with the lookup error and no write.
   - `test_a_breach_exits_0_once_posted_and_a_failed_post_exits_2`, through `main()` with `fake_gh` and both variables set.
