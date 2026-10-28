@@ -201,6 +201,8 @@ class ProjectSettings:
     @property
     def agent_identity(self) -> bool: ...  # both Apps recorded
 
+    def owners(self, path: str) -> tuple[ProjectStack, ...]: ...
+
 
 def load_project(root: Path) -> ProjectSettings: ...
 def load_exceptions(root: Path) -> list[ExceptionEntry]: ...
@@ -245,9 +247,11 @@ def ruleset_problems(
     every_pr: bool,
     agent_identity: bool,
 ) -> list[str]: ...  # plan 7's test checks rs-setup's ruleset.json with it
-# plan 6: one call per stack. code_owner is [github] code_owner with its @, never the
-# repository's owner
-def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack) -> list[str]: ...
+# One call checks common paths once and settings under every stack directory.
+# code_owner is [github] code_owner with its @, never the repository's owner.
+def codeowners_problems(
+    text: str, every_pr: bool, code_owner: str, stacks: Sequence[ProjectStack]
+) -> list[str]: ...
 ```
 
 ### Ruleset (plan 7 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
@@ -396,6 +400,30 @@ Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `ta
 - `check` runs the common steps once and each stack's steps in its directory. A stack step's name gains its directory in parentheses, such as `lint (frontend)`, unless the repository has one stack at the root.
 - `devctl/check/stacks/<name>.py` supplies each stack's steps, suppression forms, reference kinds and source extensions.
 
+### Stack rendering and reference contracts (plan 6)
+
+```python
+# rapid_ship/kit/templates.py
+@dataclass(frozen=True)
+class KitManifest:
+    ...
+    new_project: Mapping[StackName, frozenset[str]]
+
+
+# rapid_ship/kit/stacks.py
+def stack_variables(stacks: Sequence[ProjectStack]) -> dict[str, str]: ...
+
+
+# devctl/check/references.py
+def resolve(
+    reference: str, context: CheckContext, tracked: TrackedFiles, holder: str
+) -> str | None: ...
+```
+
+`ProjectSettings.owners(path)` returns all stacks at the innermost directory containing the repository-relative path, sorted by `(directory, name)`, or `()` outside every stack. The rendering module's `ProjectStack` is rapid-ship's own type; rapid-ship never imports devctl. `stack_variables` takes all stacks in exactly one directory, sorted by name, and combines their guide rows and title. `KitManifest.new_project` maps each stack name to layer-relative paths, including `__root__/`; rendering sets `Template.new_project`, which init, status and sync use for filtering.
+
+`resolve` requires tracked settings and referenced files through `TrackedFiles`. The holder is the Pattern's reference path, the guide stating a Rule or a Corrections ledger entry's path. A holder outside every stack uses a unique matching stack. Ambiguity fails with the candidate stacks and advises `test:<path>::<name>` or `check:<step>` with its exact directory-qualified result name, such as `lint (backend)`. Existing unqualified check names retain their holder-based resolution. No new selector syntax is added; one-stack repositories are unaffected. The implementing PR records this in Spec 1 section 5.
+
 ## Plan 4: Doctor and Agent identity
 
 **State:** built and merged in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`). Its plan document, [`2026-10-16-doctor-and-agent-identity.md`](2026-10-16-doctor-and-agent-identity.md), holds the tasks and the verification record. The follow-ups below are built on the same PRs. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is the plan as written, without what follow-ups 7 and 9 removed.
@@ -543,7 +571,7 @@ Each PR below is one Task. The numbered Units retain the original outline's numb
 13. Owner live trial, documents and verification. Depends on PRO-156/157's merged sandbox setting, including restart; adds only observed TypeScript/npm needs.
 14. PRO-159 and PRO-161 in 6.1b: origin-derived repository and option A's empty first commit, rollback and all commitless fixtures. With implementation, update Spec 1 section 8: init first, owner-terminal default-branch push before the ruleset blocks direct pushes, then Setup-branch push and PR. Plan 7 depends on that ordering.
 
-Unit 1b separates JSONC and Node helpers from settings for independent review. Shared-interface changes required by these Units are proposals for the manager; this documentation PR does not edit Conventions, Layout, Built/Shared interfaces or Kit manifest. Spec 3's PR 3.7 owns the optional-key rename; plan 7 uses current reader APIs/names until then.
+Unit 1b separates JSONC and Node helpers from settings for independent review. This document updates the five shared contracts above for other plans; Conventions, Layout, Built interfaces and the Kit manifest example remain unchanged. Spec 3's PR 3.7 owns the optional-key rename; plan 7 uses current reader APIs/names until then.
 
 ## Plan 7: `rs-setup` and `rs-health`
 
