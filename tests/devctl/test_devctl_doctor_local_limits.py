@@ -411,7 +411,8 @@ class TestOutput:
         repo_files.write(".claude/settings.json", rendered_seed())
         repo_files.write(".agents/hooks.json", rendered_agnostic_seed(".agents/hooks.json"))
         repo_files.lock(unchanged=["devctl"], missing=[])
-        hook = '"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool'
+        hook = "./devctl hook agy pre-tool"
+        fake_run.answer(hook.split(), result(0, '{"decision": "deny", "reason": "G2: x"}\n'))
         fake_run.answer(["sh", "-c", hook], result(0, '{"decision": "deny", "reason": "G2: x"}\n'))
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         fake_run.answer(["gitleaks", "version"], result(0, f"{GITLEAKS_VERSION}\n"))
