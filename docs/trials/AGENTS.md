@@ -6,7 +6,7 @@ The controller-era runtime trials and their frozen bundles are at the tag `archi
 [2026-10-23-harness-guardrails.md](2026-10-23-harness-guardrails.md) records plan 5's live trial of `devctl hook` and the merge guard in headless Claude Code Sessions, in which every rule gave its expected decision and message.
 [2026-10-26-organisation-trial.md](2026-10-26-organisation-trial.md) records plan 4's organisation trial: an admin's `rapid-ship app` on an organisation, `--import-key` and doctor with a team as the code owner, without the App-manager half.
 
-[2026-10-28-agy-hook-outside-repository.md](2026-10-28-agy-hook-outside-repository.md) records the offline launch failure outside Git and the pending T3 runtime capture.
+[2026-10-28-agy-hook-outside-repository.md](2026-10-28-agy-hook-outside-repository.md) records the offline launch failure, successful T3 hook launches after trust, original request records and the tool-cwd coverage limit.
 
 Record the tested versions, conditions, commands, results, and limits for each trial.
 Identify deterministic simulations, live provider calls, and later reruns separately.
