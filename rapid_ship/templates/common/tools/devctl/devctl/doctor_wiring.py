@@ -25,6 +25,7 @@ AGY_WIRING_FILE = ".agents/hooks.json"
 CODEX_WIRING_FILE = ".codex/hooks.json"
 _CODEX_ITEM = "Codex wiring"
 _CODEX_PROGRAM = "$(git rev-parse --show-toplevel)/devctl"
+_CODEX_PATH_WORD = re.compile(re.escape(_CODEX_PROGRAM))
 _CODEX_ARGS = HOOK_COMMANDS["codex"].split()[1:]
 _CODEX_TRUST = (
     "review and trust this definition and any changed hook in /hooks; "
@@ -59,9 +60,9 @@ _LITERAL_DOLLAR = "\x00"  # a $ that the shell keeps as it is, which no path to 
 # in that word, and the shell then runs something else. A space survives only inside quotes.
 _PATH_CHARACTERS = r"(?:[\w./~ -]|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})*"
 _PATH_WORD = re.compile(_PATH_CHARACTERS)
-# agy runs its hooks in .agents/, so its program word may start with git's top level. No other
-# command substitution passes the agy item, and the Claude Code item accepts none.
-_AGY_PATH_WORD = re.compile(r"(?:\$\(git rev-parse --show-toplevel\))?" + _PATH_CHARACTERS)
+# agy launch commands must also work without shell expansion. Quoted static paths are safe
+# to split into argv; variables, tilde and command substitution are not.
+_AGY_PATH_WORD = re.compile(r"[\w./ -]*")
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -216,7 +217,10 @@ def _runs_agy_hook(hook: Mapping[str, object]) -> bool:
     timeout blocks a merge that the guard is still checking."""
     if hook.get("type") != "command" or not _waits(hook, _AGY_DEFAULT_TIMEOUT):
         return False
-    return _names_the_hook(_shell_words(hook.get("command"), _AGY_PATH_WORD), _AGY_HOOK_ARGS)
+    command = hook.get("command")
+    if not isinstance(command, str) or any(char in command for char in "\n\r\x00"):
+        return False
+    return _names_the_hook(_shell_words(command, _AGY_PATH_WORD), _AGY_HOOK_ARGS)
 
 
 def _agy_handlers(hooks: object) -> list[tuple[object, str]]:
@@ -245,9 +249,7 @@ def agy_wiring_problems(hooks: object) -> list[str]:
 
 
 def agy_wiring_item(root: Path, tracked: Sequence[str]) -> Item:
-    """Whether the tracked .agents/hooks.json wires devctl hook for agy, and whether each of its
-    wired commands denies a probe force push. agy blocks every call a failing hook is wired for,
-    so doctor runs each command as agy does, and the first that does not deny decides."""
+    """Check agy's wiring and deterministic launch contract, not a live Harness Session."""
     hooks = _load(root, AGY_WIRING_FILE, tracked, _AGY_ITEM)
     if isinstance(hooks, Item):
         return hooks
@@ -255,23 +257,35 @@ def agy_wiring_item(root: Path, tracked: Sequence[str]) -> Item:
     if problems:
         return Item("guardrails", _AGY_ITEM, "missing", f"{AGY_WIRING_FILE}: {'; '.join(problems)}")
     commands = dict.fromkeys(command for _, command in _agy_handlers(hooks))
-    items = [_probe_item(root, command) for command in commands]
-    return next((item for item in items if item.status != "ok"), items[0])
+    for command in commands:
+        for cwd in (root, root / ".agents"):
+            for argv in (shlex.split(command), ["/bin/sh", "-c", command]):
+                item = _probe_item(root, cwd, argv)
+                if item.status != "ok":
+                    return item
+    detail = (
+        f"{AGY_WIRING_FILE} runs {HOOK_COMMANDS['agy']} for {', '.join(WIRED_TOOLS['agy'])}, and "
+        f"it denied a probe {_PROBE_COMMAND} in deterministic direct/shell checks "
+        "from root and .agents/"
+    )
+    return Item("guardrails", _AGY_ITEM, "ok", detail)
 
 
-def _probe_item(root: Path, command: str) -> Item:
-    """Run command as agy runs a hook, through sh in the folder that holds hooks.json, on a
-    run_command event for _PROBE_COMMAND."""
+def _probe_item(root: Path, cwd: Path, argv: list[str]) -> Item:
+    """Send a synthetic G2 event to a validated launcher; never run the event's command."""
     call = {"name": "run_command", "args": {"CommandLine": _PROBE_COMMAND}}
     event = json.dumps({"toolCall": call, "workspacePaths": [str(root)]})
     try:
         result = process.run_process(
-            ["/bin/sh", "-c", command],
-            (root / AGY_WIRING_FILE).parent,
+            argv,
+            cwd,
             TOOL_TIMEOUT_SECONDS,
             env=owner_environment("devctl"),
             input_text=event,
         )
+    except (FileNotFoundError, PermissionError):
+        detail = f"{AGY_WIRING_FILE}: hook launcher missing or not executable from {cwd}"
+        return Item("guardrails", _AGY_ITEM, "missing", detail)
     except OSError:
         return Item("guardrails", _AGY_ITEM, "unknown", f"cannot run the hook of {AGY_WIRING_FILE}")
     if not finished(result):
@@ -288,11 +302,7 @@ def _probe_item(root: Path, command: str) -> Item:
     if not _denies_with_g2(result.stdout):
         detail = f"its hook did not deny a probe {_PROBE_COMMAND} with G2"
         return Item("guardrails", _AGY_ITEM, "missing", f"{AGY_WIRING_FILE}: {detail}")
-    detail = (
-        f"{AGY_WIRING_FILE} runs {HOOK_COMMANDS['agy']} for {', '.join(WIRED_TOOLS['agy'])}, and "
-        f"it denied a probe {_PROBE_COMMAND}"
-    )
-    return Item("guardrails", _AGY_ITEM, "ok", detail)
+    return Item("guardrails", _AGY_ITEM, "ok", "probe denied with G2")
 
 
 def _denies_with_g2(stdout: str) -> bool:
@@ -341,7 +351,7 @@ def _codex_handlers(settings: object) -> list[tuple[object, str]]:
             command = handler.get("command")
             if not isinstance(command, str) or "\n" in command or "\r" in command:
                 continue
-            words = _shell_words(command, _AGY_PATH_WORD)
+            words = _shell_words(command, _CODEX_PATH_WORD)
             if words == [_CODEX_PROGRAM, *_CODEX_ARGS]:
                 handlers.append((entry.get("matcher"), command))
     return handlers

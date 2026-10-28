@@ -9,9 +9,14 @@ project_name = "rapid-ship"
 repository = "proxy-hatch/rapid-ship"
 
 [[file]]
+path = ".agents/devctl"
+kind = "managed"
+sha256 = "16f57507f085975e229fcc6f8456ea10186ab41af5c1abfb9d295438d82d23c6"
+
+[[file]]
 path = ".agents/hooks.json"
 kind = "seeded"
-template_sha256 = "83fefb2c5806cceb7e798ad3b144584f5774704118223ec713da8cf75067fd78"
+template_sha256 = "48c270b994a7c94887ddd832857cc00f40ec046f65f40bb6814159056d2df869"
 
 [[file]]
 path = ".claude/settings.json"
@@ -231,7 +236,7 @@ sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
 kind = "managed"
-sha256 = "ce30f0da27d6c92316b65fb9af356ef9df3ddc0cc9c4f63b57c7a171bb35d2bf"
+sha256 = "3e47843bb6c2e838c2c828bbd63bb7e41ad75e97cc453d3c26a2f29605611164"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"

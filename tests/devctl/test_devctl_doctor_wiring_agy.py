@@ -1,8 +1,9 @@
-"""Offline: doctor's agy wiring item on written hooks files; the hook it runs is simulated."""
+"""Offline: agy wiring, real rules through a stand-in shim, and simulated process failures."""
 
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -11,9 +12,10 @@ import pytest
 from devctl import process
 from devctl.doctor_wiring import agy_wiring_item, agy_wiring_problems
 from devctl.process import ProcessResult
-from rapid_ship.kit.templates import render_files
+from rapid_ship.kit.templates import load_manifest, render_files
+from test_devctl_doctor_settings import SHIM
 
-COMMAND = '"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool'
+COMMAND = "./devctl hook agy pre-tool"
 HANDLER = {"type": "command", "command": COMMAND, "timeout": 600}
 ALL = "run_command|write_file|edit_file"
 GAP = "no PreToolUse hook runs devctl hook agy pre-tool for "
@@ -163,10 +165,15 @@ def test_the_rendered_seed_is_ok_and_its_hook_answers_a_probe(
     assert item_for(tmp_path, rendered_seed()) == (
         "ok",
         f".agents/hooks.json runs devctl hook agy pre-tool for {EVERY_TOOL}, and it denied a probe "
-        "git push --force",
+        "git push --force in deterministic direct/shell checks from root and .agents/",
     )
-    [(argv, cwd, event)] = probe.calls
-    assert (argv, cwd) == (["/bin/sh", "-c", COMMAND], tmp_path / ".agents")
+    assert [(argv, cwd) for argv, cwd, _ in probe.calls] == [
+        (argv, cwd)
+        for cwd in (tmp_path, tmp_path / ".agents")
+        for argv in (shlex.split(COMMAND), ["/bin/sh", "-c", COMMAND])
+    ]
+    assert len({event for _, _, event in probe.calls}) == 1
+    event = probe.calls[0][2]
     assert event is not None
     assert json.loads(event) == {
         "toolCall": {"name": "run_command", "args": {"CommandLine": "git push --force"}},
@@ -283,7 +290,7 @@ def test_a_hook_that_does_not_deny_the_probe_does_not_count(
 def test_every_wired_command_must_answer_the_probe(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    gone = '"$(git rev-parse --show-toplevel)/gone/devctl" hook agy pre-tool'
+    gone = "./gone/devctl hook agy pre-tool"
     hooks = named(
         a={"matcher": "run_command"},
         b={"matcher": "write_file|edit_file", "hooks": [{**HANDLER, "command": gone}]},
@@ -292,8 +299,9 @@ def test_every_wired_command_must_answer_the_probe(
     commands: list[str] = []
 
     def run_process(argv: Sequence[str], *args: object, **kwargs: object) -> ProcessResult:
-        commands.append(argv[-1])
-        return ProcessResult([], answers[argv[-1]][1], answers[argv[-1]][0], "", 0.1)
+        command = argv[-1] if argv[0] == "/bin/sh" else shlex.join(argv)
+        commands.append(command)
+        return ProcessResult([], answers[command][1], answers[command][0], "", 0.1)
 
     monkeypatch.setattr(process, "run_process", run_process)
 
@@ -302,7 +310,7 @@ def test_every_wired_command_must_answer_the_probe(
         ".agents/hooks.json: its hook exited 127 on a probe event, so agy would block every call "
         "it is wired for",
     )
-    assert commands == [COMMAND, gone]
+    assert commands == [COMMAND] * 4 + [gone]
 
 
 def test_a_hook_that_cannot_start_is_unknown(
@@ -314,3 +322,111 @@ def test_a_hook_that_cannot_start_is_unknown(
         "unknown",
         "cannot run the hook of .agents/hooks.json",
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        '"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool',
+        '"$ROOT/devctl" hook agy pre-tool',
+        '"${ROOT}/devctl" hook agy pre-tool',
+        "~/devctl hook agy pre-tool",
+        "'~/devctl' hook agy pre-tool",
+        "'$(touch never)/devctl' hook agy pre-tool",
+        "`pwd`/devctl hook agy pre-tool",
+        "./devctl hook agy pre-tool > never",
+        "./devctl hook agy pre-tool && touch never",
+        "./devctl hook agy pre-tool\n touch never",
+        "./devctl\nhook agy pre-tool",
+        "X=1 ./devctl hook agy pre-tool",
+        "./devctl hook agy pre-tool # comment",
+        "./devctl hook agy pre-tool\x00",
+    ],
+)
+def test_shell_dependent_or_extra_commands_are_rejected_without_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    probe = answering(monkeypatch)
+
+    assert item_for(tmp_path, json.dumps(wired(command=command)))[0] == "missing"
+    assert probe.calls == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "./devctl hook agy pre-tool",
+        "'/project with spaces/devctl' hook agy pre-tool",
+        '"/project with spaces/devctl" hook agy pre-tool',
+        "/project\\ with\\ spaces/devctl hook agy pre-tool",
+    ],
+)
+def test_static_paths_and_quoting_are_valid(command: str) -> None:
+    assert agy_wiring_problems(wired(command=command)) == []
+
+
+def launch_project(tmp_path: Path) -> Path:
+    """Offline: real rendered agy files and rules, with a stand-in for uv's canonical shim."""
+    root = tmp_path / "project with spaces"
+    root.mkdir()
+    variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
+    executable = load_manifest().executable
+    for template in render_files("agnostic", variables, ()):
+        if template.path in (WIRING, ".agents/devctl", ".rapid-ship/project.toml"):
+            assert template.content is not None
+            target = root / template.path
+            target.parent.mkdir(exist_ok=True)
+            target.write_bytes(template.content)
+            target.chmod(0o755 if template.path in executable else 0o644)
+    (root / "devctl").write_text(SHIM)
+    (root / "devctl").chmod(0o755)
+    assert process.run_process(["git", "init", "--quiet"], root, 10).returncode == 0
+    return root
+
+
+@pytest.mark.parametrize("directory", [".", ".agents"])
+@pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
+@pytest.mark.parametrize("command", ["git status", "git push --force"])
+def test_rendered_launch_reaches_real_allow_and_g2_rules(
+    tmp_path: Path, directory: str, shell: bool, command: str
+) -> None:
+    root = launch_project(tmp_path)
+    seed = json.loads((root / WIRING).read_text())
+    launcher = seed["devctl"]["PreToolUse"][0]["hooks"][0]["command"]
+    argv = ["/bin/sh", "-c", launcher] if shell else shlex.split(launcher)
+    event = {
+        "toolCall": {"name": "run_command", "args": {"CommandLine": command}},
+        "workspacePaths": [str(root)],
+    }
+
+    result = process.run_process(argv, root / directory, 10, input_text=json.dumps(event))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    answer = json.loads(result.stdout)
+    if command == "git status":
+        assert answer == {"decision": "allow"}
+    else:
+        assert answer["decision"] == "deny"
+        assert answer["reason"].startswith("G2: ")
+
+
+@pytest.mark.parametrize("path", ["devctl", ".agents/devctl"])
+@pytest.mark.parametrize("defect", ["missing", "not-executable", "bad-interpreter"])
+def test_doctor_detects_an_unusable_launcher(tmp_path: Path, path: str, defect: str) -> None:
+    root = launch_project(tmp_path)
+    launcher = root / path
+    if defect == "missing":
+        launcher.unlink(missing_ok=True)
+    elif defect == "not-executable":
+        launcher.chmod(0o644)
+    else:
+        launcher.write_text("#!/no/such/interpreter\n")
+
+    assert item_for(root)[0] == "missing"
+
+
+def test_doctor_accepts_the_real_rendered_launch_contract(tmp_path: Path) -> None:
+    root = launch_project(tmp_path)
+
+    assert item_for(root)[0] == "ok"

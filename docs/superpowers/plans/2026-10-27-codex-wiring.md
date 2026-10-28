@@ -6,7 +6,7 @@
 
 **Requirements:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 4, 6, 8, 10 and 11; the [hook spike](../../trials/2026-10-21-hook-spike.md), Codex CLI 0.163.0. The approved failure choice is exit 1, one stderr diagnostic and no stdout for internal errors, malformed events and known-Codex usage errors. Codex lets those calls through. The hook never exits 2; a recognized merge catches its own failures and denies. Exit 2 before devctl starts can still block; timeouts can let calls through.
 
-**Constraints:** Tests first, offline simulations clearly labelled. Keep Claude Code and agy behavior. Change devctl templates, stage new templates, then sync managed copies and the lock. Preserve existing seeded files. Stay below 1,500 counted lines against `3a4fc85fa33328d05c7cb498b0eaf0ba31354bd1`. No heavy checks or publication in this Worker turn. No live hook-trust change.
+**Constraints:** Tests first, offline simulations clearly labelled. Keep Claude Code and agy behavior. Change devctl templates, stage new templates, then sync managed copies and the lock. Preserve existing seeded files. Stay below 1,500 counted lines against the current review merge base; the initial base was `3a4fc85fa33328d05c7cb498b0eaf0ba31354bd1`. No heavy checks or publication in this Worker turn. No live hook-trust change.
 
 ## Tasks and exact files
 
@@ -76,3 +76,13 @@ Patch parsing now follows the header trimming and EOF wrappers in [Codex 0.164.0
 The whitespace/wrapper regressions failed in all 24 initial cases. Eight added boundary/EOF-hunk cases then failed before their fixes. Four doctor newline cases failed before rejecting line breaks. After the fixes, the Codex hook, patch, doctor-wiring and doctor-settings modules passed 171 offline tests. The fast tier's formatting check found one line to reformat; the source was formatted before the final check. No tests were removed.
 
 The lead's final grammar review found that optional `Environment ID` metadata before file operations also reached the internal-error path. A read-only probe against an impossible `/dev/null/` child confirmed that the actual tool accepts it. Eight metadata/wrapper cases failed before the fix. The parser now skips validated optional metadata and reads the following paths; empty, repeated or misplaced metadata remains invalid. The expanded focused modules passed 186 offline tests. The full check at `a904966` passed, but applies to the earlier head; the metadata fix requires fresh final-head checks before publication.
+
+## Integration with the agy launcher, 2026-10-28
+
+Merge `origin/main` at `cac10823fe0046bb20188baec3e4a934c908f146` into the published Codex branch at `dda564df7cee7517bd9677d8ba151a1141a13e6a`. The review base advances from `3a4fc85fa33328d05c7cb498b0eaf0ba31354bd1` to that main commit. Preserve agy's shell-free seed, executable `.agents/devctl`, direct/shell doctor probes, runtime fallback and documented limits. Keep both Harnesses' tests and Kit entries.
+
+The automatic merge made Codex use agy's new static-path matcher. The existing Codex doctor module failed 14 tests before the fix. Codex now has its own exact program matcher; agy's validation remains unchanged. The combined offline run then passed 864 tests and exposed one stale doctor fixture deriving Codex's command from agy's command. That fixture now records each Harness's actual launcher, retaining the expected successful Codex item. Its focused rerun passed. No tests were removed or weakened.
+
+Keep Codex's existing shell launcher: the spike's Setup configures the direct `"$(git rev-parse --show-toplevel)/standin.sh" codex` hook, and Results item 4 records Codex running the linked worktree's own stand-in through that lookup. This evidence comes from Codex Sessions, independently of doctor's shell probe. The earlier whitespace, EOF-wrapper, optional environment-metadata and newline regressions remain required.
+
+Run focused offline hook, protocol, patch, doctor, worktree and Kit regressions, then the fast tier, strict Kit status, settings doctor and diff whitespace check. The lead must obtain fresh hosted full-check and documentation-build results after pushing the merge head. Owner `/hooks` review, trust and the live guardrail trial remain pending above. Later main merges follow the conflict-or-overlapping-files condition.

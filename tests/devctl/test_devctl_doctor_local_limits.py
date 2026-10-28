@@ -413,10 +413,11 @@ class TestOutput:
         repo_files.write(".agents/hooks.json", rendered_agnostic_seed(".agents/hooks.json"))
         repo_files.write(".codex/hooks.json", rendered_agnostic_seed(".codex/hooks.json"))
         repo_files.lock(unchanged=["devctl"], missing=[])
-        hook = '"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool'
+        hook = "./devctl hook agy pre-tool"
+        fake_run.answer(hook.split(), result(0, '{"decision": "deny", "reason": "G2: x"}\n'))
         fake_run.answer(["sh", "-c", hook], result(0, '{"decision": "deny", "reason": "G2: x"}\n'))
         fake_run.answer(
-            ["sh", "-c", hook.replace("agy", "codex")],
+            ["sh", "-c", '"$(git rev-parse --show-toplevel)/devctl" hook codex pre-tool'],
             result(
                 0,
                 '{"hookSpecificOutput":{"hookEventName":"PreToolUse",'
