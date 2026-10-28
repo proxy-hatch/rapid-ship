@@ -231,7 +231,7 @@ sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 [[file]]
 path = "tools/devctl/devctl/github/api.py"
 kind = "managed"
-sha256 = "93669b0b2369c049c038d5fb16336ce9535e5f1db1477a1ce8854b3e77813015"
+sha256 = "156d293124d7fbdcf56ff5e2f8f063171f744201c00617c75fc7bde327ac0fd4"
 
 [[file]]
 path = "tools/devctl/devctl/github/app.py"

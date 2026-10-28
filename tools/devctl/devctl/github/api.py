@@ -129,6 +129,8 @@ def _cause(failure: OSError | HTTPException | ValueError) -> str:
     name = type(failure).__name__
     if isinstance(failure, ssl.SSLCertVerificationError):
         return f"{name}: TLS certificate verification failed; check the trusted CA and hostname"
+    if isinstance(failure, ssl.SSLError):
+        return f"{name}: TLS connection failed; check the proxy and TLS configuration"
     if isinstance(failure, socket.gaierror):
         return f"{name}: DNS lookup failed; the host could not be resolved"
     if isinstance(failure, OSError):

@@ -15,6 +15,7 @@ import ssl
 import threading
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from http.client import HTTPSConnection
 from pathlib import Path
 
 import pytest
@@ -504,3 +505,25 @@ def test_no_proxy_domain_boundaries_and_explicit_default_ports(
     environment.setenv("NO_PROXY", bypass)
     assert GitHubApi(secrets.token_urlsafe(48), base_url=url).request("GET", "/repos/o/r")
     assert len(proxy.heads) == (0 if direct else 1)
+
+
+@pytest.mark.parametrize("error_number", [ssl.SSL_ERROR_SSL, ssl.SSL_ERROR_EOF])
+def test_tls_protocol_failures_have_safe_tls_guidance(
+    error_number: int, environment: pytest.MonkeyPatch
+) -> None:
+    token = secrets.token_urlsafe(48)
+    remote_text = secrets.token_urlsafe(24)
+
+    def fail_tls(connection: HTTPSConnection) -> None:
+        raise ssl.SSLError(error_number, f"{remote_text} {token}")
+
+    environment.setattr(HTTPSConnection, "connect", fail_tls)
+    with pytest.raises(GitHubError) as caught:
+        GitHubApi(token).request("GET", "/repos/o/r")
+
+    message = str(caught.value)
+    assert "cannot connect to api.github.com: SSLError: TLS connection failed" in message
+    assert "check the proxy and TLS configuration" in message
+    assert "Operation not permitted" not in message
+    assert token not in message
+    assert remote_text not in message
