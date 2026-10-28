@@ -561,7 +561,7 @@ Its plan document, [`2026-10-26-rs-setup-and-rs-health.md`](2026-10-26-rs-setup-
 
 **Goal:** Ship the Kit's first skills (`rs-codebase-design`, `rs-writing-for-agents`, `rs-tdd`, `rs-diagnosing-bugs`, `rs-pr`, `rs-writing`, `rs-ponytail`, `rs-setup`, `rs-health` and the optional `rs-contribute`), retire `rapid-ship-engineering`, trial `rs-setup` and `rs-health`, apply `rs-setup`'s GitHub settings to this repository, and rewrite the documentation site for GA once Spec 3 is built.
 
-**PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
+**Code PRs:** 7.1a first; 7.1b, 7.2 and 7.3 may proceed in parallel once its head exists. 7.4’s structure may start independently, but it lands last. Each PR records its verification.
 
 | PR | Tasks | Content |
 | --- | --- | --- |

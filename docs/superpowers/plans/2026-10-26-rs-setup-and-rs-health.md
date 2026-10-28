@@ -25,7 +25,7 @@
 | 7.1b | `plan7-engineering` | 7.1a's head | 2, 3, 4 | about 400 |
 | 7.2 | `plan7-setup` | 7.1a's head | 5, 6 | about 200 |
 | 7.3 | `plan7-health` | 7.1a's head | 7, 8 | about 150 |
-| 7.4 | `plan7-site` | 7.1a's head | 11, 12; records of Owner Tasks 9 and 10 | about 250 |
+| 7.4 | `plan7-site` | `main` for structure; normally merge 7.1a before dependent work | 11, 12; records of Owner Tasks 9 and 10 | about 250 |
 
 - **7.1a first.** Task 1 rewrites skill discovery before Kit skills are vendored. Other code PRs may branch from its reviewed head.
 - **Parallel work.** The owner accepted parallel work on 2026-10-27. Start 7.1b, 7.2 and 7.3 once 7.1a's head exists. Task 11 Steps 1 and 2 may start independently. No fixed cap or wave barrier applies; per-task prerequisites still hold.
@@ -382,7 +382,7 @@ status = "patched"  # verbatim or patched
     With `[github] repository` still empty, as for a repository that step 7.1 created after `init`, it records `owner/name` there before step 8. With Agent identity on, G8 denies these writes and G7 the agent's push. The skill then gives the owner each exact command for a terminal, and agents' own GitHub writes run through `./devctl as`. A 403 that names the plan limit is the GitHub Free private gap; the skill records it, with the explanation that the merge guard is the enforcement there.
   - **Mode (step 9):** it quotes the merge guard's Walk denial, advises at most 3 agents at once in Walk, and says that the owner widens the Mode in one Protected PR that sets `every_pr = false` and changes CODEOWNERS.
   - **Setup PR (step 13):** the body ends with the Evidence section that `devctl check` requires. It adds `Over the diff cap: dead code marked at Setup` only when the marks pass the cap.
-  - **Next (step 15):** for an existing repository it offers `rs-health`. It then says that the Kit is ready: the owner starts and manages their own Sessions, which follow AGENTS.md, its Pull requests section included, and the engineering skills, while `./devctl check`, the guardrails and the merge guard hold the bar. Every Kit Markdown file names only installed skills, except the `rs-exception` marker. Until their skills ship, say “a gardening pass” or “a readiness review”; step 9 follows this rule too.
+  - **Next (step 15):** for an existing repository it offers `rs-health`. It then says that the Kit is ready: the owner starts and manages their own Sessions, which follow AGENTS.md, its Pull requests section included, and the engineering skills, while `./devctl check`, the guardrails and the merge guard hold the bar. Every Kit Markdown file names only skills supplied by the current Kit, except the `rs-exception` marker. Invoke only installed skills; optional offers may name a supplied template. Until their skills ship, say “a gardening pass” or “a readiness review”; step 9 follows this rule too.
 - `rapid_ship/kit/init.py`'s dirty-tree refusal ends `Your coding agent can help commit or stash them; then run rapid-ship init again.`
 
 - [ ] **Step 1: write the failing tests.** `tests/devctl/test_devctl_ruleset_json.py`, docstring `Offline: rs-setup's ruleset.json against doctor's ruleset rules and a ruleset that GitHub returned, and the commands rs-setup states.`:
@@ -514,7 +514,7 @@ Early application was approved on 2026-10-28. The manager prepared an owner-run 
 - [ ] **Step 2 (Owner):** run full `./devctl doctor` and retain its actual output and exit code. Expected: ruleset, delete branch on merge and fork PR workflow approval items are ok. Missing, unknown or blocked results require follow-up and do not pass.
 - [ ] **Step 3 (implementer): write the record** with each command, its exit code and doctor's lines, and add its line to `docs/trials/AGENTS.md`. Record the consequence: every later PR needs the code owner's approval or the admin bypass, a passing `devctl check`, resolved threads and a squash merge. Commit `docs: record rapid-ship's GitHub settings` on `plan7-site`.
 
-## PR 7.4: the documentation site and GA (`plan7-site`, on 7.1a's head)
+## PR 7.4: the documentation site and GA (`plan7-site`, on `main` for independent structure)
 
 ### Task 11: The site's structure, Home, Why rapid-ship, The journey, Concepts and Reference
 
