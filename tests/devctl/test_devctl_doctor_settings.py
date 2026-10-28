@@ -1,7 +1,11 @@
 """Offline: doctor --settings on fixture repositories; gh_get is replaced by a reader that fails the
-test."""
+test. The agy wiring item's probe runs this checkout's devctl hook through a stand-in shim."""
 
 from __future__ import annotations
+
+import shlex
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -9,18 +13,33 @@ from check_workspace import Workspace
 from devctl import doctor
 from devctl.cli import main
 from devctl.doctor import DoctorContext
-from rapid_ship.kit.templates import render_files
+from rapid_ship.kit.templates import load_manifest, render_files
 
 VARIABLES = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
+DEVCTL = Path(__file__).resolve().parents[2] / "tools/devctl"
+# The Kit's shim runs devctl through uv; this one runs the vendored devctl with this Python.
+SHIM = (
+    "#!/bin/sh\n"
+    f"PYTHONPATH={shlex.quote(str(DEVCTL))} exec {shlex.quote(sys.executable)} "
+    "-c 'import sys; from devctl.cli import main; sys.exit(main())' \"$@\"\n"
+)
 INVALID_KEY = 'stack = "python"\n[escalation]\nrevision_rounds = 0\n'
 
 
 def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
-    wanted = {".claude/settings.json", *([".github/CODEOWNERS"] if codeowners else [])}
+    wanted = {
+        ".claude/settings.json",
+        ".agents/hooks.json",
+        ".agents/devctl",
+        *([".github/CODEOWNERS"] if codeowners else []),
+    }
     for template in render_files("python", VARIABLES, ()):
         if template.path.startswith(".rapid-ship/") or template.path in wanted:
             assert template.content is not None
-            workspace.write(template.path, template.content.decode())
+            target = workspace.write(template.path, template.content.decode())
+            if template.path in load_manifest().executable:
+                target.chmod(0o755)
+    workspace.write("devctl", SHIM).chmod(0o755)
     workspace.commit("Add the Kit's settings")
 
 
@@ -49,11 +68,14 @@ def test_settings_reads_only_the_settings_and_asks_github_nothing(
     assert [line.split(": ")[0] for line in lines[:-1]] == [
         "ok  toolchain  git",
         "ok  guardrails  settings",
-        "ok  guardrails  Harness wiring",
+        "ok  guardrails  Claude Code wiring",
+        "ok  guardrails  agy wiring",
     ]
     assert lines[1].startswith("ok  guardrails  settings: ")
-    assert lines[2].startswith("ok  guardrails  Harness wiring: ")
-    assert lines[-1] == "doctor: 3 ok, 0 missing, 0 unknown"
+    assert lines[2].startswith("ok  guardrails  Claude Code wiring: ")
+    # The deterministic checks run the real hook through the stand-in and managed forwarder.
+    assert lines[3].endswith("in deterministic direct/shell checks from root and .agents/")
+    assert lines[-1] == "doctor: 4 ok, 0 missing, 0 unknown"
 
 
 def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(
