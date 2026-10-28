@@ -1,0 +1,27 @@
+# Codex wiring implementation plan
+
+**Goal:** Wire Codex to the Kit's guardrails, without G5 (PRO-142).
+
+**Architecture:** Reuse the per-Harness protocol and doctor boundaries built for agy. Parse Codex patches into every written path before the existing rules decide. Seed `.codex/hooks.json`; resolve devctl from the current git top level, including linked worktrees. No service or agent orchestration is added.
+
+**Requirements:** [Spec 1](../specs/2026-10-14-kit-and-setup-design.md), sections 4, 6, 8, 10 and 11; the [hook spike](../../trials/2026-10-21-hook-spike.md), Codex CLI 0.163.0. The approved failure choice is exit 1, one stderr diagnostic and no stdout for internal errors, malformed events and known-Codex usage errors. Codex lets those calls through. The hook never exits 2; a recognized merge catches its own failures and denies. Exit 2 before devctl starts can still block; timeouts can let calls through.
+
+**Constraints:** Tests first, offline simulations clearly labelled. Keep Claude Code and agy behavior. Change devctl templates, stage new templates, then sync managed copies and the lock. Preserve existing seeded files. Stay below 1,500 counted lines against `3a4fc85fa33328d05c7cb498b0eaf0ba31354bd1`. No heavy checks or publication in this Worker turn. No live hook-trust change.
+
+## Tasks and exact files
+
+- [x] Commit this plan and one Codex follow-up entry in `2026-10-14-kit-and-setup.md`.
+- [ ] Protocol, tests first: `rapid_ship/templates/common/tools/devctl/devctl/hook_protocols.py` and `hook.py`; `tests/devctl/test_devctl_hook_codex.py`, `test_devctl_hook_patch.py`, `test_devctl_hook_protocol.py`. Read Bash commands and all Add, Update, Delete and Move paths, including later operations, spaces, CRLF and lexical `..`. Reject malformed patches. Test every deny rule through the CLI, no decision, G5 absence, invalid settings and failure outputs.
+- [ ] Recover four events from original kept captures into `tests/devctl/fixtures/hooks/codex/{bash,bash-subagent,bash-headless,apply-patch}.json`. Append scrubbed blocks and source run/filename provenance to `docs/trials/2026-10-21-hook-spike.md`; preserve existing evidence. Fixtures equal blocks byte for byte. No recorded subagent patch exists.
+- [ ] Seed and doctor, tests first: `rapid_ship/templates/common/.codex/hooks.json`, `rapid_ship/templates/kit.toml`, both `rapid_ship/templates/{common,python}/.github/CODEOWNERS`, project-owned `.github/CODEOWNERS`; devctl templates `doctor_wiring.py`, `doctor.py`, `doctor_local.py`, `doctor_rules.py`. Validate tracked wiring, safe command, matcher coverage and synchronous timeout of at least 360 seconds (default 600). Probe only recognized commands; require exit 0 and G2 deny. Report missing versus unknown, and name `/hooks` trust and user-config limits.
+- [ ] Doctor and Kit tests: `tests/devctl/test_devctl_doctor_wiring_codex.py`, `test_devctl_doctor_settings.py`, `test_devctl_doctor_local_limits.py`, `test_devctl_doctor_github.py`, and `tests/test_kit_contents.py`. Include stand-in shim integration and linked-worktree command resolution.
+- [ ] Sync-only copies: `.codex/hooks.json`, `tools/devctl/devctl/{hook_protocols,hook,doctor_wiring,doctor,doctor_local,doctor_rules}.py`, `.rapid-ship/kit.lock`.
+- [ ] Current behavior and navigation: `.codex/AGENTS.md`, `AGENTS.md`, `README.md`, `ARCHITECTURE.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, `rapid_ship/templates/AGENTS.md`, Spec 1. Correct only Codex-unwired claims in `2026-10-14-rapid-ship-design.md` and the guardrails line in `2026-10-16-metrics-and-gardening-design.md`; preserve Spec 3 status and unrelated text.
+- [ ] Verify focused new/affected pytest modules, Claude/agy hook and probe regressions, affected Kit contents tests, `./devctl check --tier fast`, `uv run rapid-ship status --strict`, and `./devctl doctor --settings`. Calculate the fixed-base diff with `devctl.check.diff.counted_lines`. Scan added text, commit messages and branch against the private identifier list without printing matches. Commit all changes; return clean status and evidence. The lead runs heavy checks and independent review afterward.
+
+## Pending Owner steps
+
+- [ ] After merge, Shawn reviews and trusts the exact new definition in Codex `/hooks`, with the project trusted. A changed hook requires another review. Doctor validates local wiring and a subprocess probe; it cannot establish persisted trust or user-level settings.
+- [ ] After trust, Shawn runs a live guardrail trial in lead, subagent and headless Sessions, excluding G5, in a disposable repository with no live remote. Try `git commit -n -m trial` (G1), `git push --force` (G2), `git push origin HEAD:main` (G3), patch Add/Update/Delete/Move involving `.rapid-ship/kit.lock` (G4), `git push origin trial` with Agent identity on (G7), `gh pr create --fill` with Agent identity on (G8), and `gh pr merge 1` in Walk (merge denial). `git status` gets no hook decision; a Protected-file patch gets no G5 ask. Record version, tested commit, Session kind, event/tool, decision/reason, whether the tool ran, current worktree and trust review. Do not run a denied operation by another route.
+
+After merge and Shawn's trust, Codex Sessions in rapid-ship checkouts, Feature leads included, run devctl hook. This implementation's Sessions are not claimed to have run under that hook. The recovered events are historical evidence; offline tests and doctor's subprocess probe do not complete the live trial.
