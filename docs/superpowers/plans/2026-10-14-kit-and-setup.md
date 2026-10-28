@@ -28,8 +28,9 @@ This index fixes the layout and the names, signatures and formats that more than
   - `rapid-ship app [--repository OWNER/NAME] [--import-key {worker,reviewer}]` (plan 4; `--import-key` from its follow-ups)
   - `devctl check [--tier {fast,full}] [--json] [--base REV] [--pr-body PATH] [--install]`; `--install` from plan 6
   - `devctl doctor [--skills | --settings]` (`--settings` from plan 5; the two exclude each other), `devctl as {worker,reviewer} push`, `devctl as {worker,reviewer} gh ARGS...` (plan 4)
+  - `devctl metrics [--window N] [--json] [--post]` (Spec 3)
   - `devctl hook claude pre-tool` (plan 5); each later wiring adds its Harness
-- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2.
+- Exit codes in both CLIs: 0 success; 1 a check failed, something is missing, or a request was refused; 2 the command could not run. When both 1 and 2 apply, 2 wins. `KitRefusal` exits 1; `KitError`, `SettingsError`, `RepoError` and `DevctlError` exit 2. Two commands differ, as Spec 1 section 6 says: after it runs `gh` or `git`, `devctl as` returns that tool's exit code, or 2 when the tool timed out or its output was cut; `devctl hook` follows each Harness's hook protocol, a workaround documented in `hook_protocols.py`, and exits 1 on an internal error, never 2. `devctl metrics` exits 1 on a breached Suggested threshold, never on an unknown one; a used-up API allowance leaves metrics unknown rather than exiting 2; with `--post` a posted breach exits 0.
 - Every refusal and error names the problem, what it blocks and the next step (guided rectifying), and still stops at the first error and shows its cause.
 - A settings file the Kit ships comments a key only where its format allows a comment and the key's name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint (Spec 1 section 4). devctl's loaders reject unknown keys, wrong types, numbers out of range and values outside their allowed set (plan 5; plan 6 for the TypeScript files).
 - Write tests first. Label offline and simulated tests as such. A blocked or skipped step never counts as passed.
@@ -591,7 +592,7 @@ Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows the
 
 ## Spec 3: Metrics and gardening
 
-Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md), holds the tasks of the nine PRs below and lands in PR 3.1. Its "Order and parallel work" section orders them with plans 6 and 7, and lists the files they share.
+Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md), lands as its own document-only PR before the nine implementation PRs below. PR 3.1 branches from merged `main`. Its "Order and parallel work" section recommends Spec 3-only waves, states the plan 6/7 prerequisites per wave, and lists shared files. The owner confirms the waves on the planning PR; plans 6 and 7 keep their own order.
 
 **State:** planned on 2026-10-27; not started.
 
@@ -599,7 +600,7 @@ Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md),
 
 | PR | Content | Counted lines, estimated |
 | --- | --- | --- |
-| 3.1 | This plan; `metrics.toml`, its loader and the status rule | about 700 |
+| 3.1 | `metrics.toml`, its loader and the status rule | about 700 |
 | 3.2 | The ledger's parser, map rule 9, its seeds and the `session` Rule | about 800 |
 | 3.3 | The GitHub reader with the API allowance, and the window | about 900 |
 | 3.4 | Revisions, Red merges, and `devctl metrics` with its text, JSON and exit codes | about 1,150 |
@@ -609,7 +610,9 @@ Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md),
 | 3.8 | `rs-garden`, `rs-preflight` and `rs-setup`'s metrics step | about 200 |
 | 3.9 | The integration tests, the trial records and the site's Spec 3 pages | about 150 |
 
-3.8 waits for PRs 7.1a, 7.2 and 7.3, and 3.9 for the live trials and PR 6.3. PR 7.4, GA, lands after 3.9.
+3.7 alone renames `optional_skills` to `optional` and the reader/settings names, including all entries then present. Plan 7 uses current names until then; whichever lands second updates shared callers and fixtures.
+
+3.8 waits for 3.5, 3.6, 3.7, plan 7's PRs 7.1a, 7.2 and 7.3, and the Harness wiring (PRO-155 and PRO-142). 3.9 waits for the live trials, PR 6.3 and plan 7's merged document, including its Shared interfaces entry for documentation pages. PR 7.4, GA, lands after 3.9.
 
 ## Plan style
 
