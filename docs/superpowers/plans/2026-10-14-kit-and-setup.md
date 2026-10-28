@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6 is planned in [its plan document](2026-10-26-typescript-and-stacks.md), in five PRs; plan 7 is not started. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6's [plan document](2026-10-26-typescript-and-stacks.md) awaits Shawn's approval in its own documentation PR, PRO-169; its five code PRs are unbuilt and wait for that approval; plan 7 is not started. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code`. Follow-up: the [agy wiring](2026-10-26-agy-wiring.md) (PRO-155), on `agy-wiring` |
-| 6 | [TypeScript stack and several stacks in one repository](2026-10-26-typescript-and-stacks.md) | 3, 4, 5, 6, 10 | 5 | Planned: five PRs, 6.1a, 6.1b, 6.2a, 6.2b and 6.3, which split the [outline's](#plan-6-typescript-stack-and-several-stacks-in-one-repository) three under the diff cap; 6.1b, 6.2a and 6.2b build at the same time |
+| 6 | [TypeScript stack and several stacks in one repository](2026-10-26-typescript-and-stacks.md) | 3, 4, 5, 6, 10 | 5 | Plan approval: own documentation PR PRO-169. Code unbuilt: 6.1a, 6.1b, 6.2a, 6.2b, 6.3 start after Shawn approves; Unit 14 stays in 6.1b |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: four PRs |
 
 PRs #28 to #33 form a stack on the design PR, #27: each is based on the one before, and a change to the design lands on #27 and is merged up. Each plan document lives in its plan's PRs: plans 1 to 3 in #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, in #31 to #33.
@@ -510,38 +510,40 @@ If review finds a PR too large, it splits at a task boundary.
 
 ## Plan 6: TypeScript stack and several stacks in one repository
 
-**Goal:** Support a Python backend with a React TypeScript frontend from day one. `project.toml` lists each stack with its directory, `init` writes each stack's files under its directory, and `devctl check` runs each stack's steps there. The TypeScript stack brings ESLint, Prettier, `tsc --noEmit`, Vitest, knip and `npm audit`, with npm as the package manager, its guardrail settings, a React skeleton, its starter Patterns and CI support. This brings part of backlog PRO-108 into scope; the rest of monorepo support stays deferred.
+**Plan:** [TypeScript Stack and Several Stacks](2026-10-26-typescript-and-stacks.md), revised for approval in its own documentation PR, PRO-169. Implementation is unbuilt. Shawn approves the plan before code starts; its six owner confirmations remain pending on that PR.
 
-**PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
+**Goal:** Let several stacks share a repository and add TypeScript, so a Python backend and React TypeScript frontend pass `./devctl check` from day one.
 
-| PR | Tasks | Content |
+Each PR below is one Task. The numbered Units retain the original outline's numbering and each has a test-first cycle.
+
+| PR | Units | Content |
 | --- | --- | --- |
-| 6.1 | 1 to 5 | Several stacks, with Python and the agnostic stack only |
-| 6.2 | 6 to 9 | The TypeScript checks |
-| 6.3 | 10 to 13 | The TypeScript templates and CI |
+| 6.1a | 1, 1b, 4, 3a, 5 | devctl settings and temporary lock reader, JSONC/Node helpers, stack ownership, tracked references and doctor |
+| 6.1b | 2, 14, 3b | init, detection, lock rewrite, directory rendering and repository seeds; PRO-159/161 stay here |
+| 6.2a | 6, 12a, 9 | TypeScript steps, install, CI Node.js and doctor |
+| 6.2b | 7, 8 | Suppressions, tracked references, Vitest diff policy, spaced declarations and Rule references |
+| 6.3 | 10, 11, 12b, 13 | Templates, Patterns, integration tests, live trial and removal of devctl's temporary older-lock reader |
 
-**Files:**
+6.1a follows merged PRO-166 #48, PRO-147 #51 and PRO-152 #50; it preserves PRO-155 #49. The next three PRs may build in parallel from 6.1a. 6.3 follows merged 6.1b and 6.2a; its Patterns also wait for 6.2b. Each stays under 1,500 counted lines. Unit 14 stays in 6.1b; if margin is insufficient, split other independent work at a Unit boundary or obtain owner acceptance before declaring an overage.
 
-- 6.1: `rapid_ship/kit/stacks.py`, `templates.py`, `init.py`, `lock.py`, `status.py`, `sync.py`; `rapid_ship/cli.py`; the `project.toml` and CODEOWNERS templates; devctl templates `settings.py`, `check/__init__.py`, `check/steps.py`, `check/exceptions.py`, `check/filesize.py`, `check/references.py`, `doctor_local.py`, `doctor_rules.py`. This repository's `.rapid-ship/project.toml`, rewritten in place. Tests: `tests/test_kit_stacks*.py`, `tests/test_kit_init*.py`, `tests/devctl/test_devctl_settings*.py`, `test_devctl_check_stacks*.py`.
-- 6.2: devctl templates `check/stacks/typescript.py`, `check/diff.py`, `check/references.py`, `cli.py` for `--install`, `doctor_local.py`, `doctor_rules.py`. Tests: `tests/devctl/test_devctl_typescript*.py`, with fake tools in a fake `node_modules/.bin`.
-- 6.3: `rapid_ship/templates/typescript/`: `package.json`, `tsconfig.json`, `eslint.config.js`, `vite.config.ts`, `knip.jsonc`, `index.html`, `.gitignore`, the `src/` skeleton and its `AGENTS.md`, the starter Patterns with their reference code and tests, and the Protected lines; `kit.toml`; `common/.github/workflows/devctl-check.yml`. Tests: `tests/test_kit_typescript*.py`, `tests/devctl/test_devctl_ci_templates.py`, and an integration test of `init` with a Python `backend/` and a TypeScript `frontend/`, labelled as needing network access.
-- Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
+**Files and Units:** the linked plan gives exact paths, interfaces, commands and expected failures/passes. Their ownership is:
 
-**Tasks:**
+1. `[[stack]]` settings, devctl's temporary older-lock reader, seed comments and all old-key fixtures; rewrite this repository's settings in place.
+2. Stack CLI options, detection proposals that write nothing, rapid-ship's lock writer and required older-lock rewrite. Sync never migrates existing seeded files.
+3. Unit 3a: per-stack doctor and CODEOWNERS errors, plus Python settings at depth in PRO-158's Kit fallback if it merged first. Unit 3b: common repository seeds, one combined guide and navigation row per directory, typed manifest and create-only rendering. Preserve Claude Code, agy and Codex wiring; PRO-142 wires Codex before GA outside this plan.
+4. Common checks once, stack steps in their directories, innermost ownership and tracked reference resolution. A no-owner holder uses its unique matching stack; ambiguity names candidates and asks for a stack-scoped reference.
+5. This repository's root Python checks retain their names/order; document and verify 6.1a.
+6. Prettier, ESLint, tsc, knip, Vitest and npm audit; missing installed tools block, audit can run from a lock alone, no-lock audit/install gives install advice. `check --install` installs each TypeScript stack first.
+7. TypeScript suppressions and knip allowlists, tracked ESLint/type references, with type checker selected by target suffix in shared directories.
+8. Vitest identities, dynamic titles reported unchecked, apostrophes preserving closing brackets, removals and tautologies; backticked spaced identities work in evidence and Rule references.
+9. Node.js/npm and TypeScript doctor items, knip floor integration test, TypeScript settings at depth in the merged PRO-158 fallback, and contributor prerequisites from 6.2a.
+10. TypeScript templates and React skeleton, tested at root and nested `app/` with Python sharing the directory. One guide combines both stacks; colliding new skeletons refuse before writes or commits.
+11. TypeScript starter Patterns and performance Pattern, with reference code and tests. Existing map behavior is source evidence until the golden-paths library (PRO-167) replaces the feature map; this plan adds no command or check for it.
+12. Unit 12a: pinned `setup-node` when a package lock exists and full checks with install. Unit 12b: remove devctl's temporary older-lock reader and run network integration tests for TypeScript and Python/TypeScript directories.
+13. Owner live trial, documents and verification. Depends on PRO-156/157's merged sandbox setting, including restart; adds only observed TypeScript/npm needs.
+14. PRO-159 and PRO-161 in 6.1b: origin-derived repository and option A's empty first commit, rollback and all commitless fixtures. With implementation, update Spec 1 section 8: init first, owner-terminal default-branch push before the ruleset blocks direct pushes, then Setup-branch push and PR. Plan 7 depends on that ordering.
 
-1. `[[stack]]` in the settings and the lock, with its checks; and devctl rejecting the old `stack` key with an error that says how to rewrite it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3).
-2. `init --stack NAME[=DIRECTORY]`; without it, a recursive search for stack roots that skips vendored and generated directories, proposes what it found, with the `--stack` options and the instruction to confirm them with the owner and rerun, and writes nothing; and templates rendered under a stack's directory.
-3. `project.toml` and CODEOWNERS rendered from every stack, with each stack's Protected lines under its directory; doctor's CODEOWNERS and Python floor items for each stack. The TypeScript Protected lines include `knip.*` and `.knip.*`.
-4. `check` for each stack: the common steps once, and each stack's steps in its directory with their names; file ownership for the exceptions and file-size steps; references resolved against their stack.
-5. This repository stays one Python stack at the root: its `project.toml` is rewritten in place, and the output of `./devctl check` keeps its step names.
-6. The TypeScript steps: format, lint, types, dead-code, tests and audit, from `node_modules/.bin` and npm, with knip run as `knip --include files,dependencies,unlisted,binaries,unresolved,exports,types,enumMembers,namespaceMembers`, and a test of which of knip's `rules`, `include` and `exclude` settings `--include` overrides; a missing tool blocks its step with the command that installs it; `check --install`.
-7. The TypeScript suppressions and their rule names, knip's `@public` and `@beta` tags and the items of `knip.jsonc`'s allowlist keys among them, read alone on their lines as Spec 1 section 5 says, and the `eslint:` and `type:` references.
-8. The diff policy for Vitest: removed tests by their title chain, and tautologies.
-9. doctor's `node` and `npm` items and the TypeScript floor item. The TypeScript floor reports a knip setting that can switch a kind off and that `--include` does not override (Spec 1 section 5, Exceptions).
-10. The TypeScript templates: the settings of Spec 1 section 4, documented inline where the format allows, in `tsconfig.json`, `knip.jsonc`, `eslint.config.js` and `vite.config.ts`; the React skeleton and its `AGENTS.md`, passing `./devctl check` after `npm install`. Pin the tools, knip included, and the Node.js version.
-11. The TypeScript starter Patterns, with reference code and tests, passing map rule 5; and the TypeScript performance Pattern, which documents the browser's performance tools and React's Profiler, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
-12. The CI workflow: `actions/setup-node`, pinned by commit SHA and run only when a `package-lock.json` exists, and `./devctl check --tier full --install`; zizmor still passes.
-13. Live trial, an Owner step: `init` and `./devctl check` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, locally and in CI.
+Unit 1b separates JSONC and Node helpers from settings for independent review. Shared-interface changes required by these Units are proposals for the manager; this documentation PR does not edit Conventions, Layout, Built/Shared interfaces or Kit manifest. Spec 3's PR 3.7 owns the optional-key rename; plan 7 uses current reader APIs/names until then.
 
 ## Plan 7: `rs-setup` and `rs-health`
 
