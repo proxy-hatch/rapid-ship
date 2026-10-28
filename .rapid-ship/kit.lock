@@ -9,6 +9,11 @@ project_name = "rapid-ship"
 repository = "proxy-hatch/rapid-ship"
 
 [[file]]
+path = ".agents/hooks.json"
+kind = "seeded"
+template_sha256 = "83fefb2c5806cceb7e798ad3b144584f5774704118223ec713da8cf75067fd78"
+
+[[file]]
 path = ".claude/settings.json"
 kind = "seeded"
 template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0de7"
@@ -21,7 +26,7 @@ sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
 [[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
-template_sha256 = "43beb77bb4c6890df5b34b9671849bc81ac1c45bcf106cd62754faf6f1a01a7f"
+template_sha256 = "382115063136b5fa2858638d7b71c6eedad4877d668ac39676906cf491728de6"
 
 [[file]]
 path = ".github/workflows/devctl-check.yml"
@@ -191,7 +196,7 @@ sha256 = "5fe61b8622f4c401f75da069d4e78d62643953c44177e63aebee2881c60b8559"
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
 kind = "managed"
-sha256 = "4ac46514fb559858c307f5c1e1f47232299a5b5b5a43d0c74b5c2e4a7ff3cfc5"
+sha256 = "1d74145cdfeaf15e966e08e2a370846813d28cbdbf8bec736c4805bb89dca2f4"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
@@ -206,12 +211,12 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "eeecefeef9cdc041631c3eb22dac6193dae8f533bf223027ff60dd34537f6247"
+sha256 = "93bd8f8d33b6531dac93956b2550368b4ed3ebb0292dd176a813f73a391af999"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "4a0f50f4df328aba02fe6582de8d6c37b08578a45147db72f74145f5c3e94f17"
+sha256 = "4711ddc527955b4831a7b10145acb667a586a8ae5c3e446a42cc43658eef6d45"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
@@ -221,7 +226,7 @@ sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
 kind = "managed"
-sha256 = "6ffa0adbe93620b0e0601d0ac0302125d7fe4451c4be43febaeefcb071d0e8ca"
+sha256 = "95a07a38190d6e1889055c5e7f4cf4842055827eff068368930eb0276559b6b8"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
@@ -251,12 +256,12 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "15eaf3b21f9616afbc1747d5872dbdedb893c14f561c0adbec2b97a7db292c36"
+sha256 = "ce35241ba471120c0b59b461a094b91ffad276e7dd86562f1e7751a76be0a866"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
 kind = "managed"
-sha256 = "dcd339b604692f7ca2a15461148349a7ec689af845dd09c7a9e76614f068fc41"
+sha256 = "b2de65fbdd8cc3aecd546002f37d87a0268763a40323bec709e1cbd7ba4cfba2"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"

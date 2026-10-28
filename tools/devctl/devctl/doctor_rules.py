@@ -22,7 +22,7 @@ PROTECTED_PATHS = (
     ".githooks/",
     "devctl",
     "tools/devctl/",
-    ".agents/skills/",
+    ".agents/",
     ".claude/",
     "**/AGENTS.md",
     "**/CLAUDE.md",

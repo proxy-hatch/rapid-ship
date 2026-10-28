@@ -3,7 +3,8 @@
 The first deny wins, and a deny beats an ask; the merge guard runs only when no rule decided.
 The rules on skipped hooks, force pushes, merges outside the guard and kit.lock need no settings,
 so they apply when the settings are unreadable; the Protected-set and Agent identity rules then
-give no decision, and the merge guard denies every merge.
+give no decision, and the merge guard denies every merge. The Protected-set rule asks, so it runs
+only for the Harnesses in PROTECTED_ASK.
 """
 
 from __future__ import annotations
@@ -27,7 +28,19 @@ from devctl.command_line import (
     simple_commands,
 )
 from devctl.doctor_items import OwnerGet, gh_get
-from devctl.hook_protocols import HOOK_COMMAND, Decision, HookSettings, ToolCall, answer, read_event
+from devctl.hook_protocols import (
+    FAILURE_OUTCOMES,
+    HOOK_COMMANDS,
+    PROTECTED_ASK,
+    WIRED_HARNESSES,
+    Decision,
+    HookSettings,
+    ToolCall,
+    WiredHarness,
+    answer,
+    failure,
+    read_event,
+)
 from devctl.merge_guard import (
     LocalBranches,
     MergeForm,
@@ -36,7 +49,6 @@ from devctl.merge_guard import (
     guard,
     read_branches,
 )
-from devctl.repo import RepoError
 from devctl.settings import SettingsError, load_project
 
 KIT_LOCK = ".rapid-ship/kit.lock"  # check/kit.py's LOCK_PATH names the same file
@@ -78,47 +90,67 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
     parser = commands.add_parser(
         "hook",
         help="Answer a Harness's hook event with the Kit's guardrails",
-        description=f"{HOOK_COMMAND} reads Claude Code's PreToolUse event on stdin and answers "
-        "with a deny, an ask or no decision, with exit 0. It never exits 2, which Claude Code "
-        "reads as block: an internal error exits 1, and the tool call goes through.",
+        description="devctl hook <harness> pre-tool reads the Harness's pre-tool event on stdin "
+        "and answers in its hook protocol with a deny, an ask or no decision. It never exits 2, "
+        "which Claude Code reads as block. When devctl itself fails, it writes one stderr line: "
+        "for claude it exits 1, so the tool call goes through, and for agy, which blocks the call "
+        "on any other exit code, it answers deny with that line as the reason and exit 0.",
     )
-    # Optional strings, not choices: argparse exits 2 on a missing or unknown choice, and
-    # Claude Code would then block every wired call.
-    parser.add_argument("harness", nargs="?", help="the Harness: claude")
+    # Optional strings, not choices: argparse exits 2 on a missing or unknown choice, and the
+    # Harness would then block every wired call.
+    parser.add_argument("harness", nargs="?", help="the Harness: claude or agy")
     parser.add_argument("event", nargs="?", help="the hook event: pre-tool")
     parser.set_defaults(handler=hook_command)
 
 
 def hook_command(args: argparse.Namespace) -> int:
-    """Answer one event on stdin. Exit 0 with an answer, else 1 with one stderr line; never 2."""
-    if args.harness is not None and args.harness != "claude":
-        return _fail(f"unknown Harness '{args.harness}'; this devctl wires claude only")
-    if args.harness is None or args.event != "pre-tool":
-        return _fail(f"usage: {HOOK_COMMAND}")
+    """Answer one event on stdin in the Harness's protocol; never exit 2.
+
+    A failure of devctl's own writes one stderr line and gives the protocol's failure answer.
+    """
+    harness = next((wired for wired in WIRED_HARNESSES if wired == args.harness), None)
+    if harness is None:
+        if args.harness is None:
+            return _fail(None, f"usage: devctl hook <{'|'.join(WIRED_HARNESSES)}> pre-tool")
+        known = " and ".join(WIRED_HARNESSES)
+        return _fail(None, f"unknown Harness '{args.harness}'; this devctl wires {known}")
+    if args.event != "pre-tool":
+        return _fail(harness, f"usage: {HOOK_COMMANDS[harness]}")
     try:
-        call = read_event("claude", sys.stdin.buffer.read())
-        decision, reason = run_hook(call, gh_get)
-    except (ValueError, OSError, RepoError, SettingsError) as error:
-        return _fail(f"internal error: {error}; the tool call goes through")
-    stdout, code = answer("claude", decision, reason)
+        call = read_event(harness, sys.stdin.buffer.read())
+        decision, reason = run_hook(call, gh_get, protected_ask=harness in PROTECTED_ASK)
+    except Exception as error:  # noqa: BLE001  # rs-exception: EX-30
+        return _fail(harness, f"internal error: {error}; {FAILURE_OUTCOMES[harness]}")
+    stdout, code = answer(harness, decision, reason)
     sys.stdout.write(stdout)
     return code
 
 
-def _fail(message: str) -> int:
-    sys.stderr.write(f"devctl hook: {' '.join(message.splitlines())}\n")
-    return 1
+def _fail(harness: WiredHarness | None, message: str) -> int:
+    """Write one stderr line and the Harness's failure answer; exit 1 without a Harness."""
+    line = f"devctl hook: {' '.join(message.splitlines())}"
+    sys.stderr.write(line + "\n")
+    if harness is None:
+        return 1
+    stdout, code = failure(harness, line)
+    sys.stdout.write(stdout)
+    return code
 
 
 def run_hook(
-    call: ToolCall, owner_get: OwnerGet, clock: Callable[[], float] = time.monotonic
+    call: ToolCall,
+    owner_get: OwnerGet,
+    clock: Callable[[], float] = time.monotonic,
+    *,
+    protected_ask: bool = True,
 ) -> tuple[Decision, str]:
     """The answer to one tool call, judged in the repository that holds it.
 
     An edit belongs to the repository that holds its path, a linked worktree included, and a
-    shell command to the one that holds cwd; each Claude Code edit writes one path. Outside every
+    shell command to the one that holds cwd; each wired edit writes one path. Outside every
     repository no settings are read. owner_get is the merge guard's only way to read GitHub, and
-    clock times the hook run, whose budget every merge on the line shares.
+    clock times the hook run, whose budget every merge on the line shares. protected_ask False
+    skips the Protected-set rule.
     Raises ValueError when shell rules cannot split the command line, unless its text holds gh,
     pr and merge in that order: the guard then denies the merge it cannot check.
     """
@@ -128,7 +160,7 @@ def run_hook(
     settings = read if isinstance(read, HookSettings) else None
     branches = functools.cache(functools.partial(read_branches, root or call.cwd))
     try:
-        decision, reason = decide(call, root, settings, branches)
+        decision, reason = decide(call, root, settings, branches, protected_ask=protected_ask)
     except ValueError as error:
         if call.shell is None or not _MERGE_TEXT.search(call.shell):
             raise
@@ -203,19 +235,23 @@ def decide(
     root: Path | None,
     settings: HookSettings | None,
     branches: Callable[[], LocalBranches],
+    *,
+    protected_ask: bool = True,
 ) -> tuple[Decision, str]:
     """The answer to one tool call: a deny or an ask with its reason, or (None, "").
 
     root is the repository that holds the call, and settings None means they are unreadable.
-    branches reads local git, at most once, and only for a git push or a ref path. Raises
-    ValueError when shell rules cannot split the command line.
+    branches reads local git, at most once, and only for a git push or a ref path. protected_ask
+    False skips the Protected-set rule. Raises ValueError when shell rules cannot split the
+    command line.
     """
     read_once = functools.cache(branches)
     for words in simple_commands(call.shell) if call.shell is not None else []:
         reason = _shell_rule(parse_command(words), settings, read_once)
         if reason is not None:
             return "deny", reason
-    return _edit_rules(call.edits, root, settings)
+    protected = settings.protected if settings is not None and protected_ask else ()
+    return _edit_rules(call.edits, root, protected)
 
 
 def _shell_rule(
@@ -276,10 +312,10 @@ def _gh_writes(args: tuple[str, ...]) -> bool:
 
 
 def _edit_rules(
-    edits: Sequence[Path], root: Path | None, settings: HookSettings | None
+    edits: Sequence[Path], root: Path | None, protected: Sequence[str]
 ) -> tuple[Decision, str]:
-    """The kit.lock rule, then the Protected-set rule, for each path the edit writes; an edit
-    outside root gets no decision.
+    """The kit.lock rule, then the Protected-set rule with the protected patterns, for each path
+    the edit writes; an edit outside root gets no decision.
 
     Both compare paths in any case: macOS's default file system ignores case, so agents.md writes
     AGENTS.md. On a file system that keeps case, the Protected-set rule also asks before such a
@@ -292,14 +328,13 @@ def _edit_rules(
         relative = path.relative_to(root).as_posix()
         if relative.casefold() == KIT_LOCK:
             return "deny", G4
-        pattern = _protecting_pattern(relative, settings)
+        pattern = _protecting_pattern(relative, protected)
         if asked is None and pattern is not None:
             asked = G5.format(path=relative, pattern=pattern)
     return ("ask", asked) if asked is not None else (None, "")
 
 
-def _protecting_pattern(relative: str, settings: HookSettings | None) -> str | None:
-    """The first Protected-set pattern that covers a path in any case; None without settings."""
-    protected = settings.protected if settings is not None else ()
+def _protecting_pattern(relative: str, protected: Sequence[str]) -> str | None:
+    """The first Protected-set pattern that covers a path in any case."""
     folded = relative.casefold()
     return next((one for one in protected if codeowners_match(one.casefold(), folded)), None)

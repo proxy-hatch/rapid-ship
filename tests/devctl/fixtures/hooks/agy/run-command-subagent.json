@@ -1,0 +1,19 @@
+{
+  "artifactDirectoryPath": "<redacted>",
+  "conversationId": "<redacted>",
+  "lastUserInput": "",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "CommandLine": "git status",
+      "WaitMsBeforeAsync": 5000,
+      "toolSummary": "Git status check"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "<redacted>",
+  "workspacePaths": [
+    "/repo"
+  ]
+}
