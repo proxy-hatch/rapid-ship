@@ -179,7 +179,7 @@ Two specs remain. Spec 2, the delivery skills, was descoped on 2026-10-26, and S
   - Plan 4, doctor and Agent identity, built `app`, `devctl doctor` and `devctl as`, merged in PRs #31 to #33. Its follow-ups, built in the same PRs, support organisation-owned repositories (backlog item PRO-105).
   - Plan 5, Kit standards and Harness guardrails, is built in PRs #35 and #37 to #40 and wires Claude Code. From its hook spike (backlog item PRO-139) and agy's interactive runs (PRO-143), a follow-up wires agy without G5 (PRO-155), and another wires Codex without G5 (PRO-142).
   - Plan 6 adds the TypeScript stack and several stacks in one repository, which brings part of backlog item PRO-108 into scope.
-  - Plan 7 builds `rs-setup` and `rs-health`, which need to know the stacks.
+  - [Plan 7](../plans/2026-10-26-rs-setup-and-rs-health.md) builds `rs-setup` and `rs-health`, which need to know the stacks; its document awaits owner approval and implementation is unbuilt.
 - **Spec 3, [Metrics and gardening](2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden` and `rs-preflight`.
 
 Spec 3 gets its own plan. Plan 7's last PR rewrites the documentation site and is GA, the documentation release. It lands after Spec 3 is built, so GA includes Spec 3. Deferred until the product works: the rest of monorepo support (PRO-108), Git hosts other than GitHub, and Windows.
