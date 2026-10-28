@@ -19,6 +19,7 @@ from rapid_ship.kit.templates import (
     render_files,
 )
 from test_devctl_doctor_wiring import SEED as CLAUDE_WIRING
+from test_devctl_doctor_wiring_agy import SEED as AGY_WIRING
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -31,6 +32,7 @@ CODE_OWNER_COMMENT = (
     '"@login" or "@organisation/team".'
 )
 SEEDED = {
+    ".agents/hooks.json",
     ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
@@ -77,6 +79,11 @@ def test_the_claude_code_wiring_seed_holds_only_the_pre_tool_hook(stack: Stack) 
     # The seed's PreToolUse hook sets no timeout: the merge guard's 300-second budget relies on
     # Claude Code's default of 600 seconds.
     assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_agy_wiring_seed_holds_only_the_devctl_hook(stack: Stack) -> None:
+    assert json.loads(text(stack, ".agents/hooks.json")) == AGY_WIRING
 
 
 def test_python_new_project_seeds() -> None:
@@ -169,7 +176,7 @@ PROTECTED = (
     "/.githooks/",
     "/devctl",
     "/tools/devctl/",
-    "/.agents/skills/",
+    "/.agents/",
     "/.claude/",
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
@@ -232,6 +239,8 @@ def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
         "docs/CLAUDE.md",
         ".claude/settings.json",
         ".claude/skills/rs-tdd",
+        ".agents/hooks.json",
+        ".agents/skills/rs-tdd/SKILL.md",
     )
     for path in instructions:
         assert any(codeowners_match(pattern, path) for pattern in patterns), path
