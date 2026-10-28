@@ -80,8 +80,9 @@ class AuditStep:
             if exported is None or exported.timed_out or exported.returncode != 0:
                 return command_result(self.name, export, exported, frozenset())
             audit = (
-                *("uv", "tool", "run", "--from", PIP_AUDIT, "pip-audit"),
+                *("uv", "tool", "run", "--isolated", "--from", PIP_AUDIT, "pip-audit"),
                 *("--requirement", str(requirements)),
+                *("--cache-dir", str(Path(scratch, "http-cache"))),
                 *("--require-hashes", "--disable-pip", "--strict", "--progress-spinner", "off"),
                 *("--format", "json", "--output", str(report)),
             )

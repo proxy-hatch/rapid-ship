@@ -115,7 +115,7 @@ class WorkflowsStep:
 
     def run(self, context: CheckContext) -> StepResult:
         argv = (
-            *("uv", "tool", "run", "--from", ZIZMOR, "zizmor"),
+            *("uv", "tool", "run", "--isolated", "--from", ZIZMOR, "zizmor"),
             *("--offline", "--no-progress", "--strict-collection", "--format", "plain", "."),
         )
         result = run_tool(context.repo.root, argv, 600)
