@@ -338,9 +338,12 @@ def _codex_handlers(settings: object) -> list[tuple[object, str]]:
             timeout = handler.get("timeout", 600)
             if isinstance(timeout, float) and not math.isfinite(timeout):
                 continue
-            words = _shell_words(handler.get("command"), _AGY_PATH_WORD)
+            command = handler.get("command")
+            if not isinstance(command, str) or "\n" in command or "\r" in command:
+                continue
+            words = _shell_words(command, _AGY_PATH_WORD)
             if words == [_CODEX_PROGRAM, *_CODEX_ARGS]:
-                handlers.append((entry.get("matcher"), str(handler["command"])))
+                handlers.append((entry.get("matcher"), command))
     return handlers
 
 

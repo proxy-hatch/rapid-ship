@@ -27,7 +27,7 @@
 After merge and Shawn's trust, Codex Sessions in rapid-ship checkouts, Feature leads included, run devctl hook. This implementation's Sessions are not claimed to have run under that hook. The recovered events are historical evidence; offline tests and doctor's subprocess probe do not complete the live trial.
 
 
-## Verification, 2026-10-28
+## Verification, 2026-10-28 (initial implementation)
 
 The first command, `./devctl doctor --settings`, passed with 4 ok, 0 missing, 0 unknown. HEAD matched the fixed review base and the worktree was clean.
 
@@ -66,3 +66,11 @@ uv run pytest -q --tb=short \
 `devctl.check.diff.counted_lines` reports **1,034** lines against the fixed review base. The added diff lines, commit messages and branch name had no matches against the private identifier expressions. The original spike record remains an exact prefix of the updated record; all four recovered fixtures equal the appended blocks.
 
 All tests above are offline. Doctor runs subprocess probes, not Codex Sessions. No owner trust or live guardrail trial was performed. No full check, full pytest suite, devctl-wide suite or documentation build ran. Heavy checks and independent review belong to the lead. Removed tests: none; the existing unknown-Harness parameter now uses `unwired`, because `codex` is supported.
+
+## Review Corrections, 2026-10-28
+
+The first independent review found two defects. Valid header whitespace and EOF wrappers could bypass G4; doctor could accept a newline separating two shell commands. Both are covered by failing-first regressions.
+
+Patch parsing now follows the header trimming and EOF wrappers in [Codex 0.164.0's parser](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/apply-patch/src/parser.rs) and the operation-specific whitespace in its [streaming parser](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/apply-patch/src/streaming_parser.rs). It preserves spaces inside filenames and context prefixes. Padded boundaries and multiple EOF-marked update hunks also reach G4. Doctor rejects line breaks in a Codex hook command before any probe runs. Claude Code and agy's command parsing is unchanged.
+
+The whitespace/wrapper regressions failed in all 24 initial cases. Eight added boundary/EOF-hunk cases then failed before their fixes. Four doctor newline cases failed before rejecting line breaks. After the fixes, the Codex hook, patch, doctor-wiring and doctor-settings modules passed 171 offline tests. The fast tier's formatting check found one line to reformat; the source was formatted before the final check. No tests were removed.

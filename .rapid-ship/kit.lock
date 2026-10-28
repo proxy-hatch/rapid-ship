@@ -231,7 +231,7 @@ sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
 kind = "managed"
-sha256 = "7db5ee34f6631117a9b214e3248c052aedfb6fbed052c7647b624b355f1d05b4"
+sha256 = "ce30f0da27d6c92316b65fb9af356ef9df3ddc0cc9c4f63b57c7a171bb35d2bf"
 
 [[file]]
 path = "tools/devctl/devctl/github/__init__.py"
@@ -266,7 +266,7 @@ sha256 = "5feee7b32a7d96c93278c49ff8527c5a7e368314de2791fd2323c00a4413647b"
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
 kind = "managed"
-sha256 = "2b95eae6d91a34114ad8363a0f0fad269683e3361c4e1125802c06527c038953"
+sha256 = "ef333ca902452d00d5e2bf4442b884d6268c65cded4f1890726d66ccbe2e8ff1"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"

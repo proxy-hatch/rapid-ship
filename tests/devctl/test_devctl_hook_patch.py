@@ -17,6 +17,42 @@ def patch(body: str) -> str:
     return f"*** Begin Patch\n{body}\n*** End Patch\n"
 
 
+@pytest.mark.parametrize("wrapper", ["", "<<EOF", "<<'EOF'", '<<"EOF"'])
+@pytest.mark.parametrize(
+    "body",
+    [
+        "*** Delete File: .rapid-ship/kit.lock  ",
+        "  *** Delete File: .rapid-ship/kit.lock",
+        "*** Add File: harmless\n+x\n  *** Delete File: .rapid-ship/kit.lock  ",
+        "*** Update File: harmless\n@@\n-x\n+y\n*** Delete File: .rapid-ship/kit.lock  ",
+        "*** Update File: harmless\n*** Move to: .rapid-ship/kit.lock  \n@@\n-x\n+y",
+        "*** Update File: .rapid-ship/kit.lock  \n@@\n-x\n+y",
+        "*** Begin Patch  \n*** Update File: .rapid-ship/kit.lock\n@@\n-x\n+y\n  *** End Patch",
+        "*** Update File: .rapid-ship/kit.lock\n@@\n-x\n+y\n*** End of File  \n@@\n-a\n+b",
+    ],
+)
+def test_lock_denial_uses_the_tool_header_whitespace_and_eof_wrappers(
+    wrapper: str,
+    body: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = project(tmp_path)
+    command = body + "\n" if body.startswith("*** Begin Patch") else patch(body)
+    if wrapper:
+        command = f"{wrapper}\n{command}EOF"
+
+    assert (
+        hook(monkeypatch, calling(command, workspace.root, "apply_patch"), "codex", "pre-tool") == 0
+    )
+    result = capsys.readouterr()
+    assert result.err == ""
+    decision = json.loads(result.out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"].startswith("G4: ")
+
+
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_all_patch_paths_are_normalised_and_content_is_not_a_header(newline: str) -> None:
     body = (

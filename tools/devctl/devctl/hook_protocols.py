@@ -153,12 +153,19 @@ def _patch_paths(patch: str) -> tuple[str, ...]:
     from operation headers. A move writes both the update's source and its destination.
     """
     lines = patch.strip().replace("\r\n", "\n").split("\n")
-    if len(lines) < 3 or lines[0] != "*** Begin Patch" or lines[-1] != "*** End Patch":
+    if lines[0] in ("<<EOF", "<<'EOF'", '<<"EOF"') and lines[-1].endswith("EOF"):
+        lines = lines[1:-1]
+    if (
+        len(lines) < 3
+        or lines[0].strip() != "*** Begin Patch"
+        or lines[-1].strip() != "*** End Patch"
+    ):
         raise ValueError("the patch needs Begin Patch, file operations and End Patch")
+    lines[-1] = "*** End Patch"
     paths: list[str] = []
     index = 1
     while index < len(lines) - 1:
-        header = lines[index]
+        header = lines[index].strip()
         operation = next(
             (
                 kind
@@ -174,8 +181,8 @@ def _patch_paths(patch: str) -> tuple[str, ...]:
             raise ValueError("the patch has an empty or invalid path")
         paths.append(path)
         index += 1
-        if operation == "Update" and lines[index].startswith("*** Move to: "):
-            destination = lines[index][len("*** Move to: ") :]
+        if operation == "Update" and lines[index].rstrip().startswith("*** Move to: "):
+            destination = lines[index].rstrip()[len("*** Move to: ") :]
             if not destination.strip() or "\x00" in destination:
                 raise ValueError("the patch has an empty or invalid move path")
             paths.append(destination)
@@ -185,12 +192,15 @@ def _patch_paths(patch: str) -> tuple[str, ...]:
 
 
 def _patch_content(lines: list[str], start: int, operation: str) -> int:
-    end = next(index for index in range(start, len(lines)) if lines[index].startswith("*** "))
+    for end in range(start, len(lines)):
+        line = lines[end].rstrip() if operation == "Update" else lines[end].strip()
+        if line.startswith("*** ") and not (operation == "Update" and line == "*** End of File"):
+            break
+    else:
+        raise ValueError("the patch has no closing boundary")
     content = lines[start:end]
     if operation == "Update":
         _check_hunks(content)
-        if lines[end] == "*** End of File":
-            end += 1
     elif operation == "Add":
         if any(not line.startswith("+") for line in content):
             raise ValueError("the patch has invalid added content")
@@ -202,7 +212,10 @@ def _patch_content(lines: list[str], start: int, operation: str) -> int:
 def _check_hunks(lines: list[str]) -> None:
     content = False
     for index, line in enumerate(lines):
-        if line == "@@" or line.startswith("@@ "):
+        control = line.rstrip()
+        if control == "*** End of File":
+            continue
+        if control == "@@" or control.startswith("@@ "):
             if index and not content:
                 raise ValueError("the patch has an empty update hunk")
             content = False
