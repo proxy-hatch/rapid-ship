@@ -251,9 +251,9 @@ def test_a_recorded_app_with_no_key_here_says_to_import_one(
     out, err = capsys.readouterr()
     assert (
         "rapid-ship: .rapid-ship/project.toml records the Worker App 11 (o-rs-worker), and this "
-        "machine has no key for it in Keychain item rapid-ship/worker-app/11. Generate a private "
-        "key in the App's settings on GitHub, then run rapid-ship app --import-key worker with "
-        "the key on stdin\n"
+        "machine has no key for it in Keychain item rapid-ship/worker-app/11. In the App's "
+        "settings on GitHub, open Credentials, then Key pairs, and click New key to generate a "
+        "private key; then run rapid-ship app --import-key worker with the key on stdin\n"
     ) in err
     assert "then run rapid-ship app --import-key reviewer with the key on stdin\n" in err
     assert out == ""
@@ -403,9 +403,10 @@ def test_without_recorded_apps_a_private_app_in_the_keychain_stops_the_command(
             f"the key cannot confirm whose App it is: {reason}. If the App is o's and still "
             "exists, first record its ID and slug under [github] in .rapid-ship/project.toml. "
             "Then, if GitHub no longer has this key, delete the item, generate a new private key "
-            f"in the App's settings on GitHub and run rapid-ship app --import-key {role} with the "
-            "new key on stdin. If GitHub has no such App any more, delete the item and record "
-            f"nothing. Delete the item with: security delete-generic-password -s {service}\n"
+            f"and run rapid-ship app --import-key {role} with the new key on stdin. If GitHub has "
+            "no such App any more, delete the item and record nothing. To generate a key in the "
+            "App's settings on GitHub, open Credentials, then Key pairs, and click New key. Delete "
+            f"the item with: security delete-generic-password -s {service}\n"
         )
 
     assert err == stop(worker, "Worker App", "worker") + stop(reviewer, "Reviewer App", "reviewer")

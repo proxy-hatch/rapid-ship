@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from devctl.doctor_local import CI_JOB_NAME
 from devctl.github.app import APP_PERMISSIONS
@@ -216,42 +217,66 @@ def ruleset_problems(
     return [*problems, *_app_merge_problems(rulesets, default_branch)]
 
 
-def _active_lines(text: str) -> list[tuple[str, tuple[str, ...]]]:
-    """Each active CODEOWNERS line as (pattern, owners), the owners in lower case.
+@dataclass(frozen=True)
+class _Line:
+    number: int  # from 1, as GitHub counts CODEOWNERS lines
+    pattern: str
+    owners: tuple[str, ...]  # in lower case
+
+
+@dataclass(frozen=True)
+class CodeownersError:
+    """One error that GET /repos/{o}/{r}/codeowners/errors reports, such as an unknown owner."""
+
+    line: int
+    kind: str
+    suggestion: str | None
+
+
+def _active_lines(text: str) -> list[_Line]:
+    """Each active CODEOWNERS line, the owners in lower case.
 
     GitHub compares logins, an organisation's included, without regard to case; doctor compares a
     team's name the same way. Blank lines and comments, whole-line or after the owners, are not
     active.
     """
-    lines: list[tuple[str, tuple[str, ...]]] = []
-    for raw in text.splitlines():
+    lines: list[_Line] = []
+    # Only a newline ends a line, as in git; str.splitlines also ends one at \f, \x85 or U+2028.
+    for number, raw in enumerate(text.split("\n"), start=1):
         line = _COMMENT.sub("", raw.strip())
         if line and not line.startswith("#"):
             pattern, *owners = line.split()
-            lines.append((pattern, tuple(owner.lower() for owner in owners)))
+            lines.append(_Line(number, pattern, tuple(owner.lower() for owner in owners)))
     return lines
 
 
-def _walk_problems(lines: Sequence[tuple[str, tuple[str, ...]]], code_owner: str) -> list[str]:
+def _protected_paths(stack: Stack) -> tuple[str, ...]:
+    return (*PROTECTED_PATHS, *(PYTHON_PROTECTED_PATHS if stack == "python" else ()))
+
+
+def _applied(lines: Sequence[_Line]) -> dict[str, _Line]:
+    """The line GitHub applies for each pattern, which is the pattern's last line, keyed by the
+    pattern without a leading /."""
+    return {line.pattern.removeprefix("/"): line for line in lines}
+
+
+def _walk_problems(lines: Sequence[_Line], code_owner: str) -> list[str]:
     wanted = f"* {code_owner}"
     if len(lines) != 1:
         return [f"Walk needs exactly one active CODEOWNERS line, {wanted}; found {len(lines)}"]
-    if lines[0] != ("*", (code_owner.lower(),)):
+    if (lines[0].pattern, lines[0].owners) != ("*", (code_owner.lower(),)):
         return [f"the one active CODEOWNERS line is not {wanted}"]
     return []
 
 
-def _protected_set_problems(
-    lines: Sequence[tuple[str, tuple[str, ...]]], code_owner: str, stack: Stack
-) -> list[str]:
+def _protected_set_problems(lines: Sequence[_Line], code_owner: str, stack: Stack) -> list[str]:
     problems: list[str] = []
-    if any(pattern == "*" for pattern, _ in lines):
+    if any(line.pattern == "*" for line in lines):
         problems.append(
             "with every_pr = false, CODEOWNERS must have no * line; only the Protected set is owned"
         )
-    # The last line for a pattern is the one GitHub applies.
-    owned = {pattern.removeprefix("/"): owners for pattern, owners in lines}
-    required = (*PROTECTED_PATHS, *(PYTHON_PROTECTED_PATHS if stack == "python" else ()))
+    owned = {path: line.owners for path, line in _applied(lines).items()}
+    required = _protected_paths(stack)
     unowned = [path for path in required if owned.get(path) != (code_owner.lower(),)]
     if unowned:
         problems.append(f"CODEOWNERS must name only {code_owner} for: {', '.join(unowned)}")
@@ -266,6 +291,42 @@ def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack
     if every_pr:
         return _walk_problems(lines, code_owner)
     return _protected_set_problems(lines, code_owner, stack)
+
+
+def _checked_lines(text: str, every_pr: bool, stack: Stack) -> set[int]:
+    """The numbers of the lines codeowners_problems compares with the code owner: every active line
+    when every_pr is true, the line GitHub applies for each Protected path otherwise."""
+    lines = _active_lines(text)
+    if every_pr:
+        return {line.number for line in lines}
+    applied = _applied(lines)
+    return {applied[path].number for path in _protected_paths(stack) if path in applied}
+
+
+def _line_numbers(numbers: Sequence[int]) -> str:
+    if len(numbers) == 1:
+        return f"line {numbers[0]}"
+    *others, last = numbers
+    return f"lines {', '.join(map(str, others))} and {last}"
+
+
+def codeowners_error_problems(
+    errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: Stack, branch: str
+) -> list[str]:
+    """GitHub's report of the errors on the lines of text, .github/CODEOWNERS on branch, that
+    codeowners_problems checks: one problem for each kind and suggestion, which names its lines in
+    order."""
+    checked = _checked_lines(text, every_pr, stack)
+    grouped: dict[tuple[str, str | None], set[int]] = {}
+    for error in sorted(errors, key=lambda error: error.line):
+        if error.line in checked:
+            grouped.setdefault((error.kind, error.suggestion), set()).add(error.line)
+    problems: list[str] = []
+    for (kind, suggestion), lines in grouped.items():
+        where = f"{_line_numbers(sorted(lines))} of .github/CODEOWNERS on {branch}"
+        reported = f"GitHub reports {kind} on {where}"
+        problems.append(f"{reported}: {suggestion}" if suggestion else reported)
+    return problems
 
 
 def installation_problems(found: Mapping[str, object], role: Role) -> list[str]:

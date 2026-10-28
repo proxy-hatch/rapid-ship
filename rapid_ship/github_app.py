@@ -306,9 +306,9 @@ def _ensure_app(
 def _no_key(role: str, app: StoredApp) -> str:
     return (
         f"{_SETTINGS} records the {TITLES[role]} {app.app_id} ({app.slug}), and this machine "
-        f"has no key for it in Keychain item {keychain_service(role, app.app_id)}. Generate a "
-        "private key in the App's settings on GitHub, then run "
-        f"rapid-ship app --import-key {role} with the key on stdin"
+        f"has no key for it in Keychain item {keychain_service(role, app.app_id)}. In the App's "
+        "settings on GitHub, open Credentials, then Key pairs, and click New key to generate a "
+        f"private key; then run rapid-ship app --import-key {role} with the key on stdin"
     )
 
 
@@ -320,10 +320,11 @@ def _unconfirmed(role: str, service: str, app: StoredApp, target: _Target, reaso
         "GitHub does not show that App to gh, as it shows no private App, and the key cannot "
         f"confirm whose App it is: {reason}. If the App is {target.owner.login}'s and still "
         f"exists, first record its ID and slug under [github] in {_SETTINGS}. Then, if GitHub no "
-        "longer has this key, delete the item, generate a new private key in the App's settings "
-        f"on GitHub and run rapid-ship app --import-key {role} with the new key on stdin. If "
-        "GitHub has no such App any more, delete the item and record nothing. Delete the item "
-        f"with: security delete-generic-password -s {service}"
+        "longer has this key, delete the item, generate a new private key and run rapid-ship app "
+        f"--import-key {role} with the new key on stdin. If GitHub has no such App any more, "
+        "delete the item and record nothing. To generate a key in the App's settings on GitHub, "
+        "open Credentials, then Key pairs, and click New key. Delete the item with: security "
+        f"delete-generic-password -s {service}"
     )
 
 
