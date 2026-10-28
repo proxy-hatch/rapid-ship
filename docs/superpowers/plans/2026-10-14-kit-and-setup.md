@@ -2,7 +2,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), part of the [rapid-ship design](../specs/2026-10-14-rapid-ship-design.md).
 
-Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6 is not started. Plan 7 is planned in [its plan document](2026-10-26-rs-setup-and-rs-health.md), which lands in PR 7.1a; its skill PRs run alongside plan 6 and Spec 3's plan. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands once Spec 3 is built. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
+Spec 1 is built as seven plans, in this order. Each ends with a working, tested repository. Plans 1 to 3 are built, each in one PR. Plan 4 and its follow-ups are built and merged in three PRs, #31 to #33, and the owner tagged the first release, `v0.1.0`, at `0e1d6d0`. Plan 5 is built in five PRs: 5.1 records the hook spike, 5.2 builds `devctl hook`, the merge guard and the Claude Code wiring, 5.3 builds the standards, 5.4 comments each seeded settings key's contract, and 5.5 adds the `dead-code` check step for Python. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): plan 5 builds no `sync` migrations and no warning period, so its new map rules, the `dead-code` step and the dead-code tools' suppressions apply at once. Plan 6 is not started. Plan 7 is written in [its plan document](2026-10-26-rs-setup-and-rs-health.md), awaiting owner approval in its own PR before 7.1a; its skill PRs (7.1a, 7.1b, 7.2 and 7.3) run alongside plan 6 and Spec 3's plan, and PR 7.4 rewrites the documentation site for GA. Each plan gets its own plan document, written from this index before its work starts, and lands in the PRs that its outline below names, each small enough for one review. Plans 4 to 7 follow the re-scope of 2026-10-16 ([ADR 0004](../../adr/0004-team-management-boundary.md)). By the owner's decisions of 2026-10-26, rapid-ship builds no delivery skills: the owner starts and manages their own Sessions. Spec 2's document is deleted, and [Spec 3](../specs/2026-10-16-metrics-and-gardening-design.md) becomes part of GA. Its plan is written next, in its own document. PR 7.4, the documentation release, lands after Spec 3 and Owner Tasks 9 and 10. Spec 3's metrics step in `rs-setup` needs PR 7.2, and `rs-garden` needs the audit that PR 7.3 builds.
 
 | Order | Plan | Spec sections | Depends on | State |
 | --- | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code` |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
-| 7 | [`rs-setup` and `rs-health`](2026-10-26-rs-setup-and-rs-health.md), with the engineering skills and `rs-contribute` ([outline](#plan-7-rs-setup-and-rs-health)) | 7, 8, 9, 10 | 4, 5, 6 | Planned: PRs 7.1a, 7.1b, 7.2, 7.3 and 7.4. Only the trial (Task 9) and 7.4 wait on plan 6's code; 7.2 quotes plan 6's document. 7.4 also waits for Spec 3's build |
+| 7 | [`rs-setup` and `rs-health`](2026-10-26-rs-setup-and-rs-health.md), with the engineering skills, `rs-contribute` and the documentation site ([outline](#plan-7-rs-setup-and-rs-health)) | 7, 8, 9, 10 | 4, 5, 6 | Planned: the plan document PR, then five code PRs (7.1a, 7.1b, 7.2, 7.3 and 7.4) plus Owner Tasks 9 and 10. Only Task 9 and 7.4 wait on plan 6's code; 7.2 quotes plan 6's document. 7.4 also waits for Spec 3 and Owner Tasks 9 and 10; Task 12 verifies GA |
 
 PRs #28 to #33 form a stack on the design PR, #27: each is based on the one before, and a change to the design lands on #27 and is merged up. Each plan document lives in its plan's PRs: plans 1 to 3 in #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, in #31 to #33.
 
@@ -389,6 +389,16 @@ Plan 3 built these; Spec 1 section 5 describes them. Plan 5 adds the Pattern `ta
 - `check` runs the common steps once and each stack's steps in its directory. A stack step's name gains its directory in parentheses, such as `lint (frontend)`, unless the repository has one stack at the root.
 - `devctl/check/stacks/<name>.py` supplies each stack's steps, suppression forms, reference kinds and source extensions.
 
+### Documentation site pages (plan 7; Spec 3's plan writes its own pages)
+
+- Every page under `docs/start/`, `docs/concepts/`, `docs/guides/` and `docs/reference/` carries YAML front matter with `status`, one of `built`, `in-review` or `designed`, and a non-empty `status_detail` naming the plan or spec, such as `plan 5`, `Spec 1` or `Spec 3`. `GLOSSARY.md` joins Docusaurus's `include` and receives `slug: /reference/glossary`, `status: built` and `status_detail: the glossary` in `parseFrontMatter`.
+- `website/page-rules.js` exports `pageProblems(relativePath: string, frontMatter: Record<string, unknown>, content: string): string[]`, which `parseFrontMatter` in `website/docusaurus.config.js` runs on every document. It fails a page under those four directories or `GLOSSARY.md` that lacks a valid `status` or a non-empty `status_detail`, or that contains `100x`, `powerful`, `seamless` or `effortless` in any case. Home (`website/src/pages/index.md`), `ARCHITECTURE.md`, `docs/credits.md`, `docs/superpowers/`, `docs/adr/` and `docs/trials/` are exempt. `website/src/theme/DocItem/Content/index.js` renders a badge such as `Built · Spec 1` above the content when `status` is set.
+- This index defines the three page templates and style rules; plan 7 later records them in `docs/AGENTS.md`. Spec 3 consumes this contract directly:
+  - **Concept page** (500 to 900 words): title, a one-sentence subtitle, a concrete case before naming the concept, the definition, the model, who does what, limits and next.
+  - **Reference page:** synopsis, options with their defaults, exit codes and one example from a real local run or a trial record, with the Kit version and date it was recorded with.
+  - **Guide page:** a title that states the outcome, a one-sentence subtitle, the status, "Works with", before you start, the concrete example, numbered steps, what you have now, your own project, "Recorded with" (version and date) and next.
+  - **Style rules:** only Home sells; every other page is plain and professional, labels every command or prompt block `Terminal` or `Your coding agent` followed by the expected result from a real run, and cites no Linear ID.
+
 ## Plan 4: Doctor and Agent identity
 
 **State:** built and merged in PRs #31 (`plan4-settings-tokens`), #32 (`plan4-doctor`) and #33 (`doctor-agent-identity`). Its plan document, [`2026-10-16-doctor-and-agent-identity.md`](2026-10-16-doctor-and-agent-identity.md), holds the tasks and the verification record. The follow-ups below are built on the same PRs. Its live trials (task 10) are a pending Owner step. The outline after the follow-ups is the plan as written, without what follow-ups 7 and 9 removed.
@@ -536,40 +546,46 @@ If review finds a PR too large, it splits at a task boundary.
 
 ## Plan 7: `rs-setup` and `rs-health`
 
-**Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on new scratch repositories and on an existing repository, and apply its GitHub settings to this repository, and rewrite the documentation site. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, and ends an existing repository's Setup with the tool-settings PR.
+Its plan document, [`2026-10-26-rs-setup-and-rs-health.md`](2026-10-26-rs-setup-and-rs-health.md), awaits owner approval in its own PR before 7.1a, whose code branch is `plan7-upstream`.
+
+**State:** document written, awaiting owner approval; implementation unbuilt.
+
+**Goal:** Ship the Kit's first skills (`rs-codebase-design`, `rs-writing-for-agents`, `rs-tdd`, `rs-diagnosing-bugs`, `rs-pr`, `rs-writing`, `rs-ponytail`, `rs-setup`, `rs-health` and the optional `rs-contribute`), retire `rapid-ship-engineering`, trial `rs-setup` and `rs-health`, apply `rs-setup`'s GitHub settings to this repository, and rewrite the documentation site for GA once Spec 3 is built.
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
 | PR | Tasks | Content |
 | --- | --- | --- |
-| 7.1 | 1 to 4 | The engineering skills, and `rapid-ship-engineering` retired |
-| 7.2 | 5 and 6 | `rs-setup` and its `ruleset.json` |
-| 7.3 | 7 and 8 | `rs-health` with the shared audit, and `rs-contribute` |
-| 7.4 | 11 | The documentation site |
+| 7.1a | 1 | `rapid_ship/upstream.lock`, the verbatim forks `rs-codebase-design` and `rs-writing-for-agents`, and the skill test harness |
+| 7.1b | 2 to 4 | The patched forks (`rs-tdd`, `rs-diagnosing-bugs`, `rs-pr`), `rs-writing`, `rs-ponytail`, and `rapid-ship-engineering` retired |
+| 7.2 | 5 and 6 | `rs-setup`, its `ruleset.json` and its references |
+| 7.3 | 7 and 8 | `rs-health` with `references/audit.md` and `references/proposed-task.md`, and the optional `rs-contribute` |
+| 7.4 | 11 and 12 | The documentation site, the trial records of Tasks 9 and 10, and GA (proposed `v1.0.0`, pending owner confirmation) |
 
-Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows them and lands, as one PR, once Spec 3 is built.
+Tasks 9 and 10 are Owner steps. Early Task 10 application was approved on 2026-10-28; its manager-prepared script has no recorded execution result. GA includes Spec 3, so 7.4 lands as one PR once Spec 3 is built and Tasks 9 and 10 are recorded.
 
 **Files:**
 
-- 7.1: Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-codebase-design/`, `rs-pr/`, `rs-writing-for-agents/`, `rs-writing/`, `rs-ponytail/`. `rapid_ship/upstream.lock`, `rapid_ship/templates/kit.toml`. Removed: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated: the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`. Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`.
-- 7.2: `rs-setup/` with `ruleset.json` and its references: the advice table on Agent identity, the stylistic options of each tool, and each step's known failures with the fix it offers. Tests: `tests/devctl/test_devctl_ruleset_json.py`.
-- 7.3: `rs-health/` with `references/audit.md` and its reference on the shape of a proposed task; `rs-contribute/`; and `kit.toml`.
-- 7.4: `website/` (config, sidebar, home page), the site's pages under `docs/`, and `README.md`; `docs/getting-started.md` is deleted.
-- Docs, in each PR: `ARCHITECTURE.md` and the trial record under `docs/trials/`.
+- 7.1a and 7.1b: Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-codebase-design/` and `rs-writing-for-agents/` in 7.1a; `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-pr/`, `rs-writing/` and `rs-ponytail/` in 7.1b. `rapid_ship/upstream.lock`. Removed in 7.1b: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated in 7.1b: the root-guide seeds, the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`, `docs/getting-started.md`, `docs/credits.md`. Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`, `tests/test_kit_skills.py`, `tests/test_skill_discovery.py`, `tests/devctl/test_devctl_evidence_step.py`, `tests/test_kit_contents.py`.
+- 7.2: `rs-setup/` with `ruleset.json` and its references (`references/agent-identity.md`, `references/stylistic-options.md`, `references/known-failures.md`); `rapid_ship/kit/init.py`'s dirty-tree refusal line. Tests: `tests/devctl/test_devctl_ruleset_json.py`, `tests/test_kit_skills.py`, `tests/test_kit_init.py`.
+- 7.3: `rs-health/` with `references/audit.md` and `references/proposed-task.md`; `rs-contribute/`; `rapid_ship/templates/kit.toml`; devctl's `settings.py` and the `.rapid-ship/project.toml` seeds. Tests: `tests/test_kit_health_and_contribute.py`, `tests/devctl/test_devctl_settings.py`.
+- 7.4: `website/` (config, sidebar, page rules, status badge, Home), the site's pages under `docs/start/`, `docs/concepts/`, `docs/reference/` and `docs/guides/`, `README.md`, and the GA version and texts; `docs/getting-started.md` and `asset/public/banner.jpeg` are deleted.
+- Docs, in each PR: `ARCHITECTURE.md` and the trial records under `docs/trials/` (on `plan7-site`).
 
 **Tasks:**
 
-1. The upstream lock and the verbatim forks, `rs-codebase-design` and `rs-writing-for-agents`, with the lock test.
+1. The upstream lock and the verbatim forks, `rs-codebase-design` and `rs-writing-for-agents`, with `tests/test_kit_upstream.py`, `tests/test_kit_skills.py` and the rewritten `tests/test_skill_discovery.py`.
 2. The patched forks, `rs-tdd`, `rs-diagnosing-bugs` and `rs-pr`, whose Evidence follows Spec 1 section 5.
-3. `rs-writing` and `rs-ponytail`, from this repository's engineering references.
-4. Retire `rapid-ship-engineering`, and point this repository's root AGENTS.md to `rs-writing` and `rs-ponytail`.
-5. `rs-setup`: Spec 1 section 8's steps, with the stacks, the starter Patterns, the advice table, the tool-settings PR and guided rectifying, and `ruleset.json` checked by `ruleset_problems`. The metrics step comes with Spec 3's plan.
-6. `rs-setup`'s references: the stylistic options of each tool, and each step's known failures with the explanation and the fix it offers.
-7. `rs-health` and its references: Spec 1 section 9, with the base rule on hidden or obscured errors. `references/audit.md` holds the audit, another reference holds the shape of a proposed task, and `rs-garden` reuses both. `rs-health` returns proposed tasks and writes the ones the owner picks to whatever tracker the owner's Harness reaches; otherwise it leaves them in the conversation.
-8. `rs-contribute`, listed under `optional_skills`.
-9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on an existing repository that the owner names, since hello-rapid-ship is now a new project, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on that existing repository, ending with the tasks the owner picks in a tracker that the Harness reaches.
-10. Owner step: apply `rs-setup`'s GitHub settings to `proxy-hatch/rapid-ship`.
-11. The documentation site. It teaches why a reader needs rapid-ship before how to use it. Only the home page sells, with the owner's tagline of 2026-10-20: "Becoming a 100x developer starts with agents that earn your trust." and the line "Agents that prove their work earn autonomy, so you can stop watching every one of them." Everywhere else it is plain and professional. The sidebar is Start (Home, Why rapid-ship, Get started around `rs-setup`, The journey), Concepts, Guides titled by outcome, and Reference, with the design records collapsed under Project. Every page carries a Built or Designed status, shows a concrete case before it names a concept, and ends each step with output from a real run. `README.md` becomes a lean GitHub front page, and "Ship more. Supervise less." is retired. Maintainers keep the full proposal, with the page list, page templates and style rules, in Linear, in the rapid-ship project's documents.
+3. `rs-writing` and `rs-ponytail`, from this repository's engineering references, and the root-guide seeds' pointer to `GLOSSARY.md`, `docs/adr/`, `rs-writing` and `rs-ponytail`.
+4. Retire `rapid-ship-engineering`, and point this repository's root `AGENTS.md` and `docs/getting-started.md` to the Kit skills and the Harness's own review.
+5. `rs-setup`: all of Spec 1 section 8’s skill text, with the stacks, Claude Code, agy and pre-GA Codex wiring, the starter Patterns, the advice on Agent identity, the tool-settings PR, guided rectifying, and `ruleset.json` checked by `ruleset_problems`. The metrics step comes with Spec 3's plan.
+6. `rs-setup`'s references: `references/agent-identity.md`, `references/stylistic-options.md`, and `references/known-failures.md` pinned against devctl's messages.
+7. `rs-health` and its shared references: Spec 1 section 9, with the base rule on hidden or obscured errors. `references/audit.md` holds the audit, `references/proposed-task.md` holds the shape of a proposed task, and `rs-garden` reuses both. `rs-health` returns proposed tasks and writes the ones the owner picks to whatever tracker the owner's Harness reaches; otherwise it leaves them in the conversation.
+8. `rs-contribute`, the optional skill for sending a Kit fix back to rapid-ship. Use main’s current optional-entry name/API; Spec 3 PR 3.7 alone renames `optional_skills` to `optional` and the reader/property. Whichever PR lands second updates callers and fixtures.
+9. Live trial, an Owner step: `rs-setup` on Get started's single-stack repository, on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on an existing repository that the owner names, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on that existing repository, ending with the tasks the owner picks in a tracker that the Harness reaches.
+10. Owner step: apply `rs-setup`'s GitHub settings (`ruleset.json`, `delete_branch_on_merge`, fork PR workflow approval) to `proxy-hatch/rapid-ship`.
+11. The documentation site's structure, status badge and page rules (`website/page-rules.js`), Home (`website/src/pages/index.md`), Why rapid-ship, The journey, the Concept pages, the Reference pages and the lean `README.md`.
+12. GA's version (`1.0.0`), Get started, the 11 Guides, the post-Spec 3 recheck of every page and recorded output, the GA text updates, and PR 7.4's verification.
 
 ## Plan style
 
