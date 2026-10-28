@@ -5,6 +5,7 @@ import re
 import shlex
 import sys
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ import pytest
 from devctl.codeowners import codeowners_match
 from devctl.process import run_process
 from devctl.settings import load_project
+from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import (
     STACKS,
     Stack,
@@ -22,6 +25,7 @@ from rapid_ship.kit.templates import (
 )
 from test_devctl_doctor_wiring import SEED as CLAUDE_WIRING
 from test_devctl_doctor_wiring_agy import SEED as AGY_WIRING
+from test_devctl_doctor_wiring_codex import SEED as CODEX_WIRING
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -36,6 +40,7 @@ CODE_OWNER_COMMENT = (
 SEEDED = {
     ".agents/hooks.json",
     ".claude/settings.json",
+    ".codex/hooks.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
@@ -180,6 +185,7 @@ PROTECTED = (
     "/tools/devctl/",
     "/.agents/",
     "/.claude/",
+    "/.codex/",
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
     "/.rapid-ship/",
@@ -210,7 +216,7 @@ STARTER_PATTERNS = tuple(
     f"/docs/patterns/python-{name}.md"
     for name in ("error-handling", "configuration", "input-validation", "performance")
 )
-PYTHON_SET = (*PROTECTED[:9], *STARTER_PATTERNS, *PROTECTED[9:], *PYTHON_PROTECTED)
+PYTHON_SET = (*PROTECTED[:10], *STARTER_PATTERNS, *PROTECTED[10:], *PYTHON_PROTECTED)
 # The new-project seeds that come with them: each Pattern's reference module and its tests.
 STARTER_MODULES = ("errors", "inputs", "settings", "profiling")
 STARTER_PYTHON_FILES = (
@@ -240,6 +246,7 @@ def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
         "CLAUDE.md",
         "docs/CLAUDE.md",
         ".claude/settings.json",
+        ".codex/hooks.json",
         ".claude/skills/rs-tdd",
         ".agents/hooks.json",
         ".agents/skills/rs-tdd/SKILL.md",
@@ -539,6 +546,58 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
 def test_askpass_is_written_executable() -> None:
     # init and sync set the executable bit only for paths kit.toml lists.
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_codex_seed_matches_the_protocol(stack: Stack) -> None:
+    assert json.loads(text(stack, ".codex/hooks.json")) == CODEX_WIRING
+
+
+@pytest.mark.parametrize("stack", STACKS)
+@pytest.mark.parametrize("existing", [False, True])
+def test_codex_seed_init_and_sync_preserve_project_ownership(
+    stack: Stack,
+    existing: bool,
+    git_repo: Path,
+    commit_all: Callable[..., None],
+) -> None:
+    path = git_repo / ".codex/hooks.json"
+    if existing:
+        path.parent.mkdir()
+        path.write_text('{"hooks": {}}\n')
+        commit_all(git_repo)
+    init_repository(git_repo, stack=stack, variables=VARIABLES)
+    expected = '{"hooks": {}}\n' if existing else text(stack, ".codex/hooks.json")
+    assert path.read_text() == expected
+    path.write_text('{"hooks": {}, "project_owned": true}\n')
+    commit_all(git_repo)
+    sync_repository(git_repo, in_place=True)
+    assert path.read_text() == '{"hooks": {}, "project_owned": true}\n'
+
+
+@pytest.mark.parametrize("stack", STACKS)
+@pytest.mark.parametrize("existing", [False, True])
+def test_sync_adds_codex_wiring_without_overwriting_an_existing_definition(
+    stack: Stack,
+    existing: bool,
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
+    old = make_templates("before-codex")
+    init_repository(git_repo, stack=stack, variables=VARIABLES, templates_root=old)
+    path = git_repo / ".codex/hooks.json"
+    if existing:
+        path.parent.mkdir()
+        path.write_text('{"hooks": {}}\n')
+        commit_all(git_repo)
+    manifest = (
+        (old / "kit.toml").read_text().replace("seeded = [", 'seeded = [".codex/hooks.json", ')
+    )
+    seed = text(stack, ".codex/hooks.json")
+    new = make_templates("with-codex", {"kit.toml": manifest, "common/.codex/hooks.json": seed})
+    sync_repository(git_repo, in_place=True, templates_root=new)
+    assert path.read_text() == ('{"hooks": {}}\n' if existing else seed)
 
 
 def agy_launch_files(root: Path, stack: Stack, shim: str) -> str:

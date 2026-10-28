@@ -12,6 +12,8 @@ that resolves it, and devctl hook never exits 2:
   ask is one line of JSON on stdout with exit 0, and no decision is no output with exit 0. An
   internal error, an event the hook cannot parse included, exits 1 with one stderr line, so the
   call goes through.
+- Codex uses the same event and deny answer as Claude Code. It lets exit 1 and a timeout
+  through, and blocks exit 2. Its ask runs without a prompt, so its wiring omits that rule.
 - agy blocks the call when its hook exits 1 or 2 or outlives its timeout. Every answer is one
   line of JSON with exit 0. No decision is "allow", which hands the call to agy's next hook or
   its own permission flow; it approves nothing. An internal error, an event the hook cannot
@@ -24,7 +26,8 @@ that resolves it, and devctl hook never exits 2:
 
 The workaround holds only while devctl hook runs. Most failures before it decides let the call
 through in Claude Code, but a failing uv exits 2, which blocks every wired call. In agy every
-such failure, the shim's exit 127 included, blocks every wired call.
+such failure, the shim's exit 127 included, blocks every wired call. Codex lets exit 1 and a
+timeout through and blocks exit 2; failures before devctl starts retain their originating codes.
 """
 
 from __future__ import annotations
@@ -39,7 +42,7 @@ from typing import Literal, NamedTuple
 
 # None: no decision. The hook only denies or asks; it never allows.
 Decision = Literal["deny", "ask"] | None
-WiredHarness = Literal["claude", "agy"]
+WiredHarness = Literal["claude", "agy", "codex"]
 WIRED_HARNESSES: tuple[WiredHarness, ...] = typing.get_args(WiredHarness)
 
 
@@ -63,6 +66,10 @@ _WIRED: dict[WiredHarness, dict[str, _Input]] = {
         "NotebookEdit": _Input("notebook_path", is_shell=False),
         "Monitor": _Input("command", is_shell=True),
     },
+    "codex": {
+        "Bash": _Input("command", is_shell=True),
+        "apply_patch": _Input("command", is_shell=False),
+    },
     # The tools agy 1.4.7 sends that run a command or write a file, with their arguments. Its
     # hooks page names write_to_file and replace_file_content instead, which agy did not send.
     "agy": {
@@ -80,10 +87,11 @@ HOOK_COMMANDS: Mapping[WiredHarness, str] = {
 # What a failure of devctl's own does to the tool call, as its stderr line says.
 FAILURE_OUTCOMES: Mapping[WiredHarness, str] = {
     "claude": "the tool call goes through",
+    "codex": "the tool call goes through",
     "agy": "devctl hook denies the call until this is fixed",
 }
 # The Harnesses whose wiring runs G5. In agy's accept-edits mode an ask before a write shows no
-# prompt and the write goes ahead.
+# prompt and the write goes ahead. Codex also runs an ask without a prompt.
 PROTECTED_ASK: frozenset[WiredHarness] = frozenset({"claude"})
 # Claude Code lets a call through when it kills a hook at its timeout, 600 seconds by default.
 # The merge guard therefore denies before a read that could end past this budget, which every
@@ -124,7 +132,7 @@ def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:
         raise ValueError(f"the event is not JSON: {error}") from error
     if not isinstance(event, dict):
         raise ValueError("the event is not a JSON object")
-    cwd, tool, tool_input = _claude_call(event) if harness == "claude" else _agy_call(event)
+    cwd, tool, tool_input = _claude_call(event) if harness != "agy" else _agy_call(event)
     if not cwd.is_absolute():
         raise ValueError(f"the event's working directory is not an absolute path: {str(cwd)!r}")
     base = Path(os.path.normpath(cwd))
@@ -134,11 +142,104 @@ def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:
     value = _text(tool_input, wired.key, f"{tool}'s input")
     if wired.is_shell:
         return ToolCall(value, (), base)
-    return ToolCall(None, (Path(os.path.normpath(base / value)),), base)
+    paths = _patch_paths(value) if harness == "codex" else (value,)
+    return ToolCall(None, tuple(Path(os.path.normpath(base / path)) for path in paths), base)
+
+
+def _patch_paths(patch: str) -> tuple[str, ...]:
+    """Read file operations, never patch content as a header. Malformed text is an error.
+
+    Update hunks contain context, added and removed lines; their prefixes distinguish them
+    from operation headers. A move writes both the update's source and its destination.
+    """
+    lines = patch.strip().replace("\r\n", "\n").split("\n")
+    if lines[0] in ("<<EOF", "<<'EOF'", '<<"EOF"') and lines[-1].endswith("EOF"):
+        lines = lines[1:-1]
+    if (
+        len(lines) < 3
+        or lines[0].strip() != "*** Begin Patch"
+        or lines[-1].strip() != "*** End Patch"
+    ):
+        raise ValueError("the patch needs Begin Patch, file operations and End Patch")
+    lines[-1] = "*** End Patch"
+    paths: list[str] = []
+    index = _patch_start(lines)
+    while index < len(lines) - 1:
+        header = lines[index].strip()
+        operation = next(
+            (
+                kind
+                for kind in ("Add", "Update", "Delete")
+                if header.startswith(f"*** {kind} File: ")
+            ),
+            None,
+        )
+        if operation is None:
+            raise ValueError("the patch has an invalid file operation")
+        path = header[len(f"*** {operation} File: ") :]
+        if not path.strip() or "\x00" in path:
+            raise ValueError("the patch has an empty or invalid path")
+        paths.append(path)
+        index += 1
+        if operation == "Update" and lines[index].rstrip().startswith("*** Move to: "):
+            destination = lines[index].rstrip()[len("*** Move to: ") :]
+            if not destination.strip() or "\x00" in destination:
+                raise ValueError("the patch has an empty or invalid move path")
+            paths.append(destination)
+            index += 1
+        index = _patch_content(lines, index, operation)
+    return tuple(paths)
+
+
+def _patch_start(lines: list[str]) -> int:
+    """Skip optional routing metadata before the first file operation."""
+    marker = "*** Environment ID:"
+    metadata = lines[1].strip()
+    if not metadata.startswith(marker):
+        return 1
+    if not metadata[len(marker) :].strip():
+        raise ValueError("the patch has an empty environment ID")
+    return 2
+
+
+def _patch_content(lines: list[str], start: int, operation: str) -> int:
+    for end in range(start, len(lines)):
+        line = lines[end].rstrip() if operation == "Update" else lines[end].strip()
+        if line.startswith("*** ") and not (operation == "Update" and line == "*** End of File"):
+            break
+    else:
+        raise ValueError("the patch has no closing boundary")
+    content = lines[start:end]
+    if operation == "Update":
+        _check_hunks(content)
+    elif operation == "Add":
+        if any(not line.startswith("+") for line in content):
+            raise ValueError("the patch has invalid added content")
+    elif content:
+        raise ValueError("the patch has content after a delete")
+    return end
+
+
+def _check_hunks(lines: list[str]) -> None:
+    content = False
+    for index, line in enumerate(lines):
+        control = line.rstrip()
+        if control == "*** End of File":
+            continue
+        if control == "@@" or control.startswith("@@ "):
+            if index and not content:
+                raise ValueError("the patch has an empty update hunk")
+            content = False
+        elif not line or line[0] in " +-":
+            content = True
+        else:
+            raise ValueError("the patch has an invalid update line")
+    if not content:
+        raise ValueError("the patch has no update content")
 
 
 def _claude_call(event: Mapping[str, object]) -> tuple[Path, str, Mapping[str, object]]:
-    """Claude Code's PreToolUse event: its cwd, tool_name and tool_input."""
+    """Claude Code and Codex's PreToolUse event: its cwd, tool_name and tool_input."""
     name = event.get("hook_event_name")
     if name != "PreToolUse":
         raise ValueError(f"the event's hook_event_name is {name!r}, not 'PreToolUse'")
@@ -197,7 +298,7 @@ def answer(harness: WiredHarness, decision: Decision, reason: str) -> tuple[str,
 
 def failure(harness: WiredHarness, message: str) -> tuple[str, int]:
     """The hook's stdout and exit code when devctl cannot decide: exit 1, which lets the call
-    through in Claude Code, and in agy a deny whose reason is message."""
+    through in Claude Code and Codex, and in agy a deny whose reason is message."""
     if harness == "agy":
         return _agy_answer("deny", message), 0
     return "", 1

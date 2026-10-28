@@ -1,0 +1,14 @@
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status --short --branch && rg --files -g 'spike.ipynb' -g 'spike.txt' -g 'AGENTS.md'"
+  },
+  "tool_use_id": "<redacted>"
+}

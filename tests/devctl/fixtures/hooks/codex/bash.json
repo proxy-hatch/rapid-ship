@@ -1,0 +1,14 @@
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status"
+  },
+  "tool_use_id": "<redacted>"
+}

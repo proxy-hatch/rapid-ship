@@ -35,7 +35,7 @@ from devctl.doctor_skills import probe_worktree as probe_worktree
 from devctl.doctor_skills import probed_harnesses as probed_harnesses
 from devctl.doctor_skills import repository_skills as repository_skills
 from devctl.doctor_skills import skills_items as skills_items
-from devctl.doctor_wiring import agy_wiring_item, wiring_item
+from devctl.doctor_wiring import agy_wiring_item, codex_wiring_item, wiring_item
 from devctl.github.app import project_access
 from devctl.repo import Repo
 from devctl.settings import load_project
@@ -86,6 +86,7 @@ def doctor_command(args: argparse.Namespace) -> int:
                 settings_item(repo.root),
                 wiring_item(repo.root, tracked),
                 agy_wiring_item(repo.root, tracked),
+                codex_wiring_item(repo.root, tracked),
             ]
         )
     project = load_project(repo.root)
@@ -111,7 +112,7 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
     scope.add_argument(
         "--settings",
         action="store_true",
-        help="check only git, the settings files and the Claude Code and agy wiring, and ask "
-        "GitHub nothing; each Session runs it first unless it runs the full doctor",
+        help="check only git, the settings files and the Claude Code, agy and Codex wiring; "
+        "ask GitHub nothing; each Session runs it first unless it runs the full doctor",
     )
     parser.set_defaults(handler=doctor_command)

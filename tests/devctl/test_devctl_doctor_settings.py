@@ -1,5 +1,5 @@
 """Offline: doctor --settings on fixture repositories; gh_get is replaced by a reader that fails the
-test. The agy wiring item's probe runs this checkout's devctl hook through a stand-in shim."""
+test. agy and Codex probes run this checkout's devctl hook through a stand-in shim."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
     wanted = {
         ".claude/settings.json",
         ".agents/hooks.json",
+        ".codex/hooks.json",
         ".agents/devctl",
         *([".github/CODEOWNERS"] if codeowners else []),
     }
@@ -70,12 +71,15 @@ def test_settings_reads_only_the_settings_and_asks_github_nothing(
         "ok  guardrails  settings",
         "ok  guardrails  Claude Code wiring",
         "ok  guardrails  agy wiring",
+        "ok  guardrails  Codex wiring",
     ]
     assert lines[1].startswith("ok  guardrails  settings: ")
     assert lines[2].startswith("ok  guardrails  Claude Code wiring: ")
     # The deterministic checks run the real hook through the stand-in and managed forwarder.
     assert lines[3].endswith("in deterministic direct/shell checks from root and .agents/")
-    assert lines[-1] == "doctor: 4 ok, 0 missing, 0 unknown"
+    assert "denied a probe git push --force" in lines[4]
+    assert "/hooks" in lines[4]
+    assert lines[-1] == "doctor: 5 ok, 0 missing, 0 unknown"
 
 
 def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(

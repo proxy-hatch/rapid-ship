@@ -16,6 +16,7 @@
 # /tools/devctl/ @{{owner}}
 # /.agents/ @{{owner}}
 # /.claude/ @{{owner}}
+# /.codex/ @{{owner}}
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
 # /.rapid-ship/ @{{owner}}
