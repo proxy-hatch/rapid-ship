@@ -163,7 +163,7 @@ def _patch_paths(patch: str) -> tuple[str, ...]:
         raise ValueError("the patch needs Begin Patch, file operations and End Patch")
     lines[-1] = "*** End Patch"
     paths: list[str] = []
-    index = 1
+    index = _patch_start(lines)
     while index < len(lines) - 1:
         header = lines[index].strip()
         operation = next(
@@ -189,6 +189,17 @@ def _patch_paths(patch: str) -> tuple[str, ...]:
             index += 1
         index = _patch_content(lines, index, operation)
     return tuple(paths)
+
+
+def _patch_start(lines: list[str]) -> int:
+    """Skip optional routing metadata before the first file operation."""
+    marker = "*** Environment ID:"
+    metadata = lines[1].strip()
+    if not metadata.startswith(marker):
+        return 1
+    if not metadata[len(marker) :].strip():
+        raise ValueError("the patch has an empty environment ID")
+    return 2
 
 
 def _patch_content(lines: list[str], start: int, operation: str) -> int:

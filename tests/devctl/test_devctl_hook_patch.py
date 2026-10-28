@@ -19,6 +19,35 @@ def patch(body: str) -> str:
 
 @pytest.mark.parametrize("wrapper", ["", "<<EOF", "<<'EOF'", '<<"EOF"'])
 @pytest.mark.parametrize(
+    "metadata",
+    ["*** Environment ID: local", "  *** Environment ID: local  ", "*** Environment ID:local"],
+)
+def test_environment_metadata_does_not_hide_lock_operations(
+    wrapper: str,
+    metadata: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = project(tmp_path)
+    command = patch(
+        metadata + "\n*** Add File: harmless\n+x\n*** Delete File: .rapid-ship/kit.lock"
+    )
+    if wrapper:
+        command = f"{wrapper}\n{command}EOF"
+
+    assert (
+        hook(monkeypatch, calling(command, workspace.root, "apply_patch"), "codex", "pre-tool") == 0
+    )
+    result = capsys.readouterr()
+    assert result.err == ""
+    decision = json.loads(result.out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"].startswith("G4: ")
+
+
+@pytest.mark.parametrize("wrapper", ["", "<<EOF", "<<'EOF'", '<<"EOF"'])
+@pytest.mark.parametrize(
     "body",
     [
         "*** Delete File: .rapid-ship/kit.lock  ",
@@ -121,6 +150,9 @@ def test_each_lock_operation_is_denied_after_a_harmless_operation(
         "*** Update File: x\n@@",
         "*** Update File: x\n@@\n+x\n*** Move to: y",
         "*** Add File: x\n+x\n*** Bogus File: y",
+        "*** Environment ID:\n*** Delete File: x",
+        "*** Environment ID: local\n*** Environment ID: local\n*** Delete File: x",
+        "*** Add File: x\n+x\n*** Environment ID: local\n*** Delete File: y",
     ],
 )
 def test_malformed_patch_is_not_an_empty_call(body: str) -> None:
