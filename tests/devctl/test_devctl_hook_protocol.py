@@ -200,7 +200,7 @@ UNEXPECTED: list[tuple[tuple[str, ...], Callable[[Path], bytes], int]] = [
     (PRE_TOOL, lambda _: b"{}", 1),
     (PRE_TOOL, lambda _: recorded(hook_event_name="PostToolUse"), 1),
     (PRE_TOOL, lambda _: recorded(tool_input=None), 1),
-    (("codex", "pre-tool"), lambda _: recorded(), 1),
+    (("unwired", "pre-tool"), lambda _: recorded(), 1),
     (("claude", "post-tool"), lambda _: recorded(), 1),
     ((), lambda _: recorded(), 1),
     (("claude",), lambda _: recorded(), 1),
@@ -216,7 +216,7 @@ UNEXPECTED: list[tuple[tuple[str, ...], Callable[[Path], bytes], int]] = [
         "empty-object",
         "post-tool-use",
         "no-tool-input",
-        "harness-codex",
+        "harness-unwired",
         "event-post-tool",
         "no-harness",
         "no-event",
@@ -242,16 +242,18 @@ def test_the_hook_never_exits_2(
 def test_an_unknown_harness_and_a_bad_usage_name_the_way_through(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    hook(monkeypatch, recorded(), "codex", "pre-tool")
+    hook(monkeypatch, recorded(), "unwired", "pre-tool")
     assert capsys.readouterr().err == (
-        "devctl hook: unknown Harness 'codex'; this devctl wires claude and agy\n"
+        "devctl hook: unknown Harness 'unwired'; this devctl wires claude and agy and codex\n"
     )
 
     hook(monkeypatch, recorded(), "claude")
     assert capsys.readouterr().err == "devctl hook: usage: devctl hook claude pre-tool\n"
 
     hook(monkeypatch, recorded())
-    assert capsys.readouterr().err == "devctl hook: usage: devctl hook <claude|agy> pre-tool\n"
+    assert (
+        capsys.readouterr().err == "devctl hook: usage: devctl hook <claude|agy|codex> pre-tool\n"
+    )
 
     hook(monkeypatch, b"{}", "claude", "pre-tool")
     err = capsys.readouterr().err

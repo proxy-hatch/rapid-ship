@@ -215,6 +215,7 @@ class TestItems:
             ("guardrails", "CI workflow"),
             ("guardrails", "Claude Code wiring"),
             ("guardrails", "agy wiring"),
+            ("guardrails", "Codex wiring"),
             ("guardrails", "Python guardrail settings"),
             ("guardrails", "tools/devctl exclusions"),
             ("kit", "Kit files"),
@@ -378,7 +379,7 @@ class TestOutput:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
         # missing, and gitleaks (no version printed) is unknown. No .rapid-ship/project.toml is
         # written, so the settings are unknown. No .claude/settings.json or .agents/hooks.json is
-        # tracked, so both wiring items are missing. With no repository, the GitHub part is one
+        # tracked, so all three wiring items are missing. With no repository, the GitHub part is one
         # missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
@@ -393,8 +394,8 @@ class TestOutput:
             lines[-2]
             == "missing  github  repository: repository is not set in .rapid-ship/project.toml"
         )
-        assert lines[-1] == "doctor: 4 ok, 7 missing, 2 unknown"
-        assert len(lines) == 14
+        assert lines[-1] == "doctor: 4 ok, 8 missing, 2 unknown"
+        assert len(lines) == 15
 
     def test_doctor_reads_the_project_and_reports_every_local_item_ok(
         self,
@@ -410,9 +411,18 @@ class TestOutput:
         repo_files.workflow(job_name="devctl check")
         repo_files.write(".claude/settings.json", rendered_seed())
         repo_files.write(".agents/hooks.json", rendered_agnostic_seed(".agents/hooks.json"))
+        repo_files.write(".codex/hooks.json", rendered_agnostic_seed(".codex/hooks.json"))
         repo_files.lock(unchanged=["devctl"], missing=[])
         hook = '"$(git rev-parse --show-toplevel)/devctl" hook agy pre-tool'
         fake_run.answer(["sh", "-c", hook], result(0, '{"decision": "deny", "reason": "G2: x"}\n'))
+        fake_run.answer(
+            ["sh", "-c", hook.replace("agy", "codex")],
+            result(
+                0,
+                '{"hookSpecificOutput":{"hookEventName":"PreToolUse",'
+                '"permissionDecision":"deny","permissionDecisionReason":"G2: x"}}\n',
+            ),
+        )
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         fake_run.answer(["gitleaks", "version"], result(0, f"{GITLEAKS_VERSION}\n"))
         fake_run.answer(["gh", "auth", "status"], result(0))
@@ -421,7 +431,7 @@ class TestOutput:
         # The project names no repository, so GitHub's part is one missing item and the exit is 1.
         assert doctor_command(argparse.Namespace(skills=False, settings=False)) == 1
         lines = capsys.readouterr().out.splitlines()
-        assert lines[-1] == "doctor: 12 ok, 1 missing, 0 unknown"
+        assert lines[-1] == "doctor: 13 ok, 1 missing, 0 unknown"
         assert lines[-2].startswith("missing  github  repository: ")
         assert all(line.startswith("ok  ") for line in lines[:-2])
 

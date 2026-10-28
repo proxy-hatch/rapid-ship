@@ -16,6 +16,7 @@
 # /tools/devctl/ @proxy-hatch
 # /.agents/ @proxy-hatch
 # /.claude/ @proxy-hatch
+# /.codex/ @proxy-hatch
 # /**/AGENTS.md @proxy-hatch
 # /**/CLAUDE.md @proxy-hatch
 # /.rapid-ship/ @proxy-hatch

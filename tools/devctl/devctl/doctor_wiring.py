@@ -1,5 +1,5 @@
-"""doctor's Harness wiring items: whether the Kit's .claude/settings.json and .agents/hooks.json
-run devctl hook.
+"""doctor's Harness wiring items: whether the Kit's .claude/settings.json, .agents/hooks.json
+and .codex/hooks.json run devctl hook.
 
 doctor reads only the files the Kit seeds. .claude/settings.local.json, the user's settings and
 agy's user-level hooks are the owner's own, so a hook or a disableAllHooks they hold is outside
@@ -10,17 +10,26 @@ doctor_local.py, so the wiring rules there would make the two import each other.
 from __future__ import annotations
 
 import json
+import math
 import re
 import shlex
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from devctl import process
-from devctl.doctor_items import TOOL_TIMEOUT_SECONDS, Item, finished, owner_environment
+from devctl.doctor_items import TOOL_TIMEOUT_SECONDS, Item, Status, finished, owner_environment
 from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HOOK_COMMANDS, WIRED_TOOLS
 
 WIRING_FILE = ".claude/settings.json"
 AGY_WIRING_FILE = ".agents/hooks.json"
+CODEX_WIRING_FILE = ".codex/hooks.json"
+_CODEX_ITEM = "Codex wiring"
+_CODEX_PROGRAM = "$(git rev-parse --show-toplevel)/devctl"
+_CODEX_ARGS = HOOK_COMMANDS["codex"].split()[1:]
+_CODEX_TRUST = (
+    "review and trust this definition and any changed hook in /hooks; "
+    "user configuration and persisted trust are outside this check"
+)
 _ITEM = "Claude Code wiring"
 _AGY_ITEM = "agy wiring"
 # Claude Code reads a matcher made only of these characters as a list of exact tool names, and
@@ -293,3 +302,129 @@ def _denies_with_g2(stdout: str) -> bool:
         return False
     reason = _mapping(answer).get("reason")
     return _mapping(answer).get("decision") == "deny" and str(reason).startswith("G2: ")
+
+
+def _codex_enabled(fields: Mapping[str, object]) -> bool:
+    return (
+        fields.get("enabled", True) is True
+        and fields.get("disabled", False) is False
+        and fields.get("disableAllHooks", False) is False
+        and all(fields.get(key, False) is False for key in _BACKGROUND)
+        and "if" not in fields
+    )
+
+
+def _codex_handlers(settings: object) -> list[tuple[object, str]]:
+    """Only synchronous handlers that resolve the shim in the current git worktree count.
+
+    An absolute checkout path or a relative devctl can select another checkout or fail in a
+    subdirectory. The only accepted substitution is git's top level, quoted as one word.
+    """
+    fields = _mapping(settings)
+    if not _codex_enabled(fields):
+        return []
+    handlers: list[tuple[object, str]] = []
+    for entry in map(_mapping, _sequence(_mapping(fields.get("hooks")).get("PreToolUse"))):
+        if not _codex_enabled(entry):
+            continue
+        for handler in map(_mapping, _sequence(entry.get("hooks"))):
+            if (
+                handler.get("type") != "command"
+                or "args" in handler
+                or not _codex_enabled(handler)
+                or not _waits(handler, 600)
+            ):
+                continue
+            timeout = handler.get("timeout", 600)
+            if isinstance(timeout, float) and not math.isfinite(timeout):
+                continue
+            words = _shell_words(handler.get("command"), _AGY_PATH_WORD)
+            if words == [_CODEX_PROGRAM, *_CODEX_ARGS]:
+                handlers.append((entry.get("matcher"), str(handler["command"])))
+    return handlers
+
+
+def codex_wiring_problems(settings: object) -> list[str]:
+    """Why the local Codex definition lacks synchronous guardrails; trust is not inspected."""
+    matchers = [matcher for matcher, _ in _codex_handlers(settings)]
+    unwired = [
+        tool
+        for tool in WIRED_TOOLS["codex"]
+        if not any(_agy_covers(matcher, tool) for matcher in matchers)
+    ]
+    return (
+        [f"no PreToolUse hook runs {HOOK_COMMANDS['codex']} for {', '.join(unwired)}"]
+        if unwired
+        else []
+    )
+
+
+def codex_wiring_item(root: Path, tracked: Sequence[str]) -> Item:
+    """Validate local wiring and probe safe commands, without asserting persisted trust."""
+    settings = _load(root, CODEX_WIRING_FILE, tracked, _CODEX_ITEM)
+    if isinstance(settings, Item):
+        return Item(
+            settings.area, settings.name, settings.status, f"{settings.detail}; {_CODEX_TRUST}"
+        )
+    problems = codex_wiring_problems(settings)
+    if problems:
+        return Item(
+            "guardrails",
+            _CODEX_ITEM,
+            "missing",
+            f"{CODEX_WIRING_FILE}: {'; '.join(problems)}; {_CODEX_TRUST}",
+        )
+    commands = dict.fromkeys(command for _, command in _codex_handlers(settings))
+    items = [_codex_probe(root, command) for command in commands]
+    return next((item for item in items if item.status != "ok"), items[0])
+
+
+def _codex_probe(root: Path, command: str) -> Item:
+    event = {
+        "hook_event_name": "PreToolUse",
+        "cwd": str(root),
+        "tool_name": "Bash",
+        "tool_input": {"command": _PROBE_COMMAND},
+    }
+    try:
+        result = process.run_process(
+            ["/bin/sh", "-c", command],
+            root,
+            TOOL_TIMEOUT_SECONDS,
+            env=owner_environment("devctl"),
+            input_text=json.dumps(event),
+        )
+    except OSError:
+        return Item(
+            "guardrails",
+            _CODEX_ITEM,
+            "unknown",
+            f"cannot run the hook of {CODEX_WIRING_FILE}; {_CODEX_TRUST}",
+        )
+    status: Status = "missing"
+    if not finished(result):
+        status, detail = "unknown", "its hook probe timed out or gave incomplete output"
+    elif result.returncode != 0:
+        detail = f"its hook exited {result.returncode} on a probe event"
+    elif not _codex_denies_with_g2(result.stdout):
+        detail = f"its hook did not deny a probe {_PROBE_COMMAND} with G2"
+    else:
+        status = "ok"
+        detail = (
+            f"runs {HOOK_COMMANDS['codex']} for {', '.join(WIRED_TOOLS['codex'])}, "
+            f"and it denied a probe {_PROBE_COMMAND}"
+        )
+    return Item("guardrails", _CODEX_ITEM, status, f"{CODEX_WIRING_FILE}: {detail}; {_CODEX_TRUST}")
+
+
+def _codex_denies_with_g2(stdout: str) -> bool:
+    try:
+        answer = json.loads(stdout)
+    except ValueError:
+        return False
+    fields = _mapping(_mapping(answer).get("hookSpecificOutput"))
+    return (
+        fields.get("hookEventName") == "PreToolUse"
+        and fields.get("permissionDecision") == "deny"
+        and str(fields.get("permissionDecisionReason")).startswith("G2: ")
+    )

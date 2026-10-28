@@ -3,6 +3,7 @@
 seeded = [
     ".agents/hooks.json",
     ".claude/settings.json",
+    ".codex/hooks.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
     ".rapid-ship/project.toml",
