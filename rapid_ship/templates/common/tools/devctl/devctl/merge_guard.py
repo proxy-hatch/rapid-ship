@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Literal
 
 from devctl import process
+from devctl.check.diff import is_unit_test
+from devctl.check.evidence import over_cap_reason, removed_test_declarations
 from devctl.codeowners import protected_changes
 from devctl.command_line import (
     REPOSITORY_OPTIONS,
@@ -70,7 +72,13 @@ _MUTATIONS = re.compile(
     r"|updateRefs?|createCommitOnBranch)\b"
 )
 
-# The guard's four denials.
+# The guard's six denials of a merge it has checked.
+_WALK_DENIED = (
+    "merge denied: in Walk the owner merges every pull request; ask the owner to merge PR #{number}"
+)
+_DECLARED_DENIED = "merge denied: PR #{number} declares {what}, so the owner merges it"
+_REMOVED_BEHAVIOURAL = "a removed behavioural test"
+_OVER_CAP = "an overage of the diff cap"
 _CHECK_DENIED = (
     "merge denied: devctl check on PR #{number} at {head} is {state}; wait for it to pass or fix "
     "what it reports, then merge again"
@@ -259,9 +267,9 @@ def guard(
 ) -> str | None:
     """The merge guard's denial of a pr-merge, or None: no decision.
 
-    settings None means none were read, so the guard cannot tell whether Agent identity is on and
-    denies before any read. branches is called only for a merge that names no pull request, and
-    elapsed, the seconds since the hook run started, before each read.
+    settings None means none were read, so the guard cannot tell the Mode or whether Agent
+    identity is on, and denies before any read. branches is called only for a merge that names no
+    pull request, and elapsed, the seconds since the hook run started, before each read.
     """
     if settings is None:
         return cannot_check(_NO_SETTINGS)
@@ -293,17 +301,24 @@ def _checked(
     """Read the PR, CODEOWNERS on its base, its files, its reviews with Agent identity on, and its
     check runs, in that order, and deny with the first message that applies.
 
-    The Protected set comes first, because waiting on a check cannot fix a PR only the owner can
-    merge, so a Protected PR is denied before its reviews and check runs are read. The review
-    comes after the check, because fixing a failed check pushes a new head that needs a new
-    review, and before the head, because the retry that message names would be denied without it.
+    In Walk no agent merges, so the guard denies once it has read the PR's number. The Protected
+    set and, in Flight, the body's declarations come next, because waiting on a check cannot fix
+    a PR only the owner can merge, so such a PR is denied before its reviews and check runs are
+    read. The review comes after the check, because fixing a failed check pushes a new head that
+    needs a new review, and before the head, because the retry that message names would be
+    denied without it.
     """
     repository = merge.repository or settings.repository
     pull = find_pull(read, merge.target, repository, lambda: branches().current)
+    if settings.every_pr:
+        return _WALK_DENIED.format(number=pull.number)
     patterns = base_patterns(read, pull)
     protected = protected_changes(patterns, changed_files(read, pull))
     if protected:
         return _PROTECTED_DENIED.format(number=pull.number, paths=", ".join(protected))
+    declared = _owner_declarations(pull.body, settings.unit_tests)
+    if declared:
+        return _DECLARED_DENIED.format(number=pull.number, what=" and ".join(declared))
     slug = settings.reviewer_app_slug
     approved = not settings.agent_identity or reviewer_approved(read, pull, slug)
     state = check_state(read, pull)
@@ -315,3 +330,20 @@ def _checked(
         command = shlex.join(merge.command)
         return _HEAD_DENIED.format(number=pull.number, head=pull.head, command=command)
     return None
+
+
+def _owner_declarations(body: str, unit_tests: Sequence[str]) -> list[str]:
+    """What the body's Evidence section declares that leaves a merge in Flight to the owner: a
+    removed behavioural test, an overage of the diff cap, or both, in that order.
+
+    A removed test is behavioural when [tests] unit's patterns do not class its file as unit, as
+    the diff step classes it. An item the parser cannot read fails the evidence step, so the
+    check denial holds that PR.
+    """
+    removed = removed_test_declarations(body)[0]
+    declared: list[str] = []
+    if any(not is_unit_test(test.partition("::")[0], unit_tests) for test in removed):
+        declared.append(_REMOVED_BEHAVIOURAL)
+    if over_cap_reason(body) is not None:
+        declared.append(_OVER_CAP)
+    return declared

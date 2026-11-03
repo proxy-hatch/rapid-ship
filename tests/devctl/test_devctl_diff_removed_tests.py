@@ -66,7 +66,7 @@ def test_declared_removal_passes_with_its_reason_and_no_mode(workspace: Workspac
     result = run(workspace, base, body)
 
     assert result.status == "passed"
-    # The escalation list, not the step, decides whether the owner sees a declared removal.
+    # The step passes a declared removal whatever the Mode; it does not decide who merges.
     assert result.details[0] == (
         "removed behavioural test tests/test_api.py::TestApi::test_delete: "
         "declared (endpoint removed)"

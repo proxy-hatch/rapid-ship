@@ -61,7 +61,7 @@ def _field(repo: Mapping[str, object], key: str) -> str:
 
 
 def _mode(every_pr: bool) -> str:
-    return "Walk" if every_pr else "the Protected set (every_pr = false)"
+    return "Walk" if every_pr else "Flight"
 
 
 def _repository_rulesets(ctx: DoctorContext, repository: str) -> list[Mapping[str, object]]:

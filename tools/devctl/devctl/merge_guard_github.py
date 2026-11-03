@@ -1,5 +1,5 @@
-"""The merge guard's GitHub reads: the pull request, CODEOWNERS on its base branch, its files,
-its reviews and its check runs.
+"""The merge guard's GitHub reads: the pull request with its body, CODEOWNERS on its base
+branch, its files, its reviews and its check runs.
 
 Each read goes through OwnerGet, doctor's GET with the owner's gh sign-in. A read that gh cannot
 make raises OwnerReadError, a response that is not the shape GitHub documents GitHubError, and a
@@ -59,6 +59,7 @@ class PullRequest:
     number: int
     head: str  # the head commit's full SHA
     base: str  # the base branch
+    body: str  # empty when the pull request has none
 
 
 def find_pull(
@@ -106,7 +107,11 @@ def _pull(found: object, repository: str) -> PullRequest:
     if not _SHA.fullmatch(head):
         raise GitHubError(None, f"the pull request's head is not a full SHA: {head!r}")
     base = _text(json_object(pull.get("base"), "the base"), "ref", "the pull request's base")
-    return PullRequest(repository, _number(pull, "number", "the pull request"), head, base)
+    body = pull.get("body")  # null when the pull request has no body
+    if body is not None and not isinstance(body, str):
+        raise GitHubError(None, "the pull request's body is not text")
+    number = _number(pull, "number", "the pull request")
+    return PullRequest(repository, number, head, base, body or "")
 
 
 def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:

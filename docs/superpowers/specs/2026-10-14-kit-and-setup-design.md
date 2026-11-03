@@ -354,7 +354,7 @@ After the Rules and before the pointers, both seeds of the root guide, the commo
 - Run `./devctl check` and fix what it reports before you open a pull request.
 - With Agent identity on, push with `./devctl as worker push` and open the pull request with `./devctl as worker gh pr create`.
 - Review a change from a Session that did not write it. With Agent identity on, approve with `./devctl as reviewer gh pr review <number> --approve`, or request changes with `./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. Never approve a change you wrote.
-- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
+- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`, or with Agent identity on `./devctl as worker gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
 - Declare `Over the diff cap:` in the pull request body only after the owner accepted the overage.
 - Undo a merged change only with `git revert`.
 ```
