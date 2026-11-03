@@ -43,7 +43,7 @@ PROJECT_KEYS: dict[str, frozenset[str]] = {
             "reviewer_app_slug",
         }
     ),
-    "escalation": frozenset({"every_pr", "kinds", "revision_rounds"}),
+    "escalation": frozenset({"every_pr"}),
     "kit": frozenset({"optional", "exclude"}),
     "map": frozenset({"source_roots", "unguided", "exclude"}),
     "tests": frozenset({"unit"}),
@@ -70,9 +70,8 @@ class App:
 
 
 @dataclass(frozen=True)
-class Escalation:  # revision_rounds is checked, not kept: rs-lead reads it from the file
-    every_pr: bool  # default True: Walk
-    kinds: tuple[str, ...]  # plain text for the Lead
+class Escalation:
+    every_pr: bool  # default True: Walk; False: Flight
 
 
 @dataclass(frozen=True)
@@ -219,10 +218,7 @@ def _code_owner(github: _Table) -> str | None:
 
 
 def _escalation(top: _Table) -> Escalation:
-    table = top.table("escalation")
-    escalation = Escalation(every_pr=table.boolean("every_pr", True), kinds=table.texts("kinds"))
-    table.integer("revision_rounds", 3, minimum=1)  # checked, not kept
-    return escalation
+    return Escalation(every_pr=top.table("escalation").boolean("every_pr", True))
 
 
 def _paths(table: _Table, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:

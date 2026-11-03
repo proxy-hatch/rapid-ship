@@ -5,7 +5,9 @@
 # owner below reads <owner>; rs-setup writes the login and uncomments this line.
 * @{{owner}}
 #
-# Flight: replace the Walk line with the Protected set below, uncommented.
+# Flight: in one pull request the owner merges, set [escalation]
+# every_pr = false in .rapid-ship/project.toml and replace the Walk line
+# with the Protected set below, uncommented.
 # Add a line for each existing Pattern file in docs/patterns/, and for the
 # paths the project adds for access, the data model or the public API.
 # The set ends with the settings files of the check tools, because a

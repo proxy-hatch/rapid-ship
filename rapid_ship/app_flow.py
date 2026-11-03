@@ -42,8 +42,11 @@ TITLES = {"worker": "Worker App", "reviewer": "Reviewer App"}
 MAX_MESSAGE_CHARACTERS = 300
 
 _DESCRIPTIONS = {
-    "worker": "rapid-ship Workers push branches, open pull requests and merge approved ones.",
-    "reviewer": "rapid-ship Reviewers post their verdicts on pull requests.",
+    "worker": (
+        "Agents acting through rapid-ship's devctl push branches, open pull requests and merge "
+        "approved ones."
+    ),
+    "reviewer": "Agents acting through rapid-ship's devctl post pull request reviews.",
 }
 _MAX_APP_NAME = 34  # GitHub's limit on an App's name
 _API_TIMEOUT_SECONDS = 30.0

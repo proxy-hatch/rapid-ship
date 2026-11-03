@@ -3,7 +3,8 @@
 The pull request body needs an `## Evidence` section with a command and its result, and a
 `Not covered:` line. The section may also list removed tests under `Removed tests:`, and may
 hold a line starting `Over the diff cap:` with the reason for an overage the owner accepted.
-The diff step reads both through `removed_test_declarations` and `over_cap_reason`.
+The diff step and the merge guard read both through `removed_test_declarations` and
+`over_cap_reason`.
 
 Everything is read from the section only, with fenced code blanked, except a fenced transcript
 that starts with `$ `, which counts as a command and its output.
