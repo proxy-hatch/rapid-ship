@@ -10,7 +10,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 2 | [The rapid-ship CLI](2026-10-14-rapid-ship-cli.md): templates, lock, `init`, `status`, `sync`, dog-food init | 3, 4 | 1 | Built: PR #29, `codex/rapid-ship-cli` |
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
-| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code` |
+| 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code`. Follow-up: the [agy wiring](2026-10-26-agy-wiring.md) (PRO-155), on `agy-wiring` |
 | 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: four PRs |
 
@@ -70,7 +70,7 @@ tests/
   devctl/                        # no __init__.py, no conftest.py; files named test_devctl_*.py
     check_workspace.py           # plan 3: project_settings, Workspace, new_workspace, fake_tool
     github_fakes.py github_fixtures.py fixtures/github/   # plan 4
-    fixtures/hooks/<harness>/    # plan 5: recorded hook events, claude/ only
+    fixtures/hooks/<harness>/    # plan 5: recorded hook events, claude/ and, from its agy follow-up, agy/
 scripts/smoke_distribution.py
 devctl, tools/devctl/            # this repository's vendored Kit
 .agents/skills/rs-*, .claude/skills/rs-*   # plan 7: vendored Kit skills; rapid_ship/skills/ is gone
@@ -99,11 +99,11 @@ tools/devctl/
     check/map_skills.py          # plan 5: map rule 7, moved from check/map.py so map.py stays under the file-size cap
     check/stacks/python_dead_code.py   # plan 5: the dead-code step for Python, its floor settings, and pyproject.toml's allowlist items
     doctor.py doctor_items.py doctor_local.py doctor_github.py doctor_rules.py doctor_skills.py
-    doctor_wiring.py             # plan 5: doctor's Harness wiring item, for .claude/settings.json
+    doctor_wiring.py             # plan 5: doctor's Harness wiring items, for .claude/settings.json and .agents/hooks.json
     harness.py                   # plan 4: the Claude Code skills probe
     identity.py                  # plan 4: devctl as
     github/api.py github/app.py github/askpass.py   # plan 4: REST client, App tokens, GIT_ASKPASS helper
-    hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and Claude Code's protocol
+    hook.py hook_protocols.py    # plan 5: devctl hook's rules; the types they share, and each wired Harness's protocol
     command_line.py              # plan 5: shell splitting, and the git and gh forms the guardrails read
     merge_guard.py merge_guard_github.py   # plan 5: the merge guard, G9, and its GitHub reads
   devctl_project/                # seeded: project verbs and extra check steps
@@ -232,7 +232,7 @@ class DoctorContext:
 
 
 # devctl/doctor_rules.py
-# Codex's wiring adds .codex/, and agy's widens .agents/skills/ to .agents/
+# agy's wiring widened .agents/skills/ to .agents/; Codex's adds .codex/
 PROTECTED_PATHS: tuple[str, ...]
 PYTHON_PROTECTED_PATHS: tuple[str, ...]
 TYPESCRIPT_PROTECTED_PATHS: tuple[str, ...]  # plan 6
@@ -296,10 +296,12 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 ### `devctl hook` and the merge guard (plan 5)
 
 ```python
-# devctl/hook_protocols.py: the types the rules share, and Claude Code's protocol; the exit-code
-# workaround is documented here
+# devctl/hook_protocols.py: the types the rules share, and each wired Harness's protocol; the
+# exit-code workaround is documented here
 Decision = Literal["deny", "ask"] | None  # None: no decision; the hook never allows
-WiredHarness = Literal["claude"]  # plan 5; each later wiring adds its Harness and protocol
+WiredHarness = Literal["claude", "agy"]  # plan 5, and agy from its follow-up; Codex's adds codex
+WIRED_TOOLS: Mapping[WiredHarness, tuple[str, ...]]  # the tools each seeded wiring sends
+PROTECTED_ASK: frozenset[WiredHarness]  # the Harnesses that run G5: claude
 
 
 @dataclass(frozen=True)
@@ -320,7 +322,10 @@ class HookSettings:  # what G5, G7, G8 and the merge guard read from the reposit
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall: ...
 def answer(
     harness: WiredHarness, decision: Decision, reason: str
-) -> tuple[str, int]: ...  # stdout, exit code; never 2
+) -> tuple[str, int]: ...  # stdout, exit code 0; agy's no decision is {"decision": "allow"}
+def failure(
+    harness: WiredHarness, message: str
+) -> tuple[str, int]: ...  # devctl failed: claude exits 1, agy answers deny with exit 0
 
 
 # devctl/hook.py
@@ -329,6 +334,8 @@ def decide(
     root: Path | None,  # the repository that holds the call
     settings: HookSettings | None,  # None: unreadable; G5, G7 and G8 give no decision
     branches: Callable[[], LocalBranches],
+    *,
+    protected_ask: bool = True,  # False for a Harness outside PROTECTED_ASK: no G5
 ) -> tuple[Decision, str]: ...  # G1 to G5, G7 and G8; run_hook then runs guard on each pr-merge
 
 
@@ -369,7 +376,7 @@ def guard(
 - Walk has one active line, `* @<owner>`. Without `--owner`, `init` writes it as `# * @<owner>`, and `rs-setup` writes the line.
 - The Protected set follows, commented out, as `# /<path> @<owner>` lines, in Spec 1 section 4's order. Flight uncomments them and removes the `*` line.
 - The `diff` step and `devctl hook` read `<pattern> @<owner>` lines, commented or not, and never treat `*` as Protected. doctor accepts each path with or without the leading `/`, and requires the Python settings files only for the Python stack.
-- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope, plan 5 removes the comment from both CODEOWNERS templates and from this repository's CODEOWNERS, and adds no line: `/.claude/` already covers the Claude Code wiring. Codex's wiring adds `/.codex/`, and agy's widens `/.agents/skills/` to `/.agents/`, when they land. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
+- As plan 3 built it, the seed has a `##` comment after `/**/CLAUDE.md`: "Harness settings for Workers and Reviewers join with rapid-ship's Spec 2." After the re-scope, plan 5 removes the comment from both CODEOWNERS templates and from this repository's CODEOWNERS, and adds no line: `/.claude/` already covers the Claude Code wiring. agy's wiring widened `/.agents/skills/` to `/.agents/`, and Codex's adds `/.codex/` when it lands. The `/**/` lines keep the leading `/` that the tests' pattern `# /\S+ @<owner>` reads. GitHub documents `**/name` without it, so before Flight confirm that GitHub requests the code owner for a nested `AGENTS.md`, as plan 3's record asks for `ruff.toml`.
 - The Python seed lists its four starter Pattern files (plan 5, Task 11), commented out as `# /docs/patterns/python-<name>.md @<owner>`, right after `/.rapid-ship/`, so the set still ends with the check tools' settings files. In an existing project those files do not exist, and GitHub ignores a line for a missing file.
 - Plan 6 renders each stack's Protected lines under its directory, such as `# /frontend/package.json @<owner>`. The rule for existing Corrections ledger entries is devctl's, not a CODEOWNERS line. The ledger's format, `/docs/corrections/README.md`, is a CODEOWNERS line, which Spec 3's plan adds.
 
@@ -455,6 +462,8 @@ The owner's decisions of 2026-10-19 and 2026-10-20 changed plan 4's built code: 
 Its plan document, [Kit standards and Harness guardrails](2026-10-21-kit-standards-and-guardrails.md), holds the tasks of the five PRs below and lands in PR 5.1.
 
 **State:** PR 5.1 is built in #35 (`plan5-hook-spike`): the hook spike's [trial record](../../trials/2026-10-21-hook-spike.md) and the document changes it needs. PR 5.2 is built on `plan5-guardrails`, Tasks 2 to 7: `devctl hook claude pre-tool` with G1 to G5, G7, G8 and the merge guard, the seeded `.claude/settings.json`, and doctor's Harness wiring item. Its live trial, Task 8, ran on 2026-10-23 and is recorded in [its trial record](../../trials/2026-10-23-harness-guardrails.md). PR 5.3 is built on `plan5-standards`, Tasks 9 to 14: the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns and the performance Pattern, the `SKILL.md` rule, the diff cap and the ledger rule, and one CI concurrency group for each push run. PR 5.4 is built on `plan5-settings-migrations`, Tasks 15 and 16: comments on each seeded settings key's contract, after the owner relaxed Task 15's comment on every key on 2026-10-25, and a test that holds each seed to its loader; the loaders' errors that name what each key accepts, and their checks of `[map]` and `[tests]` paths and of `[kit] optional`. By the owner's decision of 2026-10-25, the Kit keeps no backward compatibility before GA, the documentation release (plan 7's PR 7.4): PR 5.4 builds no `sync` migrations, and map rule 5's `task` and Lessons, rule 7's regular `SKILL.md` and rule 8's links fail at once, without the warning period that PR 5.3 gave them. The spike changed one thing in them: Claude Code's `Monitor` tool runs shell commands, so the wiring, `read_event` and doctor's wiring item cover `Monitor` too (plan 5's Task 1 Step 9). PR 5.5 is built on `plan5-dead-code`, Task 17: the `dead-code` check step for Python, with vulture and deptry. The step blocks a project without its settings, and the exceptions step fails on the dead-code tools' unmarked suppressions, with no warning period.
+
+**Follow-ups:** the [agy wiring](2026-10-26-agy-wiring.md), backlog item PRO-155, on `agy-wiring`. The owner decided on 2026-10-26, after agy's interactive runs (PRO-143), to wire agy before GA: a seeded `.agents/hooks.json`, `devctl hook agy pre-tool` without G5, doctor's agy wiring item, and `/.agents/` in the Protected set in place of `/.agents/skills/`. The Codex wiring without G5 (PRO-142) has no plan yet.
 
 **Goal:** Run the hook spike in Claude Code, Codex and agy first. Then ship the standards and guardrails every project works under: `devctl hook` with G1 to G5, G7, G8 and the merge guard, and its seeded wiring for Claude Code; the README.md and ARCHITECTURE.md seeds with map rule 8, and `./devctl doctor --settings`; the Pattern `task` key and Lessons section, with the Python starter Patterns; the `SKILL.md` rule; the 1,500-line diff cap with its escalation kind, and the ledger rule; a CI concurrency group for each push run; documented and validated settings; and the `dead-code` check step for Python, with vulture and deptry. Plan 5 wires no other Harness: the spike's report decides whether a follow-up, with its own plan, adds the wiring for Codex or agy (Spec 1 section 4).
 

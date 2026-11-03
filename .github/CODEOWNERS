@@ -14,7 +14,7 @@
 # /.githooks/ @proxy-hatch
 # /devctl @proxy-hatch
 # /tools/devctl/ @proxy-hatch
-# /.agents/skills/ @proxy-hatch
+# /.agents/ @proxy-hatch
 # /.claude/ @proxy-hatch
 # /**/AGENTS.md @proxy-hatch
 # /**/CLAUDE.md @proxy-hatch

@@ -153,8 +153,8 @@ def test_missing_key_message_stays_as_raised_without_a_readable_lock(
     assert run_guarded(_raises(missing), root=tmp_path) == 2  # tmp_path has no kit.lock
     assert run_guarded(_raises(missing)) == 2
     expected = (
-        "devctl: Keychain item rapid-ship/worker-app/101 not found; generate a private key in the "
-        "App's settings on GitHub, then run rapid-ship app --import-key worker with the key on "
-        "stdin\n"
+        "devctl: Keychain item rapid-ship/worker-app/101 not found; in the App's settings on "
+        "GitHub, open Credentials, then Key pairs, and click New key to generate a private key; "
+        "then run rapid-ship app --import-key worker with the key on stdin\n"
     )
     assert capsys.readouterr().err == expected * 2

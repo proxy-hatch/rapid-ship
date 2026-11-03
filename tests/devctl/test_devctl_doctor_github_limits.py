@@ -11,6 +11,7 @@ import pytest
 
 from devctl.doctor import (
     PROTECTED_PATHS,
+    PYTHON_PROTECTED_PATHS,
     Item,
     OwnerReadError,
     codeowners_problems,
@@ -155,6 +156,20 @@ def test_codeowners_is_checked_against_the_code_owner_not_the_repository_owner(
     )
 
 
+def test_codeowners_that_names_the_protected_set_matches_flight(
+    ctx_github: MakeContext, recorded: RecordedOwner
+) -> None:
+    context = ctx_github()
+    escalation = dataclasses.replace(context.project.escalation, every_pr=False)
+    flight = dataclasses.replace(
+        context, project=dataclasses.replace(context.project, escalation=escalation)
+    )
+    protected = (*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS)
+    recorded.serve(CODEOWNERS, contents("".join(f"/{path} @o\n" for path in protected)))
+    item = by_name(github_items(flight))["CODEOWNERS"]
+    assert (item.status, item.detail) == ("ok", ".github/CODEOWNERS on main matches Flight")
+
+
 def test_codeowners_is_missing_while_no_code_owner_is_recorded(
     ctx_github: MakeContext, recorded: RecordedOwner
 ) -> None:
@@ -175,9 +190,13 @@ def test_codeowners_is_read_at_the_default_branch_whatever_its_name(
     recorded.serve(REPOSITORY, {**fixture("repository.json"), "default_branch": "release/1"})
     release = "repos/o/r/contents/.github/CODEOWNERS?ref=release/1"
     recorded.serve(release, fixture("codeowners.json"))
+    release_errors = "repos/o/r/codeowners/errors?ref=release/1"
+    recorded.serve(release_errors, {"errors": []})
     assert named(ctx_github, "CODEOWNERS").status == "ok"
     assert release in recorded.paths
+    assert release_errors in recorded.paths
     assert CODEOWNERS not in recorded.paths
+    assert "repos/o/r/codeowners/errors?ref=main" not in recorded.paths
 
 
 @pytest.mark.parametrize("served", [OwnerReadError(None, "gh could not start"), [], {}])
@@ -323,9 +342,9 @@ def test_a_missing_key_names_the_command_that_imports_it(
     items = by_name(github_items(ctx_github(keychain=keychain_without_reviewer)))
     tagged = "uvx --from git+https://github.com/proxy-hatch/rapid-ship@v0.2.0 rapid-ship app"
     expected = (
-        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; generate a private key "
-        f"in the App's settings on GitHub, then run {tagged} --import-key reviewer with the key "
-        "on stdin"
+        f"Keychain item rapid-ship/reviewer-app/{REVIEWER_ID} not found; in the App's settings on "
+        "GitHub, open Credentials, then Key pairs, and click New key to generate a private key; "
+        f"then run {tagged} --import-key reviewer with the key on stdin"
     )
     for name in ("Reviewer App installation", "Reviewer App key"):
         assert items[name].detail == expected

@@ -2,7 +2,7 @@
 
 rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI called devctl, an AGENTS.md tree, starter Patterns, guardrail settings, a CI workflow and `rs-` skills. The `rapid-ship` command writes and updates the Kit. Nothing runs as a service, and the owner's Harness runs the agents ([ADR 0004](docs/adr/0004-team-management-boundary.md)). The [rapid-ship design](docs/superpowers/specs/2026-10-14-rapid-ship-design.md) describes the product. [Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) is built in the seven plans of its [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md), and [ARCHITECTURE.md](ARCHITECTURE.md) describes what exists today.
 
-Plans 1 to 5 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor`, `as` and `hook`. Plan 4 and its follow-ups are merged in PRs #31 to #33, and the owner tagged `v0.1.0`: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. Plan 5 is built in PRs 5.1 to 5.5: the hook spike (PRO-139); `devctl hook claude pre-tool` with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring; the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns, the `SKILL.md` rule, the 1,500-line diff cap, the Corrections ledger rule and one CI concurrency group for each push run; settings seeds that comment each key's contract, with loaders that name what each key accepts; and the `dead-code` check step for Python, with vulture and deptry. Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backward compatibility: `sync` never edits a seeded file, and a new check fails at once ([Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) section 3). This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
+Plans 1 to 5 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor`, `as` and `hook`. Plan 4 and its follow-ups are merged in PRs #31 to #33, and the owner tagged `v0.1.0`: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. Plan 5 is built in PRs 5.1 to 5.5: the hook spike (PRO-139); `devctl hook claude pre-tool` with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring; the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns, the `SKILL.md` rule, the 1,500-line diff cap, the Corrections ledger rule and one CI concurrency group for each push run; settings seeds that comment each key's contract, with loaders that name what each key accepts; and the `dead-code` check step for Python, with vulture and deptry. A plan 5 follow-up wires agy: `devctl hook agy pre-tool`, without G5, and the seeded `.agents/hooks.json` (PRO-155). Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backward compatibility: `sync` never edits a seeded file, and a new check fails at once ([Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) section 3). This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
 - Plan 6, the TypeScript stack and several stacks in one repository.
 - Plan 7, `rs-setup` and `rs-health`.
@@ -16,7 +16,7 @@ The settings hold the code owner, the Mode (`[escalation] every_pr`) and each Ap
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
 - Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
-- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code wiring.
+- Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code and agy wiring.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.
@@ -62,6 +62,15 @@ Prefer clear names, types, and simple control flow. Add comments only when they 
 - Put each rule that prevents a repeated Correction on the rung that fits its purpose. A safe interface removes structural misuse; a check catches local or stylistic problems; one bad pattern can need both. Use a skill or advisory Rule only for what neither can carry.
 - A missing metric is unknown, not zero. A Suggested threshold breach is reported, never acted on.
 
+## Pull requests
+
+- Run `./devctl check` and fix what it reports before you open a pull request.
+- With Agent identity on, push with `./devctl as worker push` and open the pull request with `./devctl as worker gh pr create`.
+- Review a change from a Session that did not write it. With Agent identity on, approve with `./devctl as reviewer gh pr review <number> --approve`, or request changes with `./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. Never approve a change you wrote.
+- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`, or with Agent identity on `./devctl as worker gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
+- Declare `Over the diff cap:` in the pull request body only after the owner accepted the overage.
+- Undo a merged change only with `git revert`.
+
 ## This repository's own rules
 
 These are this repository's choices, not product behaviour. Product text names them only in a section marked as dog-fooding.
@@ -71,6 +80,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
+- This repository is in Walk (`[escalation] every_pr = true` in [project.toml](.rapid-ship/project.toml)), so the merge guard denies every agent merge and the owner merges each pull request.
 
 ## Safety
 

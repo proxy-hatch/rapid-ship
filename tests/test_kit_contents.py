@@ -2,6 +2,8 @@
 
 import json
 import re
+import shlex
+import sys
 import tomllib
 from pathlib import Path
 
@@ -19,6 +21,7 @@ from rapid_ship.kit.templates import (
     render_files,
 )
 from test_devctl_doctor_wiring import SEED as CLAUDE_WIRING
+from test_devctl_doctor_wiring_agy import SEED as AGY_WIRING
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -31,6 +34,7 @@ CODE_OWNER_COMMENT = (
     '"@login" or "@organisation/team".'
 )
 SEEDED = {
+    ".agents/hooks.json",
     ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
@@ -79,6 +83,11 @@ def test_the_claude_code_wiring_seed_holds_only_the_pre_tool_hook(stack: Stack) 
     assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
 
 
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_agy_wiring_seed_holds_only_the_devctl_hook(stack: Stack) -> None:
+    assert json.loads(text(stack, ".agents/hooks.json")) == AGY_WIRING
+
+
 def test_python_new_project_seeds() -> None:
     kinds = {path: t.kind for path, t in rendered().items()}
     paths = (
@@ -107,14 +116,7 @@ def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[st
             "reviewer_app_id": 0,
             "reviewer_app_slug": "",
         },
-        "escalation": {
-            "every_pr": True,
-            "kinds": [
-                "a pull request that removes a behavioural test",
-                "a pull request that declares Over the diff cap:",
-            ],
-            "revision_rounds": 3,
-        },
+        "escalation": {"every_pr": True},
         "kit": {"optional": [], "exclude": []},
         "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},
@@ -169,7 +171,7 @@ PROTECTED = (
     "/.githooks/",
     "/devctl",
     "/tools/devctl/",
-    "/.agents/skills/",
+    "/.agents/",
     "/.claude/",
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
@@ -232,6 +234,8 @@ def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
         "docs/CLAUDE.md",
         ".claude/settings.json",
         ".claude/skills/rs-tdd",
+        ".agents/hooks.json",
+        ".agents/skills/rs-tdd/SKILL.md",
     )
     for path in instructions:
         assert any(codeowners_match(pattern, path) for pattern in patterns), path
@@ -245,6 +249,17 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
     patterns = [f"# {path} @octo" for path in STARTER_PATTERNS]
     added = [f"# {path} @octo" for path in PYTHON_PROTECTED]
     assert python == [*agnostic[:split], *patterns, *agnostic[split:], *added]
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_codeowners_moves_to_flight_with_every_pr_in_one_pull_request(stack: Stack) -> None:
+    lines = text(stack, ".github/CODEOWNERS").splitlines()
+    comment = " ".join(line.removeprefix("# ") for line in lines if line.startswith("# "))
+    assert (
+        "Flight: in one pull request the owner merges, set [escalation] every_pr = false in "
+        ".rapid-ship/project.toml and replace the Walk line with the Protected set below, "
+        "uncommented."
+    ) in comment
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
@@ -366,6 +381,25 @@ COMMENT_RULES = (
     "Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful "
     "comment.",
 )
+# The root guide's first Rule, which keeps a change to what was asked.
+SCOPE_RULE = "- Keep each change inside the scope you were asked to change. advisory"
+# The root guide's Pull requests section: how to open, review, merge and undo a pull request.
+PULL_REQUESTS = (
+    "- Run `./devctl check` and fix what it reports before you open a pull request.",
+    "- With Agent identity on, push with `./devctl as worker push` and open the pull request with "
+    "`./devctl as worker gh pr create`.",
+    "- Review a change from a Session that did not write it. With Agent identity on, approve with "
+    "`./devctl as reviewer gh pr review <number> --approve`, or request changes with "
+    "`./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. "
+    "Never approve a change you wrote.",
+    "- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`, or with Agent "
+    "identity on `./devctl as worker gh pr merge <number> --squash --match-head-commit <sha>`; "
+    "the merge guard checks the pull request first. In Walk, the owner merges every pull "
+    "request.",
+    "- Declare `Over the diff cap:` in the pull request body only after the owner accepted the "
+    "overage.",
+    "- Undo a merged change only with `git revert`.",
+)
 POINTERS = (
     "`GLOSSARY.md`",
     "`docs/adr/`",
@@ -394,6 +428,7 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
         "## Commands",
         "## Find the change",
         "## Rules",
+        "## Pull requests",
         "## Shared language and decisions",
     ]
     rules = guide.split("## Rules")[1].split("##")[0]
@@ -416,6 +451,18 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
     assert all(pointer in guide for pointer in POINTERS)
     commands = guide.split("## Commands")[1].split("##")[0]
     assert commands.strip().splitlines()[0] == SETTINGS_FIRST
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_root_guide_keeps_changes_in_scope_and_says_how_to_handle_pull_requests(
+    stack: Stack,
+) -> None:
+    guide = text(stack, "AGENTS.md")
+    rules = guide.split("\n## Rules\n")[1].split("\n## ")[0]
+    pull_requests = guide.split("\n## Pull requests\n")[1].split("\n## ")[0]
+
+    assert rules.strip().splitlines()[0] == SCOPE_RULE
+    assert tuple(pull_requests.strip().splitlines()) == PULL_REQUESTS
 
 
 def test_the_python_root_guide_adds_its_rows_and_rules() -> None:
@@ -531,3 +578,64 @@ def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
 def test_askpass_is_written_executable() -> None:
     # init and sync set the executable bit only for paths kit.toml lists.
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable
+
+
+def agy_launch_files(root: Path, stack: Stack, shim: str) -> str:
+    """Render real launch files; replace only canonical devctl with a controlled stand-in."""
+    executable = load_manifest().executable
+    for path, template in rendered(stack).items():
+        if path in (".agents/hooks.json", ".agents/devctl"):
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content(template))
+            target.chmod(0o755 if path in executable else 0o644)
+    (root / "devctl").write_text(shim)
+    (root / "devctl").chmod(0o755)
+    hooks = json.loads((root / ".agents/hooks.json").read_text())
+    return str(hooks["devctl"]["PreToolUse"][0]["hooks"][0]["command"])
+
+
+def echo_shim() -> str:
+    script = "import json, sys; print(json.dumps([sys.argv[1:], sys.stdin.read()]))"
+    return f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -c {shlex.quote(script)} "$@"\n'
+
+
+@pytest.mark.parametrize("stack", STACKS)
+@pytest.mark.parametrize("directory", [".", ".agents"])
+@pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
+def test_agy_seed_launch_preserves_arguments_and_stdin(
+    tmp_path: Path, stack: Stack, directory: str, shell: bool
+) -> None:
+    root = tmp_path / "project with spaces"
+    command = agy_launch_files(root, stack, echo_shim())
+    assert run_process(["git", "init", "--quiet"], root, 10).returncode == 0
+    payload = ' {"CommandLine": "git push --force; $(touch never)"}\n\n'
+    argv = ["/bin/sh", "-c", command] if shell else shlex.split(command)
+
+    result = run_process(argv, root / directory, 10, input_text=payload)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [["hook", "agy", "pre-tool"], payload]
+    assert not (root / "never").exists()
+
+
+@pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
+def test_agy_forwarder_uses_its_location_and_preserves_shell_arguments(
+    tmp_path: Path, shell: bool
+) -> None:
+    root = tmp_path / "project with spaces"
+    agy_launch_files(root, "agnostic", echo_shim())
+    forwarder = root / ".agents/devctl"
+    assert forwarder.is_file()
+    assert rendered("agnostic")[".agents/devctl"].kind == "managed"
+    args = ["", "two words", "line\nbreak", "$(touch never)", "*", "'quoted'"]
+    argv = [str(forwarder), *args]
+    if shell:
+        argv = ["/bin/sh", "-c", shlex.join(argv)]
+    payload = "unicode: λ\n\n"
+
+    result = run_process(argv, tmp_path, 10, input_text=payload)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [args, payload]
+    assert not (tmp_path / "never").exists()

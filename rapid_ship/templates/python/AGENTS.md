@@ -26,7 +26,7 @@ Add a row for each directory guide.
 
 ## Rules
 
-- Keep each change inside its task's paths. advisory
+- Keep each change inside the scope you were asked to change. advisory
 - Prefer clear names, types, and simple control flow. advisory
 - Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. advisory
 - Delete commented-out code. enforced by: check:lint
@@ -42,6 +42,15 @@ Add a row for each directory guide.
 - Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
 - Mark a `dead-code` false positive where devctl can see it, with its `rs-exception` marker. Use `# noqa: V<code>` on the line vulture reports, and `# deptry: ignore[<code>]` on the line deptry reports. For a dependency that deptry reports as unused, add an item under `DEP002` in `[tool.deptry.per_rule_ignores]`. For one definition, prefer the comment to an `ignore_names` item, which spares every definition of the name. Never hide a finding with a vulture whitelist module, a bare reference to the name, a leading `_`, an `__all__` entry or a `getattr` string. devctl cannot detect these, so review treats each as an unmarked suppression. advisory
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
+
+## Pull requests
+
+- Run `./devctl check` and fix what it reports before you open a pull request.
+- With Agent identity on, push with `./devctl as worker push` and open the pull request with `./devctl as worker gh pr create`.
+- Review a change from a Session that did not write it. With Agent identity on, approve with `./devctl as reviewer gh pr review <number> --approve`, or request changes with `./devctl as reviewer gh pr review <number> --request-changes --body <findings>`. Never approve a change you wrote.
+- Merge with `gh pr merge <number> --squash --match-head-commit <sha>`, or with Agent identity on `./devctl as worker gh pr merge <number> --squash --match-head-commit <sha>`; the merge guard checks the pull request first. In Walk, the owner merges every pull request.
+- Declare `Over the diff cap:` in the pull request body only after the owner accepted the overage.
+- Undo a merged change only with `git revert`.
 
 ## Shared language and decisions
 

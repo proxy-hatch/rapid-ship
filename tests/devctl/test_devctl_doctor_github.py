@@ -57,7 +57,7 @@ PROTECTED = "".join(
         ".githooks/",
         "devctl",
         "tools/devctl/",
-        ".agents/skills/",
+        ".agents/",
         ".claude/",
         "**/AGENTS.md",
         "**/CLAUDE.md",
