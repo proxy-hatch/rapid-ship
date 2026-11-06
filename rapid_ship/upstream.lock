@@ -1,0 +1,56 @@
+# Upstream files that the Kit's forked skills copy. path is relative to rapid_ship/templates/common.
+[[file]]
+path = ".agents/skills/rs-codebase-design/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/SKILL.md"
+blob = "3f63c8146dd2604b419c929e9876b90c30d410e9"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DEEPENING.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/DEEPENING.md"
+blob = "cd94075cfd754d147555c5d747a16431ed4c7dd8"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DESIGN-IT-TWICE.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/DESIGN-IT-TWICE.md"
+blob = "d0990138c35c800bd821289a73115e52680c1620"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/productivity/writing-for-agents/SKILL.md"
+blob = "a37608daf6e835e767deecfb498facecaaba82ba"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL-MECHANICS.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/productivity/writing-for-agents/SKILL-MECHANICS.md"
+blob = "9cdbdb22aadc438755392216e75ad9a14cc9832e"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
