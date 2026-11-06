@@ -543,6 +543,24 @@ If review finds a PR too large, it splits at a task boundary.
 12. The CI workflow: `actions/setup-node`, pinned by commit SHA and run only when a `package-lock.json` exists, and `./devctl check --tier full --install`; zizmor still passes.
 13. Live trial, an Owner step: `init` and `./devctl check` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, locally and in CI.
 
+### TypeScript checks: implementation verification, 2026-11-06
+
+Units 6, 12a and 9 are implemented locally. Final prerequisite integration and independent review remain pending.
+
+| Check | Result |
+| --- | --- |
+| `uv run pytest -q` | Exit 0; 2,230 passed. The subsequent literal-argv assertion update passed all 25 TypeScript step tests. |
+| `uv run pytest tests/devctl -q` | Exit 0; 1,745 passed. |
+| `./devctl check --tier fast` | Exit 0; all seven steps passed. |
+| `uv run rapid-ship status --strict` | Exit 0; 51 managed files unchanged. |
+| Configured mypy, vulture and deptry | Exit 0 each; mypy checked 159 files; deptry JSON was `[]`. |
+| Template/vendor parity, lock hashes and whitespace | Passed; 833 counted lines against this assignment's base; production modules at most 500 lines. |
+| Full devctl and website build | Not run locally; hosted checks remain the check of record after publication. |
+
+The pytest interpreter was CPython 3.13.12. The pinned knip integration ran with Node.js v24.19.0 and npm 11.17.0. No package or pin changes ship. Unit 6 first failed because the TypeScript module was absent; Unit 12a first failed its workflow assertions; Unit 9 first failed because its doctor module was absent. Each focused run passed after implementation.
+
+Not covered: a real TypeScript project, which 6.3's integration tests check; the TypeScript suppressions and references (6.2b); final prerequisite integration and hosted checks. This records Worker evidence, not review approval or final acceptance.
+
 ## Plan 7: `rs-setup` and `rs-health`
 
 **Goal:** Ship the Kit's first skills: the engineering skills pinned in an upstream lock, `rs-setup`, `rs-health` with the audit it shares with `rs-garden`, and the optional `rs-contribute`. Retire `rapid-ship-engineering`. Then run `rs-setup` on hello-rapid-ship and apply its GitHub settings to this repository, and rewrite the documentation site. `rs-setup` knows the stacks from plan 6, gives the advice on Agent identity, and ends an existing repository's Setup with the tool-settings PR.
