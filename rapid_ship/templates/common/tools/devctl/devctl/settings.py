@@ -162,10 +162,18 @@ class _Table:
 
 def _read(root: Path, relative: str) -> dict[str, object]:
     try:
-        return tomllib.loads((root / relative).read_text(encoding="utf-8"))
+        text = (root / relative).read_text(encoding="utf-8")
     except FileNotFoundError:
         raise SettingsError(f"{relative}: missing; rapid-ship init seeds it") from None
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+    except (OSError, UnicodeDecodeError) as error:
+        raise SettingsError(f"{relative}: {error}") from error
+    return _parse(text, relative)
+
+
+def _parse(text: str, relative: str) -> dict[str, object]:
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{relative}: {error}") from error
 
 
@@ -244,7 +252,16 @@ def _refuse_removed(data: dict[str, object]) -> None:
 
 
 def load_project(root: Path) -> ProjectSettings:
-    data = _read(root, PROJECT)
+    return _project(_read(root, PROJECT))
+
+
+def parse_project(text: str) -> ProjectSettings:
+    """project.toml's text, such as a copy from another branch, checked as load_project checks
+    the file, with the same SettingsError messages."""
+    return _project(_parse(text, PROJECT))
+
+
+def _project(data: dict[str, object]) -> ProjectSettings:
     _refuse_removed(data)
     top = _Table(data, PROJECT, PROJECT_KEYS[""])
     stack = cast(Stack, top.choice("stack", get_args(Stack)))

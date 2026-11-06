@@ -1,5 +1,5 @@
-"""The merge guard's GitHub reads: the pull request with its body, CODEOWNERS on its base
-branch, its files, its reviews and its check runs.
+"""The merge guard's GitHub reads: the pull request with its body, project.toml and CODEOWNERS
+on its base branch, its files, its reviews and its check runs.
 
 Each read goes through OwnerGet, doctor's GET with the owner's gh sign-in. A read that gh cannot
 make raises OwnerReadError, a response that is not the shape GitHub documents GitHubError, and a
@@ -20,6 +20,7 @@ from devctl.doctor_items import OwnerGet, OwnerReadError
 from devctl.doctor_local import CI_JOB_NAME
 from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID
 from devctl.github.api import GitHubError, json_list, json_object
+from devctl.settings import PROJECT, ProjectSettings, SettingsError, parse_project
 
 _PAGE = 100  # GitHub's largest page
 _FILE_PAGES = 30  # GitHub lists at most 3,000 files of a pull request
@@ -114,6 +115,26 @@ def _pull(found: object, repository: str) -> PullRequest:
     return PullRequest(repository, number, head, base, body or "")
 
 
+def base_settings(read: OwnerGet, pull: PullRequest) -> ProjectSettings:
+    """The project settings in project.toml on the base branch, loaded and checked as devctl
+    loads its own.
+
+    Raises Unchecked, naming the branch, when the file cannot be read, a missing file included,
+    or does not load.
+    """
+    where = f"on the base branch {pull.base}"
+    ref = quote(pull.base, safe="/")
+    try:
+        found = read(f"repos/{pull.repository}/contents/{PROJECT}?ref={ref}")
+    except OwnerReadError as error:
+        raise Unchecked(f"{where}, {PROJECT} cannot be read: {error.message}") from error
+    text = decoded_contents(json_object(found, f"the {PROJECT} contents"), PROJECT)
+    try:
+        return parse_project(text)
+    except SettingsError as error:
+        raise Unchecked(f"{where}, {error}") from error
+
+
 def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
     """The Protected-set patterns of the CODEOWNERS file GitHub reads on the base branch.
 
@@ -128,7 +149,7 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
             if error.status == 404:
                 continue
             raise
-        return patterns_in(decoded_contents(json_object(found, f"the {name} contents")))
+        return patterns_in(decoded_contents(json_object(found, f"the {name} contents"), name))
     return []
 
 
@@ -149,7 +170,7 @@ def _change(entry: Mapping[str, object]) -> FileChange:
     return FileChange(path, mapped)
 
 
-def reviewer_approved(read: OwnerGet, pull: PullRequest, slug: str | None) -> bool:
+def reviewer_approved(read: OwnerGet, pull: PullRequest, slug: str) -> bool:
     """Whether the Reviewer App, <slug>[bot], approved the head commit.
 
     Of its reviews that approve or request changes, the one with the highest id is the latest and
@@ -161,9 +182,7 @@ def reviewer_approved(read: OwnerGet, pull: PullRequest, slug: str | None) -> bo
     deciding = [
         review
         for review in reviews
-        if slug is not None
-        and _login(review) == f"{slug}[bot]"
-        and review.get("state") in _VERDICTS
+        if _login(review) == f"{slug}[bot]" and review.get("state") in _VERDICTS
     ]
     if not deciding:
         return False

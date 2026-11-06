@@ -110,16 +110,16 @@ def _ruleset_item(ctx: DoctorContext, repository: str, repo: Mapping[str, object
     return _github(name, "ok", f"an active ruleset on {default} has every setting rs-setup applies")
 
 
-def decoded_contents(contents: Mapping[str, object]) -> str:
-    """The text of a CODEOWNERS file the Contents API returned. Raises GitHubError."""
+def decoded_contents(contents: Mapping[str, object], name: str = "CODEOWNERS") -> str:
+    """The UTF-8 text of the named file the Contents API returned. Raises GitHubError."""
     content = contents.get("content")
     if contents.get("encoding") != "base64" or not isinstance(content, str):
-        raise GitHubError(None, "the CODEOWNERS contents are not base64 text")
+        raise GitHubError(None, f"the {name} contents are not base64 text")
     try:
         # GitHub wraps the base64 at 60 characters.
         return base64.b64decode(content.replace("\n", ""), validate=True).decode()
     except ValueError:  # binascii.Error and UnicodeDecodeError
-        raise GitHubError(None, "the CODEOWNERS contents are not UTF-8 text") from None
+        raise GitHubError(None, f"the {name} contents are not UTF-8 text") from None
 
 
 def _codeowners_errors(reply: Mapping[str, object]) -> list[CodeownersError]:
