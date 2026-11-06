@@ -51,7 +51,7 @@ sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
 [[file]]
 path = ".agents/skills/rs-setup/references/known-failures.md"
 kind = "managed"
-sha256 = "d884afee88fe6067710b6b15bdd5fd93acc3d527e2ae7893e7da41a3963c2e6c"
+sha256 = "43f220a74f2c486d4abfb2f26d184163f363869014170b91f8766c69368eec15"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/stylistic-options.md"

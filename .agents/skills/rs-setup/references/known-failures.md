@@ -36,9 +36,9 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 | `Failed to initialize cache at` | uv cannot write its cache. | Allow `~/.cache/uv` in the accepted sandbox settings. |
 | `uv tool run` cannot write under `~/.local/share/uv/tools` | Its tools directory is outside writable paths. | Allow that directory. |
 | `x509: OSStatus -26276` | gh cannot use the sandbox proxy's certificate. | Offer the scoped gh exclusion. |
-| An exclusion matches only the exact command line | The command carries additional arguments. | Review the scoped exclusion and actual command. |
+| An exclusion matches only the exact command line | A compound or multiline command line does not match the scoped exclusion. | Review the scoped exclusion and actual command. |
 | devctl GitHub request fails behind the sandbox proxy | The request is still blocked. | Record the gap; use the owner's terminal when appropriate. |
-| Local settings are tracked | The ignore rule is missing. | Use `git check-ignore -q .claude/settings.local.json` and add it to the file from `git rev-parse --git-path info/exclude` if needed. This works in a linked worktree too. |
+| Local settings are not ignored | The ignore rule is missing. | Use `git check-ignore -q .claude/settings.local.json` and add it to the file from `git rev-parse --git-path info/exclude` if needed. This works in a linked worktree too. |
 | Old Session does not use the setting | It started before the change. | Start a new sandbox Session and repeat all three checks. |
 
 ## GitHub

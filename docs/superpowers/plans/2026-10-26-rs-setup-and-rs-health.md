@@ -622,19 +622,20 @@ Pending.
 
 ### 7.2
 
-Intermediate work only. Task 5's green run and final integration validation await merged 7.3, including `rs-health` and `references/proposed-task.md`. The dependency and known-failure audit is incomplete; unmerged plan 6, wiring and sandbox quotations remain unverified. Owner Tasks 9 and 10 and live trials remain pending. No live behavior or independent review is claimed.
+Intermediate work only. Independent source review inspected all 23 dependency and 49 known-failure entries at `72aff0b9e9288f37cd644f58ad81815b85ac6fbf`. Two reference corrections describe settings that Git does not ignore and compound or multiline commands that miss scoped exclusions. The review counted 191 lines against `21d98e2824ad171ec6654bddea0b71f5558173e6`, including six baseline lines; the earlier 185-line count used parent `6229c327490b5bd360269824ce50d69c8d36bfbf`.
+
+Task 5's final green run and integration await merged 7.3, including `rs-health` and `references/proposed-task.md`. Plan 6, wiring and sandbox changes need reconciliation after merge. Owner Tasks 9 and 10, live trials, hosted checks, privacy screening and exact-head re-review remain pending. This record claims no final approval or live behavior.
 
 | Check | Result |
 | --- | --- |
-| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
-| `uv run pytest tests/devctl/test_devctl_ruleset_json.py -q` | exit 0: 10 passed; offline text and ruleset checks |
-| `uv run rapid-ship status --strict` | exit 0: 61 managed files unchanged |
-| `./devctl check --tier fast` | exit 0: all seven steps passed |
-| `git diff --check` | exit 0 |
+| `./devctl doctor --settings` | exit 0: 4 ok, 0 missing, 0 unknown |
+| `uv run rapid-ship sync --in-place` and `uv run rapid-ship status --strict` | exit 0 each; 61 managed files unchanged after sync |
+| `uv run pytest tests/devctl/test_devctl_ruleset_json.py tests/test_kit_skills.py tests/test_kit_init.py tests/test_skill_discovery.py -q` | exit 0: 48 passed; offline contract tests |
 | `uv run --locked mypy` | exit 0: no issues in 148 source files |
 | `uv run --locked vulture --min-confidence 0` | exit 0 |
 | `uv run --locked deptry . --no-ansi --json-output <report-path>` | exit 0: no dependency issues |
-| `uv run pytest -q` | exit 0: 2102 passed in 383.13s (diagnostic only; final Health-dependent green is held) |
+| `uv run pytest -q` | exit 0: 2104 passed in 328.28s; diagnostic only |
+| `./devctl check --tier fast` and `git diff --check` | exit 0 each; all seven fast steps passed |
 | Full devctl and site build | Pending hosted gate; not run locally |
 
 
