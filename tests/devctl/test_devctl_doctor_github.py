@@ -59,6 +59,7 @@ PROTECTED = "".join(
         "tools/devctl/",
         ".agents/",
         ".claude/",
+        ".codex/",
         "**/AGENTS.md",
         "**/CLAUDE.md",
         ".rapid-ship/",

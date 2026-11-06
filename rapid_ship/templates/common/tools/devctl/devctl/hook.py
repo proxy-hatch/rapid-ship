@@ -92,13 +92,14 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
         help="Answer a Harness's hook event with the Kit's guardrails",
         description="devctl hook <harness> pre-tool reads the Harness's pre-tool event on stdin "
         "and answers in its hook protocol with a deny, an ask or no decision. It never exits 2, "
-        "which Claude Code reads as block. When devctl itself fails, it writes one stderr line: "
-        "for claude it exits 1, so the tool call goes through, and for agy, which blocks the call "
-        "on any other exit code, it answers deny with that line as the reason and exit 0.",
+        "which Claude Code and Codex read as block. When devctl itself fails, it writes one "
+        "stderr line: for claude and codex it exits 1, so the tool call goes through, and for "
+        "agy, which blocks the call on any other exit code, it answers deny with that line as "
+        "the reason and exit 0.",
     )
     # Optional strings, not choices: argparse exits 2 on a missing or unknown choice, and the
     # Harness would then block every wired call.
-    parser.add_argument("harness", nargs="?", help="the Harness: claude or agy")
+    parser.add_argument("harness", nargs="?", help="the Harness: claude, agy or codex")
     parser.add_argument("event", nargs="?", help="the hook event: pre-tool")
     parser.set_defaults(handler=hook_command)
 
@@ -147,14 +148,27 @@ def run_hook(
     """The answer to one tool call, judged in the repository that holds it.
 
     An edit belongs to the repository that holds its path, a linked worktree included, and a
-    shell command to the one that holds cwd; each wired edit writes one path. Outside every
-    repository no settings are read. owner_get is the merge guard's only way to read GitHub, and
-    clock times the hook run, whose budget every merge on the line shares. protected_ask False
-    skips the Protected-set rule.
+    shell command to the one that holds cwd; a patch can write paths in several repositories.
+    Outside every repository no settings are read. owner_get is the merge guard's only way to
+    read GitHub. clock times the hook run, whose budget every merge on the line shares.
+    protected_ask False skips the Protected-set rule.
     Raises ValueError when shell rules cannot split the command line, unless its text holds gh,
     pr and merge in that order: the guard then denies the merge it cannot check.
     """
     started = clock()
+    if len(call.edits) > 1:
+        # Each path belongs to its own repository. An outside first path cannot hide a later
+        # lock edit, and a deny in a later repository still outranks an earlier ask.
+        asked: tuple[Decision, str] = (None, "")
+        for path in call.edits:
+            result = run_hook(
+                ToolCall(None, (path,), call.cwd), owner_get, clock, protected_ask=protected_ask
+            )
+            if result[0] == "deny":
+                return result
+            if result[0] == "ask" and asked[0] is None:
+                asked = result
+        return asked
     root = work_tree_root(call.edits[0] if call.edits else call.cwd)
     read = read_settings(root) if root is not None else None
     settings = read if isinstance(read, HookSettings) else None
