@@ -203,3 +203,14 @@ def test_the_dead_code_tools_suppressions_fail_at_once(workspace: Workspace) -> 
         needs_marker("src/app/run.py:3", "assignment"),
         unplaced("deptry.per_rule_ignores.DEP002", "psycopg2", "deptry.per_rule_ignores"),
     )
+
+
+def test_invalid_nested_settings_name_the_parsed_file(workspace: Workspace) -> None:
+    setup(workspace, "[tool.vulture]\n")
+    workspace.write("backend/pyproject.toml", "[tool.vulture\n")
+    context = workspace.context(stacks=(ProjectStack("python", "backend"),))
+
+    result = ExceptionsStep().run(context)
+
+    assert result.status == "blocked"
+    assert result.details[0].startswith("backend/pyproject.toml: ")

@@ -249,3 +249,23 @@ def test_an_untracked_pyproject_is_not_read(workspace: Workspace) -> None:
     assert tracked_resolved(workspace, "ruff:S603") == (
         "ruff:S603: pyproject.toml is not tracked; stage it with git add"
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "message"),
+    [
+        ("backend/scripts/run.py", "files does not cover"),
+        ("backend/src/app/generated/x.py", "exclude matches"),
+    ],
+)
+def test_nested_mypy_rejections_name_the_selected_settings(
+    workspace: Workspace, path: str, message: str
+) -> None:
+    workspace.write("backend/pyproject.toml", PYPROJECT)
+    workspace.write(path, "")
+    workspace.stage()
+    context = workspace.context(stacks=(ProjectStack("python", "backend"),))
+
+    reason = resolve(f"type:{path}", context, TrackedFiles.read(context.repo), "backend/AGENTS.md")
+
+    assert reason == f"type:{path}: [tool.mypy] {message} {path} in backend/pyproject.toml"

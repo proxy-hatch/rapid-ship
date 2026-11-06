@@ -225,11 +225,11 @@ def _type(
     mypy = _table(data, "tool", "mypy")
     covered = _strings(mypy, "files", "[tool.mypy]", split_commas=True) or []
     if not any(_is_under(relative, entry) for entry in covered):
-        return f"{reference}: [tool.mypy] files does not cover {path}"
+        return f"{reference}: [tool.mypy] files does not cover {path} in {settings}"
     for pattern in _strings(mypy, "exclude", "[tool.mypy]") or []:
         try:
             if re.search(pattern, relative):
-                return f"{reference}: [tool.mypy] exclude matches {path}"
+                return f"{reference}: [tool.mypy] exclude matches {path} in {settings}"
         except re.error as error:
             raise _Unreadable(
                 f"[tool.mypy] exclude {pattern!r} is not a regular expression"
