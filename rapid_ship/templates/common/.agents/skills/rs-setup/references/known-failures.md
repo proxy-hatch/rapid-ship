@@ -6,7 +6,7 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |
-| Managed Kit path already exists; exit 1 | Init writes nothing on a conflict. | Inspect the paths with the owner before resolving them. |
+| `rapid-ship init wrote nothing. These Kit files conflict with the repository:`; exit 1 | Init writes nothing on a conflict. | Inspect the paths with the owner before resolving them. |
 | `init wrote nothing: confirm the stacks first.`; exit 2, once stack detection is available | The proposed roots need confirmation. | Show the proposal and rerun only with the owner's confirmed roots. |
 
 ## Checks
@@ -16,7 +16,7 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 | `install gitleaks 8.30.1; devctl check blocks its secrets step without it` | The pinned tool is missing. | Ask the owner to install it. |
 | `gitleaks <version> is installed; devctl check pins 8.30.1` | The installed version differs. | Ask the owner to install the pinned version. |
 | `uv sync` cannot reach the network | Dependencies cannot be fetched. | Restore network access and rerun. |
-| Workspace members include `tools/devctl` | A members glob covers the Kit's own project. | Add `exclude = ["tools/devctl"]` to the root workspace. |
+| `uv: [tool.uv.workspace] members match tools/devctl; add it to exclude` | A members glob covers the Kit's own project. | Add `exclude = ["tools/devctl"]` to the root workspace. |
 | A tool step is blocked | Its tool or configuration is missing. | Record the gap; leave existing tool settings unchanged. |
 | Existing hooks under `.git/hooks` | Setting `core.hooksPath` stops them running. | Show the owner and agree how to combine them before setting the path. |
 | Project skill copies in `.claude/skills` | Map expects links. | Replace copies with links after reviewing their contents. |
@@ -64,15 +64,29 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |
-| `rapid-ship app` exits 1 | An App, key, account, token or organisation permission is unavailable or inconsistent. | Preserve its output and resolve the named cause with the owner. |
+| `rapid-ship app`: personal repository belongs to another account | gh is signed in as someone other than the repository owner. | Ask the owner to sign gh in as that owner. |
+| `rapid-ship app`: an organisation admin is needed | Creating an organisation App requires an active admin. | Ask an admin to run it, or record existing Apps and import keys. |
+| `rapid-ship app`: recorded App has no key | Its Keychain item is missing. | Obtain a key and import it for the recorded role. |
+| `rapid-ship app`: stored key cannot confirm whose App it is | GitHub refuses the key or it cannot sign. | Follow the output to identify the App before replacing the key or deleting the item. |
+| `rapid-ship app`: created App permissions differ | The returned permissions differ from those requested. | Correct them in the App's settings. |
+| `rapid-ship app --import-key`: no App is recorded for the role | There is no recorded ID and slug against which to check the key. | Record the App first. |
+| `rapid-ship app --import-key`: Keychain item already exists | Import never replaces an item. | Check the existing key with doctor; follow the output if replacement is needed. |
+| `rapid-ship app --import-key`: stdin is a terminal | Pasting a key there would expose it. | Give the downloaded key on stdin as the command describes. |
+| `rapid-ship app --import-key`: stdin holds no key | Input is empty or closed. | Supply the key on stdin. |
+| `rapid-ship app --import-key`: stdin exceeds 64 KiB | Input exceeds the limit. | Supply the correct key. |
+| `rapid-ship app --import-key`: key is not an unencrypted RSA PEM private key | The key cannot sign the token. | Obtain a usable key. |
+| `rapid-ship app --import-key`: GitHub refuses the token | The key, App or token cannot be confirmed. | Resolve the named cause with the owner. |
+| `rapid-ship app --import-key`: GitHub shows another App | The key does not identify the recorded App. | Obtain the key for the recorded App. |
 | `claude` is not on PATH | Doctor cannot probe skills. | Install Claude Code or record the missing probe. |
 | A skill probe misses a skill | The Harness did not discover it. | Inspect its discovery path and rerun the probe. |
-| `G7: Agent identity is on, so the Worker App pushes; run ./devctl as worker push` | The guard denies the owner's direct push. | For the workflow-bearing Setup branch, give the owner the push command. |
+| `G7: Agent identity is on, so the Worker App pushes; run ./devctl as worker push` | The guard denies an agent's direct push. | For the workflow-bearing Setup branch, give the owner the push command. |
 | Worker App cannot push a workflow | The App lacks workflow permission. | The owner pushes from their terminal. |
 | Sync conflict | A managed target conflicts with local state. | Inspect the reported path and resolve it with the owner. |
 | Linter findings exceed the cap | The selected rule needs more than one PR. | Drop it from this PR and propose a task. |
 
 ## TypeScript
+
+These cases apply once TypeScript support ships.
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |

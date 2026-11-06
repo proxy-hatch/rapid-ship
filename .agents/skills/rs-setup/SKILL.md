@@ -12,7 +12,7 @@ Read `.rapid-ship/kit.lock` for `kit_version`. Run rapid-ship as `uvx --from git
 
 ## 1. New or existing
 
-A repository with source beyond the Kit is existing. Read each `[[stack]]` table's `name` and `directory` in `.rapid-ship/project.toml`; the owner already confirmed these roots. Do not ask again.
+A repository with source beyond the Kit is existing. Until multi-stack support ships, read `stack` in `.rapid-ship/project.toml`; its root is the repository root. Once multi-stack support ships, read each `[[stack]]` table's `name` and `directory`; the owner already confirmed these roots. Do not ask again.
 
 ## 2. Documents
 
@@ -20,11 +20,11 @@ For a new project, ask what it does, who uses it and how it runs. Fill README.md
 
 ## 3. Patterns
 
-For a new project, walk through each starter Pattern and adapt its reference and Lessons. Agree further Patterns and write each Pattern, minimal reference and enforcing check. If a reference needs product code, offer it as a task. For an existing project offer each starter Pattern as a task, including `typescript-error-handling.md`, `typescript-configuration.md`, `typescript-input-validation.md` and `typescript-performance.md` where applicable. Shape proposals using `.agents/skills/rs-health/references/proposed-task.md`. State each write and write the tasks the owner picks to a tracker the Harness can reach; use `./devctl as worker gh` for GitHub issues when Agent identity is on. If no tracker is reachable, leave them in the conversation.
+For a new project, walk through each starter Pattern and adapt its reference and Lessons. Agree further Patterns and write each Pattern, minimal reference and enforcing check. If a reference needs product code, offer it as a task. For an existing project offer each starter Pattern as a task, including, once TypeScript support ships, `typescript-error-handling.md`, `typescript-configuration.md`, `typescript-input-validation.md` and `typescript-performance.md` where applicable. Shape proposals using `.agents/skills/rs-health/references/proposed-task.md`. State each write and write the tasks the owner picks to a tracker the Harness can reach; use `./devctl as worker gh` for GitHub issues when Agent identity is on. If no tracker is reachable, leave them in the conversation.
 
 ## 4. Checks
 
-Confirm `gitleaks version` is 8.30.1. For TypeScript, confirm Node.js 24 and npm, with `engines.node = ">=24.15.0 <25"`; ask the owner to install missing tools. For a new project run `uv sync` in each Python stack and `npm install` in each TypeScript stack, then `./devctl check`.
+Confirm `gitleaks version` is 8.30.1. Once TypeScript support ships, for TypeScript confirm Node.js 24 and npm, with `engines.node = ">=24.15.0 <25"`; ask the owner to install missing tools. For a new project run `uv sync` in each Python stack and `npm install` in each TypeScript stack, then `./devctl check`.
 
 For an existing project, show overlaps in settings, hooks and workflows that init listed. Offer to fold them into `devctl_project`; duplicate checks are harmless, but checks that both write a file can race. Do not block on either. Keep existing tool settings unchanged in the Setup PR and record missing check tools as blocked. Exclude `tools/devctl` from project lint, type, test and dead-code scans. If workspace members cover it, add `exclude = ["tools/devctl"]` under the root `[tool.uv.workspace]`.
 
@@ -32,7 +32,7 @@ For every suppression reported by `exceptions`, add its `rs-exception` marker an
 
 In each Python stack's `pyproject.toml`, add vulture and deptry to the dev group, `[tool.vulture] paths` for source and tests, Ruff `lint.external = ["V"]`, and deptry's exclusion for `tools/devctl` and `known_first_party` for packages below the root. Run `uv lock`. Fix each dead-code finding or mark it with the tool's suppression and an `rs-exception` marker on the reported line, or a marked `per_rule_ignores` item for a dependency. Each entry uses reason `Existed at Setup on <date>` and removal condition `Delete it, or replace this reason with what uses it`. Repeat both dead-code commands until they pass.
 
-For each TypeScript knip finding, fix it or mark the reported export with `/** @public */` and its `rs-exception` marker, or add an item under the matching top-level `ignore*` key of `knip.jsonc`, alone on its line with its marker. Use the dead-code reasons above. Mark TypeScript suppressions reported by `exceptions` with the suppression reasons above.
+Once TypeScript support ships, for each TypeScript knip finding, fix it or mark the reported export with `/** @public */` and its `rs-exception` marker, or add an item under the matching top-level `ignore*` key of `knip.jsonc`, alone on its line with its marker. Use the dead-code reasons above. Mark TypeScript suppressions reported by `exceptions` with the suppression reasons above.
 
 For existing hooks, wait for the owner's decision on combining them before `git config core.hooksPath .githooks`. Run `./devctl check` until it passes; record blocked tools rather than changing their existing settings.
 
@@ -82,7 +82,7 @@ This Kit version records no metrics settings; go on to step 11.
 
 ## 11. Optional skills
 
-Offer `rs-contribute` once. Add accepted skills to `[kit] optional` and run the versioned `rapid-ship sync --in-place`.
+Until `rs-contribute` ships, there are no optional skills to offer. Once it ships, offer `rs-contribute` once. Add accepted skills to `[kit] optional` and run the versioned `rapid-ship sync --in-place`.
 
 ## 12. Doctor
 

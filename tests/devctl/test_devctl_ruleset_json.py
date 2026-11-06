@@ -88,3 +88,29 @@ def test_known_failures_quote_what_the_kit_prints() -> None:
     ):
         assert fragment in source
         assert fragment in text
+
+
+def test_known_failures_distinguishes_app_refusals() -> None:
+    text = (SKILL / "references/known-failures.md").read_text()
+    for condition in (
+        "personal repository belongs to another account",
+        "organisation admin",
+        "recorded App has no key",
+        "stored key cannot confirm",
+        "App permissions differ",
+        "no App is recorded for the role",
+        "Keychain item already exists",
+        "stdin is a terminal",
+        "stdin holds no key",
+        "stdin exceeds 64 KiB",
+        "key is not an unencrypted RSA PEM private key",
+        "GitHub refuses the token",
+        "GitHub shows another App",
+    ):
+        assert condition in text
+
+
+def test_setup_conditions_future_stack_settings() -> None:
+    text = (SKILL / "SKILL.md").read_text()
+    assert "Until multi-stack support ships" in text
+    assert "Until `rs-contribute` ships" in text

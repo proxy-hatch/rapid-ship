@@ -622,7 +622,21 @@ Pending.
 
 ### 7.2
 
-Pending.
+Intermediate work only. Task 5's green run and final integration validation await merged 7.3, including `rs-health` and `references/proposed-task.md`. The dependency and known-failure audit is incomplete; unmerged plan 6, wiring and sandbox quotations remain unverified. Owner Tasks 9 and 10 and live trials remain pending. No live behavior or independent review is claimed.
+
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
+| `uv run pytest tests/devctl/test_devctl_ruleset_json.py -q` | exit 0: 10 passed; offline text and ruleset checks |
+| `uv run rapid-ship status --strict` | exit 0: 61 managed files unchanged |
+| `./devctl check --tier fast` | exit 0: all seven steps passed |
+| `git diff --check` | exit 0 |
+| `uv run --locked mypy` | exit 0: no issues in 148 source files |
+| `uv run --locked vulture --min-confidence 0` | exit 0 |
+| `uv run --locked deptry . --no-ansi --json-output <report-path>` | exit 0: no dependency issues |
+| `uv run pytest -q` | exit 0: 2102 passed in 383.13s (diagnostic only; final Health-dependent green is held) |
+| Full devctl and site build | Pending hosted gate; not run locally |
+
 
 ### 7.3
 
