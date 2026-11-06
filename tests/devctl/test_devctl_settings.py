@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from check_workspace import stack_table
 from devctl import settings
 from devctl.settings import (
     EXCEPTIONS,
@@ -15,6 +16,7 @@ from devctl.settings import (
     App,
     Escalation,
     ProjectSettings,
+    ProjectStack,
     SettingsError,
     load_exceptions,
     load_project,
@@ -47,7 +49,7 @@ def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
     project = load_project(tmp_path)
 
     assert project == ProjectSettings(
-        stack="python",
+        stacks=(ProjectStack("python", "."),),
         repository=None,
         code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
@@ -66,7 +68,7 @@ def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
 
 
 def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
-    write(tmp_path, PROJECT, 'stack = "agnostic"\n')
+    write(tmp_path, PROJECT, stack_table("agnostic"))
 
     project = load_project(tmp_path)
 
@@ -89,7 +91,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
     ],
 )
 def test_a_leftover_roster_is_refused(tmp_path: Path, roster: str) -> None:
-    write(tmp_path, PROJECT, 'stack = "python"\n' + roster)
+    write(tmp_path, PROJECT, stack_table("python") + roster)
 
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
@@ -101,7 +103,7 @@ def test_a_leftover_roster_is_refused(tmp_path: Path, roster: str) -> None:
 
 
 def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
-    write(tmp_path, PROJECT, 'stack = "python"\n' + APPS)
+    write(tmp_path, PROJECT, stack_table("python") + APPS)
 
     project = load_project(tmp_path)
 
@@ -114,14 +116,14 @@ def test_both_apps_turn_agent_identity_on(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("code_owner", ["@octocat", "@Octo-Cat", "@my-org/platform-team"])
 def test_a_code_owner_loads_as_codeowners_writes_it(tmp_path: Path, code_owner: str) -> None:
-    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = "{code_owner}"\n')
+    write(tmp_path, PROJECT, stack_table("python") + f'[github]\ncode_owner = "{code_owner}"\n')
 
     assert load_project(tmp_path).code_owner == code_owner
 
 
 @pytest.mark.parametrize("github", ['[github]\ncode_owner = ""\n', "[github]\n", ""])
 def test_an_empty_or_absent_code_owner_is_unset(tmp_path: Path, github: str) -> None:
-    write(tmp_path, PROJECT, 'stack = "python"\n' + github)
+    write(tmp_path, PROJECT, stack_table("python") + github)
 
     assert load_project(tmp_path).code_owner is None
 
@@ -132,7 +134,7 @@ def test_an_empty_or_absent_code_owner_is_unset(tmp_path: Path, github: str) -> 
 def test_an_invalid_code_owner_names_the_file_the_key_and_both_forms(
     tmp_path: Path, value: str
 ) -> None:
-    write(tmp_path, PROJECT, f'stack = "python"\n[github]\ncode_owner = {value}\n')
+    write(tmp_path, PROJECT, stack_table("python") + f"[github]\ncode_owner = {value}\n")
 
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
@@ -144,7 +146,11 @@ def test_an_invalid_code_owner_names_the_file_the_key_and_both_forms(
 
 
 def test_every_pr_false_loads_as_flight(tmp_path: Path) -> None:
-    write(tmp_path, PROJECT, 'stack = "python"\n[escalation]\nevery_pr = false\n')
+    write(
+        tmp_path,
+        PROJECT,
+        stack_table("python") + "[escalation]\nevery_pr = false\n",
+    )
 
     assert load_project(tmp_path).escalation == Escalation(every_pr=False)
 
@@ -157,7 +163,7 @@ def test_every_pr_false_loads_as_flight(tmp_path: Path) -> None:
     ],
 )
 def test_escalation_accepts_only_every_pr(tmp_path: Path, setting: str) -> None:
-    write(tmp_path, PROJECT, f'stack = "python"\n[escalation]\nevery_pr = true\n{setting}\n')
+    write(tmp_path, PROJECT, stack_table("python") + f"[escalation]\nevery_pr = true\n{setting}\n")
 
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
@@ -198,7 +204,7 @@ def test_the_agents_message_points_at_no_roster_table() -> None:
 def test_a_removed_table_names_what_replaced_it(
     tmp_path: Path, table: str, replacement: str
 ) -> None:
-    write(tmp_path, PROJECT, f'stack = "python"\n[{table}]\n')
+    write(tmp_path, PROJECT, stack_table("python") + f"[{table}]\n")
 
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
@@ -212,7 +218,7 @@ def test_kit_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
-        'stack = "python"\n[kit]\n'
+        stack_table("python") + "[kit]\n"
         'exclude = ["devctl", "tools/devctl/", "./.agents/skills/rs-tdd"]\n',
     )
 
@@ -223,7 +229,7 @@ def test_map_exclude_is_loaded_and_normalised(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
-        'stack = "python"\n[map]\nexclude = ["pkg/templates/", "./other/dir"]\n',
+        stack_table("python") + '[map]\nexclude = ["pkg/templates/", "./other/dir"]\n',
     )
 
     assert load_project(tmp_path).map_exclude == ("pkg/templates", "other/dir")
@@ -233,7 +239,8 @@ def test_map_and_test_paths_are_normalised(tmp_path: Path) -> None:
     write(
         tmp_path,
         PROJECT,
-        'stack = "python"\n[map]\nsource_roots = ["./src/app/"]\nunguided = ["src/app/vendor/"]\n'
+        stack_table("python")
+        + '[map]\nsource_roots = ["./src/app/"]\nunguided = ["src/app/vendor/"]\n'
         '[tests]\nunit = ["./tests/unit/**"]\n',
     )
 
@@ -256,10 +263,18 @@ def test_kit_optional_names_only_the_kits_optional_skills(
 ) -> None:
     # This Kit version offers no optional skills, so the test supplies two.
     monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
-    write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a"]\n')
+    write(
+        tmp_path,
+        PROJECT,
+        stack_table("python") + '[kit]\noptional = ["rs-a"]\n',
+    )
     assert load_project(tmp_path).optional_skills == ("rs-a",)
 
-    write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a", "rs-c"]\n')
+    write(
+        tmp_path,
+        PROJECT,
+        stack_table("python") + '[kit]\noptional = ["rs-a", "rs-c"]\n',
+    )
     with pytest.raises(SettingsError) as raised:
         load_project(tmp_path)
 
@@ -295,105 +310,109 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
 @pytest.mark.parametrize(
     ("relative", "text", "message"),
     [
-        (PROJECT, "", "stack: required"),
+        (PROJECT, "", "[[stack]]: required"),
         (PROJECT, "stack = \n", "project.toml: Invalid value"),
-        (PROJECT, 'stack = "rust"\n', "stack: expected python or agnostic"),
+        (PROJECT, 'stack = "rust"\n', "is no longer read"),
         (
             PROJECT,
-            'stack = "python"\n[test]\nunit = []\n',
+            stack_table("python") + "[test]\nunit = []\n",
             ".rapid-ship/project.toml: unknown key 'test'; "
             "it accepts escalation, github, kit, map, stack, tests",
         ),
         (
             PROJECT,
-            'stack = "python"\n[escalation]\nevery_prs = true\n',
+            stack_table("python") + "[escalation]\nevery_prs = true\n",
             ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; it accepts every_pr",
         ),
         (
             PROJECT,
-            'stack = "python"\n[map]\nsource_roots = ["../x"]\n',
+            stack_table("python") + '[map]\nsource_roots = ["../x"]\n',
             ".rapid-ship/project.toml [map] source_roots: expected paths inside the repository",
         ),
         (
             PROJECT,
-            'stack = "python"\n[map]\nunguided = ["/srv"]\n',
+            stack_table("python") + '[map]\nunguided = ["/srv"]\n',
             ".rapid-ship/project.toml [map] unguided: expected paths inside the repository",
         ),
         (
             PROJECT,
-            'stack = "python"\n[tests]\nunit = ["../tests/unit/**"]\n',
+            stack_table("python") + '[tests]\nunit = ["../tests/unit/**"]\n',
             ".rapid-ship/project.toml [tests] unit: expected paths inside the repository",
         ),
         (
             PROJECT,
-            'stack = "python"\n[kit]\noptional = ["rs-contribute"]\n',
+            stack_table("python") + '[kit]\noptional = ["rs-contribute"]\n',
             ".rapid-ship/project.toml [kit] optional: expected names of the Kit's optional skills: "
             "none in this Kit version",
         ),
         (
             PROJECT,
-            'stack = "python"\n[github]\nworker_app_id = true\n',
+            stack_table("python") + "[github]\nworker_app_id = true\n",
             "worker_app_id: expected an integer of at least 0",
         ),
         (
             PROJECT,
-            'stack = "python"\n[github]\nrepository = "o/r"\nworker_app_id = 101\n',
+            stack_table("python") + '[github]\nrepository = "o/r"\nworker_app_id = 101\n',
             "worker_app_id and worker_app_slug go together",
         ),
         (
             PROJECT,
-            'stack = "python"\n' + NO_REVIEWER_APP,
+            stack_table("python") + NO_REVIEWER_APP,
             "Agent identity needs both the Worker App and the Reviewer App",
         ),
         (
             PROJECT,
-            'stack = "python"\n' + APPS.replace('repository = "o/r"\n', ""),
+            stack_table("python") + APPS.replace('repository = "o/r"\n', ""),
             "Apps are recorded but repository is not",
         ),
         (
             PROJECT,
-            'stack = "python"\n' + APPS.replace('"o-rs-worker"', '"O RS Worker"'),
+            stack_table("python") + APPS.replace('"o-rs-worker"', '"O RS Worker"'),
             "worker_app_slug: expected an App slug",
         ),
         (
             PROJECT,
-            'stack = "python"\n[escalation]\nevery_pr = "no"\n',
+            stack_table("python") + '[escalation]\nevery_pr = "no"\n',
             "every_pr: expected true or false",
         ),
-        (PROJECT, 'stack = "python"\n[escalation]\nmode = "flight"\n', "unknown key 'mode'"),
         (
             PROJECT,
-            'stack = "python"\n[github]\nrepository = "not a repo"\n',
+            stack_table("python") + '[escalation]\nmode = "flight"\n',
+            "unknown key 'mode'",
+        ),
+        (
+            PROJECT,
+            stack_table("python") + '[github]\nrepository = "not a repo"\n',
             "repository: expected owner/name",
         ),
         (
             PROJECT,
-            'stack = "python"\n[github]\nrepository = "owner/.."\n',
+            stack_table("python") + '[github]\nrepository = "owner/.."\n',
             "repository: expected owner/name",
         ),
         (
             PROJECT,
-            'stack = "python"\n[tests]\nunit = "tests/unit/**"\n',
+            stack_table("python") + '[tests]\nunit = "tests/unit/**"\n',
             "unit: expected a list of non-empty strings",
         ),
         (
             PROJECT,
-            'stack = "python"\n[kit]\nexclude = "devctl"\n',
+            stack_table("python") + '[kit]\nexclude = "devctl"\n',
             "exclude: expected a list of non-empty strings",
         ),
         (
             PROJECT,
-            'stack = "python"\n[kit]\nexclude = ["../outside"]\n',
+            stack_table("python") + '[kit]\nexclude = ["../outside"]\n',
             "exclude: expected paths inside the repository",
         ),
         (
             PROJECT,
-            'stack = "python"\n[kit]\nexclude = ["/etc"]\n',
+            stack_table("python") + '[kit]\nexclude = ["/etc"]\n',
             "exclude: expected paths inside the repository",
         ),
         (
             PROJECT,
-            'stack = "python"\n[map]\nexclude = ["../x"]\n',
+            stack_table("python") + '[map]\nexclude = ["../x"]\n',
             "exclude: expected paths inside the repository",
         ),
         (EXCEPTIONS, EXCEPTION.replace('remove_when = "w"\n', ""), "remove_when: required"),
@@ -441,7 +460,11 @@ def test_devctl_and_init_accept_the_same_repositories(
     tmp_path: Path, repository: str, valid: bool
 ) -> None:
     # devctl is vendored into projects without rapid-ship, so it keeps its own copy of the pattern.
-    write(tmp_path, PROJECT, f'stack = "python"\n[github]\nrepository = {json.dumps(repository)}\n')
+    write(
+        tmp_path,
+        PROJECT,
+        stack_table("python") + f"[github]\nrepository = {json.dumps(repository)}\n",
+    )
 
     try:
         load_project(tmp_path)

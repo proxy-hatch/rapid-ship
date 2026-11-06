@@ -6,6 +6,7 @@ import pytest
 
 from check_workspace import Workspace
 from devctl.check.references import resolve
+from devctl.settings import ProjectStack
 
 PYPROJECT = """
 [tool.ruff.lint]
@@ -75,7 +76,7 @@ def test_python_references(workspace: Workspace, reference: str, resolves: bool)
 def test_python_only_kinds_do_not_resolve_for_the_agnostic_stack(workspace: Workspace) -> None:
     workspace.write("pyproject.toml", PYPROJECT)
 
-    reason = resolve("ruff:S603", workspace.context(stack="agnostic"))
+    reason = resolve("ruff:S603", workspace.context(stacks=(ProjectStack("agnostic", "."),)))
 
     assert reason == "ruff:S603: unknown reference kind ruff for the agnostic stack"
 
@@ -116,7 +117,9 @@ def test_agnostic_stack_matches_a_test_name_as_a_whole_word(
 ) -> None:
     workspace.write("tests/run.sh", "checks_run() { :; }\n")
 
-    reason = resolve(f"test:tests/run.sh::{name}", workspace.context(stack="agnostic"))
+    reason = resolve(
+        f"test:tests/run.sh::{name}", workspace.context(stacks=(ProjectStack("agnostic", "."),))
+    )
 
     assert (reason is None) is resolves, reason
 

@@ -38,7 +38,7 @@ class ChangeError(Exception):
 
 def core_steps(project: ProjectSettings) -> list[Step]:
     """Core steps for the project's stack, in the order they run."""
-    python = project.stack == "python"
+    python = project.stacks[0].name == "python"
     # Typed apart: mypy reads an inline list of different step classes as list[object].
     python_full: list[Step] = (
         [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()] if python else []

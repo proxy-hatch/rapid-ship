@@ -9,6 +9,7 @@ from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.stacks.python_dead_code import AllowlistItem, toml_allowlist
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack
 
 ENTRY = """
 [[exception]]
@@ -33,7 +34,7 @@ def setup(
     workspace.write("pyproject.toml", pyproject)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    return ExceptionsStep().run(workspace.context(stack=stack))
+    return ExceptionsStep().run(workspace.context(stacks=(ProjectStack(stack, "."),)))
 
 
 def test_a_marked_item_with_its_entry_passes(workspace: Workspace) -> None:
@@ -159,7 +160,7 @@ def test_scope_settings_are_not_suppressions(workspace: Workspace) -> None:
 
 
 def test_the_agnostic_stack_reads_no_allowlist(workspace: Workspace) -> None:
-    result = setup(workspace, UNMARKED, stack="agnostic")
+    result = setup(workspace, UNMARKED, stacks=(ProjectStack("agnostic", "."),))
 
     assert result.status == "passed", result.details
 

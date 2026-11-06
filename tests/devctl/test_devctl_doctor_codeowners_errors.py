@@ -16,6 +16,7 @@ from devctl.doctor import (
     codeowners_error_problems,
     github_items,
 )
+from devctl.settings import ProjectStack
 from github_fakes import MakeContext, RecordedOwner
 
 CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
@@ -43,9 +44,12 @@ def owned_by(ctx: MakeContext, code_owner: str, *, every_pr: bool = True) -> Doc
     agnostic stack."""
     context = ctx()
     escalation = dataclasses.replace(context.project.escalation, every_pr=every_pr)
-    stack = context.project.stack if every_pr else "agnostic"
+    stack = context.project.stacks[0].name if every_pr else "agnostic"
     project = dataclasses.replace(
-        context.project, code_owner=code_owner, escalation=escalation, stack=stack
+        context.project,
+        code_owner=code_owner,
+        escalation=escalation,
+        stacks=(ProjectStack(stack, "."),),
     )
     return dataclasses.replace(context, project=project)
 

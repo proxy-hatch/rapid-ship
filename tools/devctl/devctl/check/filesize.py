@@ -42,7 +42,7 @@ class FileSizeStep:
             entries = load_exceptions(root)
             managed = managed_paths(root, project.excluded)
             files = context.repo.files()
-            sizes = line_counts(root, files, project.source_roots, managed, project.stack)
+            sizes = line_counts(root, files, project.source_roots, managed, project.stacks[0].name)
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
         problems = size_errors(sizes, entries)

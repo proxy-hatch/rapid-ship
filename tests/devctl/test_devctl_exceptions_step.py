@@ -9,6 +9,7 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep, normal_rule, scan
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack
 
 ENTRY = """
 [[exception]]
@@ -373,7 +374,7 @@ def test_the_agnostic_stack_reads_only_text_rules(workspace: Workspace) -> None:
     workspace.write("src/run.py", "x = 1  # noqa: E501\n")
     workspace.write("notes.txt", "token  # gitleaks" + ":allow\n")
 
-    result = ExceptionsStep().run(workspace.context(stack="agnostic"))
+    result = ExceptionsStep().run(workspace.context(stacks=(ProjectStack("agnostic", "."),)))
 
     assert result.details == (
         "notes.txt:1: suppression gitleaks needs '# rs-exception: EX-<n>' "

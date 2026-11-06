@@ -155,7 +155,7 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
         if error.status == 404:
             return _github(name, "missing", f".github/CODEOWNERS is not on {default}")
         return _unreadable(name, ".github/CODEOWNERS", error)
-    every_pr, stack = ctx.project.escalation.every_pr, ctx.project.stack
+    every_pr, stack = ctx.project.escalation.every_pr, ctx.project.stacks[0].name
     problems = codeowners_problems(text, every_pr, code_owner, stack)
     if problems:
         return _github(name, "missing", "; ".join(problems))

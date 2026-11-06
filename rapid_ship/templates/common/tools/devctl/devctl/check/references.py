@@ -42,8 +42,9 @@ def resolve(reference: str, context: CheckContext) -> str | None:
         return _test(reference, value, context)
     if kind not in _PYTHON_KINDS:
         return f"{reference}: unknown reference kind {kind}"
-    if context.project.stack != "python":
-        return f"{reference}: unknown reference kind {kind} for the {context.project.stack} stack"
+    if context.project.stacks[0].name != "python":
+        stack = context.project.stacks[0].name
+        return f"{reference}: unknown reference kind {kind} for the {stack} stack"
     try:
         data = _pyproject(context.repo.root)
         return _PYTHON_RESOLVERS[kind](reference, value, context, data)
@@ -69,7 +70,7 @@ def _test(reference: str, value: str, context: CheckContext) -> str | None:
         text = (context.repo.root / path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         return f"{reference}: cannot read {path}: {error}"
-    if context.project.stack == "python":
+    if context.project.stacks[0].name == "python":
         try:
             found = name in test_identities(text)
         except SyntaxError as error:

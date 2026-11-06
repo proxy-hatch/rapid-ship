@@ -324,10 +324,10 @@ def _exclusions_item(ctx: DoctorContext, tracked: Sequence[str]) -> Item:
     holds_kit = KIT_SOURCE in tracked  # the Kit's own source checks tools/devctl itself
     pyproject = _read_pyproject(ctx.root)
     if isinstance(pyproject, str):
-        if pyproject == NO_PYPROJECT and ctx.project.stack == "agnostic":
+        if pyproject == NO_PYPROJECT and ctx.project.stacks[0].name == "agnostic":
             return Item("guardrails", name, "ok", f"{NO_PYPROJECT}, so no uv workspace")
         return Item("guardrails", name, "missing", pyproject)
-    python = ctx.project.stack == "python" and not holds_kit
+    python = ctx.project.stacks[0].name == "python" and not holds_kit
     gaps = devctl_exclusion_gaps(pyproject, python=python)
     notes = [KIT_SOURCE_NOTE] if holds_kit else []
     detail = "; ".join([*gaps, *notes]) or f"{DEVCTL_DIRECTORY} is left out of the project's tools"
@@ -356,7 +356,7 @@ def _kit_item(ctx: DoctorContext) -> Item:
 def local_items(ctx: DoctorContext) -> list[Item]:
     """Every item that needs no GitHub: the toolchain, the settings, guardrails and Kit files."""
     tracked = Repo.discover(ctx.root).tracked_files()
-    python = ctx.project.stack == "python"
+    python = ctx.project.stacks[0].name == "python"
     return [
         git_item(),
         settings_item(ctx.root),

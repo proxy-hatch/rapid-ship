@@ -44,7 +44,7 @@ class ExceptionsStep:
 
     def run(self, context: CheckContext) -> StepResult:
         root = context.repo.root
-        stack = context.project.stack
+        stack = context.project.stacks[0].name
         try:
             entries = load_exceptions(root)
             managed = managed_paths(root, context.project.excluded)

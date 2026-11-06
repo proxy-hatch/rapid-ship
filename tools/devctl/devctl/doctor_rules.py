@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from devctl.doctor_local import CI_JOB_NAME
 from devctl.github.app import APP_PERMISSIONS
-from devctl.settings import Role, Stack
+from devctl.settings import Role, StackName
 
 ADMIN_ROLE_ID = 5  # the repository admin role
 GITHUB_ACTIONS_APP_ID = 15368  # gh api /apps/github-actions
@@ -250,7 +250,7 @@ def _active_lines(text: str) -> list[_Line]:
     return lines
 
 
-def _protected_paths(stack: Stack) -> tuple[str, ...]:
+def _protected_paths(stack: StackName) -> tuple[str, ...]:
     return (*PROTECTED_PATHS, *(PYTHON_PROTECTED_PATHS if stack == "python" else ()))
 
 
@@ -269,7 +269,7 @@ def _walk_problems(lines: Sequence[_Line], code_owner: str) -> list[str]:
     return []
 
 
-def _protected_set_problems(lines: Sequence[_Line], code_owner: str, stack: Stack) -> list[str]:
+def _protected_set_problems(lines: Sequence[_Line], code_owner: str, stack: StackName) -> list[str]:
     problems: list[str] = []
     if any(line.pattern == "*" for line in lines):
         problems.append(
@@ -283,7 +283,7 @@ def _protected_set_problems(lines: Sequence[_Line], code_owner: str, stack: Stac
     return problems
 
 
-def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack) -> list[str]:
+def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: StackName) -> list[str]:
     """What keeps CODEOWNERS from matching the Mode: the * line when every_pr is true, the
     Protected set otherwise. code_owner is [github] code_owner, with its @: a login or an
     organisation's team."""
@@ -293,7 +293,7 @@ def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack
     return _protected_set_problems(lines, code_owner, stack)
 
 
-def _checked_lines(text: str, every_pr: bool, stack: Stack) -> set[int]:
+def _checked_lines(text: str, every_pr: bool, stack: StackName) -> set[int]:
     """The numbers of the lines codeowners_problems compares with the code owner: every active line
     when every_pr is true, the line GitHub applies for each Protected path otherwise."""
     lines = _active_lines(text)
@@ -311,7 +311,7 @@ def _line_numbers(numbers: Sequence[int]) -> str:
 
 
 def codeowners_error_problems(
-    errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: Stack, branch: str
+    errors: Sequence[CodeownersError], text: str, every_pr: bool, stack: StackName, branch: str
 ) -> list[str]:
     """GitHub's report of the errors on the lines of text, .github/CODEOWNERS on branch, that
     codeowners_problems checks: one problem for each kind and suggestion, which names its lines in
