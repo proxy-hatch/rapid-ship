@@ -1395,7 +1395,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: References, feature, Pattern and skill front matter, and Rules
+### Task 5: References, Pattern and skill front matter, and Rules
 
 **Files:**
 - Create: `rapid_ship/templates/common/tools/devctl/devctl/check/references.py`
@@ -1437,8 +1437,6 @@ def test_identities(
 
 
 # devctl/check/map.py
-def registered_verbs() -> frozenset[str]: ...
-def feature_errors(context: CheckContext, files: Sequence[str]) -> list[str]: ...
 def pattern_errors(context: CheckContext, files: Sequence[str]) -> list[str]: ...
 def rule_errors(context: CheckContext, found: Sequence[str]) -> list[str]: ...
 def skill_errors(
@@ -1446,11 +1444,10 @@ def skill_errors(
 ) -> list[str]: ...  # map rule 7, front-matter half
 ```
 
-The front matter formats are the ones plan 2 seeds in `docs/features/README.md` and `docs/patterns/README.md` (plan 2, task 6), and the index's front matter table. This task owns the check, so `entry_points` must be a non-empty list; the index's resolved disagreements have plan 2's README row say the same. The skill row is the front-matter half of spec map rule 7; task 3 wrote the alias half.
+The front matter format is the one plan 2 seeds in `docs/patterns/README.md` (plan 2, task 6), and the index's front matter table. The skill row is the front-matter half of spec map rule 7; task 3 wrote the alias half.
 
 | File | Front matter |
 | --- | --- |
-| `docs/features/*.md` except `README.md` | `purpose`: non-empty text. `entry_points`: non-empty list of existing paths. `data`: list of existing paths, possibly empty. `observe`: non-empty text. `reproduce`: one `./devctl <verb> ...` command whose verb is registered |
 | `docs/patterns/*.md` except `README.md` | `reference`: an existing path. `enforced_by`: non-empty list of references that resolve |
 | `.agents/skills/<name>/SKILL.md`, for Kit and project skills alike | `name`: equals `<name>`. `description`: non-empty text |
 
@@ -1580,7 +1577,7 @@ def features(workspace: Workspace) -> list[str]:
 def test_valid_feature_and_readme_pass(workspace: Workspace) -> None:
     workspace.write("src/app/auth.py", "")
     workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/README.md", "# Feature files\n")
+    workspace.write("docs/golden-paths/README.md", "# Feature files\n")
     workspace.write("docs/features/sign-in.md", FEATURE)
 
     assert features(workspace) == []
@@ -1900,8 +1897,6 @@ def rules_items(text: str) -> list[ListItem]:
 ```
 
 - [ ] **Step 7: Implement the map document rules.**
-- `registered_verbs()` imports `build_parser` from `devctl.cli` inside the function. It returns the `choices` keys of the parser's `argparse._SubParsersAction`, which include the project verbs added by `devctl_project.register`.
-- `feature_errors`: for each `.md` file under `docs/features/` except `docs/features/README.md`, call `front_matter`. `None` gives the "no front matter" message in the test; `ValueError` and `yaml.YAMLError` give `"<path>: <error>"`; a non-mapping gives `"<path>: front matter must be a mapping"`. Then check the keys in the order `purpose`, `entry_points`, `data`, `observe`, `reproduce`, with the types in this task's table. A key that is missing or of the wrong type gives `"<path>: <key> is missing or empty"`. An empty value gives the same message for every key except `data`, which may be `[]`. Each `entry_points` and `data` item must be a file or directory in the repository; otherwise `"<path>: <key> names <item>, which does not exist"`. `shlex.split` the `reproduce` command: its first word must be `./devctl`, otherwise `"<path>: reproduce must be a ./devctl command"`, and its second word a registered verb, otherwise `"<path>: reproduce runs <command>; <verb> is not a devctl verb"`.
 - `pattern_errors`: the same loading for `docs/patterns/`, then `reference` must name an existing path and `enforced_by` must be a non-empty list whose items each `resolve`; an unresolved item reports `"<path>: <reason>"`.
 - `rule_errors`: for each guide and each `rules_items` entry, match `_RULE_END` (below) against the item text. No match gives `"<guide>:<line>: end the rule with 'enforced by: <reference>' or 'advisory'"`; an unresolved reference gives `"<guide>:<line>: <reason>"`.
 - `skill_errors`: for each name in task 3's `_skill_names(root, files, ".agents/skills")` whose `SKILL.md` is a file, load its front matter as `feature_errors` does, sharing one private loader that takes the key names for the "no front matter" message. `<path>` is `.agents/skills/<name>/SKILL.md`. A `name` that is not a string equal to `<name>` gives `"<path>: name must be <name>, the directory name"`. A `description` that is not a string, or is blank after `strip()`, gives `"<path>: description is missing or empty"`. Report skills in name order, a skill's `name` error before its `description` error. Kit and project skills follow the same rule, so the step never reads the lock.
@@ -1911,7 +1906,7 @@ def rules_items(text: str) -> list[ListItem]:
 _RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
 ```
 
-Add `feature_errors`, `pattern_errors`, `rule_errors(context, found)` and `skill_errors(root, files)` to `MapStep.run`.
+Add `pattern_errors`, `rule_errors(context, found)` and `skill_errors(root, files)` to `MapStep.run`.
 
 This repository's one skill until plan 5, `rapid-ship-engineering`, already has `name: rapid-ship-engineering` and a description in `rapid_ship/skills/rapid-ship-engineering/SKILL.md`. Plan 5 patches each forked skill's `name` to its `rs-` directory name.
 
@@ -4158,7 +4153,7 @@ In plan 2's `tests/test_kit_contents.py`, keep each test's name so no test is re
 
 ```python
 ROOT_GUIDE_LINKS = [
-    "docs/features/README.md",
+    "docs/golden-paths/README.md",
     "docs/patterns/README.md",
     "docs/AGENTS.md",
     "tools/AGENTS.md",
@@ -4214,7 +4209,7 @@ Expected: the integration test fails on the fast tier's map step for both stacks
 
 - [ ] **Step 3: Write the seeds.** Change the seeded templates only, never devctl.
 - `rapid_ship/templates/common/tools/AGENTS.md`: "`devctl/` is this project's devctl, vendored by rapid-ship. Do not edit `devctl/devctl/`; `rapid-ship sync` replaces it. Add project verbs and check steps in `devctl/devctl_project/`."
-- `rapid_ship/templates/common/docs/AGENTS.md`: links `features/README.md` and `patterns/README.md`, and says each holds one file per feature or Pattern. It has no Rules heading.
+- `rapid_ship/templates/common/docs/AGENTS.md`: links `golden-paths/README.md` and `patterns/README.md`, and says each holds worked examples of larger features or one file per Pattern. It has no Rules heading.
 - `rapid_ship/templates/python/src/AGENTS.md`: "`{{package}}/` is the product's code. Add a guide for each directory directly under it." `rapid_ship/templates/python/tests/AGENTS.md`: "pytest runs every test here. Unit tests go in `unit/`, which `[tests] unit` in `.rapid-ship/project.toml` names; every other test counts as behavioural."
 - `rapid_ship/templates/python/.gitignore`: the four lines `__pycache__/`, `*.py[cod]`, `.venv/` and `dist/`. Without it, the first pytest run leaves `src/<package>/__pycache__/` beside the code, and `rs-setup`'s `git add -A` would commit the bytecode.
 - In `rapid_ship/templates/common/AGENTS.md`, add two rows to "Find the change", after Patterns: `| Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |` and `| This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |`.

@@ -44,7 +44,7 @@ SEEDED = {
     "CLAUDE.md",
     "README.md",
     "docs/AGENTS.md",
-    "docs/features/README.md",
+    "docs/golden-paths/README.md",
     "docs/patterns/README.md",
     "tools/AGENTS.md",
 }
@@ -347,7 +347,7 @@ def test_python_seeds_are_valid_python() -> None:
 ROOT_GUIDE_LINKS = [
     "README.md",
     "ARCHITECTURE.md",
-    "docs/features/README.md",
+    "docs/golden-paths/README.md",
     "docs/patterns/README.md",
     "docs/AGENTS.md",
     "tools/AGENTS.md",
@@ -508,15 +508,11 @@ def test_claude_md_imports_the_guide() -> None:
     assert text("agnostic", "CLAUDE.md") == "@AGENTS.md\n"
 
 
-def test_feature_and_pattern_formats_name_every_key() -> None:
-    features = text("agnostic", "docs/features/README.md")
-    for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
-        assert f"`{key}`" in features
-    # devctl's map check requires at least one entry point.
-    assert (
-        "| Paths where the feature is entered | A non-empty list; git tracks each path |"
-        in features
-    )
+def test_golden_paths_and_pattern_formats() -> None:
+    golden_paths = text("agnostic", "docs/golden-paths/README.md")
+    assert "Golden paths" in golden_paths
+    assert "Pattern" in golden_paths
+    assert "merged" in golden_paths
     patterns = text("agnostic", "docs/patterns/README.md")
     for key in (
         "`task`",

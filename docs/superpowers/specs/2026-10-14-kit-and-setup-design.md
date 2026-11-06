@@ -9,7 +9,7 @@ When this spec is built, an owner has the agent in their Harness Session run `uv
 - the Kit vendored and recorded in its lock, with one or more stacks, each in its own directory: Python, TypeScript for React, or the stack-agnostic one;
 - `devctl check` in the pre-commit hook and in CI as a required status check, and run by each agent before it opens a pull request (section 4, Root AGENTS.md skeleton);
 - the Kit's Harness guardrails, with the merge guard, for Claude Code and agy, and for Codex once a follow-up wires it (section 4);
-- README.md, ARCHITECTURE.md, the AGENTS.md tree, the feature map and the starter Patterns, each verified by `devctl check`;
+- README.md, ARCHITECTURE.md, the AGENTS.md tree and the starter Patterns, each verified by `devctl check`;
 - the ruleset and CODEOWNERS applied for Walk, and `devctl doctor` reporting no gap that the owner has not accepted;
 - optionally, Agent identity: two GitHub Apps that agents act as through `devctl as`;
 - Suggested thresholds recorded and, optionally, the scheduled metrics Action installed, both as [Spec 3](2026-10-16-metrics-and-gardening-design.md) defines them;
@@ -228,7 +228,7 @@ From plan 6 the lock records each stack and its directory as `[[stack]]` tables,
 | `.claude/settings.json` | seeded, plan 5 | Harness guardrail wiring for Claude Code (section 4) |
 | `.agents/hooks.json` | seeded, plan 5's agy follow-up | Harness guardrail wiring for agy (section 4). Codex gets its wiring file in a follow-up |
 | `.github/CODEOWNERS` | seeded | The owner for every path in Walk; below it, commented out, the Protected set |
-| `docs/features/README.md` | seeded | The feature-file format |
+| `docs/golden-paths/README.md` | seeded | The golden-paths library format |
 | `docs/patterns/README.md` | seeded | The Pattern-file format |
 | `.gitignore`, `pyproject.toml`, `src/AGENTS.md`, `src/<package>/__init__.py`, `tests/AGENTS.md`, `tests/test_import.py` | seeded, Python, only when there is no `pyproject.toml` yet | Guardrail settings, dev dependencies and a skeleton that passes `check` |
 | The Python starter Patterns in `docs/patterns/`, with their reference code and tests | seeded, Python, plan 5, with the skeleton above | Error handling, configuration, input validation and performance (Patterns, below) |
@@ -320,7 +320,7 @@ The root guide stays short, following upstream `writing-for-agents`:
 
 1. One paragraph naming the project.
 2. Commands: `./devctl doctor --settings`, which each Session runs first unless it runs the full `./devctl doctor` (section 6), `./devctl check`, and `./devctl --help` for the project's verbs.
-3. A "Find the change" table that points to directory guides, each stack's directory, `docs/features/` and `docs/patterns/`, and from plan 5 to `README.md` and `ARCHITECTURE.md`.
+3. A "Find the change" table that points to directory guides, each stack's directory, `docs/golden-paths/` and `docs/patterns/`, and from plan 5 to `README.md` and `ARCHITECTURE.md`.
 4. **Rules,** in the table below. Each rule ends with `enforced by: <reference>` or `advisory` (section 5).
 5. **Pull requests:** how an agent opens, reviews and merges a pull request, below.
 6. Pointers to `GLOSSARY.md`, `docs/adr/`, and the `rs-writing` and `rs-ponytail` skills (section 7).
@@ -606,12 +606,12 @@ A file belongs to the stack whose directory contains it, the innermost one when 
 
 ### Map rules
 
-The map rules read only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds. A guide, link target, maintained directory, feature file, Pattern, skill or root document counts only when git tracks it, and so does each path that a feature file, Pattern or reference names, and the `pyproject.toml` that references read. An untracked file does not count, even when git does not ignore it.
+The map rules read only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds. A guide, link target, maintained directory, Pattern, skill or root document counts only when git tracks it, and so does each path that a Pattern or reference names, and the `pyproject.toml` that references read. An untracked file does not count, even when git does not ignore it.
 
 1. Every Markdown link in every AGENTS.md resolves to a tracked file or to a directory that holds one. A link that starts with `/` resolves against the repository root, as GitHub resolves it.
 2. Every maintained directory has a tracked AGENTS.md. Maintained directories are the top-level directories and the immediate children of each source root that hold a tracked file, except hidden directories and those listed in `[map] unguided`. AGENTS.md files under a `[map] exclude` directory are template content: the map rules ignore them.
 3. Every AGENTS.md is reachable by links from the root AGENTS.md.
-4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names is a tracked file or a directory that holds one. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.
+4. Golden paths have no check and no command.
 5. Every file in `docs/patterns/` other than its README has front matter with a non-empty `task`, a `reference` that is a tracked file or a directory that holds one, and a non-empty `enforced_by` list whose references resolve, and the file has a non-empty `## Lessons` section. Plan 5 adds `task` and the Lessons section.
 6. Every bullet under a `Rules` heading in any AGENTS.md ends with `enforced by: <reference>` or `advisory`. Each reference resolves.
 7. Every skill directory under `.agents/skills/`, from the Kit or the project, has a `SKILL.md` whose front matter `name` equals the directory name and whose `description` is not empty, and a relative symlink at `.claude/skills/<name>` that points to it. No other entry exists under `.claude/skills/`. A skill directory that is itself a symlink must be relative and stay inside the repository. Plan 5 adds: `SKILL.md` is a regular file, not a symlink.
@@ -882,11 +882,11 @@ A project may apply the same change to its vendored copy at once. When the fix s
 
 `rs-health` is user-invoked. `rs-setup` offers it to existing repositories, and the owner can rerun it at any time. It never edits the repository: its output is a list of proposed standards tasks, which the owner picks from and hands to their own Sessions.
 
-- **Reads:** the code; the output of `./devctl doctor` and `./devctl check`; the CI configuration and recent runs; README.md, ARCHITECTURE.md and the AGENTS.md tree; the feature map, the Patterns and `exceptions.toml`; and the last merged PRs with their review threads.
+- **Reads:** the code; the output of `./devctl doctor` and `./devctl check`; the CI configuration and recent runs; README.md, ARCHITECTURE.md and the AGENTS.md tree; golden paths, the Patterns and `exceptions.toml`; and the last merged PRs with their review threads.
 - **Audits** by rung, citing file:line or command output for every finding:
   - rung 1: recurring tasks done several ways, each with one proposed reference implementation and the check that would enforce it; safe interfaces that are missing and the bypasses they would ban; code that departs from an existing Pattern, the starter Patterns included; and code that hides or obscures an error, such as an empty catch, a broad except that carries on, an unhandled promise or a fallback that masks a failure. Failing fast and gracefully, and never obscuring an error, is the audit's base rule, which `rs-garden` also scans for (Spec 3);
   - rung 2: missing checks and test tiers, doctor gaps, Python floor settings the project's own rules replace, advisory Rules that a check could enforce, exceptions whose removal condition has been met, settings entries that match nothing, such as a `[kit] exclude`, `[map] unguided` or `[tests] unit` entry, and tool-settings rules the project lacks (section 8, step 14);
-  - rung 3: AGENTS.md, ARCHITECTURE.md and README.md text that no longer matches the code, missing directory guides, gaps in the feature map, and dead code: the entries marked at Setup (section 8, step 4.5) and what the `dead-code` step cannot see, which the shared audit lists ([Spec 3](2026-10-16-metrics-and-gardening-design.md), section 10);
+  - rung 3: AGENTS.md, ARCHITECTURE.md and README.md text that no longer matches the code, missing directory guides, and dead code: the entries marked at Setup (section 8, step 4.5) and what the `dead-code` step cannot see, which the shared audit lists ([Spec 3](2026-10-16-metrics-and-gardening-design.md), section 10);
   - rung 4: gaps in the Protected set, CODEOWNERS and the ruleset;
   - review comments repeated across recent PRs that a rung could prevent.
 - **Returns** proposed tasks, grouped by area. Each is one PR within the diff cap, with acceptance criteria, a test plan and the tasks it waits on. Their shape lives in `rs-health`'s references, which `rs-garden` reuses. The owner picks which tasks to keep. `rs-health` states each write, then writes the picked tasks to whatever tracker the owner's Harness reaches, for example through an MCP server or as GitHub issues, which it opens through `./devctl as worker gh` while Agent identity is on (G8). Otherwise it leaves them in the conversation. The Kit records no tracker setting, and devctl never talks to the tracker (section 1).
