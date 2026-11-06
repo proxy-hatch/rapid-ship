@@ -271,3 +271,165 @@ def test_the_gate_note_appears_only_while_gate_toml_exists(tmp_path: Path) -> No
 
     gate.unlink()
     assert gate_note(tmp_path) is None
+
+
+@pytest.mark.parametrize("nan_str", ["nan", "+nan", "-nan"])
+def test_nan_thresholds_are_rejected(tmp_path: Path, nan_str: str) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(f"window = 30\n[thresholds]\nreverts = {nan_str}\n")
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    assert exc_info.value.problems == (
+        "metrics.toml [thresholds] reverts = nan: use a number of at least 0",
+    )
+
+
+def test_positive_infinity_threshold_is_accepted(tmp_path: Path) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("window = 30\n[thresholds]\nreverts = inf\n")
+
+    settings = load_metrics(tmp_path)
+    assert settings.thresholds["reverts"] == float("inf")
+
+
+def test_unknown_metric_keys_with_invalid_or_missing_source(tmp_path: Path) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "window = 30\n\n"
+        "[[metric]]\n"
+        'id = "alarms"\n'
+        'title = "Alarms"\n'
+        'source = "pagerduty"\n'
+        'extra_key = "unexpected"\n\n'
+        "[[metric]]\n"
+        'id = "rollbacks"\n'
+        'title = "Rollbacks"\n'
+        'extra_key = "unexpected"\n'
+    )
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    expected = (
+        'metrics.toml [[metric]] #1: source = "pagerduty": use "issues" or "deployments"',
+        (
+            "metrics.toml [[metric]] #1: unknown key 'extra_key'; "
+            "it accepts id, title, source, label, environment, count"
+        ),
+        (
+            "metrics.toml [[metric]] #2: unknown key 'extra_key'; "
+            "it accepts id, title, source, label, environment, count"
+        ),
+        "metrics.toml [[metric]] #2: source: required",
+    )
+    assert exc_info.value.problems == expected
+
+
+def test_present_metric_fields_are_diagnosed_in_file_order(tmp_path: Path) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        'window = 30\n\n[[metric]]\nsource = "pagerduty"\ntitle = ""\nid = "Bad-ID"\n'
+    )
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    expected = (
+        'metrics.toml [[metric]] #1: source = "pagerduty": use "issues" or "deployments"',
+        'metrics.toml [[metric]] #1: title = "": use a non-empty string',
+        (
+            'metrics.toml [[metric]] #1: id = "Bad-ID": '
+            "use lowercase letters, digits and _, starting with a letter"
+        ),
+    )
+    assert exc_info.value.problems == expected
+
+
+def test_missing_metric_fields_follow_canonical_order_after_present_fields(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "window = 30\n\n"
+        "[[metric]]\n\n"
+        "[[metric]]\n"
+        'source = "issues"\n\n'
+        "[[metric]]\n"
+        'source = "deployments"\n'
+    )
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    expected = (
+        "metrics.toml [[metric]] #1: id: required",
+        "metrics.toml [[metric]] #1: title: required",
+        "metrics.toml [[metric]] #1: source: required",
+        "metrics.toml [[metric]] #2: id: required",
+        "metrics.toml [[metric]] #2: title: required",
+        "metrics.toml [[metric]] #2: label: required",
+        "metrics.toml [[metric]] #3: id: required",
+        "metrics.toml [[metric]] #3: title: required",
+        "metrics.toml [[metric]] #3: environment: required",
+    )
+    assert exc_info.value.problems == expected
+
+
+def test_count_failures_is_accepted(tmp_path: Path) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "window = 30\n"
+        "[[metric]]\n"
+        'id = "rollbacks"\n'
+        'title = "Deploy rollbacks"\n'
+        'source = "deployments"\n'
+        'environment = "production"\n'
+        'count = "failures"\n'
+    )
+
+    settings = load_metrics(tmp_path)
+
+    assert len(settings.metrics) == 1
+    assert settings.metrics[0].source == DeploymentsSource(
+        environment="production", count="failures"
+    )
+
+
+@pytest.mark.parametrize(
+    ("toml_content", "expected_problem"),
+    [
+        ('window = 30\nthresholds = "bad"\n', "metrics.toml: thresholds: expected a table"),
+        ('window = 30\nmetric = "bad"\n', "metrics.toml: metric: expected a list of tables"),
+        ("window = 30\nmetric = [123]\n", "metrics.toml [[metric]] #1: expected a table"),
+    ],
+)
+def test_container_shapes_are_validated(
+    tmp_path: Path, toml_content: str, expected_problem: str
+) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(toml_content)
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    assert expected_problem in exc_info.value.problems
+
+
+def test_malformed_toml_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / ".rapid-ship/metrics.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("window = [unclosed\n")
+
+    with pytest.raises(MetricsSettingsError) as exc_info:
+        load_metrics(tmp_path)
+
+    assert any("metrics.toml: " in p for p in exc_info.value.problems)

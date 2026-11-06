@@ -108,7 +108,7 @@ def _validate_thresholds(
                 f"metrics.toml [thresholds] {t_key} = {t_val}: {t_key} names no metric; "
                 f"use one of {', '.join(known_ids)}"
             )
-        elif isinstance(t_val, bool) or not isinstance(t_val, (int, float)) or t_val < 0:
+        elif isinstance(t_val, bool) or not isinstance(t_val, (int, float)) or not (t_val >= 0):
             problems.append(
                 f"metrics.toml [thresholds] {t_key} = {t_val}: use a number of at least 0"
             )
@@ -117,126 +117,117 @@ def _validate_thresholds(
     return parsed
 
 
-def _validate_metric_id(
-    m: dict[str, object],
+def _validate_metric_id_field(
+    v: object,
     where: str,
     seen_ids: set[str],
     code_metric_ids: Collection[str],
     problems: list[str],
-) -> bool:
-    if "id" not in m:
-        problems.append(f"{where}: id: required")
-        return False
-    m_id = m["id"]
-    if not isinstance(m_id, str):
+) -> None:
+    if not isinstance(v, str):
         problems.append(f"{where}: id: use a string")
-        return False
-    ok = True
-    if not _ID_RE.fullmatch(m_id):
+        return
+    if not _ID_RE.fullmatch(v):
         problems.append(
-            f'{where}: id = "{m_id}": use lowercase letters, digits and _, starting with a letter'
+            f'{where}: id = "{v}": use lowercase letters, digits and _, starting with a letter'
         )
-        ok = False
-    elif m_id in BASIC_METRICS:
-        problems.append(f'{where}: id = "{m_id}": {m_id} is a basic metric; choose another id')
-        ok = False
-    elif m_id in seen_ids:
+    elif v in BASIC_METRICS:
+        problems.append(f'{where}: id = "{v}": {v} is a basic metric; choose another id')
+    elif v in seen_ids:
         problems.append(
-            f'{where}: id = "{m_id}": another metric already defines {m_id}; choose another id'
+            f'{where}: id = "{v}": another metric already defines {v}; choose another id'
         )
-        ok = False
-    elif m_id in code_metric_ids:
+    elif v in code_metric_ids:
         problems.append(
-            f'{where}: id = "{m_id}": devctl_project.metrics() already defines {m_id}; '
-            "choose another id"
+            f'{where}: id = "{v}": devctl_project.metrics() already defines {v}; choose another id'
         )
-        ok = False
-    seen_ids.add(m_id)
-    return ok
+    seen_ids.add(v)
 
 
-def _validate_metric_title(m: dict[str, object], where: str, problems: list[str]) -> bool:
-    if "title" not in m:
-        problems.append(f"{where}: title: required")
-        return False
-    title = m["title"]
-    if not isinstance(title, str) or not title:
-        problems.append(f'{where}: title = "{title}": use a non-empty string')
-        return False
-    return True
-
-
-def _validate_metric_source(m: dict[str, object], where: str, problems: list[str]) -> str | None:
-    if "source" not in m:
-        problems.append(f"{where}: source: required")
-        return None
-    source = m["source"]
-    if source not in ("issues", "deployments"):
-        problems.append(f'{where}: source = "{source}": use "issues" or "deployments"')
-        return None
-    return source
-
-
-def _parse_issues_source(
-    m: dict[str, object], where: str, problems: list[str]
-) -> IssuesSource | None:
-    label_ok = False
-    if "label" not in m:
-        problems.append(f"{where}: label: required")
-    else:
-        label = m["label"]
-        if not isinstance(label, str) or not label:
-            problems.append(f'{where}: label = "{label}": use a non-empty string')
-        else:
-            label_ok = True
-
-    for k in m:
-        if k in ("environment", "count"):
-            problems.append(f'{where}: {k} is not read by source "issues"; it reads label')
-        elif k not in ("id", "title", "source", "label"):
-            problems.append(f"{where}: unknown key {k!r}; it accepts id, title, source, label")
-
-    if label_ok and isinstance(m["label"], str):
-        return IssuesSource(label=m["label"])
-    return None
-
-
-def _parse_deployments_source(
-    m: dict[str, object], where: str, problems: list[str]
-) -> DeploymentsSource | None:
-    env_ok = False
-    if "environment" not in m:
-        problems.append(f"{where}: environment: required")
-    else:
-        env = m["environment"]
-        if not isinstance(env, str) or not env:
-            problems.append(f'{where}: environment = "{env}": use a non-empty string')
-        else:
-            env_ok = True
-
-    count_ok = True
-    if "count" in m:
-        count = m["count"]
-        if count not in ("rollbacks", "failures"):
-            problems.append(f'{where}: count = "{count}": use "rollbacks" or "failures"')
-            count_ok = False
-
-    for k in m:
-        if k == "label":
+def _validate_source_specific_field(
+    k: str,
+    v: object,
+    raw_source: object,
+    where: str,
+    problems: list[str],
+) -> None:
+    if k == "label":
+        if raw_source == "deployments":
             problems.append(
                 f'{where}: label is not read by source "deployments"; '
                 "it reads environment and count"
             )
-        elif k not in ("id", "title", "source", "environment", "count"):
-            problems.append(
-                f"{where}: unknown key {k!r}; it accepts id, title, source, environment, count"
-            )
+        elif raw_source == "issues" and (not isinstance(v, str) or not v):
+            problems.append(f'{where}: label = "{v}": use a non-empty string')
+    elif k == "environment":
+        if raw_source == "issues":
+            problems.append(f'{where}: environment is not read by source "issues"; it reads label')
+        elif raw_source == "deployments" and (not isinstance(v, str) or not v):
+            problems.append(f'{where}: environment = "{v}": use a non-empty string')
+    elif k == "count":
+        if raw_source == "issues":
+            problems.append(f'{where}: count is not read by source "issues"; it reads label')
+        elif raw_source == "deployments" and v not in ("rollbacks", "failures"):
+            problems.append(f'{where}: count = "{v}": use "rollbacks" or "failures"')
 
-    if env_ok and count_ok and isinstance(m["environment"], str):
-        count_val = m.get("count", "rollbacks")
-        if count_val in ("rollbacks", "failures"):
-            return DeploymentsSource(environment=m["environment"], count=count_val)
-    return None
+
+def _validate_unknown_field(
+    k: str,
+    raw_source: object,
+    where: str,
+    problems: list[str],
+) -> None:
+    if raw_source == "issues":
+        problems.append(f"{where}: unknown key {k!r}; it accepts id, title, source, label")
+    elif raw_source == "deployments":
+        problems.append(
+            f"{where}: unknown key {k!r}; it accepts id, title, source, environment, count"
+        )
+    else:
+        problems.append(
+            f"{where}: unknown key {k!r}; it accepts id, title, source, label, environment, count"
+        )
+
+
+def _validate_present_metric_field(
+    k: str,
+    v: object,
+    raw_source: object,
+    where: str,
+    seen_ids: set[str],
+    code_metric_ids: Collection[str],
+    problems: list[str],
+) -> None:
+    if k == "id":
+        _validate_metric_id_field(v, where, seen_ids, code_metric_ids, problems)
+    elif k == "title":
+        if not isinstance(v, str) or not v:
+            problems.append(f'{where}: title = "{v}": use a non-empty string')
+    elif k == "source":
+        if v not in ("issues", "deployments"):
+            problems.append(f'{where}: source = "{v}": use "issues" or "deployments"')
+    elif k in ("label", "environment", "count"):
+        _validate_source_specific_field(k, v, raw_source, where, problems)
+    else:
+        _validate_unknown_field(k, raw_source, where, problems)
+
+
+def _validate_missing_metric_fields(
+    m: Mapping[str, object],
+    raw_source: object,
+    where: str,
+    problems: list[str],
+) -> None:
+    if "id" not in m:
+        problems.append(f"{where}: id: required")
+    if "title" not in m:
+        problems.append(f"{where}: title: required")
+    if "source" not in m:
+        problems.append(f"{where}: source: required")
+    elif raw_source == "issues" and "label" not in m:
+        problems.append(f"{where}: label: required")
+    elif raw_source == "deployments" and "environment" not in m:
+        problems.append(f"{where}: environment: required")
 
 
 def _validate_metrics(
@@ -256,27 +247,32 @@ def _validate_metrics(
             problems.append(f"{where}: expected a table")
             continue
 
-        id_ok = _validate_metric_id(m, where, seen_ids, code_metric_ids, problems)
-        title_ok = _validate_metric_title(m, where, problems)
-        source = _validate_metric_source(m, where, problems)
+        raw_source = m.get("source")
+        problems_before = len(problems)
 
-        src_obj: IssuesSource | DeploymentsSource | None = None
-        if source == "issues":
-            src_obj = _parse_issues_source(m, where, problems)
-        elif source == "deployments":
-            src_obj = _parse_deployments_source(m, where, problems)
+        for k, v in m.items():
+            _validate_present_metric_field(
+                k, v, raw_source, where, seen_ids, code_metric_ids, problems
+            )
 
-        if (
-            id_ok
-            and title_ok
-            and src_obj is not None
-            and isinstance(m.get("id"), str)
-            and isinstance(m.get("title"), str)
-        ):
+        _validate_missing_metric_fields(m, raw_source, where, problems)
+
+        if len(problems) == problems_before:
+            if raw_source == "issues":
+                src_obj: IssuesSource | DeploymentsSource = IssuesSource(label=str(m["label"]))
+            else:
+                count_val = m.get("count", "rollbacks")
+                if count_val in ("rollbacks", "failures"):
+                    src_obj = DeploymentsSource(
+                        environment=str(m["environment"]),
+                        count=count_val,
+                    )
+                else:
+                    continue
             parsed.append(
                 SettingsMetric(
-                    metric_id=m["id"],
-                    title=m["title"],
+                    metric_id=str(m["id"]),
+                    title=str(m["title"]),
                     source=src_obj,
                 )
             )

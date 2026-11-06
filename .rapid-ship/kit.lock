@@ -301,7 +301,7 @@ sha256 = "cf8e37861ff75879fb5d5771413df4fd9c42c394060a6f242c09fae51e498d8d"
 [[file]]
 path = "tools/devctl/devctl/metrics/settings.py"
 kind = "managed"
-sha256 = "8bfa8aaeb2004d9eec2e8004efa7d8bc6e1b9c1a42fce5c3203e1a0314ab3e36"
+sha256 = "1d5c8d24e7ef8a2db227e7503fa2b71b4fa9c6285273f06c56c46aedd0799854"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"
