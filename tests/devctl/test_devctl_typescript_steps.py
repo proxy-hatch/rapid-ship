@@ -26,6 +26,19 @@ def test_each_step_runs_its_tool_in_the_stack_directory(workspace: Workspace) ->
     ctx = context(workspace)
     steps = [ts.FORMAT, ts.LINT, ts.TYPES, ts.DEAD_CODE, ts.TESTS]
     node_tools(ctx.directory, **{step.argv[0]: "sys.exit(0)" for step in steps})
+    expected = [
+        ("prettier", "--check", "."),
+        ("eslint", "--max-warnings", "0", "."),
+        ("tsc", "--noEmit"),
+        (
+            "knip",
+            "--include",
+            "files,dependencies,unlisted,binaries,unresolved,"
+            "exports,types,enumMembers,namespaceMembers",
+        ),
+        ("vitest", "run"),
+    ]
+    assert [step.argv for step in steps] == expected
     for step in steps:
         assert step.run(ctx).status == "passed"
         log = json.loads((ctx.directory / "node_modules/.bin" / f"{step.argv[0]}.log").read_text())
