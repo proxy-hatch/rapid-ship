@@ -6,6 +6,7 @@ the pre-commit hook and then fail in CI.
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -66,18 +67,63 @@ class TrackedFiles:
         """The paths that git must track for `path` to count; None when `path` resolves outside
         the root.
 
-        git records a symlink, not the paths beneath it. So three must be tracked: the path as
-        written, unless a tracked symlink holds it; its last name, in the directory it resolves
-        to; and the file or directory that the whole path resolves to.
+        Every needed symlink hop along the path must be tracked and contained within the
+        repository, along with the file or directory that the whole path resolves to.
         """
-        relative = PurePosixPath(path)
-        directory, resolved = self._resolved(relative.parent.as_posix()), self._resolved(path)
-        if directory is None or resolved is None:
+        real_root = self.root.resolve()
+        cur_dir = real_root
+        parts = deque(PurePosixPath(path).parts)
+        if not parts or parts == deque(["."]):
+            return ["."]
+
+        needed: list[str] = []
+        visited: set[str] = set()
+
+        while parts:
+            part = parts.popleft()
+            if not part or part == ".":
+                continue
+            if part == "..":
+                cur_dir = (cur_dir / "..").resolve()
+                if not cur_dir.is_relative_to(real_root):
+                    return None
+                continue
+
+            target_path = cur_dir / part
+            if target_path.is_symlink():
+                hop = self._hop(target_path, real_root, visited)
+                if hop is None or len(visited) > 40:
+                    return None
+                needed.append(hop[0])
+                cur_dir = hop[1]
+                parts.extendleft(reversed(hop[2]))
+                continue
+            cur_dir = target_path
+
+        try:
+            final_rel = cur_dir.relative_to(real_root).as_posix()
+        except ValueError:
             return None
-        behind_link = any(relative.is_relative_to(link) for link in self.links)
-        written = [] if behind_link else [relative.as_posix()]
-        last = (PurePosixPath(directory) / relative.name).as_posix()
-        return list(dict.fromkeys([*written, last, resolved]))
+        needed.append(final_rel)
+        return list(dict.fromkeys(needed))
+
+    def _hop(
+        self, link: Path, real_root: Path, visited: set[str]
+    ) -> tuple[str, Path, tuple[str, ...]] | None:
+        """The symlink relative path, new base directory and remaining parts; None on escape."""
+        try:
+            symlink_rel = link.relative_to(real_root).as_posix()
+        except ValueError:
+            return None
+        if symlink_rel in visited:
+            return None
+        visited.add(symlink_rel)
+        target = link.readlink()
+        if target.is_absolute():
+            if not target.is_relative_to(real_root):
+                return None
+            return symlink_rel, real_root, PurePosixPath(target.relative_to(real_root)).parts
+        return symlink_rel, link.parent, PurePosixPath(target).parts
 
     def _untracked_part(self, name: str) -> str | None:
         """What `git add` must stage for `name` to be tracked: `name` itself, when it is an

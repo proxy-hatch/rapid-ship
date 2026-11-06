@@ -72,3 +72,62 @@ def test_a_path_that_resolves_outside_the_repository_is_named(
     assert why_untracked(workspace, "src/ext/auth.py") == (
         "not tracked, because it resolves outside the repository"
     )
+
+
+def test_an_untracked_intermediate_symlink_is_staged_by_its_own_name(workspace: Workspace) -> None:
+    workspace.write("real/file.py", "")
+    workspace.link("bridge", "real")
+    workspace.link("alias", "bridge")
+    workspace.git("add", "real/file.py", "alias")
+
+    assert why_untracked(workspace, "alias/file.py") == "not tracked; stage bridge with git add"
+
+
+def test_an_ignored_intermediate_symlink_points_to_the_gitignore_rule(
+    workspace: Workspace,
+) -> None:
+    workspace.write(".gitignore", "bridge\n")
+    workspace.write("real/file.py", "")
+    workspace.link("bridge", "real")
+    workspace.link("alias", "bridge")
+    workspace.git("add", ".gitignore", "real/file.py", "alias")
+
+    assert "names a .gitignore rule" in why_untracked(workspace, "alias/file.py")
+
+
+def test_a_fully_tracked_symlink_chain_holds(workspace: Workspace) -> None:
+    workspace.write("real/file.py", "")
+    workspace.link("bridge", "real")
+    workspace.link("alias", "bridge")
+    workspace.git("add", "real/file.py", "bridge", "alias")
+
+    assert TrackedFiles.read(workspace.context().repo).holds("alias/file.py")
+
+
+def test_a_symlink_loop_is_handled_safely(workspace: Workspace) -> None:
+    workspace.link("loop_a", "loop_b")
+    workspace.link("loop_b", "loop_a")
+    workspace.git("add", "loop_a", "loop_b")
+
+    tf = TrackedFiles.read(workspace.context().repo)
+    assert not tf.holds("loop_a/file.py")
+    assert why_untracked(workspace, "loop_a/file.py") == (
+        "not tracked, because it resolves outside the repository"
+    )
+
+
+def test_an_escape_and_reentry_symlink_fails_containment(
+    workspace: Workspace, tmp_path: Path
+) -> None:
+    workspace.write("real/file.py", "")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "reenter").symlink_to(workspace.root / "real")
+    workspace.link("alias", str(outside / "reenter"))
+    workspace.git("add", "real/file.py", "alias")
+
+    tf = TrackedFiles.read(workspace.context().repo)
+    assert not tf.holds("alias/file.py")
+    assert why_untracked(workspace, "alias/file.py") == (
+        "not tracked, because it resolves outside the repository"
+    )

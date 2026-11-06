@@ -87,6 +87,9 @@ def link_errors(tracked: TrackedFiles, found: Sequence[str]) -> list[str]:
     """Each local link in each guide reaches a tracked file or a directory that holds one."""
     errors: list[str] = []
     for guide in found:
+        if not tracked.holds(guide):
+            errors.append(f"{guide}: {tracked.why_untracked(guide)}")
+            continue
         try:
             links = _links(tracked.root, guide)
         except (OSError, ValueError) as error:
@@ -194,19 +197,22 @@ def reachability_errors(tracked: TrackedFiles, found: Sequence[str]) -> list[str
     if ROOT_GUIDE not in found:
         missing = f"{ROOT_GUIDE}: add a root guide that links every other guide"
         return [_required(tracked, ROOT_GUIDE, missing)]
+    if not tracked.holds(ROOT_GUIDE):
+        return []  # link_errors reports an unheld root guide
+    valid = {guide for guide in found if tracked.holds(guide)}
     reached = {ROOT_GUIDE}
     pending = deque([ROOT_GUIDE])
     while pending:
         guide = pending.popleft()
         targets = set(_guide_targets(tracked.root, guide))
-        for other in found:
+        for other in valid:
             holder = posixpath.dirname(other) or "."
             if other not in reached and (other in targets or holder in targets):
                 reached.add(other)
                 pending.append(other)
     return [
         f"{guide}: not reachable by links from {ROOT_GUIDE}; link it from its parent guide"
-        for guide in sorted(set(found) - reached)
+        for guide in sorted(valid - reached)
     ]
 
 
@@ -274,6 +280,10 @@ def _document_errors(
     root = tracked.root
     errors: list[str] = []
     for path in _documents(tracked, directory):
+        if not tracked.holds(path):
+            if keys is not None:
+                errors.append(f"{path}: {tracked.why_untracked(path)}")
+            continue
         data = front_matter_of(root, path, keys or "")
         if isinstance(data, dict):
             text = (root / path).read_text(encoding="utf-8")
@@ -389,6 +399,8 @@ def rule_errors(context: CheckContext, tracked: TrackedFiles, found: Sequence[st
     """Each rule under a Rules heading ends with a marker whose reference resolves."""
     errors: list[str] = []
     for guide in found:
+        if not tracked.holds(guide):
+            continue  # link_errors reports a guide that cannot be read
         try:
             items = rules_items((tracked.root / guide).read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -413,7 +425,9 @@ def _rule_problem(
 def _root_documents(tracked: TrackedFiles) -> list[str]:
     """The ROOT_DOCUMENTS that git tracks and that exist as files."""
     return [
-        name for name in ROOT_DOCUMENTS if name in tracked.files and (tracked.root / name).is_file()
+        name
+        for name in ROOT_DOCUMENTS
+        if name in tracked.files and (tracked.root / name).is_file() and tracked.holds(name)
     ]
 
 
@@ -442,7 +456,7 @@ def root_link_errors(tracked: TrackedFiles) -> list[str]:
     missing or untracked root guide reachability_errors'."""
     root = tracked.root
     errors = link_errors(tracked, _root_documents(tracked))
-    if ROOT_GUIDE in tracked.files and (root / ROOT_GUIDE).is_file():
+    if ROOT_GUIDE in tracked.files and (root / ROOT_GUIDE).is_file() and tracked.holds(ROOT_GUIDE):
         targets = set(_guide_targets(root, ROOT_GUIDE))
         errors += [
             f"{ROOT_GUIDE}: does not link {name}; add it to the Find the change table"

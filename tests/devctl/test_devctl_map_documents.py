@@ -452,3 +452,45 @@ def test_untracked_feature_and_pattern_files_are_not_checked(workspace: Workspac
     result = MapStep().run(workspace.context(source_roots=()))
 
     assert (result.status, result.details) == ("passed", ())
+
+
+def test_a_feature_symlink_to_an_untracked_target_fails_explicitly(workspace: Workspace) -> None:
+    workspace.write("src/app/auth.py", "")
+    workspace.write("src/app/models.py", "")
+    workspace.write("docs/features/README.md", "# Feature files\n")
+    workspace.write("untracked.md", FEATURE)
+    workspace.link("docs/features/sign-in.md", "../../untracked.md")
+    workspace.git(
+        "add",
+        "src/app/auth.py",
+        "src/app/models.py",
+        "docs/features/README.md",
+        "docs/features/sign-in.md",
+    )
+
+    assert tracked_features(workspace) == [
+        "docs/features/sign-in.md: not tracked; stage untracked.md with git add"
+    ]
+
+
+def test_a_pattern_symlink_to_an_ignored_target_fails_explicitly(workspace: Workspace) -> None:
+    workspace.write(".gitignore", "ignored_pattern.md\n")
+    workspace.write("src/app/settings.py", "")
+    workspace.write("ignored_pattern.md", PATTERN)
+    workspace.link("docs/patterns/settings.md", "../../ignored_pattern.md")
+    workspace.stage()
+    context = workspace.context()
+
+    errors = pattern_errors(context, TrackedFiles.read(context.repo))
+    assert len(errors) == 1
+    assert "docs/patterns/settings.md: not tracked, and git add cannot stage it" in errors[0]
+
+
+def test_a_fully_tracked_pattern_symlink_passes(workspace: Workspace) -> None:
+    workspace.write("src/app/settings.py", "")
+    workspace.write("docs/patterns/real.md", PATTERN)
+    workspace.link("docs/patterns/alias.md", "real.md")
+    workspace.stage()
+    context = workspace.context()
+
+    assert pattern_errors(context, TrackedFiles.read(context.repo)) == []

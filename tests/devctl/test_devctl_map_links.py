@@ -326,3 +326,17 @@ def test_fenced_blocks_returns_the_content_of_each_closed_block() -> None:
 
 def test_fenced_blocks_ignores_a_block_that_never_closes() -> None:
     assert fenced_blocks("```\nopen\n``\n") == []
+
+
+def test_guide_symlink_to_an_untracked_target_fails_explicitly(workspace: Workspace) -> None:
+    workspace.root_guide("[Docs](docs/)\n")
+    workspace.write("untracked_guide.md", "# Docs\n")
+    workspace.link("docs/AGENTS.md", "../untracked_guide.md")
+    workspace.git("add", "AGENTS.md", "README.md", "ARCHITECTURE.md", "docs/AGENTS.md")
+
+    context = workspace.context()
+    tracked = TrackedFiles.read(context.repo)
+    found = guides(tracked, context.project)
+    assert link_errors(tracked, found) == [
+        "docs/AGENTS.md: not tracked; stage untracked_guide.md with git add"
+    ]
