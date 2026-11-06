@@ -36,7 +36,20 @@ FORMS = [  # command line, form, target
         "graphql",
         None,
     ),
+    # A wrapper runs the command written after its own options.
+    ("env GH_DEBUG=1 gh pr merge 7 --squash", "pr-merge", "7"),
+    ("nohup gh pr merge 7", "pr-merge", "7"),
+    ("xargs gh pr merge --squash", "pr-merge", None),
+    ("timeout 60 ./devctl as worker gh pr merge 7", "pr-merge", "7"),
+    ("command gh pr merge 7 --admin", "admin", None),
+    ("env -a x gh pr merge 7 --admin", "admin", None),
+    ("env -S 'gh pr merge' 7 --squash", "pr-merge", "7"),
+    ("exec git push origin main", "push", None),
+    ("time -p gh api -X PUT repos/o/r/pulls/7/merge", "rest", None),
     ("gh pr view 7", None, None),
+    ("gh pr merge -h 7 --admin", None, None),
+    ("gh api -X PUT repos/o/r/pulls/7/merge --help", None, None),
+    ("gh pr merge 7 -t --help", "pr-merge", "7"),
     ("gh api -X GET repos/o/r/contents/a.md", None, None),
     ("git push origin task", None, None),
 ]
@@ -48,6 +61,18 @@ def test_find_merge_recognises_each_form(line: str, form: str | None, target: st
     assert ((merge.form, merge.target) if merge else (None, None)) == (form, target)
 
 
+@pytest.mark.parametrize("prefix", ["", "env ", "./devctl as worker ", "env ./devctl as worker "])
+@pytest.mark.parametrize("admin", ["", "--admin "])
+def test_a_help_word_after_an_expansion_keeps_the_merge_form(prefix: str, admin: str) -> None:
+    line = f"{prefix}gh pr merge 7 {admin}$(printf %s --subject) --help"
+    merges = [
+        found for words in simple_commands(line) if (found := find_merge(words, lambda: TASK))
+    ]
+    assert len(merges) == 1
+    assert merges[0].form == ("admin" if admin else "pr-merge")
+    assert merges[0].target == (None if admin else "7")
+
+
 def test_a_pr_merge_keeps_its_repository_head_and_command() -> None:
     words = simple_commands("gh pr merge 7 -R x/y --match-head-commit abc --squash")[0]
     assert find_merge(words, unread) == Merge(
@@ -56,6 +81,20 @@ def test_a_pr_merge_keeps_its_repository_head_and_command() -> None:
         repository="x/y",
         head="abc",
         command=("gh", "pr", "merge", "7", "-R", "x/y", "--squash"),
+    )
+
+
+def test_a_wrapped_pr_merge_keeps_the_wrapper_in_its_command() -> None:
+    words = simple_commands("env GH_DEBUG=1 gh pr merge 7 --match-head-commit abc")[0]
+    assert find_merge(words, unread) == Merge(
+        "pr-merge", "7", head="abc", command=("env", "GH_DEBUG=1", "gh", "pr", "merge", "7")
+    )
+
+
+def test_a_pr_merge_in_an_env_split_string_keeps_the_words_env_runs() -> None:
+    words = simple_commands("env -S 'gh pr merge 7 --match-head-commit abc' --squash")[0]
+    assert find_merge(words, unread) == Merge(
+        "pr-merge", "7", head="abc", command=("env", "gh", "pr", "merge", "7", "--squash")
     )
 
 
