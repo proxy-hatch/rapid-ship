@@ -421,7 +421,8 @@ def test_a_dirty_tree_is_listed_up_to_20_paths_and_nothing_is_written(
         "and 3 more",
     ]
     assert lines[0].startswith("the work tree has changes")
-    assert "rs-setup" in lines[-1]
+    assert "coding agent" in lines[-1]
+    assert "rs-" not in lines[-1]
     assert "commit or stash" in lines[-1]
     assert files_in(git_repo) == sorted([*names, "tracked.md"])
 
