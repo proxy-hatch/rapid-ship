@@ -22,7 +22,7 @@ from devctl.doctor import (
     run_doctor,
 )
 from devctl.process import ProcessResult
-from devctl.settings import App
+from devctl.settings import App, ProjectStack
 from github_fakes import (
     REVIEWER_ID,
     FakeGitHub,
@@ -220,35 +220,42 @@ def test_owner_reads_are_get_requests(fake_run: FakeRun) -> None:
 
 
 def test_codeowners_must_match_the_mode() -> None:
-    assert codeowners_problems("* @o\n", True, "@o", "python") == []
-    assert codeowners_problems("* @o\n/src/ @team\n", True, "@o", "python")
-    assert codeowners_problems(PROTECTED, False, "@o", "agnostic") == []
-    assert codeowners_problems("* @o\n" + PROTECTED, False, "@o", "agnostic")
-    assert codeowners_problems(PROTECTED.replace("/devctl @o\n", ""), False, "@o", "agnostic")
+    assert codeowners_problems("* @o\n", True, "@o", (ProjectStack("python", "."),)) == []
+    assert codeowners_problems("* @o\n/src/ @team\n", True, "@o", (ProjectStack("python", "."),))
+    assert codeowners_problems(PROTECTED, False, "@o", (ProjectStack("agnostic", "."),)) == []
+    assert codeowners_problems("* @o\n" + PROTECTED, False, "@o", (ProjectStack("agnostic", "."),))
+    assert codeowners_problems(
+        PROTECTED.replace("/devctl @o\n", ""), False, "@o", (ProjectStack("agnostic", "."),)
+    )
 
 
 def test_codeowners_must_name_a_team_that_is_the_code_owner() -> None:
     team = "@my-org/platform-team"
-    assert codeowners_problems(f"* {team}\n", True, team, "agnostic") == []
-    assert codeowners_problems("* @my-org\n", True, team, "agnostic") == [
+    assert codeowners_problems(f"* {team}\n", True, team, (ProjectStack("agnostic", "."),)) == []
+    assert codeowners_problems("* @my-org\n", True, team, (ProjectStack("agnostic", "."),)) == [
         f"the one active CODEOWNERS line is not * {team}"
     ]
     owned = PROTECTED.replace(" @o\n", f" {team}\n")
-    assert codeowners_problems(owned, False, team, "agnostic") == []
+    assert codeowners_problems(owned, False, team, (ProjectStack("agnostic", "."),)) == []
     # Flight checks every Protected path against the code owner, not only the first.
-    assert codeowners_problems(PROTECTED, False, team, "agnostic") == [
+    assert codeowners_problems(PROTECTED, False, team, (ProjectStack("agnostic", "."),)) == [
         f"CODEOWNERS must name only {team} for: {', '.join(PROTECTED_PATHS)}"
     ]
     one_path = owned.replace(f"/.rapid-ship/ {team}\n", "/.rapid-ship/ @my-org\n")
-    assert codeowners_problems(one_path, False, team, "agnostic") == [
+    assert codeowners_problems(one_path, False, team, (ProjectStack("agnostic", "."),)) == [
         f"CODEOWNERS must name only {team} for: .rapid-ship/"
     ]
 
 
 def test_python_flight_codeowners_protects_the_guardrail_settings() -> None:
-    assert any("pyproject.toml" in p for p in codeowners_problems(PROTECTED, False, "@o", "python"))
+    assert any(
+        "pyproject.toml" in p
+        for p in codeowners_problems(PROTECTED, False, "@o", (ProjectStack("python", "."),))
+    )
     python = "".join(f"/{path} @o\n" for path in PYTHON_PROTECTED_PATHS)
-    assert codeowners_problems(PROTECTED + python, False, "@o", "python") == []
+    assert (
+        codeowners_problems(PROTECTED + python, False, "@o", (ProjectStack("python", "."),)) == []
+    )
 
 
 def test_protected_paths_match_the_seeded_codeowners() -> None:
@@ -266,7 +273,12 @@ def test_protected_paths_match_the_seeded_codeowners() -> None:
     patterns = {path for path in protected if path.startswith("docs/patterns/")}
     assert len(patterns) == 4
     assert protected - patterns == {*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS}
-    assert codeowners_problems("".join(f"{line}\n" for line in flight), False, "@o", "python") == []
+    assert (
+        codeowners_problems(
+            "".join(f"{line}\n" for line in flight), False, "@o", (ProjectStack("python", "."),)
+        )
+        == []
+    )
 
 
 def test_installation_permissions_must_match_exactly() -> None:

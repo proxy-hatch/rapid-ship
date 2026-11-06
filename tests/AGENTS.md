@@ -29,3 +29,5 @@ Label offline and simulated tests; live evidence belongs in [docs/trials](../doc
 [devctl/test_devctl_check_integration.py](devctl/test_devctl_check_integration.py) and [devctl/test_devctl_project_dogfood.py](devctl/test_devctl_project_dogfood.py) need network access and gitleaks 8.30.1 on PATH, so `uv run pytest` needs them too. [test_gitleaks_settings.py](test_gitleaks_settings.py) runs real gitleaks offline.
 Check rejected operations for unchanged state when that is part of the contract.
 Run affected files with `uv run pytest tests/test_<area>.py` from the repository root, and devctl's with `uv run pytest tests/devctl`.
+
+`test_devctl_settings_stacks.py` covers stack validation and innermost ownership. `test_devctl_jsonc.py` and `test_devctl_node.py` cover JSONC and fake local Node tools. `test_devctl_doctor_stacks.py` covers per-stack Python floors, exclusions and CODEOWNERS errors. `check_workspace.stack_table` writes settings fixtures; `node_tools` writes fake tools without npm installation.

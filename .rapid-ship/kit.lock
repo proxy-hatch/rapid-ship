@@ -205,8 +205,8 @@ sha256 = "1d74145cdfeaf15e966e08e2a370846813d28cbdbf8bec736c4805bb89dca2f4"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
-kind = "seeded"
-template_sha256 = "b171460741b2cf2711e159939e212ce59d87b5d0319bb674bf7c398ccf8de22a"
+kind = "managed"
+sha256 = "f2328138ceda04a8a5ec070bc9c3244f569b102aaab554a3f1a15ce01377b21e"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
@@ -216,12 +216,12 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "618ac3d91e7e847e2c92402b42f14b0e9398557e6dd4061e3b575d9ce23259e3"
+sha256 = "6eb9333b1583cd9dea7587dcf16c7bcc41c01e5143bf1ee1d440d7b624a48504"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "22ebe84aa697446135bf8ea3a8c0b755b900b6be1461d6f66b60f5e0e5f5993c"
+sha256 = "cd79802e94a60a0b29228abc531390130374cad9875e9604faad9a309f3594f7"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"

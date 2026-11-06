@@ -10,6 +10,8 @@ from typing import Any, cast
 
 import pytest
 
+from devctl.settings import ProjectStack
+
 from devctl import cli, doctor
 from devctl.doctor import (
     DoctorContext,
@@ -96,7 +98,7 @@ class TestNames:
         [
             {},
             {"worker_app": None, "reviewer_app": None},
-            {"stack": "agnostic", "repository": None, "code_owner": None},
+            {"stacks": (ProjectStack("agnostic", "."),), "repository": None, "code_owner": None},
             {"excluded": (".agents/skills",)},
         ],
         ids=["agent identity on", "agent identity off", "agnostic, no repository", "excluded"],

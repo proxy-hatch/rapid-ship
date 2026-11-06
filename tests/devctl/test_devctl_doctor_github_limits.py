@@ -18,6 +18,7 @@ from devctl.doctor import (
     github_items,
     ruleset_problems,
 )
+from devctl.settings import ProjectStack
 from github_fakes import (
     REVIEWER_ID,
     REVIEWER_INSTALLATION,
@@ -283,24 +284,44 @@ def test_the_ruleset_must_name_the_default_branch_and_exclude_nothing_of_it() ->
 
 
 def test_codeowners_owners_are_compared_without_regard_to_case() -> None:
-    assert codeowners_problems("# note\n\n*  @O   # the owner\n", True, "@o", "python") == []
-    assert codeowners_problems("* @o @team\n", True, "@o", "python")
-    assert codeowners_problems("* @o\n* @o\n", True, "@o", "python")
-    assert codeowners_problems("# only a comment\n", True, "@o", "python")
+    assert (
+        codeowners_problems(
+            "# note\n\n*  @O   # the owner\n", True, "@o", (ProjectStack("python", "."),)
+        )
+        == []
+    )
+    assert codeowners_problems("* @o @team\n", True, "@o", (ProjectStack("python", "."),))
+    assert codeowners_problems("* @o\n* @o\n", True, "@o", (ProjectStack("python", "."),))
+    assert codeowners_problems("# only a comment\n", True, "@o", (ProjectStack("python", "."),))
     team = "@my-org/platform-team"
-    assert codeowners_problems("* @My-Org/Platform-Team\n", True, team, "python") == []
-    assert codeowners_problems(f"* {team}\n", True, "@My-Org/Platform-Team", "python") == []
+    assert (
+        codeowners_problems("* @My-Org/Platform-Team\n", True, team, (ProjectStack("python", "."),))
+        == []
+    )
+    assert (
+        codeowners_problems(
+            f"* {team}\n", True, "@My-Org/Platform-Team", (ProjectStack("python", "."),)
+        )
+        == []
+    )
 
 
 def test_a_flight_path_must_be_owned_by_the_owner_alone() -> None:
     lines = "".join(f"/{path} @o\n" for path in PROTECTED_PATHS)
-    assert codeowners_problems(lines, False, "@o", "agnostic") == []
+    assert codeowners_problems(lines, False, "@o", (ProjectStack("agnostic", "."),)) == []
     # The last line for a path is the one GitHub applies.
-    assert codeowners_problems(lines + "/devctl @other\n", False, "@o", "agnostic")
-    assert codeowners_problems(lines + "/devctl @o\n", False, "@o", "agnostic") == []
+    assert codeowners_problems(
+        lines + "/devctl @other\n", False, "@o", (ProjectStack("agnostic", "."),)
+    )
+    assert (
+        codeowners_problems(lines + "/devctl @o\n", False, "@o", (ProjectStack("agnostic", "."),))
+        == []
+    )
     for owners in ("@other", "@o @other", ""):
         changed = lines.replace("/devctl @o\n", f"/devctl {owners}\n")
-        assert "for: devctl" in " ".join(codeowners_problems(changed, False, "@o", "agnostic"))
+        assert "for: devctl" in " ".join(
+            codeowners_problems(changed, False, "@o", (ProjectStack("agnostic", "."),))
+        )
 
 
 def test_a_run_without_github_access_leaves_the_apps_unknown(ctx_github: MakeContext) -> None:

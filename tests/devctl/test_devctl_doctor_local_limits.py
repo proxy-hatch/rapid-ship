@@ -175,7 +175,7 @@ class TestSignIns:
         [
             {},
             {"worker_app": None, "reviewer_app": None},
-            {"stack": "agnostic", "repository": None, "code_owner": None},
+            {"stacks": (ProjectStack("agnostic", "."),), "repository": None, "code_owner": None},
         ],
         ids=["agent identity on", "agent identity off", "agnostic, no repository"],
     )
