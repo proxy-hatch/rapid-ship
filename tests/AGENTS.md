@@ -26,10 +26,12 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 Annotate every test, fixture and helper: mypy strict and Ruff's rules cover `tests/`, with only `S101` (assert) ignored. Start a process through `devctl.process.run_process`, as `conftest.py` and `check_workspace.py` do, so a test needs no `rs-exception`.
 Use `tmp_path` for repository state and temporary executables for command stand-ins. The Kit tests build scratch git repositories with the `git_repo` fixture, whose commits need no signing and run no hooks.
 Label offline and simulated tests; live evidence belongs in [docs/trials](../docs/trials/).
-[devctl/test_devctl_check_integration.py](devctl/test_devctl_check_integration.py) and [devctl/test_devctl_project_dogfood.py](devctl/test_devctl_project_dogfood.py) need network access and gitleaks 8.30.1 on PATH, so `uv run pytest` needs them too. [test_gitleaks_settings.py](test_gitleaks_settings.py) runs real gitleaks offline.
+[devctl/test_devctl_check_integration.py](devctl/test_devctl_check_integration.py) and [devctl/test_devctl_project_dogfood.py](devctl/test_devctl_project_dogfood.py) need network access and gitleaks 8.30.1 on PATH. `uv run pytest` and `./devctl check` also need Node.js 24.15.0 or later in major 24 with npm for the pinned knip integration test. [test_gitleaks_settings.py](test_gitleaks_settings.py) runs real gitleaks offline.
 Check rejected operations for unchanged state when that is part of the contract.
 Run affected files with `uv run pytest tests/test_<area>.py` from the repository root, and devctl's with `uv run pytest tests/devctl`.
 
 `test_devctl_settings_stacks.py` covers stack validation and innermost ownership. `test_devctl_jsonc.py` and `test_devctl_node.py` cover JSONC and fake local Node tools. `test_devctl_doctor_stacks.py` covers per-stack Python floors, exclusions and CODEOWNERS errors. `check_workspace.stack_table` writes settings fixtures; `node_tools` writes fake tools without npm installation.
 
 `test_devctl_check_stacks.py` covers per-stack step names, working directories, ownership and tracked holder references.
+
+`test_devctl_typescript_steps.py` uses fake local tools to check argv, working directories, timeouts, exit classifications, install ordering and TypeScript file sizes. `test_devctl_typescript_doctor.py` checks the floor, Node engine requirements and Protected settings offline. `test_devctl_typescript_knip_include.py` installs only pinned knip 6.43.0 and TypeScript 6.0.3 in a scratch project and observes which settings can hide unused exports.

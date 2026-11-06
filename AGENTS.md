@@ -14,7 +14,8 @@ The settings hold the code owner, the Mode (`[escalation] every_pr`) and each Ap
 
 - Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
-- Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access and gitleaks 8.30.1 on `PATH`.
+- Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access, gitleaks 8.30.1 on `PATH`, and Node.js 24.15.0 or later in major 24 with npm.
+- Install TypeScript dependencies before checks: `./devctl check --install` runs `npm ci --no-audit --no-fund` in each TypeScript stack first; each needs a committed `package-lock.json`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
 - Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code and agy wiring.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
