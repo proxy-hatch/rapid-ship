@@ -59,7 +59,7 @@ The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so 
 | Step | Tier | Fails when |
 | --- | --- | --- |
 | `format`, `lint` | fast | `ruff format --check` or `ruff check` reports a finding |
-| `map` | fast | An AGENTS.md link is broken, a maintained directory has no guide, a guide is unreachable from the root guide, a feature file, Pattern file or Rule lacks its fields or names something that does not exist, a Pattern lacks its `task` or a non-empty `## Lessons` section, a skill lacks its front matter, a regular `SKILL.md` or its `.claude/skills` link, or `README.md` or `ARCHITECTURE.md` is missing, unlinked from the root guide or holds a broken local link |
+| `map` | fast | An AGENTS.md link is broken, a maintained directory has no guide, a guide is unreachable from the root guide, a feature file, Pattern file or Rule lacks its fields or names something that git does not track, a Pattern lacks its `task` or a non-empty `## Lessons` section, a skill lacks its front matter, a regular `SKILL.md` or its `.claude/skills` link, or `README.md` or `ARCHITECTURE.md` is missing, unlinked from the root guide or holds a broken local link |
 | `exceptions` | fast | A suppression lacks its `rs-exception: EX-<n>` marker and entry in `.rapid-ship/exceptions.toml`, or an entry matches nothing |
 | `file-size` | fast | A source file exceeds 500 lines without an exception |
 | `kit` | fast | The lock is unreadable, or a managed file that is not excluded is missing |
@@ -71,6 +71,8 @@ The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so 
 | `workflows` | full | zizmor 1.30.1 reports a finding in a GitHub Actions workflow |
 | `diff` | full | The change removes a test without declaring it, turns an assertion into a tautology, adds an `autouse` fixture without an exception, or adds and removes more than 1,500 counted lines without declaring the overage. It also lists each Protected path the change touches, and each Corrections ledger entry it changes or removes, without failing |
 | `evidence` | full, PRs only | The PR body lacks its `## Evidence` section with a command, its result and a `Not covered:` line |
+
+The `map` step reads only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds, and no file that CI will lack. An untracked guide, directory, feature file, Pattern, skill or link target does not count, and its errors say what to stage (`check/tracked.py`). The `exceptions` and `file-size` steps also read untracked files that git does not ignore.
 
 The agnostic stack has no `format`, `lint`, `types`, `contracts`, `dead-code`, `tests` or `audit` step. pip-audit and zizmor run through `uv tool run --from <pin>`; they are not dependencies. vulture and deptry are dev dependencies and run through `uv run --locked`, as Ruff and mypy do, because deptry maps each import to a distribution installed in the project's environment.
 
