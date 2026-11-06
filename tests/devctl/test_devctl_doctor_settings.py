@@ -23,7 +23,7 @@ SHIM = (
     f"PYTHONPATH={shlex.quote(str(DEVCTL))} exec {shlex.quote(sys.executable)} "
     "-c 'import sys; from devctl.cli import main; sys.exit(main())' \"$@\"\n"
 )
-INVALID_KEY = 'stack = "python"\n[escalation]\nrevision_rounds = 0\n'
+INVALID_KEY = 'stack = "python"\n[escalation]\nevery_pr = "no"\n'
 
 
 def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
@@ -87,8 +87,8 @@ def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(
     assert main(["doctor", "--settings"]) == 2
 
     assert (
-        "unknown  guardrails  settings: .rapid-ship/project.toml [escalation] revision_rounds: "
-        "expected an integer of at least 1"
+        "unknown  guardrails  settings: .rapid-ship/project.toml [escalation] every_pr: "
+        "expected true or false"
     ) in capsys.readouterr().out.splitlines()
 
 
