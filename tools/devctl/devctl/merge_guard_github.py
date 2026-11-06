@@ -18,7 +18,7 @@ from devctl.codeowners import CODEOWNERS_FILES, FileChange, FileStatus, patterns
 from devctl.doctor_github import decoded_contents
 from devctl.doctor_items import OwnerGet, OwnerReadError
 from devctl.doctor_local import CI_JOB_NAME
-from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID
+from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID, PROTECTED_PATHS, PYTHON_PROTECTED_PATHS
 from devctl.github.api import GitHubError, json_list, json_object
 
 _PAGE = 100  # GitHub's largest page
@@ -26,6 +26,13 @@ _FILE_PAGES = 30  # GitHub lists at most 3,000 files of a pull request
 # The fields of a changed file that the guard reads. A page of 100 files with their patches can
 # pass gh_get's output cap, so gh prints only these.
 _FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
+# A base without CODEOWNERS has no trusted project-specific set. Use every shipped stack's
+# settings without consulting the work tree or head, which the PR can change. Common paths stay
+# rooted; Python settings can live below a stack directory. Keep existing **/ prefixes intact.
+_KIT_PATTERNS = (
+    *(f"/{path}" for path in (*PROTECTED_PATHS, *CODEOWNERS_FILES)),
+    *(f"/{path}" if path.startswith("**/") else f"/**/{path}" for path in PYTHON_PROTECTED_PATHS),
+)
 _VERDICTS = frozenset({"APPROVED", "CHANGES_REQUESTED"})  # the reviews that decide
 # A pull request's URL as gh reads one, whose repository wins over -R.
 _PR_URL = re.compile(
@@ -118,7 +125,7 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
     """The Protected-set patterns of the CODEOWNERS file GitHub reads on the base branch.
 
     GitHub reads the first of CODEOWNERS_FILES that exists, so a 404 moves to the next name, and
-    none at all is an empty Protected set.
+    none at all uses the Kit's seeded Protected set. The head is never read.
     """
     ref = quote(pull.base, safe="/")
     for name in CODEOWNERS_FILES:
@@ -129,7 +136,7 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
                 continue
             raise
         return patterns_in(decoded_contents(json_object(found, f"the {name} contents")))
-    return []
+    return list(_KIT_PATTERNS)
 
 
 def changed_files(read: OwnerGet, pull: PullRequest) -> list[FileChange]:

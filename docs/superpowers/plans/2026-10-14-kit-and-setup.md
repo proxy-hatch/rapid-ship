@@ -20,6 +20,12 @@ The first drafts of plans 4 and 5, GitHub commands and Kit skills, were deleted 
 
 This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 4 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records.
 
+## Setup merge fallback integration
+
+The merge guard uses the existing common and Python Protected-path constants when the base has no CODEOWNERS. Common paths stay root-anchored; Python settings match at any depth. Every supported CODEOWNERS location is covered, so a later first CODEOWNERS also requires the owner to merge.
+
+**Pending before this change merges:** plan 6.1a must integrate its `ProjectStack` path sets with this fallback. This implementation round imports no unmerged plan 6 code. The final PR must remain unmerged until that integration, full checks and independent review of the final head pass.
+
 ## Conventions for every plan
 
 - Every command in both CLIs is one word followed by arguments:

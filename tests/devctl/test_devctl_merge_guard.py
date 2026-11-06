@@ -349,8 +349,10 @@ def test_codeowners_is_read_where_github_reads_it() -> None:
 
     unowned = owner(files=guide)
     unowned.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
-    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", unowned) is None
-    assert unowned.paths == [PR, CODEOWNERS, root_file, docs_file, FILES, RUNS]
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", unowned) == TOUCHES.format(
+        "docs/AGENTS.md"
+    )
+    assert unowned.paths == [PR, CODEOWNERS, root_file, docs_file, FILES]
 
 
 def test_codeowners_that_cannot_be_read_denies() -> None:
@@ -642,3 +644,85 @@ def test_unreadable_settings_deny_every_merge(tmp_path: Path) -> None:
     assert "[linear] was removed" in reason
     assert reason.endswith("; fix that, then merge again")
     assert reader.paths == []
+
+
+@pytest.mark.parametrize("settings", [OFF, ON])
+@pytest.mark.parametrize("first_owners", [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"])
+def test_setup_and_later_first_codeowners_require_owner_merge(
+    tmp_path: Path, settings: HookSettings, first_owners: str
+) -> None:
+    # Simulated GitHub: even a head file that exempts the Kit cannot judge its own merge.
+    root = project(tmp_path, APPS if settings.agent_identity else "")
+    (root / ".github").mkdir()
+    (root / ".github/CODEOWNERS").write_text("/unrelated @o\n")
+    reader = owner(files=[{"filename": first_owners, "status": "added"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    reader.serve(
+        f"repos/o/r/contents/{first_owners}?ref={HEAD}",
+        {"encoding": "base64", "content": base64.b64encode(b"/unrelated @o\n").decode()},
+    )
+    command = "./devctl as worker gh" if settings.agent_identity else "gh"
+    assert hooked(root, f"{command} pr merge 7 --match-head-commit {HEAD}", reader) == (
+        "deny",
+        TOUCHES.format(first_owners),
+    )
+    assert reader.paths == [
+        PR,
+        CODEOWNERS,
+        "repos/o/r/contents/CODEOWNERS?ref=main",
+        "repos/o/r/contents/docs/CODEOWNERS?ref=main",
+        FILES,
+    ]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".github/workflows/check.yml",
+        ".githooks/pre-commit",
+        "devctl",
+        "tools/devctl/devctl/hook.py",
+        ".agents/hooks.json",
+        ".claude/settings.json",
+        "nested/AGENTS.md",
+        "nested/CLAUDE.md",
+        ".rapid-ship/project.toml",
+        ".gitleaks.toml",
+        ".gitleaksignore",
+        "zizmor.yml",
+        "zizmor.yaml",
+        "pyproject.toml",
+        "backend/pyproject.toml",
+        "backend/deep/mypy.ini",
+        "backend/.mypy.ini",
+        "backend/pytest.ini",
+        "backend/.pytest.ini",
+        "backend/pytest.toml",
+        "backend/.pytest.toml",
+        "backend/setup.cfg",
+        "backend/tox.ini",
+        "backend/.importlinter",
+        "backend/deep/ruff.toml",
+        "backend/deep/.ruff.toml",
+    ],
+)
+def test_without_base_codeowners_kit_paths_require_owner_merge(path: str) -> None:
+    reader = owner(files=[{"filename": path, "status": "added"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded("gh pr merge 7", reader) == TOUCHES.format(path)
+
+
+@pytest.mark.parametrize("path", ["src/app/core.py", "nested/devctl", "nested/.github/x.yml"])
+def test_without_base_codeowners_unprotected_paths_still_pass(path: str) -> None:
+    reader = owner(files=[{"filename": path, "status": "modified"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
+
+
+@pytest.mark.parametrize("text", ["", "* @o\n", "/custom @o\n"])
+def test_existing_base_codeowners_keeps_its_set(text: str) -> None:
+    reader = owner(files=[{"filename": "pyproject.toml", "status": "modified"}])
+    reader.serve(
+        CODEOWNERS, {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
+    )
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
