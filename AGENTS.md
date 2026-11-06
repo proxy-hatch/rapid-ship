@@ -80,7 +80,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
-- This repository is in Walk (`[escalation] every_pr = true` in [project.toml](.rapid-ship/project.toml)), so the merge guard denies every agent merge and the owner merges each pull request.
+- This repository dog-foods Flight (`[escalation] every_pr = false` in [project.toml](.rapid-ship/project.toml)). Agents may merge only non-Protected pull requests after checks pass and the Reviewer App approves the exact head, with no open owner question. The owner merges Protected-set pull requests, declared behavioural-test removals and declared diff-cap overages. This Mode-change PR is Protected and waits for the owner.
 
 ## Safety
 
