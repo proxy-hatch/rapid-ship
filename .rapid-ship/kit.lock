@@ -49,6 +49,11 @@ kind = "seeded"
 template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233cf1"
 
 [[file]]
+path = ".rapid-ship/metrics.toml"
+kind = "seeded"
+template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b376e8"
+
+[[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
 template_sha256 = "d58f6cf9ada8b7ed69651285449f19470c4643e47054f162d8974fab57012451"
@@ -206,8 +211,7 @@ sha256 = "1d74145cdfeaf15e966e08e2a370846813d28cbdbf8bec736c4805bb89dca2f4"
 [[file]]
 path = "tools/devctl/devctl/doctor_github.py"
 kind = "managed"
-sha256 = "1e9c7d882d68d5b831f5f741515b63f7c4f0cddc81e12e79b56d7cba31414b46"
-
+sha256 = "ad4decd74a7f62952d0e58f09f131ff5478343ce25aff25f5cd0828be1c54bce"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_items.py"
@@ -283,6 +287,21 @@ sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
 sha256 = "759d72b37ff4001f16dd3dda97d3358dfa13c8aa9c8551c522354a8f0fab2f2a"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/__init__.py"
+kind = "managed"
+sha256 = "64b5a187b0037031957c02b5221276a92430c07257c962336a19c468d3274e57"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/model.py"
+kind = "managed"
+sha256 = "cf8e37861ff75879fb5d5771413df4fd9c42c394060a6f242c09fae51e498d8d"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/settings.py"
+kind = "managed"
+sha256 = "8bfa8aaeb2004d9eec2e8004efa7d8bc6e1b9c1a42fce5c3203e1a0314ab3e36"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"
