@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import Workspace, fake_tool, project_settings
-from devctl.check import core_steps, run_check, step_name
+from devctl.check import core_steps, step_name
 from devctl.check.diff import DiffStep
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.filesize import FileSizeStep
@@ -72,16 +72,6 @@ def test_a_stack_step_runs_in_its_directory(
     logs = [json.loads(line) for line in tool.with_suffix(".log").read_text().splitlines()]
     assert len(logs) == 5
     assert {entry["cwd"] for entry in logs} == {str(workspace.root / "backend")}
-
-
-def test_a_stack_without_steps_blocks_the_step_list(workspace: Workspace) -> None:
-    results = run_check(workspace.context(stacks=(ProjectStack("typescript", "frontend"),)), "fast")
-    assert len(results) == 1
-    assert (results[0].name, results[0].status, results[0].details) == (
-        "step list",
-        "blocked",
-        ("ValueError: devctl has no check steps for the typescript stack",),
-    )
 
 
 def test_suppressions_are_read_in_their_owners_forms(workspace: Workspace) -> None:

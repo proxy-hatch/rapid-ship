@@ -111,7 +111,7 @@ sha256 = "1d92b98236b910d30f536179149df2bfa8fd5170beedbdeb5f1915216223d1a7"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "03212e6ac44d9bf953cf032aced0149718bda1d934fa4372be30e1e38ae096d8"
+sha256 = "18dd6d2597d5702c0ede74a53b5d83a7760f440da11018dab93c575fdab3a55a"
 
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
@@ -131,7 +131,7 @@ sha256 = "158e04af8f8793b52c1476ecaf5a46431500ac67aebd2e7fa1e62670fd6713e1"
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
 kind = "managed"
-sha256 = "72d0d5608270a27ba2c66c0c09056895d6e71449cd361bcc39e310546148dae8"
+sha256 = "56ed23004d75097905fb2d50d9f4e275c367c895cc769841c16d69e0d83b605a"
 
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
@@ -179,6 +179,11 @@ kind = "managed"
 sha256 = "d32b198aa22ee42f7bc6ab664d28157fa282d4eb8955ccee227c56f49cbac9a9"
 
 [[file]]
+path = "tools/devctl/devctl/check/stacks/typescript.py"
+kind = "managed"
+sha256 = "7cb85e888efbbf37901d47a7e1af00651d733b0f92ba840c7b0add88de5dd6bd"
+
+[[file]]
 path = "tools/devctl/devctl/check/steps.py"
 kind = "managed"
 sha256 = "d701d42b077142fa0e02ff0043cf7bec262c1d251382b8dc8563f750aa297092"
@@ -191,7 +196,7 @@ sha256 = "d19762c6d0036b7144d006586c9f27d358a5da7af31d37b1cea4a3b14f011e2d"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "2f51240bc366faab64721376cb38a310e6551f086f474d74d8df796286bfbac9"
+sha256 = "524b071a16c97b7ee4fdafb02e3cd7775f09dacc130a234e2ba20f7aec0a5351"
 
 [[file]]
 path = "tools/devctl/devctl/codeowners.py"

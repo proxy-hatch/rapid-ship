@@ -1,0 +1,146 @@
+"""Offline: the TypeScript steps against fake tools in a fake node_modules/.bin."""
+
+import dataclasses
+import json
+
+import pytest
+
+from check_workspace import Workspace, fake_tool, node_tools
+from devctl.check import core_steps, run_check
+from devctl.check.filesize import line_counts, size_errors
+from devctl.check.stacks import typescript as ts
+from devctl.check.steps import CheckContext
+from devctl.settings import ProjectStack
+
+
+def context(workspace: Workspace) -> CheckContext:
+    workspace.write("frontend/package-lock.json", "{}")
+    return dataclasses.replace(
+        workspace.context(stacks=(ProjectStack("typescript", "frontend"),)),
+        stack=ProjectStack("typescript", "frontend"),
+    )
+
+
+def test_each_step_runs_its_tool_in_the_stack_directory(workspace: Workspace) -> None:
+    ctx = context(workspace)
+    steps = [ts.FORMAT, ts.LINT, ts.TYPES, ts.DEAD_CODE, ts.TESTS]
+    node_tools(ctx.directory, **{step.argv[0]: "sys.exit(0)" for step in steps})
+    for step in steps:
+        assert step.run(ctx).status == "passed"
+        log = json.loads((ctx.directory / "node_modules/.bin" / f"{step.argv[0]}.log").read_text())
+        assert log["argv"] == list(step.argv[1:])
+        assert log["cwd"] == str(ctx.directory)
+    names = [s.name for s in core_steps(ctx.project)]
+    assert names == [
+        "format (frontend)",
+        "lint (frontend)",
+        "map",
+        "exceptions",
+        "file-size",
+        "kit",
+        "types (frontend)",
+        "dead-code (frontend)",
+        "tests (frontend)",
+        "audit (frontend)",
+        "secrets",
+        "workflows",
+        "diff",
+        "evidence",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("step", "code", "status"),
+    [
+        (ts.DEAD_CODE, 0, "passed"),
+        (ts.DEAD_CODE, 1, "failed"),
+        (ts.DEAD_CODE, 2, "blocked"),
+        (ts.TYPES, 1, "failed"),
+        (ts.TYPES, 2, "failed"),
+        (ts.TYPES, 3, "blocked"),
+        *[
+            (step, code, status)
+            for step in (ts.FORMAT, ts.LINT, ts.TESTS)
+            for code, status in ((1, "failed"), (2, "blocked"))
+        ],
+    ],
+)
+def test_exit_codes_pass_fail_or_block(
+    workspace: Workspace, step: ts.NodeStep, code: int, status: str
+) -> None:
+    ctx = context(workspace)
+    node_tools(ctx.directory, **{step.argv[0]: f"sys.exit({code})"})
+    assert step.run(ctx).status == status
+
+
+def test_a_missing_tool_blocks_with_the_install_command(workspace: Workspace) -> None:
+    ctx = context(workspace)
+    result = ts.FORMAT.run(ctx)
+    assert result.status == "blocked"
+    assert result.details == (
+        "cannot run prettier in frontend: prettier is not installed; run npm ci there",
+    )
+    (ctx.directory / "package-lock.json").unlink()
+    assert (
+        ts.FORMAT.run(ctx).details[0].endswith("run npm install there and commit package-lock.json")
+    )
+
+
+def test_npm_audit_reads_its_report(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context(workspace)
+    monkeypatch.setenv("PATH", str(workspace.root / "bin"))
+    tool = fake_tool(
+        workspace.root / "bin",
+        "npm",
+        'sys.stdout.write(\'{"vulnerabilities":{"vite":{"severity":"high",'
+        '"via":[{"title":"Path traversal"}]}}}\'); sys.exit(1)',
+    )
+    assert ts.AuditStep().run(ctx).details == ("vite high: Path traversal",)
+    fake_tool(
+        tool.parent,
+        "npm",
+        'sys.stdout.write(\'{"error":{"code":"ENOLOCK","summary":"no lockfile"}}\'); sys.exit(1)',
+    )
+    assert ts.AuditStep().run(ctx).details == ("npm audit: ENOLOCK no lockfile",)
+    fake_tool(tool.parent, "npm", "sys.exit(0)")
+    assert ts.AuditStep().run(ctx).status == "passed"
+    tool.with_suffix(".log").unlink()
+    (ctx.directory / "package-lock.json").unlink()
+    assert ts.AuditStep().run(ctx).status == "blocked"
+    assert not tool.with_suffix(".log").exists()
+
+
+def test_install_runs_npm_ci_first(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context(workspace)
+    monkeypatch.setenv("PATH", str(workspace.root / "bin"))
+    fake_tool(workspace.root / "bin", "npm", "sys.exit(0)")
+    results = run_check(ctx, "fast", install=True)
+    assert results[0].name == "install (frontend)"
+    assert results[0].status == "passed"
+    log = json.loads((workspace.root / "bin/npm.log").read_text())
+    assert log["argv"] == ["ci", "--no-audit", "--no-fund"]
+    assert log["cwd"] == str(ctx.directory)
+    assert all(not r.name.startswith("install") for r in run_check(ctx, "fast"))
+
+
+def test_install_without_a_lock_blocks(workspace: Workspace) -> None:
+    ctx = context(workspace)
+    (ctx.directory / "package-lock.json").unlink()
+    result = ts.InstallStep().run(ctx)
+    assert result.status == "blocked"
+    assert "there is no package-lock.json" in result.details[0]
+
+
+def test_file_size_counts_typescript_sources(workspace: Workspace) -> None:
+    ctx = context(workspace)
+    for suffix in ("tsx", "css"):
+        workspace.write(f"frontend/src/a.{suffix}", "line\n" * 501)
+    sizes = line_counts(
+        workspace.root,
+        ["frontend/src/a.tsx", "frontend/src/a.css"],
+        ("frontend/src",),
+        frozenset(),
+        ctx.project,
+    )
+    assert sizes == {"frontend/src/a.tsx": 501}
+    assert len(size_errors(sizes, ())) == 1
