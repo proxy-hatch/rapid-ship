@@ -40,6 +40,23 @@ _JSON_TOKEN = re.compile(
 )
 
 
+def _inline_names(configuration: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    for token in re.finditer(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|[{}\[\],]', configuration):
+        text = token[0]
+        if text in {"{", "["}:
+            depth += 1
+        elif text in {"}", "]"}:
+            depth -= 1
+        elif text == "," and depth == 0:
+            parts.append(configuration[start : token.start()])
+            start = token.end()
+    parts.append(configuration[start:])
+    return sorted({match[1] for part in parts if (match := _RULE.match(part))})
+
+
 def line_rules(path: str, line: str) -> list[str]:
     rules = ["prettier-ignore"] if "prettier-ignore" in line else []
     if PurePosixPath(path).suffix not in SCRIPT_EXTENSIONS:
@@ -50,7 +67,7 @@ def line_rules(path: str, line: str) -> list[str]:
             "eslint:" + ",".join(sorted(set(re.split(r"[\s,]+", names)))) if names else "eslint"
         )
     for match in _INLINE.finditer(line):
-        names = sorted(set(_RULE.findall(match[1])))
+        names = _inline_names(match[1])
         if names:
             rules.append("eslint:" + ",".join(names))
     if "@ts-expect-error" in line:

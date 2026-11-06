@@ -32,7 +32,7 @@ class Lexer:
             char = self.source[self.position]
             self.position += 1
             if char == "\\":
-                self.position += 1
+                self.position += 2 if self.source.startswith("\r\n", self.position) else 1
             elif char == quote:
                 return Token(
                     self.source[start : self.position],
@@ -85,7 +85,10 @@ class Lexer:
         previous = self.tokens[-1].text if self.tokens else "="
         if previous not in _REGEX_AFTER and previous not in {">", "=>"}:
             return False
-        return bool(f"</{match[1]}" in rest or re.match(r"<[^<>]*?/\s*>", rest))
+        probe = Lexer(self.source)
+        probe.position = self.position
+        probe.tokens = self.tokens.copy()
+        return probe.jsx_tag() or f"</{match[1]}" in rest
 
     def jsx_expression(self) -> None:
         start = self.position

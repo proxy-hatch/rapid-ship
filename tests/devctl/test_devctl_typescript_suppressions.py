@@ -53,3 +53,17 @@ def test_script_extensions(extension: str) -> None:
 
 def test_other_files_only_have_prettier() -> None:
     assert line_rules("a.md", "@public @ts-expect-error prettier-ignore") == ["prettier-ignore"]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        '["error", {"paths": [], "patterns": []}]',
+        '["error", {"paths": [{"name": "x", "message": "bad, fake: off"}], "patterns": []}]',
+        '["error", "text, fake: off", "escaped \\"quote, phantom: off"]',
+        "['error', {paths: [], patterns: ['x, fake: off']}]",
+    ],
+)
+def test_inline_eslint_options_do_not_add_rule_names(options: str) -> None:
+    source = f'/* eslint no-restricted-imports: {options}, no-console: "off" */'
+    assert line_rules("a.ts", source) == ["eslint:no-console,no-restricted-imports"]

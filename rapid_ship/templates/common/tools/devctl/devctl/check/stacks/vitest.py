@@ -20,12 +20,12 @@ def _call(stream: list[Token], pairs: dict[int, int], index: int) -> tuple[int, 
     while position + 1 < len(stream) and stream[position].text == ".":
         each |= stream[position + 1].text == "each"
         position += 2
+    if each and position < len(stream) and stream[position].text.startswith("`"):
+        position += 1
+    elif each and position in pairs and stream[position].text == "(":
+        position = pairs[position] + 1
     if position not in pairs or stream[position].text != "(":
         return None
-    if each:
-        position = pairs[position] + 1
-        if position not in pairs or stream[position].text != "(":
-            return None
     return position, pairs[position], each
 
 

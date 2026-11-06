@@ -103,3 +103,47 @@ def test_regex_start_contexts(prefix: str) -> None:
     lexer = Lexer(prefix + '/test("fake")/; test("real", () => {});')
     lexer.javascript()
     assert sum(item.kind == "regex" for item in lexer.tokens) == 1
+
+
+@pytest.mark.parametrize("expression", ["a < b", "/</.test(value)"])
+def test_self_closing_jsx_attribute_expressions_preserve_both_readers(expression: str) -> None:
+    source = (
+        f"const el = <X value={{{expression}}} />; "
+        'describe("outer", () => { test("real", () => { expect(true).toBeTruthy(); }); });'
+    )
+    assert vitest.test_identities(source) == (["outer > real"], [])
+    assert vitest.tautologies(source) == [(1, "expect(true).toBeTruthy()")]
+
+
+@pytest.mark.parametrize("callee", ["test", "it.concurrent", "describe", "suite"])
+def test_tagged_each_calls_are_unchecked_and_later_chains_survive(callee: str) -> None:
+    source = (
+        f'{callee}.each`a | b\n1 | 2`("case", () => {{ test("child", () => {{}}); }});\n'
+        'describe("later", () => { test("real", () => {}); });'
+    )
+    expected_lines = [1]
+    expected_names = ["later > real"]
+    if callee not in {"describe", "suite"}:
+        expected_names.insert(0, "child")
+    else:
+        expected_lines = [2]
+    assert vitest.test_identities(source) == (expected_names, expected_lines)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_line_continuations_preserve_titles_and_later_assertions(newline: str) -> None:
+    source = (
+        "const s = 'a\\"
+        + newline
+        + "b'; test('re\\"
+        + newline
+        + "al', () => { expect(true).toBeTruthy(); });"
+    )
+    assert vitest.test_identities(source) == (["real"], [])
+    assert vitest.tautologies(source) == [(3, "expect(true).toBeTruthy()")]
+
+
+@pytest.mark.parametrize("ending", ["\\", "\\\n", "\\\r\n", "\r\n", "\n"])
+def test_unterminated_strings_still_reject(ending: str) -> None:
+    with pytest.raises(ValueError, match="unterminated string"):
+        vitest.test_identities("const s = 'bad" + ending)
