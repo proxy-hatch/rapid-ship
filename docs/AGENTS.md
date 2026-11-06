@@ -14,3 +14,5 @@ Update the relevant guide when changing user-visible commands or setup behavior.
 The [website](../website/AGENTS.md) builds these Markdown files directly; keep relative links valid for both repository readers and the site.
 Add public navigation entries in [sidebars.js](../website/sidebars.js) when a new guide belongs in the sidebar.
 Maintainer `AGENTS.md` files are excluded from publication; public pages should link to public documents.
+
+- [corrections](corrections/README.md) holds the Corrections ledger, one file per Correction. Its README defines the format and which changes need the owner.

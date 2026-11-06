@@ -19,6 +19,7 @@
 # /**/AGENTS.md @proxy-hatch
 # /**/CLAUDE.md @proxy-hatch
 # /.rapid-ship/ @proxy-hatch
+# /docs/corrections/README.md @proxy-hatch
 # /.gitleaks.toml @proxy-hatch
 # /.gitleaksignore @proxy-hatch
 # /zizmor.yml @proxy-hatch

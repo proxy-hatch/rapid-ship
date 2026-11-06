@@ -27,6 +27,7 @@ PROTECTED_PATHS = (
     "**/AGENTS.md",
     "**/CLAUDE.md",
     ".rapid-ship/",
+    "docs/corrections/README.md",
     ".gitleaks.toml",
     ".gitleaksignore",
     "zizmor.yml",

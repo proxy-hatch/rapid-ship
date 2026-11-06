@@ -40,6 +40,8 @@ Add a row for each directory guide.
 - Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
 
+- When the owner corrects you in a Session, add an open entry to the Corrections ledger with `source: session`. advisory
+
 ## Pull requests
 
 - Run `./devctl check` and fix what it reports before you open a pull request.

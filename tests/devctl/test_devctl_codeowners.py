@@ -97,3 +97,24 @@ def test_a_change_is_listed_once_by_each_path_a_pattern_covers() -> None:
         "docs/corrections/c0.md",
         "docs/corrections/c1.md",
     ]
+
+
+def test_the_ledger_readme_is_protected_through_its_codeowners_line() -> None:
+    from rapid_ship.kit.templates import render_files
+
+    rendered = render_files(
+        "python",
+        {"owner": "octo", "project_name": "demo", "package": "demo", "repository": "demo"},
+        (),
+    )
+    content = next(item.content for item in rendered if item.path == ".github/CODEOWNERS")
+    assert content is not None
+    patterns = patterns_in(content.decode())
+    assert protected_changes(
+        patterns,
+        [
+            FileChange("docs/corrections/README.md", "modified"),
+            FileChange("docs/corrections/2026-10-16-x-1.md", "added"),
+            FileChange("docs/corrections/last-pass.toml", "modified"),
+        ],
+    ) == ["docs/corrections/README.md"]

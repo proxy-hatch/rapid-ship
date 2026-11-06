@@ -21,6 +21,7 @@
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
 # /.rapid-ship/ @{{owner}}
+# /docs/corrections/README.md @{{owner}}
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}
 # /zizmor.yml @{{owner}}

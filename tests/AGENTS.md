@@ -33,3 +33,5 @@ Run affected files with `uv run pytest tests/test_<area>.py` from the repository
 `test_devctl_settings_stacks.py` covers stack validation and innermost ownership. `test_devctl_jsonc.py` and `test_devctl_node.py` cover JSONC and fake local Node tools. `test_devctl_doctor_stacks.py` covers per-stack Python floors, exclusions and CODEOWNERS errors. `check_workspace.stack_table` writes settings fixtures; `node_tools` writes fake tools without npm installation.
 
 `test_devctl_check_stacks.py` covers per-stack step names, working directories, ownership and tracked holder references.
+
+`devctl/test_devctl_ledger.py` tests field validation with literal texts; `devctl/test_devctl_map_ledger.py` tests map rule 9 in offline repositories, including nested entries, cursor commits, stack ambiguity and tracked-only prevention paths.

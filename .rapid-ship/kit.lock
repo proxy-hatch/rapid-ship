@@ -31,7 +31,7 @@ sha256 = "5c731e9d093143a0e935e2cfef9170b1a9706b2b1403832d0b091945075d74de"
 [[file]]
 path = ".github/CODEOWNERS"
 kind = "seeded"
-template_sha256 = "78d5915fd4a80074a4f94da4dd3124e2e12e0518ef92ff29efd32f679f2213c7"
+template_sha256 = "6f6676a61dc42f36e9f400df89950920e4819d020f2c833cce35452b63cce058"
 
 [[file]]
 path = ".github/workflows/devctl-check.yml"
@@ -56,7 +56,7 @@ template_sha256 = "548c372e33ef0c0cd48b9501116d2607e000349485842f7354b2ce5e1209c
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "b7ddab8183291ea9f53c32f0b8690fe176845d11c2ca2d239265e67797be49fe"
+template_sha256 = "78816420cf6f76730b554a9151e4402dce0d62595bf067ee163d7704c6a3ed89"
 
 [[file]]
 path = "ARCHITECTURE.md"
@@ -81,7 +81,12 @@ sha256 = "d7c661c1e05f49d537c37ced9a500a4945e69fcc426746026c979613446b89eb"
 [[file]]
 path = "docs/AGENTS.md"
 kind = "seeded"
-template_sha256 = "cc763e5f352e3220543f9b599c2e72d60af1981123b984347bd9f42bf18bac20"
+template_sha256 = "b8030108ec86363199e9b203f96a5d277360c87a0424b06b85c1fbc06f041e2f"
+
+[[file]]
+path = "docs/corrections/README.md"
+kind = "seeded"
+template_sha256 = "52ac440ef66c9bde11d9ceb856cc035b5593fe12ae9a9219c60ff3f805a45343"
 
 [[file]]
 path = "docs/features/README.md"
@@ -141,7 +146,12 @@ sha256 = "761f21dabe9a04537f41b0471c44578f14949dd3ede7e04a940ac145f9c7dbe2"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "fb1c9d087463f2c4bc592c5fb69c8d53cf1f127aa226e459ec033632b6b00cf7"
+sha256 = "808ffa6e4381f8aa32dad5a54b7175f6b0a002775f5f38f96e4be64a32627bd2"
+
+[[file]]
+path = "tools/devctl/devctl/check/map_ledger.py"
+kind = "managed"
+sha256 = "d23669b8ac2f7a6b549ba940751d46ac852577881939b2347d8d822308895fab"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
@@ -226,7 +236,7 @@ sha256 = "6eb9333b1583cd9dea7587dcf16c7bcc41c01e5143bf1ee1d440d7b624a48504"
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "cd79802e94a60a0b29228abc531390130374cad9875e9604faad9a309f3594f7"
+sha256 = "4bb2a42c25c28c448dd762103e8d2cc9d8d66964937f8395907144dacda961f5"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
@@ -282,6 +292,11 @@ sha256 = "3cceedc023ce6acf389d6057548d0f1a3be23fb736a0e3335d7fa75ff50d353b"
 path = "tools/devctl/devctl/jsonc.py"
 kind = "managed"
 sha256 = "68cc7ed73cedbbf05952c4e58cc88887587113960048c6c693e0901f66488ee4"
+
+[[file]]
+path = "tools/devctl/devctl/ledger.py"
+kind = "managed"
+sha256 = "10f42d3ed730dc8d43bd2c5e3ea776dc8114a3e62f992695e4056a907bd47946"
 
 [[file]]
 path = "tools/devctl/devctl/merge_guard.py"

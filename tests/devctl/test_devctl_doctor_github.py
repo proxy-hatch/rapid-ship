@@ -417,3 +417,15 @@ def test_an_installed_app_whose_slug_differs_from_the_record_is_missing(
         "o-rs-reviewer"
     )
     assert items["Worker App installation"].status == "ok"
+
+
+def test_flight_codeowners_needs_the_ledger_readme() -> None:
+    text = "\n".join(
+        f"/{path} @octo" for path in PROTECTED_PATHS if path != "docs/corrections/README.md"
+    )
+    problems = codeowners_problems(text, False, "@octo", ())
+    assert any(
+        "/docs/corrections/README.md" in problem or "docs/corrections/README.md" in problem
+        for problem in problems
+    )
+    assert codeowners_problems("* @octo\n", True, "@octo", ()) == []
