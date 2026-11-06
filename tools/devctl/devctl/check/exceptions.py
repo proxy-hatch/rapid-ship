@@ -22,7 +22,7 @@ from devctl.check.stacks.python import autouse_fixtures, comment_rules, comments
 from devctl.check.stacks.python_dead_code import PYPROJECT, toml_allowlist, tool_line_rules
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
-from devctl.settings import ExceptionEntry, SettingsError, load_exceptions
+from devctl.settings import ExceptionEntry, ProjectSettings, SettingsError, load_exceptions, under
 
 MARKER = re.compile(r"rs-exception:\s*(?P<id>EX-\d+)")
 
@@ -44,13 +44,19 @@ class ExceptionsStep:
 
     def run(self, context: CheckContext) -> StepResult:
         root = context.repo.root
-        stack = context.project.stacks[0].name
         try:
             entries = load_exceptions(root)
             managed = managed_paths(root, context.project.excluded)
             files = context.repo.files()
-            lines = scan(root, files, managed, stack)
-            unplaced = _allowlist_errors(root, files, managed) if stack == "python" else []
+            lines = scan(root, files, managed, context.project)
+            unplaced = [
+                error
+                for stack in context.project.stacks
+                if stack.name == "python"
+                for error in _allowlist_errors(
+                    root, files, managed, under(stack.directory, PYPROJECT)
+                )
+            ]
         except tomllib.TOMLDecodeError as error:
             return blocked(self.name, f"{PYPROJECT}: {error}")
         except (SettingsError, KitLockError, RepoError, OSError) as error:
@@ -60,7 +66,7 @@ class ExceptionsStep:
 
 
 def scan(
-    root: Path, files: Sequence[str], managed: frozenset[str], stack: str
+    root: Path, files: Sequence[str], managed: frozenset[str], project: ProjectSettings
 ) -> list[SuppressedLine]:
     """The lines that carry a suppression or, in Python source, an exception marker.
 
@@ -74,20 +80,26 @@ def scan(
         text = _readable(root, path, managed)
         if text is None:
             continue
-        if stack == "python" and path.endswith(_PYTHON_SOURCE):
+        python = any(stack.name == "python" for stack in project.owners(path))
+        if python and path.endswith(_PYTHON_SOURCE):
             found += _python_lines(path, text)
-        elif stack == "python" and path == PYPROJECT:
+        elif any(
+            stack.name == "python" and path == under(stack.directory, PYPROJECT)
+            for stack in project.stacks
+        ):
             found += _pyproject_lines(path, text)
         else:
             found += _text_lines(path, text)
     return found
 
 
-def _allowlist_errors(root: Path, files: Sequence[str], managed: frozenset[str]) -> list[str]:
+def _allowlist_errors(
+    root: Path, files: Sequence[str], managed: frozenset[str], path: str
+) -> list[str]:
     """The root pyproject.toml's items that the scan could not place on a line, and lines that
     hold two items."""
-    text = _readable(root, PYPROJECT, managed) if PYPROJECT in files else None
-    return toml_allowlist(text)[1] if text is not None else []
+    text = _readable(root, path, managed) if path in files else None
+    return toml_allowlist(text, path)[1] if text is not None else []
 
 
 def _readable(root: Path, path: str, managed: frozenset[str]) -> str | None:
@@ -148,7 +160,7 @@ def _text_lines(
 def _pyproject_lines(path: str, text: str) -> list[SuppressedLine]:
     """The text rules, plus each allowlist item as a suppression on its line."""
     items: dict[int, list[str]] = {}
-    for item in toml_allowlist(text)[0]:
+    for item in toml_allowlist(text, path)[0]:
         items.setdefault(item.line, []).append(normal_rule(item.rule))
     return _text_lines(path, text, items)
 

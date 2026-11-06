@@ -369,8 +369,12 @@ class DiffStep:
         notes: list[str] = []
         try:
             changes = changed_files(context.repo, base)
-            if context.project.stacks[0].name == "python":
-                problems, notes = _python_rules(context, base, changes)
+            python_changes = [
+                change
+                for change in changes
+                if any(stack.name == "python" for stack in context.project.owners(change.path))
+            ]
+            problems, notes = _python_rules(context, base, python_changes)
             notes += _protected(context.repo.root, changes)
             counted = counted_lines(context, base, changes)
         except (RepoError, OSError) as error:

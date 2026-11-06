@@ -31,3 +31,5 @@ Check rejected operations for unchanged state when that is part of the contract.
 Run affected files with `uv run pytest tests/test_<area>.py` from the repository root, and devctl's with `uv run pytest tests/devctl`.
 
 `test_devctl_settings_stacks.py` covers stack validation and innermost ownership. `test_devctl_jsonc.py` and `test_devctl_node.py` cover JSONC and fake local Node tools. `test_devctl_doctor_stacks.py` covers per-stack Python floors, exclusions and CODEOWNERS errors. `check_workspace.stack_table` writes settings fixtures; `node_tools` writes fake tools without npm installation.
+
+`test_devctl_check_stacks.py` covers per-stack step names, working directories, ownership and tracked holder references.

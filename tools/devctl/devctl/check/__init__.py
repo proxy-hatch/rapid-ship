@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 
@@ -24,7 +24,7 @@ from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES, Au
 from devctl.check.stacks.python_dead_code import DeadCodeStep
 from devctl.check.steps import CheckContext, Step, StepResult, Tier, blocked
 from devctl.repo import Repo, RepoError
-from devctl.settings import ProjectSettings
+from devctl.settings import ProjectSettings, ProjectStack, StackName
 
 TIERS: dict[Tier, frozenset[Tier]] = {
     "fast": frozenset({"fast"}),
@@ -36,20 +36,54 @@ class ChangeError(Exception):
     """The base commit or the PR body could not be determined."""
 
 
+def stack_steps(name: StackName) -> tuple[list[Step], list[Step]]:
+    if name == "python":
+        return [FORMAT, LINT], [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()]
+    if name == "agnostic":
+        return [], []
+    raise ValueError(f"devctl has no check steps for the {name} stack")
+
+
+def step_name(step: str, stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
+    if len(stacks) == 1 and stack.directory == ".":
+        return step
+    shared = sum(item.directory == stack.directory for item in stacks) > 1
+    suffix = f"{stack.directory}, {stack.name}" if shared else stack.directory
+    return f"{step} ({suffix})"
+
+
+def base_name(name: str) -> str:
+    return name.split(" (", 1)[0]
+
+
+@dataclass
+class StackStep:
+    step: Step
+    stack: ProjectStack
+    name: str
+    tier: Tier
+
+    def run(self, context: CheckContext) -> StepResult:
+        return replace(self.step.run(replace(context, stack=self.stack)), name=self.name)
+
+
 def core_steps(project: ProjectSettings) -> list[Step]:
-    """Core steps for the project's stack, in the order they run."""
-    python = project.stacks[0].name == "python"
-    # Typed apart: mypy reads an inline list of different step classes as list[object].
-    python_full: list[Step] = (
-        [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()] if python else []
-    )
+    fast: list[Step] = []
+    full: list[Step] = []
+    for stack in project.stacks:
+        early, late = stack_steps(stack.name)
+        for target, steps in ((fast, early), (full, late)):
+            target.extend(
+                StackStep(step, stack, step_name(step.name, stack, project.stacks), step.tier)
+                for step in steps
+            )
     return [
-        *([FORMAT, LINT] if python else []),
+        *fast,
         MapStep(),
         ExceptionsStep(),
         FileSizeStep(),
         KitStep(),
-        *python_full,
+        *full,
         SecretsStep(),
         WorkflowsStep(),
         DiffStep(),
