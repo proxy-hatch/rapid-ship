@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from devctl.metrics._order import TableHeader, scan_table_headers
 from devctl.settings import SettingsError
 
 METRICS = ".rapid-ship/metrics.toml"
@@ -230,53 +231,112 @@ def _validate_missing_metric_fields(
         problems.append(f"{where}: environment: required")
 
 
-def _validate_metrics(
-    val: object,
+def _validate_single_metric(
+    idx: int,
+    m: object,
+    seen_ids: set[str],
     code_metric_ids: Collection[str],
     problems: list[str],
-) -> list[SettingsMetric]:
-    parsed: list[SettingsMetric] = []
-    if not isinstance(val, list):
-        problems.append("metrics.toml: metric: expected a list of tables")
-        return parsed
+) -> SettingsMetric | None:
+    where = f"metrics.toml [[metric]] #{idx}"
+    if not isinstance(m, dict):
+        problems.append(f"{where}: expected a table")
+        return None
 
-    seen_ids: set[str] = set()
-    for idx, m in enumerate(val, start=1):
-        where = f"metrics.toml [[metric]] #{idx}"
-        if not isinstance(m, dict):
-            problems.append(f"{where}: expected a table")
-            continue
+    raw_source = m.get("source")
+    problems_before = len(problems)
 
-        raw_source = m.get("source")
-        problems_before = len(problems)
+    for k, v in m.items():
+        _validate_present_metric_field(k, v, raw_source, where, seen_ids, code_metric_ids, problems)
 
-        for k, v in m.items():
-            _validate_present_metric_field(
-                k, v, raw_source, where, seen_ids, code_metric_ids, problems
-            )
+    _validate_missing_metric_fields(m, raw_source, where, problems)
 
-        _validate_missing_metric_fields(m, raw_source, where, problems)
-
-        if len(problems) == problems_before:
-            if raw_source == "issues":
-                src_obj: IssuesSource | DeploymentsSource = IssuesSource(label=str(m["label"]))
-            else:
-                count_val = m.get("count", "rollbacks")
-                if count_val in ("rollbacks", "failures"):
-                    src_obj = DeploymentsSource(
-                        environment=str(m["environment"]),
-                        count=count_val,
-                    )
-                else:
-                    continue
-            parsed.append(
-                SettingsMetric(
-                    metric_id=str(m["id"]),
-                    title=str(m["title"]),
-                    source=src_obj,
+    if len(problems) == problems_before:
+        if raw_source == "issues":
+            src_obj: IssuesSource | DeploymentsSource = IssuesSource(label=str(m["label"]))
+        else:
+            count_val = m.get("count", "rollbacks")
+            if count_val in ("rollbacks", "failures"):
+                src_obj = DeploymentsSource(
+                    environment=str(m["environment"]),
+                    count=count_val,
                 )
+            else:
+                return None
+        return SettingsMetric(
+            metric_id=str(m["id"]),
+            title=str(m["title"]),
+            source=src_obj,
+        )
+    return None
+
+
+def _validate_root_keys(
+    data: Mapping[str, object],
+    table_header_names: set[str],
+    known_ids: Sequence[str],
+    code_metric_ids: Collection[str],
+    seen_ids: set[str],
+    problems: list[str],
+) -> tuple[dict[str, float], list[SettingsMetric]]:
+    parsed_thresholds: dict[str, float] = {}
+    parsed_metrics: list[SettingsMetric] = []
+    for key, val in data.items():
+        if key in table_header_names:
+            continue
+        if key == "window":
+            _validate_window(val, problems)
+        elif key == "thresholds":
+            parsed_thresholds = _validate_thresholds(val, known_ids, problems)
+        elif key == "metric":
+            if not isinstance(val, list):
+                problems.append("metrics.toml: metric: expected a list of tables")
+            else:
+                for idx, m in enumerate(val, start=1):
+                    metric = _validate_single_metric(idx, m, seen_ids, code_metric_ids, problems)
+                    if metric is not None:
+                        parsed_metrics.append(metric)
+        else:
+            problems.append(
+                f"metrics.toml: unknown key {key!r}; it accepts window, thresholds, metric"
             )
-    return parsed
+    return parsed_thresholds, parsed_metrics
+
+
+def _validate_table_headers(
+    headers: Sequence[TableHeader],
+    data: Mapping[str, object],
+    known_ids: Sequence[str],
+    code_metric_ids: Collection[str],
+    seen_ids: set[str],
+    problems: list[str],
+) -> tuple[dict[str, float], list[SettingsMetric]]:
+    parsed_thresholds: dict[str, float] = {}
+    parsed_metrics: list[SettingsMetric] = []
+    metric_idx = 0
+    raw_metrics = data.get("metric")
+    seen_unknown_tables: set[str] = set()
+
+    for header in headers:
+        if header.name == "thresholds":
+            parsed_thresholds = _validate_thresholds(data.get("thresholds"), known_ids, problems)
+        elif header.name == "metric":
+            if isinstance(raw_metrics, list) and metric_idx < len(raw_metrics):
+                m = raw_metrics[metric_idx]
+                metric = _validate_single_metric(
+                    metric_idx + 1, m, seen_ids, code_metric_ids, problems
+                )
+                if metric is not None:
+                    parsed_metrics.append(metric)
+            metric_idx += 1
+        else:
+            if header.name not in seen_unknown_tables:
+                seen_unknown_tables.add(header.name)
+                problems.append(
+                    f"metrics.toml: unknown key {header.name!r}; "
+                    "it accepts window, thresholds, metric"
+                )
+    return parsed_thresholds, parsed_metrics
 
 
 def load_metrics(root: Path, code_metric_ids: Collection[str] = ()) -> MetricsSettings:
@@ -286,8 +346,9 @@ def load_metrics(root: Path, code_metric_ids: Collection[str] = ()) -> MetricsSe
             (f"{METRICS}: missing; run rapid-ship sync to add it with the defaults",)
         )
 
+    text = path.read_text(encoding="utf-8")
     try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        data = tomllib.loads(text)
     except (OSError, tomllib.TOMLDecodeError) as error:
         raise MetricsSettingsError((f"metrics.toml: {error}",)) from error
 
@@ -298,20 +359,16 @@ def load_metrics(root: Path, code_metric_ids: Collection[str] = ()) -> MetricsSe
     valid_settings_ids = _collect_valid_settings_ids(data.get("metric"), code_metric_ids)
     known_ids = [*BASIC_METRICS, *valid_settings_ids, *sorted(code_metric_ids)]
 
-    parsed_thresholds: dict[str, float] = {}
-    parsed_metrics: list[SettingsMetric] = []
+    headers = scan_table_headers(text)
+    table_header_names = {h.name for h in headers}
+    seen_ids: set[str] = set()
 
-    for key, val in data.items():
-        if key == "window":
-            _validate_window(val, problems)
-        elif key == "thresholds":
-            parsed_thresholds = _validate_thresholds(val, known_ids, problems)
-        elif key == "metric":
-            parsed_metrics = _validate_metrics(val, code_metric_ids, problems)
-        else:
-            problems.append(
-                f"metrics.toml: unknown key {key!r}; it accepts window, thresholds, metric"
-            )
+    root_thresholds, root_metrics = _validate_root_keys(
+        data, table_header_names, known_ids, code_metric_ids, seen_ids, problems
+    )
+    header_thresholds, header_metrics = _validate_table_headers(
+        headers, data, known_ids, code_metric_ids, seen_ids, problems
+    )
 
     if "window" not in data:
         problems.insert(0, "metrics.toml: window: use an integer of at least 1")
@@ -321,6 +378,6 @@ def load_metrics(root: Path, code_metric_ids: Collection[str] = ()) -> MetricsSe
 
     return MetricsSettings(
         window=data["window"],
-        thresholds=parsed_thresholds,
-        metrics=tuple(parsed_metrics),
+        thresholds=header_thresholds if "thresholds" in table_header_names else root_thresholds,
+        metrics=tuple(header_metrics if "metric" in table_header_names else root_metrics),
     )
