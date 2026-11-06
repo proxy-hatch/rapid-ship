@@ -561,7 +561,7 @@ Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows the
 **Files:**
 
 - 7.1: Kit skills under `rapid_ship/templates/common/.agents/skills/`, each with its generated `.claude/skills` link: `rs-tdd/`, `rs-diagnosing-bugs/`, `rs-codebase-design/`, `rs-pr/`, `rs-writing-for-agents/`, `rs-writing/`, `rs-ponytail/`. `rapid_ship/upstream.lock`, `rapid_ship/templates/kit.toml`. Removed: `rapid_ship/skills/rapid-ship-engineering/` and its `.agents/skills` and `.claude/skills` links. Updated: the root `AGENTS.md`, `rapid_ship/AGENTS.md`, `.agents/AGENTS.md`, `.claude/AGENTS.md`. Tests: `tests/test_kit_upstream.py` with `tests/fixtures/upstream/`.
-- 7.2: `rs-setup/` with `ruleset.json` and its references: the advice table on Agent identity, the stylistic options of each tool, and each step's known failures with the fix it offers. Tests: `tests/devctl/test_devctl_ruleset_json.py`.
+- 7.2: `rs-setup/` with `ruleset.json` and its references: the advice table on Agent identity, the stylistic options of each tool, Claude Code's sandbox setting (Spec 1 section 8, step 6), and each step's known failures with the fix it offers. Tests: `tests/devctl/test_devctl_ruleset_json.py`.
 - 7.3: `rs-health/` with `references/audit.md` and its reference on the shape of a proposed task; `rs-contribute/`; and `kit.toml`.
 - 7.4: `website/` (config, sidebar, home page), the site's pages under `docs/`, and `README.md`; `docs/getting-started.md` is deleted.
 - Docs, in each PR: `ARCHITECTURE.md` and the trial record under `docs/trials/`.
@@ -573,7 +573,7 @@ Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows the
 3. `rs-writing` and `rs-ponytail`, from this repository's engineering references.
 4. Retire `rapid-ship-engineering`, and point this repository's root AGENTS.md to `rs-writing` and `rs-ponytail`.
 5. `rs-setup`: Spec 1 section 8's steps, with the stacks, the starter Patterns, the advice table, the tool-settings PR and guided rectifying, and `ruleset.json` checked by `ruleset_problems`. The metrics step comes with Spec 3's plan.
-6. `rs-setup`'s references: the stylistic options of each tool, and each step's known failures with the explanation and the fix it offers.
+6. `rs-setup`'s references: the stylistic options of each tool, Claude Code's sandbox offer from Spec 1 section 8 step 6, with every owner-approved domain, write path and exclusion, complete-call matching and `--body-file`, the required Session restart before checks, validation commands and explicit untested limits, and each step's known failures with the explanation and the fix it offers.
 7. `rs-health` and its references: Spec 1 section 9, with the base rule on hidden or obscured errors. `references/audit.md` holds the audit, another reference holds the shape of a proposed task, and `rs-garden` reuses both. `rs-health` returns proposed tasks and writes the ones the owner picks to whatever tracker the owner's Harness reaches; otherwise it leaves them in the conversation.
 8. `rs-contribute`, listed under `optional_skills`.
 9. Live trial, an Owner step: `rs-setup` on a new scratch repository with a Python `backend/` and a React TypeScript `frontend/`, and on hello-rapid-ship, including `doctor --skills` in Claude Code and the tool-settings PR; `rs-health` on hello-rapid-ship, ending with the tasks the owner picks in a tracker that the Harness reaches.

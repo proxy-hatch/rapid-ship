@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 
 from check_workspace import Workspace, new_workspace
+from devctl.check.stacks.agnostic import WorkflowsStep
+from devctl.check.stacks.python import AuditStep
 from devctl.check.steps import tool_environment
 from devctl.process import run_process
 
@@ -121,6 +123,42 @@ def test_a_project_verb_and_check_step_extend_devctl(tmp_path: Path) -> None:
         "status": "passed",
         "details": ["release notes are current"],
     }
+
+
+def test_audit_and_workflows_pass_when_uv_cannot_write_its_tools_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A sandbox can let uv write its cache and nothing else in the owner's home.
+    project = init_project(tmp_path / "project", "python")
+    locked = run_process(["uv", "lock", "--quiet"], project.root, 600, env=tool_environment())
+    assert locked.returncode == 0, locked.stdout + locked.stderr
+    tools = tmp_path / "uv-tools"
+    tools.mkdir(mode=0o555)
+    monkeypatch.setenv("UV_TOOL_DIR", str(tools))
+
+    try:
+        # Prove the restriction applies to this process, including on privileged CI runners.
+        with pytest.raises(PermissionError):
+            (tools / "write-probe").write_text("denied")
+        for package, command in (("pip-audit==2.10.1", "pip-audit"), ("zizmor==1.30.1", "zizmor")):
+            control = run_process(
+                ["uv", "tool", "run", "--from", package, command, "--version"],
+                project.root,
+                600,
+                env=tool_environment(),
+            )
+            assert control.returncode != 0
+            assert str(tools) in control.stderr
+            assert (
+                "Permission denied" in control.stderr or "Operation not permitted" in control.stderr
+            )
+        results = [step.run(project.context()) for step in (AuditStep(), WorkflowsStep())]
+
+        statuses = [(result.name, result.status) for result in results]
+        assert statuses == [("audit", "passed"), ("workflows", "passed")], results
+        assert list(tools.iterdir()) == []
+    finally:
+        tools.chmod(0o755)
 
 
 UNUSED_FUNCTION = '''def unused_helper() -> None:
