@@ -10,7 +10,6 @@ from typing import cast
 
 import yaml
 
-from devctl.check.markdown import front_matter
 from devctl.codeowners import LEDGER
 
 LAST_PASS = LEDGER + "last-pass.toml"
@@ -68,6 +67,9 @@ def _rungs(value: object) -> bool:
 
 
 def read_entry(file: str, text: str) -> Entry | list[str]:
+    # check initializes map_ledger, which imports these public readers and dataclasses.
+    from devctl.check.markdown import front_matter
+
     try:
         data = front_matter(text)
     except (ValueError, yaml.YAMLError) as error:

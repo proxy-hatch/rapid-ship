@@ -1,10 +1,13 @@
 """Offline: ledger entries and last-pass.toml from literal texts."""
 
+import sys
 from datetime import date
+from pathlib import Path
 
 import pytest
 
 from devctl.ledger import Entry, LastPass, read_entry, read_last_pass
+from devctl.process import run_process
 
 FILE = "docs/corrections/2026-10-16-env-read-1.md"
 VALID = """date: 2026-10-16
@@ -125,3 +128,36 @@ def test_typed_fields_and_status_specific_fields_are_preserved() -> None:
     )
     assert isinstance(closed, Entry)
     assert closed.reason == "Code removed"
+
+
+def test_public_parsers_import_and_read_in_a_fresh_offline_process(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    code = f"""
+import sys
+
+def deny_network(event, args):
+    if event.startswith("socket."):
+        raise RuntimeError("offline test forbids network access")
+
+sys.addaudithook(deny_network)
+assert "devctl.check" not in sys.modules
+from devctl.ledger import LAST_PASS, Entry, LastPass, read_entry, read_last_pass
+from datetime import date
+
+entry = read_entry({FILE!r}, {entry_text()!r})
+assert isinstance(entry, Entry), entry
+assert entry.date == date(2026, 10, 16)
+assert entry.rungs == (1, 2)
+assert LAST_PASS == "docs/corrections/last-pass.toml"
+assert read_last_pass('through = "' + "a" * 40 + '"\\ndate = 2026-10-16') == LastPass(
+    "a" * 40, date(2026, 10, 16)
+)
+"""
+    result = run_process(
+        [sys.executable, "-c", code],
+        tmp_path,
+        10,
+        env={"PYTHONPATH": str(root / "tools/devctl")},
+    )
+    assert result.returncode == 0, result.stderr
+    assert not result.timed_out

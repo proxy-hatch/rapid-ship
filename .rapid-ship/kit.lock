@@ -296,7 +296,7 @@ sha256 = "68cc7ed73cedbbf05952c4e58cc88887587113960048c6c693e0901f66488ee4"
 [[file]]
 path = "tools/devctl/devctl/ledger.py"
 kind = "managed"
-sha256 = "10f42d3ed730dc8d43bd2c5e3ea776dc8114a3e62f992695e4056a907bd47946"
+sha256 = "46882794e2f9cac0987b5df585b45bc1f0514501531bdb835376474cb725e7c5"
 
 [[file]]
 path = "tools/devctl/devctl/merge_guard.py"
