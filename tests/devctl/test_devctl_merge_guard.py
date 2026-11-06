@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import new_workspace
+from check_workspace import new_workspace, stack_table
 from devctl.codeowners import FileChange, patterns_in
 from devctl.command_line import simple_commands
 from devctl.doctor_items import OwnerGet, OwnerReadError, gh_get
@@ -110,7 +110,7 @@ def project(tmp_path: Path, github: str = "", mode: str = "every_pr = false") ->
     workspace = new_workspace(tmp_path / "main")
     workspace.write(
         ".rapid-ship/project.toml",
-        f'stack = "python"\n\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}',
+        stack_table("python") + f'\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}',
     )
     return workspace.root
 
@@ -637,7 +637,10 @@ def test_unreadable_settings_deny_every_merge(tmp_path: Path) -> None:
     assert reader.paths == []
 
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n\n[linear]\nteam = "x"\n')
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
+    )
     decision, reason = hooked(workspace.root, line, reader)
     assert decision == "deny"
     assert reason.startswith("merge denied: the merge guard cannot check this merge: ")

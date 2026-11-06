@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import rapid_ship
+from check_workspace import stack_table
 from rapid_ship.kit.templates import (
     KitError,
     Template,
@@ -205,7 +206,7 @@ def test_kit_exclude_is_read_and_normalised(
     write_kit_settings(tmp_path, exclude=["devctl", "tools/devctl/", "./.agents/skills/rs-demo"])
     assert read_excluded(tmp_path) == ("devctl", "tools/devctl", ".agents/skills/rs-demo")
 
-    (tmp_path / ".rapid-ship/project.toml").write_text('stack = "python"\n')
+    (tmp_path / ".rapid-ship/project.toml").write_text(stack_table("python"))
     assert read_excluded(tmp_path) == ()
 
 
@@ -213,7 +214,7 @@ def test_kit_exclude_is_read_and_normalised(
 def test_an_invalid_kit_exclude_is_an_error(tmp_path: Path, value: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(
-        f'stack = "python"\n\n[kit]\nexclude = {value}\n'
+        stack_table("python") + f"\n[kit]\nexclude = {value}\n"
     )
 
     with pytest.raises(KitError, match=re.escape(".rapid-ship/project.toml [kit] exclude:")):
@@ -246,7 +247,7 @@ def test_kit_optional_is_read(tmp_path: Path, write_kit_settings: Callable[..., 
     write_kit_settings(tmp_path, optional=["rs-extra"])
     assert read_optional_skills(tmp_path) == ("rs-extra",)
 
-    (tmp_path / ".rapid-ship/project.toml").write_text('stack = "python"\n')
+    (tmp_path / ".rapid-ship/project.toml").write_text(stack_table("python"))
     assert read_optional_skills(tmp_path) == ()
 
 
@@ -254,7 +255,7 @@ def test_kit_optional_is_read(tmp_path: Path, write_kit_settings: Callable[..., 
 def test_an_invalid_kit_optional_is_an_error(tmp_path: Path, value: str) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(
-        f'stack = "python"\n\n[kit]\noptional = {value}\n'
+        stack_table("python") + f"\n[kit]\noptional = {value}\n"
     )
 
     message = ".rapid-ship/project.toml [kit] optional: expected a list of skill names"
@@ -280,7 +281,7 @@ def test_unreadable_project_settings_are_an_error(tmp_path: Path, text: str, mes
 
 def test_project_settings_behind_a_symlink_are_refused(tmp_path: Path) -> None:
     (tmp_path / "elsewhere").mkdir()
-    (tmp_path / "elsewhere/project.toml").write_text('stack = "python"\n')
+    (tmp_path / "elsewhere/project.toml").write_text(stack_table("python"))
     (tmp_path / ".rapid-ship").symlink_to("elsewhere")
 
     with pytest.raises(KitError, match=r"\.rapid-ship is a symlink"):

@@ -7,6 +7,7 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack, StackName
 
 NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
 NO_BODY = " (pass --pr-body <file> to check a body locally)"
@@ -34,11 +35,13 @@ def note(count: int) -> str:
 
 
 def big_change(
-    workspace: Workspace, count: int, *, body: str | None = None, stack: str = "python"
+    workspace: Workspace, count: int, *, body: str | None = None, stack: StackName = "python"
 ) -> StepResult:
     base = workspace.commit()
     workspace.write("src/app/big.py", lines(count))
-    return DiffStep().run(workspace.context(base=base, pr_body=body, stack=stack))
+    return DiffStep().run(
+        workspace.context(base=base, pr_body=body, stacks=(ProjectStack(stack, "."),))
+    )
 
 
 def test_exactly_1500_counted_lines_pass(workspace: Workspace) -> None:

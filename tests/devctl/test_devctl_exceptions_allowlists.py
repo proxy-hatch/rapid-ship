@@ -9,6 +9,7 @@ from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.stacks.python_dead_code import AllowlistItem, toml_allowlist
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack, StackName
 
 ENTRY = """
 [[exception]]
@@ -27,13 +28,16 @@ NOQA = "# " + "noqa"
 
 
 def setup(
-    workspace: Workspace, pyproject: str, *entries: tuple[str, str, str], stack: str = "python"
+    workspace: Workspace,
+    pyproject: str,
+    *entries: tuple[str, str, str],
+    stack: StackName = "python",
 ) -> StepResult:
     workspace.write(".rapid-ship/kit.lock", f'kit_version = "0.2.0"\nstack = "{stack}"\n')
     workspace.write("pyproject.toml", pyproject)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    return ExceptionsStep().run(workspace.context(stack=stack))
+    return ExceptionsStep().run(workspace.context(stacks=(ProjectStack(stack, "."),)))
 
 
 def test_a_marked_item_with_its_entry_passes(workspace: Workspace) -> None:
