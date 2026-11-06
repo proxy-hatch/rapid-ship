@@ -88,7 +88,48 @@ class Lexer:
         probe = Lexer(self.source)
         probe.position = self.position
         probe.tokens = self.tokens.copy()
-        return probe.jsx_tag() or f"</{match[1]}" in rest
+        if probe.jsx_tag():
+            return True
+        try:
+            if probe.arrow_parameters():
+                return False
+        except ValueError:
+            # JSX text can start with parentheses and contain JavaScript-invalid quotes.
+            pass
+        probe.position = self.position
+        probe.tokens = self.tokens.copy()
+        try:
+            probe.jsx()
+        except ValueError:
+            return False
+        return True
+
+    def arrow_parameters(self) -> bool:
+        """Probe a generic arrow's parameter list without reading its later body or literals."""
+        self.trivia()
+        if not self.source.startswith("(", self.position):
+            return False
+        depth = 0
+        while self.position < len(self.source):
+            self.trivia()
+            if self.position == len(self.source):
+                return False
+            token = self.next_token(self.source[self.position])
+            self.tokens.append(token)
+            if token.kind != "code":
+                continue
+            depth += (token.text == "(") - (token.text == ")")
+            if depth == 0:
+                self.trivia()
+                return self.source.startswith("=>", self.position)
+        return False
+
+    def trivia(self) -> None:
+        while self.position < len(self.source):
+            if self.source[self.position].isspace():
+                self.position += 1
+            elif not self.comment():
+                return
 
     def jsx_expression(self) -> None:
         start = self.position

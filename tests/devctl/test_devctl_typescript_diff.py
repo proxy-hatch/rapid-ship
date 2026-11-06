@@ -147,3 +147,81 @@ def test_line_continuations_preserve_titles_and_later_assertions(newline: str) -
 def test_unterminated_strings_still_reject(ending: str) -> None:
     with pytest.raises(ValueError, match="unterminated string"):
         vitest.test_identities("const s = 'bad" + ending)
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        'const f = <T>(x: T) => x; const text = "</T>";',
+        'const f = <T /* type */>(x: T) /* body */ => x; const text = "</T>";',
+        'const f = <T extends Item>(x: T) => x; const text = "</T>";',
+    ],
+)
+def test_generic_arrow_ignores_later_closing_tag_literals(prefix: str) -> None:
+    source = prefix + ' test("real", () => {}); expect(true).toBeTruthy();'
+    assert vitest.test_identities(source) == (["real"], [])
+    assert vitest.tautologies(source) == [(1, "expect(true).toBeTruthy()")]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "const el = <T>(text){expect(x).toBe(x)}</T>;",
+        "const el = <T>(Don't){expect(x).toBe(x)}</T>;",
+        'const el = <T title="</T>">test("fake", () => {})</T>;',
+        'const text = "<T>(x: T) => x; </T>"; const value = a < b;',
+        'f<T>(x); const text = "</T>";',
+    ],
+)
+def test_generic_and_jsx_controls_preserve_opaque_text(prefix: str) -> None:
+    source = prefix + ' test("real", () => {});'
+    assert vitest.test_identities(source) == (["real"], [])
+    assert vitest.tautologies(source) == ([(1, "expect(x).toBe(x)")] if "{expect" in prefix else [])
+
+
+@pytest.mark.parametrize(
+    "chain",
+    [
+        "skipIf(ci)",
+        "runIf(ci)",
+        "concurrent.skipIf(ci)",
+        "skipIf(ci).runIf(other).concurrent",
+        "runIf(check(a, b)).sequential.skipIf(ci)",
+    ],
+)
+def test_conditional_configuration_preserves_titles_and_suite_scopes(chain: str) -> None:
+    source = (
+        f'describe.{chain}("outer", () => {{\n'
+        f'  suite.{chain}("inner", () => {{\n'
+        f'    test.{chain}("real", () => {{}});\n'
+        "  });\n"
+        '  it("sibling", () => {});\n'
+        "});\n"
+        f'test.{chain}("standalone", () => {{}});\n'
+        'describe("later", () => { test("ordinary", () => {}); });'
+    )
+    assert vitest.test_identities(source) == (
+        ["outer > inner > real", "outer > sibling", "standalone", "later > ordinary"],
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    "chain", ["skipIf(ci).each(rows)", "each(rows).runIf(ci)", "runIf(ci).each`a | b`"]
+)
+def test_conditional_each_and_dynamic_titles_stay_unchecked(chain: str) -> None:
+    source = (
+        f'describe.{chain}("outer", () => {{\n'
+        '  test("real", () => {});\n'
+        "});\n"
+        f'test.{chain}("case", () => {{}});\n'
+        "test.runIf(ci)(name, () => {});\n"
+        'describe.skipIf(ci)(name, () => { test("child", () => {}); });\n'
+        'test("later", () => {});'
+    )
+    assert vitest.test_identities(source) == (["later"], [2, 4, 5, 6])
+
+
+def test_generic_closing_tag_string_preserves_tautology_reader() -> None:
+    source = 'const f = <T>(x: T) => x; const text = "</T>"; test("real", () => {});'
+    assert vitest.tautologies(source) == []
