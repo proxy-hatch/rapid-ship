@@ -7,8 +7,6 @@ They live apart from map.py, which runs them, so map.py stays under the file-siz
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from devctl.check.markdown import front_matter_of, text_value
 from devctl.check.tracked import TrackedFiles
 
@@ -17,11 +15,10 @@ SKILLS = ".agents/skills"
 
 def skill_alias_errors(tracked: TrackedFiles) -> list[str]:
     """Each skill has a SKILL.md and a symlink in .claude/skills."""
-    present = set(tracked.files)
     canonical = _skill_names(tracked, ".agents/skills")
     aliases = _skill_names(tracked, ".claude/skills")
     errors = [_canonical_error(tracked, name) for name in sorted(canonical)]
-    errors += [_alias_error(tracked.root, present, name) for name in sorted(canonical)]
+    errors += [_alias_error(tracked, name) for name in sorted(canonical)]
     errors += [
         f".claude/skills/{name}: no matching .agents/skills/{name} in Git; "
         "remove the alias or add the skill"
@@ -82,20 +79,25 @@ def _skill_md_tracked(tracked: TrackedFiles, name: str) -> bool:
     )
 
 
-def _alias_error(root: Path, present: set[str], name: str) -> str | None:
+def _alias_error(tracked: TrackedFiles, name: str) -> str | None:
     relative = f".claude/skills/{name}"
-    alias, canonical = root / relative, root / ".agents/skills" / name
+    alias, canonical = tracked.root / relative, tracked.root / ".agents/skills" / name
     expected = f"../../.agents/skills/{name}"
-    if relative in present and alias.is_symlink():
+    if relative in tracked.files and alias.is_symlink():
         resolved = alias.resolve()
-        inside = resolved.is_relative_to(root.resolve())
-        if not alias.readlink().is_absolute() and inside and resolved == canonical.resolve():
+        inside = resolved.is_relative_to(tracked.root.resolve())
+        if (
+            not alias.readlink().is_absolute()
+            and inside
+            and resolved == canonical.resolve()
+            and tracked.holds(relative)
+        ):
             return None
         return f"{relative}: make it a relative symlink to {expected}"
     if (
         alias.is_dir()
         and not alias.is_symlink()
-        and any(p.startswith(f"{relative}/") for p in present)
+        and any(p.startswith(f"{relative}/") for p in tracked.files)
     ):
         return (
             f"{relative}: a copy is not an alias; replace it with a relative symlink to {expected}"

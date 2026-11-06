@@ -210,6 +210,28 @@ def test_canonical_skill_may_link_into_a_package(workspace: Workspace) -> None:
     assert problems(workspace) == ""
 
 
+@pytest.mark.parametrize("hop", ["ignored", "untracked", "tracked"])
+def test_skill_alias_intermediate_hop(repository: Workspace, hop: str) -> None:
+    alias = repository.root / ".claude/skills/example"
+    alias.unlink()
+    repository.stage()
+    alias.symlink_to("../../bridge/example")
+    (repository.root / "bridge").symlink_to(".agents/skills")
+    if hop == "ignored":
+        with (repository.root / ".gitignore").open("a") as ignore:
+            ignore.write("/bridge\n")
+        repository.git("add", ".gitignore", ".claude/skills/example")
+    elif hop == "untracked":
+        repository.git("add", ".claude/skills/example")
+    else:
+        repository.git("add", "bridge", ".claude/skills/example")
+
+    found = tracked_problems(repository)
+
+    expected = ".claude/skills/example: make it a relative symlink to ../../.agents/skills/example"
+    assert (found == "") if hop == "tracked" else (expected in found)
+
+
 def test_skill_directory_without_skill_md_fails(repository: Workspace) -> None:
     repository.write(".agents/skills/notes/README.md", "# Notes\n")
     repository.link(".claude/skills/notes", "../../.agents/skills/notes")
