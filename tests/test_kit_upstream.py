@@ -21,10 +21,36 @@ def blob_sha(data: bytes) -> str:
 
 def restore_name(text: str, upstream_name: str) -> str:
     """Swap the front matter's name: rs-<upstream_name> back."""
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        raise ValueError("expected opening front matter; missing '---'")
+
+    closing_index: int | None = None
+    for idx, line in enumerate(lines[1:], start=1):
+        if line.strip() in ("---", "..."):
+            closing_index = idx
+            break
+
+    if closing_index is None:
+        raise ValueError("front matter is not closed with '---'")
+
     expected = f"name: rs-{upstream_name}"
-    if expected not in text:
-        raise ValueError(f"expected {expected!r}")
-    return text.replace(expected, f"name: {upstream_name}", 1)
+    replacement = f"name: {upstream_name}"
+    target_idx: int | None = None
+
+    for idx in range(1, closing_index):
+        if lines[idx].rstrip("\r\n") == expected:
+            if target_idx is not None:
+                raise ValueError(f"multiple {expected!r} fields in front matter")
+            target_idx = idx
+
+    if target_idx is None:
+        raise ValueError(f"expected {expected!r} in front matter")
+
+    line = lines[target_idx]
+    newline = line[len(line.rstrip("\r\n")) :]
+    lines[target_idx] = f"{replacement}{newline}"
+    return "".join(lines)
 
 
 def _marked_sections(fork_lines: list[str]) -> tuple[list[tuple[int, int]], list[int]]:
@@ -188,6 +214,11 @@ def test_every_file_of_a_forked_skill_is_in_the_lock() -> None:
             "line 1\n<!-- rapid-ship: end -->\nline 2\n",
             [2],
         ),
+        (
+            "<!-- rapid-ship: begin -->\np\n<!-- rapid-ship: end -->\n",
+            "<!-- rapid-ship: begin -->\np\n<!-- rapid-ship: begin -->\n<!-- rapid-ship: end -->\n",
+            [3],
+        ),
     ],
 )
 def test_unmarked_changes_reports_only_changes_outside_a_section(
@@ -199,3 +230,32 @@ def test_unmarked_changes_reports_only_changes_outside_a_section(
 def test_restore_name_rejects_a_name_without_the_rs_prefix() -> None:
     with pytest.raises(ValueError, match="rs-tdd"):
         restore_name("---\nname: tdd\n---\n", "tdd")
+
+
+def test_restore_name_rejects_body_only_match_with_unprefixed_front_matter() -> None:
+    fork = "---\nname: tdd\n---\nExample: name: rs-tdd\n"
+    with pytest.raises(ValueError, match="rs-tdd"):
+        restore_name(fork, "tdd")
+
+
+def test_restore_name_rejects_missing_front_matter() -> None:
+    with pytest.raises(ValueError, match="front matter"):
+        restore_name("# Document\nname: rs-tdd\n", "tdd")
+
+
+def test_restore_name_rejects_unclosed_front_matter() -> None:
+    with pytest.raises(ValueError, match="front matter"):
+        restore_name("---\nname: rs-tdd\n# Document\n", "tdd")
+
+
+def test_restore_name_rejects_misleading_field_names() -> None:
+    with pytest.raises(ValueError, match="rs-tdd"):
+        restore_name("---\nalt_name: rs-tdd\n---\n", "tdd")
+    with pytest.raises(ValueError, match="rs-tdd"):
+        restore_name("---\nname: rs-tdd-extra\n---\n", "tdd")
+
+
+def test_restore_name_preserves_body_and_other_bytes() -> None:
+    fork = "---\nname: rs-tdd\ndescription: test\n---\nExample: name: rs-tdd\n"
+    expected = "---\nname: tdd\ndescription: test\n---\nExample: name: rs-tdd\n"
+    assert restore_name(fork, "tdd") == expected
