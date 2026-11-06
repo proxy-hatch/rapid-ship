@@ -296,12 +296,12 @@ sha256 = "64b5a187b0037031957c02b5221276a92430c07257c962336a19c468d3274e57"
 [[file]]
 path = "tools/devctl/devctl/metrics/_order.py"
 kind = "managed"
-sha256 = "41372945926e8c5c4cdd1c2b03eb27a37c49adecd55a7e4be02874a7ea23b649"
+sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/model.py"
 kind = "managed"
-sha256 = "cf8e37861ff75879fb5d5771413df4fd9c42c394060a6f242c09fae51e498d8d"
+sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/settings.py"

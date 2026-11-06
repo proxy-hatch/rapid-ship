@@ -7,7 +7,7 @@ from typing import Literal
 Population = Literal["agent", "all", "ledger", "repository"]
 Kind = Literal["count", "incident"]
 ThresholdStatus = Literal["ok", "breached", "unknown"]
-NEEDS_IDENTITY = "needs Agent identity"
+NEEDS_IDENTITY: Literal["needs Agent identity"] = "needs Agent identity"
 
 
 @dataclass(frozen=True)

@@ -91,7 +91,7 @@ def _skip_string(text: str, i: int, n: int) -> int | None:
 
 
 def _key_path(text: str) -> tuple[str, ...]:
-    value = tomllib.loads(text)
+    value: object = tomllib.loads(text)
     path: list[str] = []
     while isinstance(value, dict) and value:
         key = next(iter(value))
