@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+from pathlib import Path
 
 import pytest
 
@@ -144,3 +145,53 @@ def test_file_size_counts_typescript_sources(workspace: Workspace) -> None:
     )
     assert sizes == {"frontend/src/a.tsx": 501}
     assert len(size_errors(sizes, ())) == 1
+
+
+@pytest.mark.parametrize(
+    "step", [ts.FORMAT, ts.LINT, ts.TYPES, ts.DEAD_CODE, ts.TESTS, ts.AuditStep(), ts.InstallStep()]
+)
+def test_tools_have_bounded_timeouts(
+    workspace: Workspace,
+    monkeypatch: pytest.MonkeyPatch,
+    step: ts.NodeStep | ts.AuditStep | ts.InstallStep,
+) -> None:
+    from collections.abc import Mapping, Sequence
+
+    from devctl import process
+    from devctl.process import ProcessResult
+
+    ctx = context(workspace)
+    if isinstance(step, ts.NodeStep):
+        node_tools(ctx.directory, **{step.argv[0]: "sys.exit(0)"})
+    observed: list[tuple[list[str], Path, float]] = []
+
+    def timeout(
+        argv: Sequence[str],
+        cwd: Path,
+        timeout_seconds: float,
+        env: Mapping[str, str] | None = None,
+        input_text: str | None = None,
+    ) -> ProcessResult:
+        assert env is not None
+        assert input_text is None
+        observed.append((list(argv), cwd, timeout_seconds))
+        return ProcessResult(list(argv), 0, "", "", timeout_seconds, timed_out=True)
+
+    monkeypatch.setattr(process, "run_process", timeout)
+    assert step.run(ctx).status == "blocked"
+    assert observed[0][1] == ctx.directory
+    expected = (
+        1800 if isinstance(step, ts.NodeStep) else (600 if isinstance(step, ts.AuditStep) else 1200)
+    )
+    assert observed[0][2] == expected
+    if isinstance(step, ts.NodeStep):
+        assert observed[0][0] == [
+            str(ctx.directory / "node_modules/.bin" / step.argv[0]),
+            *step.argv[1:],
+        ]
+    else:
+        assert observed[0][0] == (
+            ["npm", "audit", "--json"]
+            if isinstance(step, ts.AuditStep)
+            else ["npm", "ci", "--no-audit", "--no-fund"]
+        )

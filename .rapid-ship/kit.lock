@@ -226,17 +226,22 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "6eb9333b1583cd9dea7587dcf16c7bcc41c01e5143bf1ee1d440d7b624a48504"
+sha256 = "ea5e3ab1c112fac17e2b8d1277fe9767a40a6b3e1b8586d892cd340cc5f694ec"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "cd79802e94a60a0b29228abc531390130374cad9875e9604faad9a309f3594f7"
+sha256 = "66c238a294db4515ceb2b08d07a83ead0e6f37474dc2cc8519e18f27b2c6b93d"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
 sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_typescript.py"
+kind = "managed"
+sha256 = "6ce52665b7088fe5088db06648af1cf2deac75b689e814ec77d9d6647f1ec843"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"
