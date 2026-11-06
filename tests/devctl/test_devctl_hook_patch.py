@@ -185,3 +185,60 @@ def test_later_paths_are_judged_in_their_own_repository(
         hook(monkeypatch, calling(command, workspace.root, "apply_patch"), "codex", "pre-tool") == 0
     )
     assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+@pytest.mark.parametrize("separator", ["", " ", "\t", " \t \t", "\t\n \t"])
+@pytest.mark.parametrize("next_hunk", ["", "@@\n-a\n+b\n*** End of File\n\t\n"])
+def test_eof_separators_preserve_later_lock_denial(
+    separator: str,
+    next_hunk: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = project(tmp_path)
+    command = patch(
+        "*** Update File: harmless\n@@\n-x\n+y\n*** End of File\n"
+        + separator
+        + "\n"
+        + next_hunk
+        + "*** Add File: another\n+ordinary content\n*** Delete File: .rapid-ship/kit.lock"
+    )
+    assert (
+        hook(monkeypatch, calling(command, workspace.root, "apply_patch"), "codex", "pre-tool") == 0
+    )
+    result = capsys.readouterr()
+    assert result.err == ""
+    decision = json.loads(result.out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"].startswith("G4: ")
+    call = read_event("codex", calling(command, workspace.root, "apply_patch"))
+    assert call.edits == tuple(
+        workspace.root / path for path in ("harmless", "another", ".rapid-ship/kit.lock")
+    )
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "@@\n-x\n+y\n*** End of File\nnot a hunk",
+        "@@\n-x\n+y\n*** End of File\n+not a new hunk",
+        "@@\n-x\n+y\n*** End of File\n-context without a hunk",
+        "@@\n-x\n+y\n*** End of File\n context without a hunk",
+        "@@\n-x\n+y\n\t",
+        "@@\n\t\n-x\n+y",
+        "@@\n-x\n+y\n*** End of File\n\t\n@@\n\t",
+    ],
+)
+def test_invalid_update_lines_keep_the_cli_failure_policy(
+    content: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    command = patch("*** Update File: harmless\n" + content)
+    assert hook(monkeypatch, calling(command, tool="apply_patch"), "codex", "pre-tool") == 1
+    result = capsys.readouterr()
+    assert result.out == ""
+    assert len(result.err.splitlines()) == 1
+    assert result.err.startswith("devctl hook: internal error: ")
+    assert result.err.endswith("; the tool call goes through\n")

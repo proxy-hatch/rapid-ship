@@ -224,14 +224,19 @@ def _patch_content(lines: list[str], start: int, operation: str) -> int:
 
 def _check_hunks(lines: list[str]) -> None:
     content = False
+    end_of_file = False
     for index, line in enumerate(lines):
         control = line.rstrip()
-        if control == "*** End of File":
-            continue
         if control == "@@" or control.startswith("@@ "):
             if index and not content:
                 raise ValueError("the patch has an empty update hunk")
             content = False
+            end_of_file = False
+        elif end_of_file:
+            if control:
+                raise ValueError("the patch needs an update hunk after End of File")
+        elif control == "*** End of File":
+            end_of_file = True
         elif not line or line[0] in " +-":
             content = True
         else:
