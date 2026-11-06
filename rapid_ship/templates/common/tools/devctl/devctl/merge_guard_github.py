@@ -1,5 +1,5 @@
 """The merge guard's GitHub reads: the pull request with its body, project.toml and CODEOWNERS
-on its base branch, its files, its reviews and its check runs.
+at its base commit, its files, its reviews and its check runs.
 
 Each read goes through OwnerGet, doctor's GET with the owner's gh sign-in. A read that gh cannot
 make raises OwnerReadError, a response that is not the shape GitHub documents GitHubError, and a
@@ -60,6 +60,7 @@ class PullRequest:
     number: int
     head: str  # the head commit's full SHA
     base: str  # the base branch
+    base_sha: str  # the base commit's full SHA
     body: str  # empty when the pull request has none
 
 
@@ -107,23 +108,27 @@ def _pull(found: object, repository: str) -> PullRequest:
     head = _text(json_object(pull.get("head"), "the head"), "sha", "the pull request's head")
     if not _SHA.fullmatch(head):
         raise GitHubError(None, f"the pull request's head is not a full SHA: {head!r}")
-    base = _text(json_object(pull.get("base"), "the base"), "ref", "the pull request's base")
+    base_fields = json_object(pull.get("base"), "the base")
+    base = _text(base_fields, "ref", "the pull request's base")
+    base_sha = _text(base_fields, "sha", "the pull request's base")
+    if not _SHA.fullmatch(base_sha):
+        raise GitHubError(None, f"the pull request's base is not a full SHA: {base_sha!r}")
     body = pull.get("body")  # null when the pull request has no body
     if body is not None and not isinstance(body, str):
         raise GitHubError(None, "the pull request's body is not text")
     number = _number(pull, "number", "the pull request")
-    return PullRequest(repository, number, head, base, body or "")
+    return PullRequest(repository, number, head, base, base_sha, body or "")
 
 
 def base_settings(read: OwnerGet, pull: PullRequest) -> ProjectSettings:
-    """The project settings in project.toml on the base branch, loaded and checked as devctl
+    """The project settings in project.toml at the base commit, loaded and checked as devctl
     loads its own.
 
     Raises Unchecked, naming the branch, when the file cannot be read, a missing file included,
     or does not load.
     """
     where = f"on the base branch {pull.base}"
-    ref = quote(pull.base, safe="/")
+    ref = pull.base_sha
     try:
         found = read(f"repos/{pull.repository}/contents/{PROJECT}?ref={ref}")
     except OwnerReadError as error:
@@ -136,12 +141,12 @@ def base_settings(read: OwnerGet, pull: PullRequest) -> ProjectSettings:
 
 
 def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
-    """The Protected-set patterns of the CODEOWNERS file GitHub reads on the base branch.
+    """The Protected-set patterns of CODEOWNERS at the same base commit as the settings.
 
     GitHub reads the first of CODEOWNERS_FILES that exists, so a 404 moves to the next name, and
     none at all is an empty Protected set.
     """
-    ref = quote(pull.base, safe="/")
+    ref = pull.base_sha
     for name in CODEOWNERS_FILES:
         try:
             found = read(f"repos/{pull.repository}/contents/{name}?ref={ref}")

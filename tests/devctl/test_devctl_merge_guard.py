@@ -27,16 +27,17 @@ from github_fakes import FakeRun, RecordedOwner
 
 HEAD = "a" * 40
 OTHER = "b" * 40
+BASE = "c" * 40
 PR = "repos/o/r/pulls/7"
-SETTINGS = "repos/o/r/contents/.rapid-ship/project.toml?ref=main"
-CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
+SETTINGS = f"repos/o/r/contents/.rapid-ship/project.toml?ref={BASE}"
+CODEOWNERS = f"repos/o/r/contents/.github/CODEOWNERS?ref={BASE}"
 FILES = "repos/o/r/pulls/7/files?per_page=100&page=1"
 FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 REVIEWS = "repos/o/r/pulls/7/reviews?per_page=100&page=1"
 RUNS = f"repos/o/r/commits/{HEAD}/check-runs?check_name=devctl%20check&filter=latest&per_page=100"
 BY_BRANCH = "repos/o/r/pulls?head=o:task&state=open&per_page=100"
 # GitHub gives a pull request without a body "body": null.
-PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main"}, "body": None}
+PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main", "sha": BASE}, "body": None}
 OWNERS = "* @o\n# /.github/ @o\n# /**/AGENTS.md @o\n"
 TASK = LocalBranches(frozenset({"main"}), "task")
 # The work tree's settings, which give the guard only the repository.
@@ -358,7 +359,7 @@ def test_gh_prints_only_the_fields_of_the_files_that_the_guard_reads(fake_run: F
     fake_run.answer(whole, ProcessResult(whole, 0, "[", "", 0.0, stdout_truncated=True))
     page = '[{"filename": "a.py", "status": "renamed", "previous_filename": "b.py"}]'
     fake_run.answer([*whole, "--jq", FILE_FIELDS], ProcessResult(whole, 0, page, "", 0.0))
-    pull = PullRequest("o/r", 7, HEAD, "main", body="")
+    pull = PullRequest("o/r", 7, HEAD, "main", BASE, body="")
     assert changed_files(gh_get, pull) == [FileChange("a.py", "renamed", "b.py")]
 
 
@@ -374,8 +375,8 @@ def test_a_pr_with_more_files_than_github_lists_is_denied() -> None:
 
 
 def test_codeowners_is_read_where_github_reads_it() -> None:
-    root_file = "repos/o/r/contents/CODEOWNERS?ref=main"
-    docs_file = "repos/o/r/contents/docs/CODEOWNERS?ref=main"
+    root_file = f"repos/o/r/contents/CODEOWNERS?ref={BASE}"
+    docs_file = f"repos/o/r/contents/docs/CODEOWNERS?ref={BASE}"
     guide = [{"filename": "docs/AGENTS.md", "status": "modified"}]
     reader = owner(files=guide)
     reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
@@ -743,8 +744,8 @@ def test_a_base_project_toml_that_does_not_load_denies_with_the_loaders_error(te
 
 def test_the_settings_are_read_on_the_pull_requests_own_base_branch() -> None:
     reader = owner()
-    reader.serve(PR, {**PULL, "base": {"ref": "release/1.x"}})
-    on_release = "repos/o/r/contents/.rapid-ship/project.toml?ref=release/1.x"
+    reader.serve(PR, {**PULL, "base": {"ref": "release/1.x", "sha": OTHER}})
+    on_release = f"repos/o/r/contents/.rapid-ship/project.toml?ref={OTHER}"
     reader.serve(on_release, contents(WALK))
     assert guarded("gh pr merge 7", reader) == IN_WALK
     assert reader.paths == [PR, on_release]
@@ -787,7 +788,7 @@ def test_local_flight_cannot_override_walk_on_base(tmp_path: Path) -> None:
     reader = owner()
     text = 'stack = "python"\n[escalation]\nevery_pr = true\n'
     reader.serve(
-        "repos/o/r/contents/.rapid-ship/project.toml?ref=main",
+        SETTINGS,
         {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()},
     )
     line = f"gh pr merge 7 --match-head-commit {HEAD}"
