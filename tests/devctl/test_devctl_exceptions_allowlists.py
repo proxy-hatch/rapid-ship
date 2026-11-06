@@ -9,7 +9,7 @@ from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.stacks.python_dead_code import AllowlistItem, toml_allowlist
 from devctl.check.steps import StepResult
-from devctl.settings import ProjectStack
+from devctl.settings import ProjectStack, StackName
 
 ENTRY = """
 [[exception]]
@@ -28,7 +28,10 @@ NOQA = "# " + "noqa"
 
 
 def setup(
-    workspace: Workspace, pyproject: str, *entries: tuple[str, str, str], stack: str = "python"
+    workspace: Workspace,
+    pyproject: str,
+    *entries: tuple[str, str, str],
+    stack: StackName = "python",
 ) -> StepResult:
     workspace.write(".rapid-ship/kit.lock", f'kit_version = "0.2.0"\nstack = "{stack}"\n')
     workspace.write("pyproject.toml", pyproject)
@@ -160,7 +163,7 @@ def test_scope_settings_are_not_suppressions(workspace: Workspace) -> None:
 
 
 def test_the_agnostic_stack_reads_no_allowlist(workspace: Workspace) -> None:
-    result = setup(workspace, UNMARKED, stacks=(ProjectStack("agnostic", "."),))
+    result = setup(workspace, UNMARKED, stack="agnostic")
 
     assert result.status == "passed", result.details
 

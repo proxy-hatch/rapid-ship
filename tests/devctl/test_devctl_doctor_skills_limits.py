@@ -10,8 +10,6 @@ from typing import Any, cast
 
 import pytest
 
-from devctl.settings import ProjectStack
-
 from devctl import cli, doctor
 from devctl.doctor import (
     DoctorContext,
@@ -21,7 +19,7 @@ from devctl.doctor import (
     run_doctor,
     skills_items,
 )
-from devctl.settings import ProjectSettings
+from devctl.settings import ProjectSettings, ProjectStack
 from github_fakes import FakeHarness, Remote, git
 from github_fixtures import no_owner_reads
 

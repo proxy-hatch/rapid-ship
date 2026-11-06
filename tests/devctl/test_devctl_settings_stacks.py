@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from devctl.settings import PROJECT, ProjectStack, SettingsError, load_project
+from devctl.settings import PROJECT, ProjectSettings, ProjectStack, SettingsError, load_project
 
 
 def table(name: str, directory: str = ".") -> str:
     return f'[[stack]]\nname = "{name}"\ndirectory = {json.dumps(directory)}\n'
 
 
-def read(root: Path, text: str):
+def read(root: Path, text: str) -> ProjectSettings:
     (root / ".rapid-ship").mkdir(exist_ok=True)
     (root / PROJECT).write_text(text)
     return load_project(root)

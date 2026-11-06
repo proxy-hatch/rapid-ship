@@ -7,7 +7,7 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
-from devctl.settings import ProjectStack
+from devctl.settings import ProjectStack, StackName
 
 NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
 NO_BODY = " (pass --pr-body <file> to check a body locally)"
@@ -35,7 +35,7 @@ def note(count: int) -> str:
 
 
 def big_change(
-    workspace: Workspace, count: int, *, body: str | None = None, stack: str = "python"
+    workspace: Workspace, count: int, *, body: str | None = None, stack: StackName = "python"
 ) -> StepResult:
     base = workspace.commit()
     workspace.write("src/app/big.py", lines(count))
@@ -190,6 +190,6 @@ def test_added_and_removed_lines_both_count(workspace: Workspace) -> None:
 
 
 def test_the_cap_applies_to_the_agnostic_stack(workspace: Workspace) -> None:
-    assert big_change(workspace, 1501, stacks=(ProjectStack("agnostic", "."),)) == StepResult(
+    assert big_change(workspace, 1501, stack="agnostic") == StepResult(
         "diff", "failed", (OVER + NO_BODY, NO_CODEOWNERS, note(1501))
     )

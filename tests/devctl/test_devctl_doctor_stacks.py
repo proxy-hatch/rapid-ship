@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from devctl.doctor_items import Item
 from devctl.doctor_local import local_items
 from devctl.doctor_rules import (
     PROTECTED_PATHS,
@@ -73,7 +74,7 @@ def test_the_exclusions_item_reads_the_root_pyproject(
         context, project=dataclasses.replace(context.project, stacks=STACKS[:1])
     )
 
-    def item():
+    def item() -> Item:
         return next(i for i in local_items(context) if i.name == "tools/devctl exclusions")
 
     assert item().status == "ok"
