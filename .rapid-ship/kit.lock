@@ -126,7 +126,7 @@ sha256 = "605a770b8070d1bc9761a4bc0cc56e8adb79c2f009f8f4ac4a9a708f7be9c8b4"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "158e04af8f8793b52c1476ecaf5a46431500ac67aebd2e7fa1e62670fd6713e1"
+sha256 = "3ab800082396e6b68079b287c0bd3d4bbbfcb0b36b52ef9626d6022cc6643459"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -156,7 +156,7 @@ sha256 = "29f1a0aee0e5a0322b5b104a1fc27b8bba2a856b2f82ba53d91584186383390e"
 [[file]]
 path = "tools/devctl/devctl/check/references.py"
 kind = "managed"
-sha256 = "bd15064cdbec377e7ce473f6100531d503ab8fdb16c0bdf3b0076e933b7b3405"
+sha256 = "fc2d9c788a4f370c673d45a80e44343425d48c932f44a79cb0f92f02a5791d61"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"

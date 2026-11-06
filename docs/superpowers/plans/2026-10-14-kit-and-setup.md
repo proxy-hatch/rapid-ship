@@ -11,7 +11,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code`. Follow-up: the [agy wiring](2026-10-26-agy-wiring.md) (PRO-155), on `agy-wiring` |
-| 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Planned: three PRs |
+| 6 | [TypeScript stack and several stacks in one repository](#plan-6-typescript-stack-and-several-stacks-in-one-repository) | 3, 4, 5, 6, 10 | 5 | Partly implemented: devctl subset; five code PRs |
 | 7 | [`rs-setup` and `rs-health`](#plan-7-rs-setup-and-rs-health), with the engineering skills and `rs-contribute` | 7, 8, 9, 10 | 4, 5, 6 | Planned: four PRs |
 
 PRs #28 to #33 form a stack on the design PR, #27: each is based on the one before, and a change to the design lands on #27 and is merged up. Each plan document lives in its plan's PRs: plans 1 to 3 in #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, in #31 to #33.
@@ -92,6 +92,8 @@ tools/devctl/
     cli.py                       # build_parser, main; core verbs, then devctl_project.register
     repo.py                      # Repo, RepoError
     settings.py                  # ProjectSettings and friends, SettingsError (plans 4 to 6 reshape it)
+    jsonc.py                     # plan 6: JSONC reader
+    node.py                      # plan 6: local Node tools, ESLint configuration and install advice
     process.py                   # ProcessResult, safe_environment, run_process
     codeowners.py                # plan 5: the Protected-set lines and their matcher, moved from check/diff.py
     check/                       # plan 3: __init__, steps, markdown, map, references, exceptions,
@@ -160,7 +162,7 @@ Template rules, as plan 2 built them:
 ### Settings (plan 4; plans 5 and 6 change it)
 
 ```python
-# devctl/settings.py after plan 6
+# devctl/settings.py: stack interfaces implemented in 6.1a
 Role = Literal["worker", "reviewer"]
 # plan 4 has Stack = Literal["python", "agnostic"]
 StackName = Literal["python", "typescript", "agnostic"]
@@ -169,7 +171,7 @@ StackName = Literal["python", "typescript", "agnostic"]
 @dataclass(frozen=True)
 class ProjectStack:  # plan 6: one [[stack]] table
     name: StackName
-    directory: str  # repository-relative POSIX path, inside the repository; "." is the root
+    directory: str  # "." or repository-relative POSIX directory; no symlinks, inside the repository
 
 
 @dataclass(frozen=True)
@@ -185,7 +187,7 @@ class Escalation:
 
 @dataclass(frozen=True)
 class ProjectSettings:
-    stacks: tuple[ProjectStack, ...]  # plan 6; plan 4 has stack: Stack, one stack at the root
+    stacks: tuple[ProjectStack, ...]  # sorted by (directory, name); agnostic alone at "."
     repository: str | None  # "owner/name"
     code_owner: str | None  # plan 4's follow-ups: "@login" or "@organisation/team"
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
@@ -197,6 +199,8 @@ class ProjectSettings:
     unguided: tuple[str, ...]  # [map] unguided
     map_exclude: tuple[str, ...]  # [map] exclude
     unit_tests: tuple[str, ...]  # [tests] unit
+
+    def owners(self, path: str) -> tuple[ProjectStack, ...]: ...  # innermost directory
 
     @property
     def agent_identity(self) -> bool: ...  # both Apps recorded
@@ -245,9 +249,11 @@ def ruleset_problems(
     every_pr: bool,
     agent_identity: bool,
 ) -> list[str]: ...  # plan 7's test checks rs-setup's ruleset.json with it
-# plan 6: one call per stack. code_owner is [github] code_owner with its @, never the
-# repository's owner
-def codeowners_problems(text: str, every_pr: bool, code_owner: str, stack: Stack) -> list[str]: ...
+# One call checks common paths once and each stack's paths under its directory.
+# code_owner is [github] code_owner with its @, never the repository's owner.
+def codeowners_problems(
+    text: str, every_pr: bool, code_owner: str, stacks: Sequence[ProjectStack]
+) -> list[str]: ...
 ```
 
 ### Ruleset (plan 7 applies `rs-setup/ruleset.json`; plan 4's doctor checks it)
@@ -512,36 +518,43 @@ If review finds a PR too large, it splits at a task boundary.
 
 **Goal:** Support a Python backend with a React TypeScript frontend from day one. `project.toml` lists each stack with its directory, `init` writes each stack's files under its directory, and `devctl check` runs each stack's steps there. The TypeScript stack brings ESLint, Prettier, `tsc --noEmit`, Vitest, knip and `npm audit`, with npm as the package manager, its guardrail settings, a React skeleton, its starter Patterns and CI support. This brings part of backlog PRO-108 into scope; the rest of monorepo support stays deferred.
 
+**State:** devctl accepts several stacks and runs Python steps under their directories. Init still writes one root stack pending 6.1b; TypeScript blocks the step list pending 6.2a. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
+
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 
 | PR | Tasks | Content |
 | --- | --- | --- |
-| 6.1 | 1 to 5 | Several stacks, with Python and the agnostic stack only |
-| 6.2 | 6 to 9 | The TypeScript checks |
-| 6.3 | 10 to 13 | The TypeScript templates and CI |
+| 6.1a | 1, 1b, 4, 3a, 5 | devctl settings, ownership, helpers, Python steps, references and per-stack doctor; implemented subset, verification pending |
+| 6.1b | 2, 14, 3b | init, detection, lock writer, rendering and commitless Setup |
+| 6.2a | 6, 12a, 9 | TypeScript steps, install, CI and doctor |
+| 6.2b | 7, 8 | TypeScript suppressions, references and Vitest rules |
+| 6.3 | 10, 11, 12b, 13 | TypeScript templates, integration, live trial and removal of the transitional lock reader |
 
 **Files:**
 
-- 6.1: `rapid_ship/kit/stacks.py`, `templates.py`, `init.py`, `lock.py`, `status.py`, `sync.py`; `rapid_ship/cli.py`; the `project.toml` and CODEOWNERS templates; devctl templates `settings.py`, `check/__init__.py`, `check/steps.py`, `check/exceptions.py`, `check/filesize.py`, `check/references.py`, `doctor_local.py`, `doctor_rules.py`. This repository's `.rapid-ship/project.toml`, rewritten in place. Tests: `tests/test_kit_stacks*.py`, `tests/test_kit_init*.py`, `tests/devctl/test_devctl_settings*.py`, `test_devctl_check_stacks*.py`.
-- 6.2: devctl templates `check/stacks/typescript.py`, `check/diff.py`, `check/references.py`, `cli.py` for `--install`, `doctor_local.py`, `doctor_rules.py`, `doctor_typescript.py`; the managed workflow adds conditional Node.js 24 and full `--install`. Tests: `tests/devctl/test_devctl_typescript*.py`, with fake tools in a fake `node_modules/.bin`.
+- 6.1a/6.1b: `rapid_ship/kit/stacks.py`, `templates.py`, `init.py`, `lock.py`, `status.py`, `sync.py`; `rapid_ship/cli.py`; the `project.toml` and CODEOWNERS templates; devctl templates `settings.py`, `check/__init__.py`, `check/steps.py`, `check/exceptions.py`, `check/filesize.py`, `check/references.py`, `doctor_local.py`, `doctor_rules.py`. This repository's `.rapid-ship/project.toml`, rewritten in place. Tests: `tests/test_kit_stacks*.py`, `tests/test_kit_init*.py`, `tests/devctl/test_devctl_settings*.py`, `test_devctl_check_stacks*.py`.
+- 6.2a/6.2b: devctl templates `check/stacks/typescript.py`, `check/diff.py`, `check/references.py`, `cli.py` for `--install`, `doctor_local.py`, `doctor_rules.py`, `doctor_typescript.py`; the managed workflow adds conditional Node.js 24 and full `--install`. Tests: `tests/devctl/test_devctl_typescript*.py`, with fake tools in a fake `node_modules/.bin`.
 - 6.3: `rapid_ship/templates/typescript/`: `package.json`, `tsconfig.json`, `eslint.config.js`, `vite.config.ts`, `knip.jsonc`, `index.html`, `.gitignore`, the `src/` skeleton and its `AGENTS.md`, the starter Patterns with their reference code and tests, and the Protected lines; `kit.toml`; `common/.github/workflows/devctl-check.yml`. Tests: `tests/test_kit_typescript*.py`, `tests/devctl/test_devctl_ci_templates.py`, and an integration test of `init` with a Python `backend/` and a TypeScript `frontend/`, labelled as needing network access.
 - Docs, in each PR: `ARCHITECTURE.md`, the template and directory guides, and the trial record under `docs/trials/`.
 
 **Tasks:**
 
-1. `[[stack]]` in the settings and the lock, with its checks; and devctl rejecting the old `stack` key with an error that says how to rewrite it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3).
+1. `[[stack]]` settings and devctl's transitional reader of both lock forms, with checks; and devctl rejecting the old `stack` key with an error that says how to rewrite it, because the Kit keeps no backward compatibility before GA (Spec 1 section 3).
+1b. Shared JSONC and Node tool helpers in devctl.
 2. `init --stack NAME[=DIRECTORY]`; without it, a recursive search for stack roots that skips vendored and generated directories, proposes what it found, with the `--stack` options and the instruction to confirm them with the owner and rerun, and writes nothing; and templates rendered under a stack's directory.
-3. `project.toml` and CODEOWNERS rendered from every stack, with each stack's Protected lines under its directory; doctor's CODEOWNERS and Python floor items for each stack. The TypeScript Protected lines include `knip.*` and `.knip.*`.
+3. Split into 3a (per-stack doctor in 6.1a) and 3b (rendering in 6.1b): `project.toml` and CODEOWNERS rendered from every stack, with each stack's Protected lines under its directory; doctor's CODEOWNERS and Python floor items for each stack. The TypeScript Protected lines include `knip.*` and `.knip.*`.
 4. `check` for each stack: the common steps once, and each stack's steps in its directory with their names; file ownership for the exceptions and file-size steps; references resolved against their stack.
-5. This repository stays one Python stack at the root: its `project.toml` is rewritten in place, and the output of `./devctl check` keeps its step names.
+5. Document the devctl subset and its limits. This repository stays one Python stack at the root, with unchanged step names/order. Record verification without claiming the remaining plan is built.
 6. The TypeScript steps: format, lint, types, dead-code, tests and audit, from `node_modules/.bin` and npm, with knip run as `knip --include files,dependencies,unlisted,binaries,unresolved,exports,types,enumMembers,namespaceMembers`, and a test of which of knip's `rules`, `include` and `exclude` settings `--include` overrides; a missing tool blocks its step with the command that installs it; `check --install`.
 7. The TypeScript suppressions and their rule names, knip's `@public` and `@beta` tags and the items of `knip.jsonc`'s allowlist keys among them, read alone on their lines as Spec 1 section 5 says, and the `eslint:` and `type:` references.
 8. The diff policy for Vitest: removed tests by their title chain, and tautologies.
 9. doctor's `node` and `npm` items and the TypeScript floor item. The TypeScript floor reports a knip setting that can switch a kind off and that `--include` does not override (Spec 1 section 5, Exceptions).
 10. The TypeScript templates: the settings of Spec 1 section 4, documented inline where the format allows, in `tsconfig.json`, `knip.jsonc`, `eslint.config.js` and `vite.config.ts`; the React skeleton and its `AGENTS.md`, passing `./devctl check` after `npm install`. Pin the tools, knip included, and the Node.js version.
 11. The TypeScript starter Patterns, with reference code and tests, passing map rule 5; and the TypeScript performance Pattern, which documents the browser's performance tools and React's Profiler, with its profiling entry point and enforcing check in the skeleton (Spec 1 section 4).
-12. The CI workflow: `actions/setup-node`, pinned by commit SHA and run only when a `package-lock.json` exists, and `./devctl check --tier full --install`; zizmor still passes.
+12. Split into 12a (CI/install in 6.2a) and 12b (integration and removal of the transitional lock reader in 6.3). The CI workflow: `actions/setup-node`, pinned by commit SHA and run only when a `package-lock.json` exists, and `./devctl check --tier full --install`; zizmor still passes.
 13. Live trial, an Owner step: `init` and `./devctl check` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, locally and in CI.
+
+14. Fix repository defaults from `origin` (PRO-159) and commitless Setup (PRO-161) with init in 6.1b.
 
 ### TypeScript checks: implementation verification, 2026-11-06
 
