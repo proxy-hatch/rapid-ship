@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pytest
 
+from check_workspace import stack_table
 from devctl import cli, doctor
 from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
@@ -26,6 +27,7 @@ from devctl.doctor import (
 )
 from devctl.doctor_local import gitleaks_item
 from devctl.process import MAX_OUTPUT_BYTES, ProcessResult
+from devctl.settings import ProjectStack
 from github_fakes import FakeRun, MakeContext, RepoFiles
 from rapid_ship.kit.templates import render_files
 from test_devctl_doctor_wiring import rendered_seed
@@ -173,7 +175,7 @@ class TestSignIns:
         [
             {},
             {"worker_app": None, "reviewer_app": None},
-            {"stack": "agnostic", "repository": None, "code_owner": None},
+            {"stacks": (ProjectStack("agnostic", "."),), "repository": None, "code_owner": None},
         ],
         ids=["agent identity on", "agent identity off", "agnostic, no repository"],
     )
@@ -223,7 +225,9 @@ class TestItems:
     def test_the_agnostic_stack_has_no_python_guardrail_item(
         self, ctx: MakeContext, fake_run: FakeRun
     ) -> None:
-        names = [i.name for i in local_items(adjusted(ctx(), stack="agnostic"))]
+        names = [
+            i.name for i in local_items(adjusted(ctx(), stacks=(ProjectStack("agnostic", "."),)))
+        ]
         assert "Python guardrail settings" not in names
         assert "tools/devctl exclusions" in names
 
@@ -344,7 +348,7 @@ class TestItems:
     def test_the_agnostic_stack_needs_no_pyproject_but_checks_the_uv_workspace(
         self, ctx: MakeContext, fake_run: FakeRun, repo_files: RepoFiles
     ) -> None:
-        agnostic = adjusted(ctx(), stack="agnostic")
+        agnostic = adjusted(ctx(), stacks=(ProjectStack("agnostic", "."),))
         item = by_name(local_items(agnostic))["tools/devctl exclusions"]
         assert (item.status, item.detail) == ("ok", "no pyproject.toml, so no uv workspace")
         repo_files.write("pyproject.toml", '[tool.uv.workspace]\nmembers = ["tools/*"]\n')
@@ -382,7 +386,11 @@ class TestOutput:
         # missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
-            ctx(), stack="agnostic", repository=None, worker_app=None, reviewer_app=None
+            ctx(),
+            stacks=(ProjectStack("agnostic", "."),),
+            repository=None,
+            worker_app=None,
+            reviewer_app=None,
         )
         assert run_doctor(context) == 2
         lines = capsys.readouterr().out.splitlines()
@@ -404,7 +412,7 @@ class TestOutput:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        repo_files.write(".rapid-ship/project.toml", 'stack = "agnostic"\n')
+        repo_files.write(".rapid-ship/project.toml", stack_table("agnostic"))
         for path in (".rapid-ship/exceptions.toml", ".github/CODEOWNERS"):
             repo_files.write(path, rendered_agnostic_seed(path))
         repo_files.workflow(job_name="devctl check")

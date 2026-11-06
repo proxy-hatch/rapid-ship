@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from check_workspace import stack_table
 from devctl import cli, identity, process
 from devctl.github.app import GitHubAccess
 from devctl.repo import Repo
@@ -152,7 +153,7 @@ def test_the_command_reads_this_repositorys_settings(
 ) -> None:
     git(tmp_path, "init", "-q", "-b", "main")
     (tmp_path / ".rapid-ship").mkdir()
-    (tmp_path / ".rapid-ship/project.toml").write_text('stack = "agnostic"\n')
+    (tmp_path / ".rapid-ship/project.toml").write_text(stack_table("agnostic"))
     monkeypatch.chdir(tmp_path)
     assert cli.main(["as", "worker", "push"]) == 2
     assert "Agent identity is off" in capsys.readouterr().err

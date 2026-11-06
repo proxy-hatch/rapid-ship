@@ -1,5 +1,9 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
-stack = "agnostic"   # python or agnostic
+# One table per stack: python, typescript or agnostic.
+# directory is relative to the repository; agnostic stands alone at ".".
+[[stack]]
+name = "agnostic"
+directory = "."
 
 [github]
 # The GitHub repository, written "owner/name".

@@ -7,6 +7,7 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.references import resolve
 from devctl.check.tracked import TrackedFiles
+from devctl.settings import ProjectStack, StackName
 
 PYPROJECT = """
 [tool.ruff.lint]
@@ -36,16 +37,18 @@ class TestCore:
 """
 
 
-def resolved(workspace: Workspace, reference: str, stack: str = "python") -> str | None:
+def resolved(workspace: Workspace, reference: str, stack: StackName = "python") -> str | None:
     """None when `reference` resolves once every file is staged, else why it does not."""
     workspace.stage()
     return tracked_resolved(workspace, reference, stack)
 
 
-def tracked_resolved(workspace: Workspace, reference: str, stack: str = "python") -> str | None:
+def tracked_resolved(
+    workspace: Workspace, reference: str, stack: StackName = "python"
+) -> str | None:
     """None when `reference` resolves against the files git tracks now, else why it does not."""
-    context = workspace.context(stack=stack)
-    return resolve(reference, context, TrackedFiles.read(context.repo))
+    context = workspace.context(stacks=(ProjectStack(stack, "."),))
+    return resolve(reference, context, TrackedFiles.read(context.repo), "AGENTS.md")
 
 
 @pytest.mark.parametrize(
@@ -90,7 +93,7 @@ def test_python_only_kinds_do_not_resolve_for_the_agnostic_stack(workspace: Work
 
     reason = resolved(workspace, "ruff:S603", stack="agnostic")
 
-    assert reason == "ruff:S603: unknown reference kind ruff for the agnostic stack"
+    assert reason == "ruff:S603: unknown reference kind ruff for AGENTS.md"
 
 
 @pytest.mark.parametrize("reference", [":x", "check:", "test:tests/test_core.py", "test:::x"])
@@ -149,7 +152,7 @@ def test_a_malformed_setting_is_named_not_raised(workspace: Workspace) -> None:
 
     reason = resolved(workspace, "ruff:E501")
 
-    assert reason == "ruff:E501: [tool.ruff.lint] ignore must be a list of strings"
+    assert reason == "ruff:E501: pyproject.toml: [tool.ruff.lint] ignore must be a list of strings"
 
 
 @pytest.mark.parametrize(
@@ -214,7 +217,10 @@ def test_an_invalid_mypy_exclude_is_named(workspace: Workspace) -> None:
 
     reason = resolved(workspace, "type:src/app/core.py")
 
-    assert reason == "type:src/app/core.py: [tool.mypy] exclude '(' is not a regular expression"
+    assert (
+        reason == "type:src/app/core.py: pyproject.toml: "
+        "[tool.mypy] exclude '(' is not a regular expression"
+    )
 
 
 @pytest.mark.parametrize(
@@ -243,3 +249,23 @@ def test_an_untracked_pyproject_is_not_read(workspace: Workspace) -> None:
     assert tracked_resolved(workspace, "ruff:S603") == (
         "ruff:S603: pyproject.toml is not tracked; stage it with git add"
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "message"),
+    [
+        ("backend/scripts/run.py", "files does not cover"),
+        ("backend/src/app/generated/x.py", "exclude matches"),
+    ],
+)
+def test_nested_mypy_rejections_name_the_selected_settings(
+    workspace: Workspace, path: str, message: str
+) -> None:
+    workspace.write("backend/pyproject.toml", PYPROJECT)
+    workspace.write(path, "")
+    workspace.stage()
+    context = workspace.context(stacks=(ProjectStack("python", "backend"),))
+
+    reason = resolve(f"type:{path}", context, TrackedFiles.read(context.repo), "backend/AGENTS.md")
+
+    assert reason == f"type:{path}: [tool.mypy] {message} {path} in backend/pyproject.toml"

@@ -28,6 +28,7 @@ from test_kit_app import (
     serve_conversions,
 )
 
+from check_workspace import stack_table
 from rapid_ship import cli
 from rapid_ship.app_keychain import (
     AppSetupError,
@@ -668,7 +669,7 @@ def test_apps_recorded_without_the_repository_are_found_by_their_keys(
         f'{role}_app_id = {app.app_id}\n{role}_app_slug = "{app.slug}"\n'
         for role, app in APPS.items()
     )
-    write_settings(git_repo, f'stack = "python"\n[github]\nrepository = ""\n{ids}')
+    write_settings(git_repo, stack_table("python") + f'[github]\nrepository = ""\n{ids}')
     monkeypatch.chdir(git_repo)
     assert recorded_apps(git_repo, "o/r") == {}
     with serve_conversions() as api:
