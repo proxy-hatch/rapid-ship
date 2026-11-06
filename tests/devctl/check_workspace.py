@@ -149,3 +149,9 @@ class FakeStep:
 class BrokenStep(FakeStep):
     def run(self, context: CheckContext) -> StepResult:
         raise RuntimeError("step bug")
+
+
+def node_tools(directory: Path, **bodies: str) -> None:
+    """Write fake Node.js tools without installing npm packages."""
+    for name, body in bodies.items():
+        fake_tool(directory / "node_modules/.bin", name, body)

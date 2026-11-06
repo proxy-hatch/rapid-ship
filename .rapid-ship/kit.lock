@@ -274,6 +274,11 @@ kind = "managed"
 sha256 = "3cceedc023ce6acf389d6057548d0f1a3be23fb736a0e3335d7fa75ff50d353b"
 
 [[file]]
+path = "tools/devctl/devctl/jsonc.py"
+kind = "managed"
+sha256 = "11cbc99c9b48a3a2268919dbbeab350a0a039396c0969a3e10da8082d2e5aedf"
+
+[[file]]
 path = "tools/devctl/devctl/merge_guard.py"
 kind = "managed"
 sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
@@ -282,6 +287,11 @@ sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
 sha256 = "759d72b37ff4001f16dd3dda97d3358dfa13c8aa9c8551c522354a8f0fab2f2a"
+
+[[file]]
+path = "tools/devctl/devctl/node.py"
+kind = "managed"
+sha256 = "3ac0c1157c0d958c26d93bb2479d715347749a0cc4c177c678357bfa56277d1e"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"
