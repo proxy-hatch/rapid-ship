@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import new_workspace
-from devctl.codeowners import FileChange
+from devctl.codeowners import FileChange, patterns_in
 from devctl.command_line import simple_commands
 from devctl.doctor_items import OwnerGet, OwnerReadError, gh_get
 from devctl.hook import run_hook
@@ -691,6 +691,10 @@ def test_setup_and_later_first_codeowners_require_owner_merge(
         ".gitleaksignore",
         "zizmor.yml",
         "zizmor.yaml",
+        "docs/patterns/python-error-handling.md",
+        "docs/patterns/python-configuration.md",
+        "docs/patterns/python-input-validation.md",
+        "docs/patterns/python-performance.md",
         "pyproject.toml",
         "backend/pyproject.toml",
         "backend/deep/mypy.ini",
@@ -712,7 +716,16 @@ def test_without_base_codeowners_kit_paths_require_owner_merge(path: str) -> Non
     assert guarded("gh pr merge 7", reader) == TOUCHES.format(path)
 
 
-@pytest.mark.parametrize("path", ["src/app/core.py", "nested/devctl", "nested/.github/x.yml"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/app/core.py",
+        "nested/devctl",
+        "nested/.github/x.yml",
+        "nested/docs/patterns/python-error-handling.md",
+        "docs/patterns/custom.md",
+    ],
+)
 def test_without_base_codeowners_unprotected_paths_still_pass(path: str) -> None:
     reader = owner(files=[{"filename": path, "status": "modified"}])
     reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
@@ -726,3 +739,26 @@ def test_existing_base_codeowners_keeps_its_set(text: str) -> None:
         CODEOWNERS, {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
     )
     assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
+
+
+@pytest.mark.parametrize(
+    "seed",
+    sorted(
+        (Path(__file__).resolve().parents[2] / "rapid_ship/templates").glob("*/.github/CODEOWNERS")
+    ),
+    ids=lambda path: path.parents[1].name,
+)
+def test_without_base_codeowners_fallback_covers_every_shipped_seed(seed: Path) -> None:
+    patterns = patterns_in(seed.read_text().replace("{{owner}}", "o"))
+    assert patterns
+    for pattern in patterns:
+        # Exercise both zero and multiple directories for each recursive seed pattern.
+        for directory in ("", "nested/deep/"):
+            path = pattern.removeprefix("/").replace("**/", directory)
+            if path.endswith("/"):
+                path += "guard-probe"
+            reader = owner(files=[{"filename": path, "status": "modified"}])
+            reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+            assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
+                TOUCHES.format(path)
+            ), (seed, pattern, path)

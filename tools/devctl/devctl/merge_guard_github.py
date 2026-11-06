@@ -27,10 +27,15 @@ _FILE_PAGES = 30  # GitHub lists at most 3,000 files of a pull request
 # pass gh_get's output cap, so gh prints only these.
 _FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 # A base without CODEOWNERS has no trusted project-specific set. Use every shipped stack's
-# settings without consulting the work tree or head, which the PR can change. Common paths stay
-# rooted; Python settings can live below a stack directory. Keep existing **/ prefixes intact.
+# settings and starter Patterns without consulting the work tree or head, which the PR can
+# change. Common paths and Patterns stay rooted; Python settings can live below a stack
+# directory. Keep existing **/ prefixes intact.
 _KIT_PATTERNS = (
     *(f"/{path}" for path in (*PROTECTED_PATHS, *CODEOWNERS_FILES)),
+    "/docs/patterns/python-error-handling.md",
+    "/docs/patterns/python-configuration.md",
+    "/docs/patterns/python-input-validation.md",
+    "/docs/patterns/python-performance.md",
     *(f"/{path}" if path.startswith("**/") else f"/**/{path}" for path in PYTHON_PROTECTED_PATHS),
 )
 _VERDICTS = frozenset({"APPROVED", "CHANGES_REQUESTED"})  # the reviews that decide
