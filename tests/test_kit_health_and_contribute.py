@@ -27,7 +27,7 @@ def test_the_shared_audit_and_proposed_task_references_resolve() -> None:
 
 def test_rs_health_runs_no_command_the_guardrails_deny(tmp_path: Path) -> None:
     root = SKILLS / "rs-health"
-    commands = []
+    commands: list[str] = []
     for path in root.rglob("*.md"):
         for block in re.findall(r"```sh\n(.*?)```", path.read_text(), re.S):
             block = re.sub(r"\\\n", " ", block)

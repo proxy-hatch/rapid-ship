@@ -626,7 +626,21 @@ Pending.
 
 ### 7.3
 
-Pending.
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
+| `uv run pytest -q` | exit 0: `2099 passed in 350.22s`. |
+| `uv run --locked mypy` | exit 0: `Success: no issues found in 148 source files` after adding a test annotation. |
+| `uv run --locked vulture --min-confidence 0` | exit 0, no findings. |
+| `uv run --locked deptry . --no-ansi --json-output <report-path>` | exit 0: `Success! No dependency issues found.` |
+| `uv run rapid-ship status --strict` | exit 0: `59 managed files unchanged.` |
+| `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed. |
+| `git diff --check` | exit 0. |
+| CPython 3.15 isolated `unittest discover -s tests -t . -v` | exit 1: the `tests` directory is not an importable package. The pytest suite above is the repository suite. |
+| Diff step against `21d98e2824ad171ec6654bddea0b71f5558173e6` | passed: `diff cap: 146 of 1,500 counted lines`. |
+| `./devctl check --tier full` and website build | Pending hosted runs after publication; not run locally. |
+
+The final audit wording waits for the merged golden-path library (PRO-167): reconcile the shared audit and Health reads with that library and remove obsolete feature-map drift without inventing a format, location, command or check. Not covered: `rs-health` in a Session, which Task 9 runs; `rs-contribute`'s push and PR, which would open a real PR on rapid-ship. This intermediate evidence is not independent review or final readiness.
 
 ### 7.4
 

@@ -46,6 +46,8 @@ The `project.toml` seeds hold the settings of the re-scope: `[github]` with the 
 
 A seed comments a key only where its name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint, such as a Protected file. The `exceptions.toml` seed's commented example names each key. `tests/test_kit_seed_keys.py` holds each seed to the keys its loader accepts: `PROJECT_KEYS` and `EXCEPTION_KEYS` in devctl's `settings.py`. The loader's error for an unknown key names what its table accepts. It requires `[map] source_roots`, `[map] unguided` and `[tests] unit` to name paths inside the repository, and accepts in `[kit] optional` only the Kit's optional skills, `OPTIONAL_SKILLS`, `rs-contribute`; a test holds that set equal to `kit.toml`'s `optional_skills`.
 
+The Kit includes `rs-health`, which audits a repository and proposes tasks, and opt-in `rs-contribute`, which guides a Kit fix upstream. The final Health audit wording awaits the golden-path library.
+
 ## The lock
 
 `.rapid-ship/kit.lock` records the Kit version, the stack, the variables and one entry per Kit file: a content hash for a managed file, a link target for a managed symlink and the template's hash for a seeded file. An entry moves from managed to seeded when the project edits or deletes the file, and back through `sync --revert`. The Kit version is the package version. `rapid-ship` writes the lock; nobody edits it by hand.
@@ -182,7 +184,7 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines two more plans, not started:
 
 - **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
-- **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`; [the plan document](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md) awaits owner approval and implementation is unbuilt.
+- **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`; [the plan document](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md) records the remaining work.
 
 Spec 3 gets its plan next, and GA includes it:
 

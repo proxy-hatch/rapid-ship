@@ -7,6 +7,7 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | The `rapid-ship` command's version and entry points | [test_cli.py](test_cli.py) |
 | `rapid-ship init`, `status` and `sync`: templates, lock, git calls, each command and the command line | `test_kit_*.py`, such as [test_kit_templates.py](test_kit_templates.py), [test_kit_init.py](test_kit_init.py) with [its variables](test_kit_init_variables.py) and [the checks already in the repository](test_kit_init_existing_checks.py), which also covers how the command line prints them, [test_kit_status.py](test_kit_status.py), [test_kit_sync.py](test_kit_sync.py) with [who owns what](test_kit_sync_ownership.py) and [`[kit] exclude`](test_kit_sync_exclude.py), [test_kit_hooks.py](test_kit_hooks.py) for git hooks and failed branch switches, and [test_kit_cli.py](test_kit_cli.py) |
 | The packaged templates against Spec 1, and this repository's own Kit | [test_kit_contents.py](test_kit_contents.py), [test_kit_dogfood.py](test_kit_dogfood.py) |
+| Health audit and optional contribution skill contracts | [test_kit_health_and_contribute.py](test_kit_health_and_contribute.py) |
 | The upstream lock and forked Kit skills against pristine upstream fixtures | [test_kit_upstream.py](test_kit_upstream.py), [test_kit_skills.py](test_kit_skills.py) |
 | Each key a settings loader accepts, named in its seed | [test_kit_seed_keys.py](test_kit_seed_keys.py) |
 | Fixtures: small template trees, scratch git repositories and the vendored fixture Kit | [conftest.py](conftest.py) |
