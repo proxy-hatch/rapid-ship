@@ -37,5 +37,5 @@ new_project = [
     "tests/test_settings.py",
 ]
 executable = ["devctl", ".agents/devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
-optional_skills = []
+optional_skills = ["rs-contribute"]
 variables = ["code_owner", "owner", "package", "project_name", "repository"]

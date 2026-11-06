@@ -39,6 +39,21 @@ kind = "managed"
 sha256 = "5522b5b206f09f94aa48b51d96206aa10d13b9ec800f177c379b038a4a0370de"
 
 [[file]]
+path = ".agents/skills/rs-health/SKILL.md"
+kind = "managed"
+sha256 = "1847aadbf5b106dc7d63da4432e3d347453a81a69667bc2c227b0409267915f3"
+
+[[file]]
+path = ".agents/skills/rs-health/references/audit.md"
+kind = "managed"
+sha256 = "3021b798489ebc242ececcaa1343edda72a5623237d1c99d95cbdecdf840336f"
+
+[[file]]
+path = ".agents/skills/rs-health/references/proposed-task.md"
+kind = "managed"
+sha256 = "ce18c35b1b4954f04ef6d15bb642320cdcfd555b8afc80ff37e19930bb611a42"
+
+[[file]]
 path = ".agents/skills/rs-writing-for-agents/LICENSE.txt"
 kind = "managed"
 sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
@@ -62,6 +77,11 @@ template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0
 path = ".claude/skills/rs-codebase-design"
 kind = "managed"
 link = "../../.agents/skills/rs-codebase-design"
+
+[[file]]
+path = ".claude/skills/rs-health"
+kind = "managed"
+link = "../../.agents/skills/rs-health"
 
 [[file]]
 path = ".claude/skills/rs-writing-for-agents"
@@ -96,7 +116,7 @@ template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "d58f6cf9ada8b7ed69651285449f19470c4643e47054f162d8974fab57012451"
+template_sha256 = "2229d7ec7ec97b0c605f1d18e59705f2fe4a537146529bf1b9f33bbf8a048310"
 
 [[file]]
 path = "AGENTS.md"
@@ -341,7 +361,7 @@ sha256 = "a8a914f19d460cfb50b2a815d0335a9337cbeefe65bc62736552b9bcf46586a8"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "843b651aad9ba00ab390d1e52ad287ae57e2ef93cf621fbcbff39feda0578bdf"
+sha256 = "25bbddbe468337c6ab50f1eeed467a5df0654281d88627a69c97ce3909031e01"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

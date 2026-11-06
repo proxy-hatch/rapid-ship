@@ -18,7 +18,7 @@ reviewer_app_slug = ""
 every_pr = true
 
 [kit]
-optional = []          # opt-in Kit skills; none in this Kit version
+optional = []          # opt-in Kit skills: rs-contribute
 exclude = []           # Kit files or directories the project owns instead
 
 [map]

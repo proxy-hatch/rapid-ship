@@ -254,7 +254,7 @@ def test_devctl_offers_the_optional_skills_of_its_kit() -> None:
 def test_kit_optional_names_only_the_kits_optional_skills(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # This Kit version offers no optional skills, so the test supplies two.
+    # Supply two names to check the loader independently of the manifest.
     monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
     write(tmp_path, PROJECT, 'stack = "python"\n[kit]\noptional = ["rs-a"]\n')
     assert load_project(tmp_path).optional_skills == ("rs-a",)
@@ -326,9 +326,9 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
         ),
         (
             PROJECT,
-            'stack = "python"\n[kit]\noptional = ["rs-contribute"]\n',
+            'stack = "python"\n[kit]\noptional = ["rs-unknown"]\n',
             ".rapid-ship/project.toml [kit] optional: expected names of the Kit's optional skills: "
-            "none in this Kit version",
+            "rs-contribute",
         ),
         (
             PROJECT,

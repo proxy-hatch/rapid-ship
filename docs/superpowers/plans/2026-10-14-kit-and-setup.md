@@ -553,7 +553,7 @@ If review finds a PR too large, it splits at a task boundary.
 | --- | --- | --- |
 | 7.1 | 1 to 4 | The engineering skills, and `rapid-ship-engineering` retired |
 | 7.2 | 5 and 6 | `rs-setup` and its `ruleset.json` |
-| 7.3 | 7 and 8 | `rs-health` with the shared audit, and `rs-contribute` |
+| 7.3 | 7 and 8 | `rs-health` with the shared audit, and opt-in `rs-contribute`; final audit wording waits for the golden-path library |
 | 7.4 | 11 | The documentation site |
 
 Tasks 9 and 10 are Owner steps after 7.3. GA includes Spec 3, so 7.4 follows them and lands, as one PR, once Spec 3 is built.

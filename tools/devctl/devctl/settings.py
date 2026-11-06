@@ -50,7 +50,7 @@ PROJECT_KEYS: dict[str, frozenset[str]] = {
 }
 # The Kit's optional skills, which [kit] optional may name: kit.toml's optional_skills, which a
 # test holds equal, because devctl runs in projects without rapid-ship.
-OPTIONAL_SKILLS: frozenset[str] = frozenset()
+OPTIONAL_SKILLS: frozenset[str] = frozenset({"rs-contribute"})
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _APP_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")  # the slugs GitHub gives Apps
 # A code owner as CODEOWNERS writes it: "@login" or "@organisation/team".
