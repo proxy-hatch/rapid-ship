@@ -1,7 +1,8 @@
 """The merge guard, and find_merge, which names each way to land a change on the default branch.
 
-Those ways are gh pr merge, which guard checks, and the forms that the hook denies outright. A gh
-command run through ./devctl as <role> gh counts as the gh command it runs.
+Those ways are gh pr merge, which guard checks, and the forms that the hook denies outright. A
+command run through a wrapper, or a gh command through ./devctl as <role> gh, counts as the
+command it runs (devctl.program).
 
 guard reads GitHub only through OwnerGet, doctor's GET with the owner's gh sign-in, and only for
 gh pr merge. Once it has recognised a merge it denies every merge it cannot check, its own errors
@@ -24,10 +25,8 @@ from devctl.codeowners import protected_changes
 from devctl.command_line import (
     REPOSITORY_OPTIONS,
     ApiCall,
-    Command,
     gh_subcommand,
     parse_api,
-    parse_command,
     parse_push,
     read_arguments,
 )
@@ -36,11 +35,13 @@ from devctl.hook_protocols import GUARD_BUDGET_SECONDS, HookSettings
 from devctl.merge_guard_github import (
     Unchecked,
     base_patterns,
+    base_settings,
     changed_files,
     check_state,
     find_pull,
     reviewer_approved,
 )
+from devctl.program import Command, parse_command
 
 MergeForm = Literal["pr-merge", "admin", "push", "rest", "graphql"]
 
@@ -267,9 +268,12 @@ def guard(
 ) -> str | None:
     """The merge guard's denial of a pr-merge, or None: no decision.
 
-    settings None means none were read, so the guard cannot tell the Mode or whether Agent
-    identity is on, and denies before any read. branches is called only for a merge that names no
-    pull request, and elapsed, the seconds since the hook run started, before each read.
+    settings are the work tree's, and give the guard only the repository of a merge that names
+    none. It reads the Mode, Agent identity and [tests] unit from project.toml on the pull
+    request's base branch, so a branch cannot change them before the owner merges it. settings
+    None means the hook read none, and the guard denies before any read. branches is called only
+    for a merge that names no pull request, and elapsed, the seconds since the hook run started,
+    before each read.
     """
     if settings is None:
         return cannot_check(_NO_SETTINGS)
@@ -298,29 +302,30 @@ def _budgeted(owner_get: OwnerGet, elapsed: Callable[[], float]) -> OwnerGet:
 def _checked(
     merge: Merge, settings: HookSettings, read: OwnerGet, branches: Callable[[], LocalBranches]
 ) -> str | None:
-    """Read the PR, CODEOWNERS on its base, its files, its reviews with Agent identity on, and its
-    check runs, in that order, and deny with the first message that applies.
+    """Read the PR, project.toml and CODEOWNERS on its base, its files, its reviews with Agent
+    identity on, and its check runs, in that order, and deny with the first message that applies.
 
-    In Walk no agent merges, so the guard denies once it has read the PR's number. The Protected
-    set and, in Flight, the body's declarations come next, because waiting on a check cannot fix
-    a PR only the owner can merge, so such a PR is denied before its reviews and check runs are
+    In Walk no agent merges, so the guard denies once it has read the Mode. The Protected set
+    and, in Flight, the body's declarations come next, because waiting on a check cannot fix a
+    PR only the owner can merge, so such a PR is denied before its reviews and check runs are
     read. The review comes after the check, because fixing a failed check pushes a new head that
     needs a new review, and before the head, because the retry that message names would be
     denied without it.
     """
     repository = merge.repository or settings.repository
     pull = find_pull(read, merge.target, repository, lambda: branches().current)
-    if settings.every_pr:
+    base = base_settings(read, pull)
+    if base.escalation.every_pr:
         return _WALK_DENIED.format(number=pull.number)
     patterns = base_patterns(read, pull)
     protected = protected_changes(patterns, changed_files(read, pull))
     if protected:
         return _PROTECTED_DENIED.format(number=pull.number, paths=", ".join(protected))
-    declared = _owner_declarations(pull.body, settings.unit_tests)
+    declared = _owner_declarations(pull.body, base.unit_tests)
     if declared:
         return _DECLARED_DENIED.format(number=pull.number, what=" and ".join(declared))
-    slug = settings.reviewer_app_slug
-    approved = not settings.agent_identity or reviewer_approved(read, pull, slug)
+    reviewer = base.reviewer_app if base.agent_identity else None
+    approved = reviewer is None or reviewer_approved(read, pull, reviewer.slug)
     state = check_state(read, pull)
     if state != "success":
         return _CHECK_DENIED.format(number=pull.number, head=pull.head, state=state)

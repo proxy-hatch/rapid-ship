@@ -20,10 +20,10 @@ from pathlib import Path
 
 from devctl.codeowners import codeowners_match, protected_patterns
 from devctl.command_line import (
-    Command,
+    GIT_ABBREVIATIONS,
     gh_subcommand,
+    long_option,
     parse_api,
-    parse_command,
     parse_push,
     simple_commands,
 )
@@ -49,19 +49,24 @@ from devctl.merge_guard import (
     guard,
     read_branches,
 )
+from devctl.program import Command, parse_command
 from devctl.settings import SettingsError, load_project
 
 KIT_LOCK = ".rapid-ship/kit.lock"  # check/kit.py's LOCK_PATH names the same file
-PR_READS = frozenset({"view", "list", "status", "diff", "checks", "checkout"})
-ISSUE_READS = frozenset({"view", "list", "status"})
+# ls and co are gh's own aliases of list and checkout.
+PR_READS = frozenset({"view", "list", "ls", "status", "diff", "checks", "checkout", "co"})
+ISSUE_READS = frozenset({"view", "list", "ls", "status"})
+_HOOKS_PATH = "core.hookspath"  # git reads config names in any case
+_ALIAS = "alias."
 # git commit's short options that take a value: the letters after one are that value.
 _COMMIT_VALUED = frozenset("mFCctSu")
 # A command line that may hold gh pr merge, read as plain text when shell rules cannot split it.
 _MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
 
 G1 = (
-    "G1: --no-verify and git commit -n skip the pre-commit hook; run the command without them, "
-    "and fix what the hook reports"
+    "G1: --no-verify, git commit -n and a core.hooksPath set on the command line skip the "
+    "pre-commit hook, and an alias set there hides its command from devctl hook; run the "
+    "command without them, and fix what the pre-commit hook reports"
 )
 G2 = (
     "G2: a force push rewrites published history; push without --force, -f, --force-with-lease, "
@@ -208,8 +213,8 @@ def work_tree_root(path: Path) -> Path | None:
 
 
 def read_settings(root: Path) -> HookSettings | str:
-    """The settings the Protected-set and Agent identity rules and the merge guard read, or why
-    they cannot be read.
+    """The work tree's settings that the Protected-set and Agent identity rules read, with the
+    repository the merge guard falls back on, or why they cannot be read.
 
     An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches the
     Protected-set and Agent identity rules off: this writes one stderr line and returns the
@@ -223,14 +228,10 @@ def read_settings(root: Path) -> HookSettings | str:
         reason = " ".join(str(error).splitlines())
         sys.stderr.write(f"devctl hook: {reason}; G5, G7 and G8 give no decision\n")
         return reason
-    reviewer = project.reviewer_app if project.agent_identity else None
     return HookSettings(
         agent_identity=project.agent_identity,
         protected=tuple(patterns or ()),
         repository=project.repository,
-        reviewer_app_slug=reviewer.slug if reviewer else None,
-        every_pr=project.escalation.every_pr,
-        unit_tests=project.unit_tests,
     )
 
 
@@ -263,7 +264,7 @@ def _shell_rule(
 ) -> str | None:
     """Why the first rule that applies denies one simple command, or None."""
     pushing = command.program == "git" and command.args[:1] == ("push",)
-    if command.program == "git" and _skips_hooks(command.args):
+    if command.program == "git" and (_skips_hooks(command.args) or _sets_hooks_or_alias(command)):
         return G1
     if pushing and parse_push(command.args[1:]).force:
         return G2
@@ -280,15 +281,30 @@ def _shell_rule(
 
 
 def _skips_hooks(args: tuple[str, ...]) -> bool:
-    """--no-verify in any git command, or -n in git commit, in the words before "--".
+    """--no-verify, or a prefix that git reads as it, in any git command, or -n in git commit.
 
-    Every word counts, an option's value too, so a message that is literally --no-verify is
-    denied as well; the agent rewords it.
+    Every word counts, an option's value and the words after "--" too: "--" can be an option's
+    value, as in git commit -m -- --no-verify, and then the options go on. So a message or a path
+    that is literally --no-verify is denied as well; the agent rewords or renames it.
     """
-    words = args[: args.index("--")] if "--" in args else args
-    if "--no-verify" in words:
+    if any(long_option(word, GIT_ABBREVIATIONS) == "--no-verify" for word in args):
         return True
-    return words[:1] == ("commit",) and any(_holds_n(word) for word in words[1:])
+    return args[:1] == ("commit",) and any(_holds_n(word) for word in args[1:])
+
+
+def _sets_hooks_or_alias(command: Command) -> bool:
+    """Whether git's -c or --config-env sets core.hooksPath or an alias, or a variable set before
+    git whose name starts with GIT_CONFIG, such as GIT_CONFIG_KEY_0, names one.
+
+    The rules read the words on the line, not the command an alias stands for, and agents need no
+    alias set on the command line.
+    """
+    keys = [value.partition("=")[0].casefold() for value in command.config]
+    variables = (word.partition("=") for word in command.assignments)
+    named = [value.casefold() for name, _, value in variables if name.startswith("GIT_CONFIG")]
+    return any(key == _HOOKS_PATH or key.startswith(_ALIAS) for key in keys) or any(
+        _HOOKS_PATH in value or _ALIAS in value for value in named
+    )
 
 
 def _holds_n(word: str) -> bool:

@@ -102,14 +102,13 @@ class ToolCall:
 
 @dataclass(frozen=True)
 class HookSettings:
-    """What the Protected-set and Agent identity rules and the merge guard read."""
+    """The work tree's settings: what the Protected-set and Agent identity rules read, and the
+    repository the merge guard falls back on. The guard reads its other settings from the pull
+    request's base branch."""
 
     agent_identity: bool
     protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
     repository: str | None  # [github] repository
-    reviewer_app_slug: str | None  # [github] reviewer_app_slug when Agent identity is on, else None
-    every_pr: bool  # [escalation] every_pr: True is Walk, False is Flight
-    unit_tests: tuple[str, ...]  # [tests] unit: the patterns of the unit test files
 
 
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:
