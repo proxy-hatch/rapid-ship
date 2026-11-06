@@ -121,7 +121,7 @@ def main() -> int:
         (existing / "pyproject.toml").write_text(WORKSPACE_PYPROJECT)
         run(existing, "git", "add", "pyproject.toml")
         run(existing, "git", "commit", "-q", "-m", "Existing project")
-        run(existing, rapid_ship, "init")
+        run(existing, rapid_ship, "init", "--stack", "python")
         expect_kit_commit(existing, "rapid-ship/init")
         if run(existing, "./devctl", "--version") != version:
             raise SystemExit("devctl reported different versions in the two projects")

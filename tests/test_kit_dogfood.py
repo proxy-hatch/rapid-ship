@@ -66,7 +66,8 @@ def owned_kit_files(root: Path, templates_root: Path | None = None) -> list[str]
     excluded = read_excluded(root)
     optional = read_optional_skills(root)
     templates = {
-        t.path: t for t in render_files(lock.stack, lock.variables, optional, root=templates_root)
+        t.path: t
+        for t in render_files(lock.stacks[0].name, lock.variables, optional, root=templates_root)
     }
     return [
         entry.path

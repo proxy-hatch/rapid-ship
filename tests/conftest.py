@@ -132,7 +132,10 @@ def vendored(
     test_kit_cli.py overrides it with a version that runs the rapid-ship command.
     """
     from rapid_ship.kit.init import init_repository
+    from rapid_ship.kit.stacks import ProjectStack
 
     old = make_templates("old")
-    init_repository(git_repo, stack="python", variables=kit_variables, templates_root=old)
+    init_repository(
+        git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables, templates_root=old
+    )
     return old

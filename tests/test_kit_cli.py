@@ -213,7 +213,7 @@ def test_strict_status_passes_with_an_excluded_modified_file(
             "the work tree has changes",
         ),
         (lambda root: None, ["status"], 2, "kit.lock is missing; run rapid-ship init"),
-        (lambda root: None, ["init"], 2, "pass --stack python or --stack agnostic"),
+        (lambda root: None, ["init"], 2, "it found no stack root"),
         (lambda root: None, ["init", "--stack", "agnostic", "--owner=-x"], 2, "owner"),
     ],
 )
@@ -367,13 +367,13 @@ def test_status_json_reports_each_list_and_the_strict_verdict(
     assert set(report) == {
         "kit_version",
         "installed_version",
-        "stack",
+        "stacks",
         "files",
         "outdated",
         "not_installed",
         "strict_ok",
     }
-    assert report["stack"] == "python"
+    assert report["stacks"] == [{"name": "python", "directory": "."}]
     assert (report["outdated"], report["strict_ok"]) == (["devctl"], False)
     assert {"path": "devctl", "kind": "managed", "state": "unchanged"} in report["files"]
 

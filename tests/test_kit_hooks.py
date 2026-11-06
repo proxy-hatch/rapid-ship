@@ -9,6 +9,7 @@ import pytest
 from rapid_ship.kit import init as init_module
 from rapid_ship.kit import sync as sync_module
 from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import KitError
 
@@ -57,7 +58,10 @@ def test_init_runs_no_hook_from_a_tracked_hooks_path(
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert not log.exists()  # checked first: the test's own git calls below may run hooks
@@ -77,7 +81,10 @@ def test_init_lists_a_tracked_hooks_path_and_its_hooks_without_running_them(
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert not log.exists()  # checked first: the test's own git calls below may run hooks
@@ -149,7 +156,10 @@ def test_a_failed_switch_to_the_init_branch_restores_the_start(
 
     with pytest.raises(KitError) as stopped:
         init_repository(
-            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+            git_repo,
+            stacks=(ProjectStack("python", "."),),
+            variables=kit_variables,
+            templates_root=make_templates(),
         )
 
     assert str(stopped.value) == (

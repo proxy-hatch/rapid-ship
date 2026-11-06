@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,13 +46,15 @@ _WORKFLOWS = ".github/workflows"
 _HOOKS_OFF = "/dev/null"  # a hooks path that turns hooks off, as the Kit commands do
 
 
-def find_existing_checks(root: Path) -> tuple[str, ...]:
+def find_existing_checks(root: Path, directories: Sequence[str]) -> tuple[str, ...]:
     """The tool settings, hooks and workflows in root, as sorted paths relative to root.
 
     A path outside root, such as the hooks of a linked worktree, is absolute. A directory ends in
     a slash. Call it before init writes anything: it lists what the repository had.
     """
     found = [*_settings(root), *_hooks(root), *_workflows(root)]
+    for directory in sorted(set(directories) - {"."}):
+        found.extend(f"{directory}/{name}" for name in _settings(root / directory))
     return tuple(sorted(found))
 
 

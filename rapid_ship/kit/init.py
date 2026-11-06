@@ -24,11 +24,11 @@ from rapid_ship.kit.git import (
     work_tree_root,
 )
 from rapid_ship.kit.lock import LOCK_PATH, Lock, entry_for, write_lock
+from rapid_ship.kit.stacks import ProjectStack, checked_stacks, detect_stacks, proposal
 from rapid_ship.kit.status import locate
 from rapid_ship.kit.templates import (
     KitError,
     KitRefusal,
-    Stack,
     Template,
     installed_version,
     load_manifest,
@@ -54,7 +54,7 @@ _GITHUB_REMOTE = re.compile(
 
 @dataclass(frozen=True)
 class InitResult:
-    stack: Stack
+    stacks: tuple[ProjectStack, ...]
     created: tuple[str, ...]  # includes .rapid-ship/kit.lock; empty when there are conflicts
     skipped: tuple[str, ...]  # seeded files that already existed; rs-setup merges them
     conflicts: tuple[str, ...]  # "path: reason"; when present, init wrote nothing
@@ -134,42 +134,33 @@ def _github_repository_name(url: str) -> str | None:
 def init_repository(
     root: Path,
     *,
-    stack: Stack | None,
+    stacks: Sequence[ProjectStack],
     variables: Mapping[str, str],
     templates_root: Path | None = None,
 ) -> InitResult:
     root = root.resolve()
-    top = work_tree_root(root)
-    if top != root:
-        raise KitRefusal(f"run init from the top of the work tree, {top}")
-    dirty = changed_paths(root)
-    if dirty:
-        raise KitRefusal(_dirty(dirty))
-    if os.path.lexists(root / LOCK_PATH):
-        raise KitRefusal(f"{LOCK_PATH} exists; use rapid-ship status or rapid-ship sync")
-    start = head_commit(root)
-    if start is not None and git(root, "branch", "--list", INIT_BRANCH).strip():
-        raise KitRefusal(
-            f"branch {INIT_BRANCH} exists; a previous init may have committed the Kit there. "
-            f"Open its pull request, or delete it with git branch -D {INIT_BRANCH}"
-        )
+    start = _check_init_start(root)
     existing_project = os.path.lexists(root / "pyproject.toml")
-    stack = stack or ("python" if existing_project else None)
-    if stack is None:
-        raise KitError("there is no pyproject.toml; pass --stack python or --stack agnostic")
+    if not stacks:
+        raise KitError(proposal(detect_stacks(root)))
+    stacks = checked_stacks(root, stacks)
+    if len(stacks) != 1 or stacks[0].directory != ".":
+        raise KitError("this rapid-ship renders one stack at the root only")
     manifest = load_manifest(templates_root)
     new_project_only = {render_path(path, variables) for path in manifest.new_project}
     templates = [
         template
-        for template in render_files(stack, variables, (), root=templates_root)
+        for template in render_files(stacks[0].name, variables, (), root=templates_root)
         if not (existing_project and template.path in new_project_only)
     ]
     writes, skipped, conflicts = _plan(root, templates)
     if conflicts:
-        return InitResult(stack, (), tuple(skipped), tuple(conflicts))
-    existing_checks = find_existing_checks(root)  # before the branch and the writes: as it was
+        return InitResult(stacks, (), tuple(skipped), tuple(conflicts))
+    existing_checks = find_existing_checks(
+        root, [s.directory for s in stacks]
+    )  # before the branch and the writes: as it was
     version = installed_version()
-    lock = Lock(version, stack, dict(variables), tuple(entry_for(t) for t in templates))
+    lock = Lock(version, stacks, dict(variables), tuple(entry_for(t) for t in templates))
     current = head_branch(root)
     base = None if start is None else current or start  # a detached HEAD returns to its commit
     if base is not None:
@@ -187,8 +178,26 @@ def init_repository(
     commit = git(root, "rev-parse", "HEAD").decode().strip()
     branch = INIT_BRANCH if base is not None else current or ""
     return InitResult(
-        stack, tuple(created), tuple(skipped), (), branch, commit, base, existing_checks
+        stacks, tuple(created), tuple(skipped), (), branch, commit, base, existing_checks
     )
+
+
+def _check_init_start(root: Path) -> str | None:
+    top = work_tree_root(root)
+    if top != root:
+        raise KitRefusal(f"run init from the top of the work tree, {top}")
+    dirty = changed_paths(root)
+    if dirty:
+        raise KitRefusal(_dirty(dirty))
+    if os.path.lexists(root / LOCK_PATH):
+        raise KitRefusal(f"{LOCK_PATH} exists; use rapid-ship status or rapid-ship sync")
+    start = head_commit(root)
+    if start is not None and git(root, "branch", "--list", INIT_BRANCH).strip():
+        raise KitRefusal(
+            f"branch {INIT_BRANCH} exists; a previous init may have committed the Kit there. "
+            f"Open its pull request, or delete it with git branch -D {INIT_BRANCH}"
+        )
+    return start
 
 
 def _dirty(paths: Sequence[str]) -> str:
