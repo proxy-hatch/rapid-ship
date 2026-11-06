@@ -48,6 +48,8 @@
 /.python-version @proxy-hatch
 /.gitignore @proxy-hatch
 /**/.gitignore @proxy-hatch
+/.ignore @proxy-hatch
+/**/.ignore @proxy-hatch
 # Nested Python settings, including template trees and future stack directories.
 /**/pyproject.toml @proxy-hatch
 /**/mypy.ini @proxy-hatch

@@ -36,14 +36,14 @@ All active rules name the configured owner, and no catch-all remains.
 | `.github/workflows/`, `.github/CODEOWNERS` | 4 | Workflow audit, CI and Protected policy |
 | `.gitleaks.toml`; optional `.gitleaksignore` | 28–29 | Secrets; inspected `extend.useDefault` and allowlist conditions |
 | Optional `zizmor.yml`, `zizmor.yaml`, `.github/` settings | 30–31, 4 | Workflow audit; no standalone settings file exists |
-| Root `pyproject.toml` | 32, 52 | Build metadata and dependencies; `tool.hatch`, `ruff` and its nested lint tables, `mypy`, `pytest.ini_options`, `importlinter` and contracts, `vulture`, `deptry` |
-| `tools/devctl/pyproject.toml` | 7, 52 | Build metadata, dependencies, `tool.hatch`, `tool.uv.workspace` |
-| `rapid_ship/templates/python/pyproject.toml` | 15, 52 | All nested tool tables listed for root, as starter settings |
-| `rapid_ship/templates/common/tools/devctl/pyproject.toml` | 15, 52 | Build metadata, dependencies, `tool.hatch`, `tool.uv.workspace` |
+| Root `pyproject.toml` | 32, 54 | Build metadata and dependencies; `tool.hatch`, `ruff` and its nested lint tables, `mypy`, `pytest.ini_options`, `importlinter` and contracts, `vulture`, `deptry` |
+| `tools/devctl/pyproject.toml` | 7, 54 | Build metadata, dependencies, `tool.hatch`, `tool.uv.workspace` |
+| `rapid_ship/templates/python/pyproject.toml` | 15, 54 | All nested tool tables listed for root, as starter settings |
+| `rapid_ship/templates/common/tools/devctl/pyproject.toml` | 15, 54 | Build metadata, dependencies, `tool.hatch`, `tool.uv.workspace` |
 | Optional root/nested Ruff files | 33–34, 44–45 | Both `ruff.toml` and `.ruff.toml`; neither exists |
-| Optional mypy, pytest, setup, tox and import-linter files | 35–43, 53–61 | Both dotted and undotted names in the Protected contract; none exists |
-| Root/nested `uv.toml`, `uv.lock` | 46–47, 62–63 | Locked check-tool execution, audit export and dependency inputs; three tracked locks, no `uv.toml` |
-| `.python-version`, root/nested `.gitignore` | 48–50 | Interpreter selection and source discovery/exclusion |
+| Optional mypy, pytest, setup, tox and import-linter files | 35–43, 55–63 | Both dotted and undotted names in the Protected contract; none exists |
+| Root/nested `uv.toml`, `uv.lock` | 46–47, 64–65 | Locked check-tool execution, audit export and dependency inputs; three tracked locks, no `uv.toml` |
+| `.python-version`, root/nested `.gitignore` and `.ignore` | 48–52 | Interpreter selection and source discovery/exclusion, including Ruff’s `.ignore` inputs |
 | `rapid_ship/templates/kit.toml`, template settings and workflow trees | 15 | Kit/vendored comparisons and distribution inputs; Python and agnostic project seeds, exceptions, Harness wiring and devctl metadata |
 | `.agents/hooks.json`, `.claude/settings.json` | 8–9 | Harness wiring checked by doctor |
 | `docs/patterns/README.md` | 14 | No project Pattern implementation files exist |
@@ -65,6 +65,13 @@ Other existing cases deny Protected changes, missing checks, missing exact-head 
 The Flight body tests cover declared behavioural-test removals and diff-cap overages.
 These tests use simulated GitHub responses; they are not hosted CI or live approvals.
 
+A local Correction probe reproduced missing `.ignore` coverage before adding its rules.
+The repository's `devctl.codeowners` matcher returned false for `.ignore`, `a/.ignore` and `a/b/.ignore`.
+After adding `/.ignore` and `/**/.ignore`, all three paths match the configured owner, `@proxy-hatch`.
+All active rules name that owner; 91 probes derived from the prior rules retain their coverage.
+These are local matcher observations, not evidence of GitHub requesting an owner.
+No Ruff discovery reproduction was run for this Correction.
+
 `./devctl doctor --settings` passes on the local Flight configuration.
 The merge guard currently takes Mode, Apps and unit-test patterns from work-tree settings; CODEOWNERS comes from the PR base.
 The separate base-policy change has not landed in the inspected base, so this record does not claim its behavior.
@@ -84,3 +91,13 @@ Local tools: git 2.39.5; resolved stable CPython 3.15.2 (`releaselevel = final`)
 | `./devctl check --tier fast` | Exit 0; all seven steps pass |
 | `uv run rapid-ship status --strict` | Exit 0; Kit remains required and unchanged |
 | `git diff --check` | Exit 0 |
+
+Correction validation used the repository configuration and configured scan scope, without overrides.
+The exact full-tier tool commands and affected tests below ran locally; hosted CI remains the check of record.
+
+| Correction command | Local result |
+| --- | --- |
+| `uv run --locked mypy` | Exit 0; no issues in 145 source files |
+| `uv run --locked vulture --min-confidence 0` | Exit 0; no findings |
+| `uv run --locked deptry . --no-ansi --json-output <temporary-report-path>` | Exit 0; 19 files scanned, JSON report `[]` |
+| `uv run --locked pytest -q tests/devctl/test_devctl_codeowners.py` | Exit 0; 21 passed, offline matcher tests |
