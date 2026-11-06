@@ -134,13 +134,6 @@ class TrackedFiles:
                 return part.as_posix()
         return name if any(path.startswith(f"{name}/") for path in self.untracked) else None
 
-    def _resolved(self, path: str) -> str | None:
-        """`path` with its symlinks resolved, relative to the root; None when it leaves it."""
-        resolved, real_root = (self.root / path).resolve(), self.root.resolve()
-        if not resolved.is_relative_to(real_root):
-            return None
-        return resolved.relative_to(real_root).as_posix()
-
 
 def _with_directories(paths: Iterable[str]) -> frozenset[str]:
     """`paths` and each directory that holds one, the root `.` included."""
