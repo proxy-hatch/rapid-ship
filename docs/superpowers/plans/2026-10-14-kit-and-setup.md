@@ -551,7 +551,8 @@ If review finds a PR too large, it splits at a task boundary.
 
 | PR | Tasks | Content |
 | --- | --- | --- |
-| 7.1 | 1 to 4 | The engineering skills, and `rapid-ship-engineering` retired |
+| 7.1a | 1 | Upstream lock and fixtures |
+| 7.1b | 2 to 4 | The engineering skills, and `rapid-ship-engineering` retired |
 | 7.2 | 5 and 6 | `rs-setup` and its `ruleset.json` |
 | 7.3 | 7 and 8 | `rs-health` with the shared audit, and `rs-contribute` |
 | 7.4 | 11 | The documentation site |
