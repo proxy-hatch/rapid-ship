@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import new_workspace, stack_table
+from devctl import doctor_rules
 from devctl.codeowners import FileChange, patterns_in
 from devctl.command_line import simple_commands
 from devctl.doctor_items import OwnerGet, OwnerReadError, gh_get
@@ -765,3 +766,29 @@ def test_without_base_codeowners_fallback_covers_every_shipped_seed(seed: Path) 
             assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
                 TOUCHES.format(path)
             ), (seed, pattern, path)
+
+
+@pytest.mark.parametrize("declared_stack", ["agnostic", "typescript"])
+@pytest.mark.parametrize("directory", ["", "backend/", "backend/deep/"])
+def test_without_base_codeowners_tracks_shared_stack_settings_despite_head_declarations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, declared_stack: str, directory: str
+) -> None:
+    # Simulate a shipped path-set extension, using the real ProjectStack path-set provider.
+    monkeypatch.setattr(
+        doctor_rules,
+        "PYTHON_PROTECTED_PATHS",
+        (*doctor_rules.PYTHON_PROTECTED_PATHS, "guardrail-settings.toml"),
+    )
+    root = project(tmp_path)
+    (root / ".rapid-ship/project.toml").write_text(
+        stack_table(declared_stack)
+        + '\n[escalation]\nevery_pr = false\n[github]\nrepository = "o/r"\n'
+    )
+    path = directory + "guardrail-settings.toml"
+    reader = owner(files=[{"filename": path, "status": "modified"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert hooked(root, f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
+        "deny",
+        TOUCHES.format(path),
+    )
+    assert not any(f"ref={HEAD}" in path for path in reader.paths)

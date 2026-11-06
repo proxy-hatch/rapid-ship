@@ -22,9 +22,9 @@ This index fixes the layout and the names, signatures and formats that more than
 
 ## Setup merge fallback integration
 
-The merge guard uses the existing common and Python Protected-path constants when the base has no CODEOWNERS. Common paths stay root-anchored; Python settings match at any depth. Every supported CODEOWNERS location is covered, so a later first CODEOWNERS also requires the owner to merge.
+When the base has no CODEOWNERS, the merge guard combines the common Protected paths with `protected_settings` for every supported `ProjectStack`. Common paths stay root-anchored; Python settings match at any depth. Every supported CODEOWNERS location is covered, so a later first CODEOWNERS also requires the owner to merge.
 
-**Pending before this change merges:** plan 6.1a must integrate its `ProjectStack` path sets with this fallback. This implementation round imports no unmerged plan 6 code. The final PR must remain unmerged until that integration, full checks and independent review of the final head pass.
+**Pending before this change merges:** the fallback consumes plan 6.1a’s `ProjectStack` path sets through a local dependency merge. The final PR must state: merge after plan 6.1a and #58. Reintegrate their merged main or the final published dependency head if it differs, then run full checks and obtain independent review of the final head.
 
 ## Conventions for every plan
 
