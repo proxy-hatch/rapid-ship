@@ -2,7 +2,7 @@
 
 A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out. It carries
 `# rs-exception: EX-<n>` on its line, and .rapid-ship/exceptions.toml has one entry for that
-ID. On the Python stack, each allowlist item in the root pyproject.toml is one too, and so is a
+ID. On the Python stack, each allowlist item in its stack's pyproject.toml is one too, and so is a
 line that vulture or deptry reads as one, a string included. This module and the stack modules
 in stacks/ are the one definition of suppressions and their rule names.
 """
@@ -57,8 +57,6 @@ class ExceptionsStep:
                     root, files, managed, under(stack.directory, PYPROJECT)
                 )
             ]
-        except tomllib.TOMLDecodeError as error:
-            return blocked(self.name, f"{PYPROJECT}: {error}")
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
         errors = [*exception_errors(lines, entries), *unplaced]
@@ -72,8 +70,9 @@ def scan(
 
     Paths are relative to `root`. A file is skipped when it is a Kit file the project does not
     own (`managed`), is not a regular file, is a symlink, or is not UTF-8. Lines come in path
-    then line order. On the Python stack, the root pyproject.toml's allowlist items are
-    suppressions on their lines; invalid TOML there raises tomllib.TOMLDecodeError.
+    then line order. Each Python stack's pyproject.toml allowlist items are suppressions on
+    their lines;
+    invalid TOML raises SettingsError naming that file.
     """
     found: list[SuppressedLine] = []
     for path in sorted(files):
@@ -96,7 +95,7 @@ def scan(
 def _allowlist_errors(
     root: Path, files: Sequence[str], managed: frozenset[str], path: str
 ) -> list[str]:
-    """The root pyproject.toml's items that the scan could not place on a line, and lines that
+    """The selected pyproject.toml's items that the scan could not place on a line, and lines that
     hold two items."""
     text = _readable(root, path, managed) if path in files else None
     return toml_allowlist(text, path)[1] if text is not None else []
@@ -160,7 +159,11 @@ def _text_lines(
 def _pyproject_lines(path: str, text: str) -> list[SuppressedLine]:
     """The text rules, plus each allowlist item as a suppression on its line."""
     items: dict[int, list[str]] = {}
-    for item in toml_allowlist(text, path)[0]:
+    try:
+        allowlist, _errors = toml_allowlist(text, path)
+    except tomllib.TOMLDecodeError as error:
+        raise SettingsError(f"{path}: {error}") from error
+    for item in allowlist:
         items.setdefault(item.line, []).append(normal_rule(item.rule))
     return _text_lines(path, text, items)
 
