@@ -179,6 +179,21 @@ kind = "managed"
 sha256 = "4988dcc2f2e35555324c4b365465c3cccf1451647adb84cf59c3d215fb8ddbf4"
 
 [[file]]
+path = "tools/devctl/devctl/check/stacks/typescript_suppressions.py"
+kind = "managed"
+sha256 = "a03bef16350041681a3a54d0281baa3d2933df49243c2e99b2c6275653d21437"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/vitest.py"
+kind = "managed"
+sha256 = "c97cd9996a71f516424ba8455ab580ac29c5c0b223be8d5c49eaaa188e4ec1b8"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/vitest_tokens.py"
+kind = "managed"
+sha256 = "685577c88f0cfc70815f833d9bd3ed6d3dbf3db70296e80f5bb7d83d251674ba"
+
+[[file]]
 path = "tools/devctl/devctl/check/steps.py"
 kind = "managed"
 sha256 = "c965ab705d7b32e733766292c5163776d05d5f739df6a70195ec805957074322"
