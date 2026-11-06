@@ -12,7 +12,7 @@ from pathlib import Path
 import tomli_w
 
 from rapid_ship.files import UnsafePath, atomic_replace, relative_parts, safe_path
-from rapid_ship.kit.stacks import ProjectStack, checked_stacks, parse_stack
+from rapid_ship.kit.stacks import STACKS, ProjectStack, checked_stacks, parse_stack
 from rapid_ship.kit.templates import Kind, KitError, Template
 
 LOCK_PATH = ".rapid-ship/kit.lock"
@@ -104,7 +104,7 @@ def _stacks(root: Path, value: object) -> tuple[ProjectStack, ...]:
         try:
             if not isinstance(item, dict) or set(item) != {"name", "directory"}:
                 raise KitError("invalid stack table")
-            if not isinstance(item["name"], str) or not isinstance(item["directory"], str):
+            if item["name"] not in STACKS or not isinstance(item["directory"], str):
                 raise KitError("invalid stack values")
             result.append(parse_stack(f"{item['name']}={item['directory']}"))
         except KitError as error:
@@ -121,10 +121,11 @@ def write_lock(root: Path, lock: Lock) -> None:
     except UnsafePath as error:
         raise KitError(str(error)) from error
     path.parent.mkdir(exist_ok=True)
-    document = {
-        "variables": dict(sorted(lock.variables.items())),
-        "file": [_table(entry) for entry in sorted(lock.entries, key=lambda entry: entry.path)],
-    }
+    document: dict[str, object] = {"variables": dict(sorted(lock.variables.items()))}
+    if lock.entries:
+        document["file"] = [
+            _table(entry) for entry in sorted(lock.entries, key=lambda entry: entry.path)
+        ]
     header = _HEADER + tomli_w.dumps({"kit_version": lock.kit_version})
     for stack in sorted(lock.stacks, key=lambda s: (s.directory, s.name)):
         header += "\n[[stack]]\n" + tomli_w.dumps(

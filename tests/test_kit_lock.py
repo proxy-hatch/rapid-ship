@@ -114,3 +114,48 @@ def test_an_older_lock_reads_as_one_stack_at_the_root_and_is_rewritten(tmp_path:
     write_lock(tmp_path, lock)
     assert '[[stack]]\nname = "python"\ndirectory = "."' in path.read_text()
     assert not read_lock(tmp_path).older_form
+
+
+@pytest.mark.parametrize(
+    "stacks",
+    [
+        (ProjectStack("python", "."),),
+        (ProjectStack("python", "backend"), ProjectStack("python", "worker")),
+    ],
+)
+def test_an_empty_entry_lock_round_trips(tmp_path: Path, stacks: tuple[ProjectStack, ...]) -> None:
+    lock = Lock("0.2.0", stacks, VARIABLES, ())
+    write_lock(tmp_path, lock)
+    assert read_lock(tmp_path) == lock
+
+
+def test_an_older_empty_lock_is_rewritten(tmp_path: Path) -> None:
+    path = tmp_path / LOCK_PATH
+    path.parent.mkdir()
+    path.write_text('kit_version = "0.2.0"\nstack = "python"\nfile = []\n')
+    older = read_lock(tmp_path)
+    assert older.older_form
+    assert older.entries == ()
+    write_lock(tmp_path, older)
+    restored = read_lock(tmp_path)
+    assert restored == Lock("0.2.0", (ProjectStack("python", "."),), {}, ())
+
+
+@pytest.mark.parametrize(
+    "stack", ['stack = "python=backend"', '[[stack]]\nname = "python=backend"\ndirectory = "."']
+)
+def test_a_lock_rejects_a_stack_name_with_cli_delimiters(tmp_path: Path, stack: str) -> None:
+    path = tmp_path / LOCK_PATH
+    path.parent.mkdir()
+    path.write_text(f'kit_version = "0.2.0"\n{stack}\n')
+    with pytest.raises(KitError, match="name must be python or agnostic"):
+        read_lock(tmp_path)
+
+
+def test_a_lock_normalizes_a_directory_containing_equals(tmp_path: Path) -> None:
+    path = tmp_path / LOCK_PATH
+    path.parent.mkdir()
+    path.write_text(
+        'kit_version = "0.2.0"\n[[stack]]\nname = "python"\ndirectory = "./backend=app/"\n'
+    )
+    assert read_lock(tmp_path).stacks == (ProjectStack("python", "backend=app"),)

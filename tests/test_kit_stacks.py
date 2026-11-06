@@ -2,12 +2,20 @@
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from rapid_ship.kit.git import head_commit
 from rapid_ship.kit.init import init_repository
-from rapid_ship.kit.stacks import ProjectStack, checked_stacks, detect_stacks, parse_stack, proposal
+from rapid_ship.kit.stacks import (
+    ProjectStack,
+    StackName,
+    checked_stacks,
+    detect_stacks,
+    parse_stack,
+    proposal,
+)
 from rapid_ship.kit.templates import KitError
 
 
@@ -116,3 +124,15 @@ def test_tracked_roots_produce_the_exact_proposal_without_writes(
     assert head_commit(git_repo) == before
     assert run_git(git_repo, "status", "--porcelain") == ""
     assert run_git(git_repo, "branch", "--list", "rapid-ship/init") == ""
+
+
+def test_structured_stacks_reject_a_name_with_cli_delimiters(tmp_path: Path) -> None:
+    malformed = ProjectStack(cast("StackName", "python=backend"), ".")
+    with pytest.raises(KitError, match="the stack is python or agnostic"):
+        checked_stacks(tmp_path, [malformed])
+
+
+def test_structured_stacks_normalize_a_directory_containing_equals(tmp_path: Path) -> None:
+    assert checked_stacks(tmp_path, [ProjectStack("python", "./backend=app/")]) == (
+        ProjectStack("python", "backend=app"),
+    )

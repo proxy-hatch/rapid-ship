@@ -42,6 +42,9 @@ def parse_stack(option: str) -> ProjectStack:
 def checked_stacks(root: Path, stacks: Sequence[ProjectStack]) -> tuple[ProjectStack, ...]:
     from rapid_ship.kit.templates import KitError
 
+    for stack in stacks:
+        if stack.name not in STACKS:
+            raise KitError(f"--stack {stack.name}: the stack is {' or '.join(STACKS)}")
     result = tuple(
         sorted(
             (parse_stack(f"{s.name}={s.directory}") for s in stacks),
