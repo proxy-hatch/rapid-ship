@@ -24,18 +24,30 @@ def test_init_status_and_sync_with_the_packaged_kit(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.chdir(git_repo)
+    run_git(git_repo, "remote", "add", "origin", "https://github.com/octo/app.git")
 
     assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
     out = capsys.readouterr().out
     commit = run_git(git_repo, "rev-parse", "HEAD").strip()
-    first = f"The repository had no commits, so the Kit is its first commit, {commit[:12]} on main."
-    assert first in out
-    assert "Next: run the rs-setup skill in your coding agent." in out
+    first = run_git(git_repo, "rev-parse", "main").strip()
+    assert (
+        f"The repository had no commits, so init made an empty first commit, {first[:12]}, on main."
+    ) in out
+    assert f"Committed the Kit as {commit[:12]} on rapid-ship/init, a new branch from main." in out
+    assert (
+        "Next: push main from your own terminal, because the Kit's guardrails deny an "
+        "agent's push to the default branch; then open a pull request from rapid-ship/init. "
+        "The rs-setup skill in your coding agent does that."
+    ) in out
+    assert 'repository = "octo/app"' in (git_repo / ".rapid-ship/project.toml").read_text()
     assert "* @octo" in (git_repo / ".github/CODEOWNERS").read_text().splitlines()
     assert main(["status", "--strict"]) == 0
     capsys.readouterr()
     assert main(["status", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["strict_ok"] is True
+    document = json.loads(capsys.readouterr().out)
+    assert document["strict_ok"] is True
+    assert document["stacks"] == [{"name": "agnostic", "directory": "."}]
+    assert "stack" not in document
     assert main(["sync", "--in-place"]) == 0
     assert "Kit is current; nothing to sync." in capsys.readouterr().out
 
@@ -495,3 +507,28 @@ def test_an_unreadable_managed_file_exits_2_without_a_traceback(
     assert err.startswith("rapid-ship: ")
     assert "Permission denied" in err
     assert CLI in err
+
+
+def test_init_without_a_stack_prints_the_proposal_and_exits_2(
+    git_repo: Path,
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (git_repo / "pyproject.toml").touch()
+    commit_all(git_repo)
+    before = run_git(git_repo, "rev-parse", "HEAD")
+    monkeypatch.chdir(git_repo)
+    assert main(["init"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "rapid-ship: init wrote nothing: confirm the stacks first. It found these stack roots:\n"
+        "  python in . (pyproject.toml)\n"
+        "Confirm them with the owner, or ask the owner for the stacks, then run init again with:\n"
+        "  --stack python\n"
+    )
+    assert run_git(git_repo, "rev-parse", "HEAD") == before
+    assert run_git(git_repo, "status", "--porcelain") == ""
+    assert not run_git(git_repo, "branch", "--list", "rapid-ship/init")

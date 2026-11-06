@@ -84,7 +84,10 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument(
         "--owner", help="your GitHub login, for CODEOWNERS; rs-setup fills it when absent"
     )
-    init.add_argument("--repository", help="owner/name on GitHub")
+    init.add_argument(
+        "--repository",
+        help="owner/name on GitHub; default: the origin remote's, when it is on github.com",
+    )
     init.add_argument(
         "--name",
         help="project name; default: the GitHub repository name, else the main checkout's name",
@@ -224,16 +227,21 @@ def _init(root: Path, args: argparse.Namespace) -> int:
             "CODEOWNERS has no owner line and [github] code_owner is empty; rs-setup writes both.\n"
         )
     commit = result.commit[:12]
-    if result.base is None:
+    if result.first_commit:
         sys.stdout.write(
-            "The repository had no commits, so the Kit is its first commit, "
-            f"{commit} on {result.branch}.\n"
+            "The repository had no commits, so init made an empty first commit, "
+            f"{result.first_commit[:12]}, on {result.base}.\n"
         )
-        next_step = "Next: run the rs-setup skill in your coding agent.\n"
+    sys.stdout.write(
+        f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
+    )
+    if result.first_commit:
+        next_step = (
+            f"Next: push {result.base} from your own terminal, because the Kit's guardrails "
+            "deny an agent's push to the default branch; then open a pull request from "
+            f"{result.branch}. The rs-setup skill in your coding agent does that.\n"
+        )
     else:
-        sys.stdout.write(
-            f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
-        )
         next_step = (
             f"Next: open a pull request from {result.branch}. "
             "The rs-setup skill in your coding agent does it.\n"

@@ -38,6 +38,7 @@ from rapid_ship.kit.templates import (
 from rapid_ship.kit.writes import Undo
 
 INIT_BRANCH = "rapid-ship/init"
+FIRST_COMMIT_MESSAGE = "chore: start the repository"
 _LISTED = 20  # dirty paths a refusal lists before it counts the rest
 _PROJECT_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")  # PEP 508 name
 _LOGIN = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")  # GitHub login, at most 39
@@ -60,9 +61,8 @@ class InitResult:
     conflicts: tuple[str, ...]  # "path: reason"; when present, init wrote nothing
     branch: str = ""  # the branch that holds the Kit commit; "" when there are conflicts
     commit: str = ""  # the Kit commit; "" when there are conflicts
-    # The branch or, for a detached HEAD, the commit init started from. None when the repository
-    # had no commits, so the Kit commit is its first, on the current branch.
-    base: str | None = None
+    base: str = ""  # starting branch, or starting commit for a detached HEAD
+    first_commit: str = ""  # empty commit created on the initially unborn branch
     # Tool settings, hooks and workflows the repository already had, for rs-setup to combine with
     # devctl's checks. Listed only when init succeeded.
     existing_checks: tuple[str, ...] = ()
@@ -77,11 +77,13 @@ def resolve_variables(
     repository: str | None = None,
 ) -> dict[str, str]:
     """The four template variables the lock records. These values are substituted into TOML
-    strings and CODEOWNERS, so each is validated. An absent owner or repository is "".
+    strings and CODEOWNERS, so each is validated. An absent owner is "".
     Rendering derives the fifth, code_owner, from the owner.
     """
     if repository is not None and not _REPOSITORY.fullmatch(repository):
         raise KitError(f"repository {repository!r} is not owner/name; check --repository")
+    if repository is None:
+        repository = _origin_repository(root)
     project_name = _default_project_name(root, repository) if name is None else name
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
@@ -100,21 +102,14 @@ def resolve_variables(
 
 
 def _default_project_name(root: Path, repository: str | None) -> str:
-    """The GitHub repository name, else the main checkout's directory name.
+    """Use the resolved repository name, else the main checkout's directory name.
 
-    The order is the validated --repository, the origin remote, then the directory that holds the
-    main .git. A linked worktree such as .claude/worktrees/<random> therefore gets the project's
-    name. Outside a work tree, or when git cannot run, the name is root's own directory name.
-    The remote URL can carry a token, so only the parsed name leaves this function.
+    A linked worktree shares the main checkout's name. Outside a work tree, or when git
+    cannot run, use root's own directory name.
     """
     if repository is not None:
         return repository.partition("/")[2]
     try:
-        # Exit 2 means there is no origin; stdout is then empty and gives no name.
-        url = git(root, "remote", "get-url", "origin", allowed=(0, 2))
-        name = _github_repository_name(os.fsdecode(url).strip())
-        if name is not None:
-            return name
         common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
     except (KitError, KitRefusal, OSError):
         return root.resolve().name
@@ -123,12 +118,21 @@ def _default_project_name(root: Path, repository: str | None) -> str:
     return git_dir.parent.name if git_dir.name == ".git" else root.resolve().name
 
 
-def _github_repository_name(url: str) -> str | None:
-    """The repository name in a github.com remote URL, else None for any other host or shape."""
+def _origin_repository(root: Path) -> str | None:
+    """Read only the validated owner/name; the remote URL may contain credentials."""
+    try:
+        url = git(root, "remote", "get-url", "origin", allowed=(0, 2))
+    except (KitError, KitRefusal, OSError):
+        return None
+    return _github_repository(os.fsdecode(url).strip())
+
+
+def _github_repository(url: str) -> str | None:
+    """The owner/name in a github.com remote URL, else None for any other host or shape."""
     match = _GITHUB_REMOTE.fullmatch(url)
     if match is None or not _REPOSITORY.fullmatch(match[1]):
         return None
-    return match[1].partition("/")[2]
+    return match[1]
 
 
 def init_repository(
@@ -162,23 +166,44 @@ def init_repository(
     version = installed_version()
     lock = Lock(version, stacks, dict(variables), tuple(entry_for(t) for t in templates))
     current = head_branch(root)
-    base = None if start is None else current or start  # a detached HEAD returns to its commit
-    if base is not None:
-        # git branch makes the branch or fails without one, so a failure leaves nothing to undo.
-        git(root, "branch", "--quiet", INIT_BRANCH)
+    base = current or start or ""
+    first_commit = ""
+    if start is None:
+        try:
+            git(root, "commit", "--allow-empty", "--quiet", "--message", FIRST_COMMIT_MESSAGE)
+        except KitError as error:
+            raise KitError(f"init stopped ({error})") from error
+        first_commit = git(root, "rev-parse", "HEAD").decode().strip()
     undo = Undo(root)
+    branch_created = False
     try:
-        if base is not None:
-            # git can fail after it has switched, so the switch is undone like a write.
-            git(root, "switch", "--quiet", INIT_BRANCH)
+        git(root, "branch", "--quiet", INIT_BRANCH)
+        branch_created = True
+        # git can fail after it has switched, so the switch is undone like a write.
+        git(root, "switch", "--quiet", INIT_BRANCH)
         created = _write(root, writes, manifest.executable, lock, undo)
         commit_paths(root, created, f"chore: vendor the rapid-ship Kit {version}")
     except (OSError, KitError) as error:
-        raise _stopped(root, error, undo, base, detached=current is None) from error
+        raise _stopped(
+            root,
+            error,
+            undo,
+            base,
+            detached=current is None,
+            first_commit=first_commit,
+            branch_created=branch_created,
+        ) from error
     commit = git(root, "rev-parse", "HEAD").decode().strip()
-    branch = INIT_BRANCH if base is not None else current or ""
     return InitResult(
-        stacks, tuple(created), tuple(skipped), (), branch, commit, base, existing_checks
+        stacks,
+        tuple(created),
+        tuple(skipped),
+        (),
+        INIT_BRANCH,
+        commit,
+        base,
+        first_commit,
+        existing_checks,
     )
 
 
@@ -192,7 +217,7 @@ def _check_init_start(root: Path) -> str | None:
     if os.path.lexists(root / LOCK_PATH):
         raise KitRefusal(f"{LOCK_PATH} exists; use rapid-ship status or rapid-ship sync")
     start = head_commit(root)
-    if start is not None and git(root, "branch", "--list", INIT_BRANCH).strip():
+    if git(root, "branch", "--list", INIT_BRANCH).strip():
         raise KitRefusal(
             f"branch {INIT_BRANCH} exists; a previous init may have committed the Kit there. "
             f"Open its pull request, or delete it with git branch -D {INIT_BRANCH}"
@@ -215,7 +240,14 @@ def _dirty(paths: Sequence[str]) -> str:
 
 
 def _stopped(
-    root: Path, error: Exception, undo: Undo, base: str | None, *, detached: bool
+    root: Path,
+    error: Exception,
+    undo: Undo,
+    base: str,
+    *,
+    detached: bool,
+    first_commit: str,
+    branch_created: bool,
 ) -> KitError:
     """Remove what init created, return to where it started, and say what is left to do."""
     try:
@@ -227,18 +259,17 @@ def _stopped(
         )
     done = f"init stopped ({error}) and removed the files it had created"
     try:
-        if base is None:
-            git(root, "reset", "--quiet")  # unstage what init added; there is no branch to leave
-            return KitError(done)
-        leave_branch(root, base, INIT_BRANCH, detached=detached)
+        if branch_created:
+            leave_branch(root, base, INIT_BRANCH, detached=detached)
+        if first_commit:
+            git(root, "update-ref", "-d", f"refs/heads/{base}", first_commit)
     except KitError as failure:
-        back = (
-            "git reset"
-            if base is None
-            else f"git reset, git switch {base} and git branch -D {INIT_BRANCH}"
+        return KitError(
+            f"{done}, but could not go back ({failure}); "
+            f"run git reset, git switch {base} and git branch -D {INIT_BRANCH}"
         )
-        return KitError(f"{done}, but could not go back ({failure}); run {back}")
-    return KitError(f"{done}; back on {base}, {INIT_BRANCH} deleted")
+    deleted = " and the empty first commit" if first_commit else ""
+    return KitError(f"{done}; back on {base}, {INIT_BRANCH}{deleted} deleted")
 
 
 def _plan(

@@ -399,7 +399,7 @@ def test_init_lists_the_checks_already_there_between_the_commit_and_the_next_ste
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init"]) == 0
+    assert main(["init", "--stack", "python"]) == 0
 
     out = capsys.readouterr().out
     commit = run_git(git_repo, "rev-parse", "HEAD").strip()
@@ -424,7 +424,10 @@ def test_init_lists_a_hook_in_a_repository_with_no_commits(
     assert main(["init", "--stack", "agnostic"]) == 0
 
     assert capsys.readouterr().out.endswith(
-        f"{EXISTING}  .git/hooks/pre-commit\nNext: run the rs-setup skill in your coding agent.\n"
+        f"{EXISTING}  .git/hooks/pre-commit\n"
+        "Next: push main from your own terminal, because the Kit's guardrails deny an agent's "
+        "push to the default branch; then open a pull request from rapid-ship/init. "
+        "The rs-setup skill in your coding agent does that.\n"
     )
 
 
@@ -438,6 +441,6 @@ def test_an_unreadable_setting_is_listed_and_does_not_change_the_exit_code(
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init"]) == 0
+    assert main(["init", "--stack", "python"]) == 0
 
     assert f"{EXISTING}  pyproject.toml (unreadable)\nNext: " in capsys.readouterr().out

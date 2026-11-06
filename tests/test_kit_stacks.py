@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from rapid_ship.kit.git import head_commit
 from rapid_ship.kit.init import init_repository
 from rapid_ship.kit.stacks import ProjectStack, checked_stacks, detect_stacks, parse_stack, proposal
 from rapid_ship.kit.templates import KitError
@@ -80,6 +81,7 @@ def test_init_without_stack_proposes_and_writes_nothing(
     with pytest.raises(KitError) as caught:
         init_repository(git_repo, stacks=(), variables={})
     assert str(caught.value) == proposal([])
+    assert head_commit(git_repo) is None
     assert run_git(git_repo, "status", "--porcelain") == before
     assert not run_git(git_repo, "branch", "--list", "rapid-ship/init").strip()
 
@@ -90,3 +92,27 @@ def test_nested_stack_rendering_is_refused_before_writing(
     with pytest.raises(KitError, match="renders one stack at the root only"):
         init_repository(git_repo, stacks=[ProjectStack("python", "backend")], variables={})
     assert not list(git_repo.glob("backend"))
+
+
+def test_tracked_roots_produce_the_exact_proposal_without_writes(
+    git_repo: Path,
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+) -> None:
+    (git_repo / "services/api").mkdir(parents=True)
+    for marker in ("pyproject.toml", "services/api/pyproject.toml"):
+        (git_repo / marker).touch()
+    commit_all(git_repo)
+    before = head_commit(git_repo)
+    with pytest.raises(KitError) as caught:
+        init_repository(git_repo, stacks=(), variables={})
+    assert str(caught.value) == (
+        "init wrote nothing: confirm the stacks first. It found these stack roots:\n"
+        "  python in . (pyproject.toml)\n"
+        "  python in services/api (services/api/pyproject.toml)\n"
+        "Confirm them with the owner, or ask the owner for the stacks, then run init again with:\n"
+        "  --stack python --stack python=services/api"
+    )
+    assert head_commit(git_repo) == before
+    assert run_git(git_repo, "status", "--porcelain") == ""
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/init") == ""
