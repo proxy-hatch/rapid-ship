@@ -75,7 +75,7 @@ class DeadCodeStep:
     tier: Tier = "full"
 
     def run(self, context: CheckContext) -> StepResult:
-        root = context.repo.root
+        root = context.directory
         try:
             pyproject = _read(root / PYPROJECT)
         except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -175,11 +175,11 @@ def dead_code_gaps(pyproject: Mapping[str, object]) -> list[str]:
 
 @dataclass(frozen=True)
 class AllowlistItem:
-    line: int  # 1-based, in pyproject.toml
+    line: int  # 1-based, in its settings file
     rule: str  # "<key under [tool]>:<item>", not normalised; exceptions.py normalises it
 
 
-def toml_allowlist(text: str) -> tuple[list[AllowlistItem], list[str]]:
+def toml_allowlist(text: str, path: str = PYPROJECT) -> tuple[list[AllowlistItem], list[str]]:
     """The allowlist items of pyproject.toml's text, each on its line, and the errors.
 
     tomllib keeps no line numbers, so a line scan finds each item, and tomllib's own reading of
@@ -195,14 +195,14 @@ def toml_allowlist(text: str) -> tuple[list[AllowlistItem], list[str]]:
         unplaced.subtract((key, item) for item in found)
         if len(found) > 1:
             errors.append(
-                f"{PYPROJECT}:{number}: {key} holds {len(found)} items on one line; write each "
+                f"{path}:{number}: {key} holds {len(found)} items on one line; write each "
                 "alone on its own line, with its own marker"
             )
     for key, item in expected:
         if unplaced[(key, item)] > 0:
             unplaced[(key, item)] -= 1
             errors.append(
-                f"{PYPROJECT}: {key} lists '{item}' on no line devctl can read; write it alone on "
+                f"{path}: {key} lists '{item}' on no line devctl can read; write it alone on "
                 f"its own line under [tool.{_table_of(key)}]"
             )
     return items, errors
