@@ -168,7 +168,11 @@ def test_codeowners_that_names_the_protected_set_matches_flight(
     protected = (*PROTECTED_PATHS, *PYTHON_PROTECTED_PATHS)
     recorded.serve(CODEOWNERS, contents("".join(f"/{path} @o\n" for path in protected)))
     item = by_name(github_items(flight))["CODEOWNERS"]
-    assert (item.status, item.detail) == ("ok", ".github/CODEOWNERS on main matches Flight")
+    assert (item.status, item.detail) == (
+        "ok",
+        ".github/CODEOWNERS on main matches Flight, and GitHub reports no error on the lines "
+        "doctor checks",
+    )
 
 
 def test_codeowners_is_missing_while_no_code_owner_is_recorded(
