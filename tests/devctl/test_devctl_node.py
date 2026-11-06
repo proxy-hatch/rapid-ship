@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from check_workspace import node_tools
+from devctl import process
 from devctl.node import cannot_run, eslint_config, is_error, node_tool
+from devctl.process import ProcessResult
 
 
 def test_the_install_advice_follows_the_lock(tmp_path: Path) -> None:
@@ -33,6 +35,27 @@ def test_eslint_config_reads_print_config(tmp_path: Path) -> None:
     for output in ("x", "[]"):
         node_tools(tmp_path, eslint=f"print({output!r})")
         assert eslint_config(tmp_path) == "eslint printed no JSON object"
+
+
+def test_eslint_config_reports_a_simulated_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    node_tools(tmp_path, eslint="sys.exit(0)")
+    calls: list[tuple[list[str], Path, float]] = []
+
+    def timed_out(argv: list[str], cwd: Path, timeout: float) -> ProcessResult:
+        calls.append((argv, cwd, timeout))
+        return ProcessResult(argv, 0, "{}", "", 0, timed_out=True)
+
+    monkeypatch.setattr(process, "run_process", timed_out)
+    assert eslint_config(tmp_path) == "eslint timed out after 120 seconds"
+    assert calls == [
+        (
+            [str(tmp_path / "node_modules/.bin/eslint"), "--print-config", "src/index.ts"],
+            tmp_path,
+            120,
+        )
+    ]
 
 
 @pytest.mark.parametrize("severity", [2, "error", [2], ["error", {}]])

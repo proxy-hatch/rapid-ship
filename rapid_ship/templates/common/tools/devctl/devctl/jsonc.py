@@ -12,4 +12,12 @@ def loads(text: str) -> object:
     cleaned = _COMMENTS.sub(
         lambda m: m[0] if m[0].startswith('"') else re.sub(r"[^\r\n]", " ", m[0]), text
     )
-    return json.loads(_TRAILING.sub(lambda m: m[0] if m[0].startswith('"') else "", cleaned))
+
+    def trailing_comma(match: re.Match[str]) -> str:
+        if match[0].startswith('"'):
+            return match[0]
+        preceding = cleaned[: match.start()].rstrip()
+        # Keep commas without a preceding value so JSON validation rejects them.
+        return "" if preceding and preceding[-1] not in "[{,:" else match[0]
+
+    return json.loads(_TRAILING.sub(trailing_comma, cleaned))

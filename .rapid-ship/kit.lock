@@ -276,7 +276,7 @@ sha256 = "3cceedc023ce6acf389d6057548d0f1a3be23fb736a0e3335d7fa75ff50d353b"
 [[file]]
 path = "tools/devctl/devctl/jsonc.py"
 kind = "managed"
-sha256 = "11cbc99c9b48a3a2268919dbbeab350a0a039396c0969a3e10da8082d2e5aedf"
+sha256 = "68cc7ed73cedbbf05952c4e58cc88887587113960048c6c693e0901f66488ee4"
 
 [[file]]
 path = "tools/devctl/devctl/merge_guard.py"
