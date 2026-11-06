@@ -222,7 +222,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "github"
 
 @pytest.fixture
 def recorded() -> RecordedOwner:
-    """The owner's gh reads of o/r, as GitHub answered on 2026-10-14. Other paths are a 404."""
+    """The owner's gh reads of o/r, as GitHub answered on 2026-10-14, and an empty list of
+    CODEOWNERS errors, in the shape GitHub returned on 2026-10-26. Other paths are a 404."""
 
     def fixture(name: str) -> object:
         return json.loads((FIXTURES / name).read_text())
@@ -236,6 +237,7 @@ def recorded() -> RecordedOwner:
                 "fork-approval.json"
             ),
             "repos/o/r/contents/.github/CODEOWNERS?ref=main": fixture("codeowners.json"),
+            "repos/o/r/codeowners/errors?ref=main": {"errors": []},
         }
     )
 
