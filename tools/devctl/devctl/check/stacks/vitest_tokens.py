@@ -86,13 +86,14 @@ class Lexer:
         if previous not in _REGEX_AFTER and previous not in {">", "=>"}:
             return False
         probe = Lexer(self.source)
-        probe.position = self.position
+        probe.position = self.position + 1
         probe.tokens = self.tokens.copy()
-        if probe.jsx_tag():
-            return True
         try:
-            if probe.arrow_parameters():
-                return False
+            # Type arguments nest; JSX tag boundaries cannot locate their final angle bracket.
+            if probe.type_boundary(">"):
+                probe.position += 1
+                if probe.arrow_parameters():
+                    return False
         except ValueError:
             # JSX text can start with parentheses and contain JavaScript-invalid quotes.
             pass
@@ -123,26 +124,26 @@ class Lexer:
                 self.trivia()
                 if self.source.startswith(":", self.position):
                     self.position += 1
-                    return self.arrow_return_type()
+                    return self.type_boundary("=>")
                 return self.source.startswith("=>", self.position)
         return False
 
-    def arrow_return_type(self) -> bool:
-        """Read an optional annotation, bounded by balanced type syntax and statement ends."""
+    def type_boundary(self, end: str) -> bool:
+        """Locate a type boundary without crossing nested syntax, literals or statement ends."""
         stack: list[str] = []
         closing = {"(": ")", "[": "]", "{": "}", "<": ">"}
         while self.position < len(self.source):
             self.trivia()
             if self.position == len(self.source):
                 return False
+            if not stack and self.source.startswith(end, self.position):
+                return True
             if self.source.startswith("=>", self.position):
-                if not stack:
-                    return True
                 # A function type's arrow belongs to the surrounding type container.
                 self.position += 2
                 continue
             char = self.source[self.position]
-            if not stack and char in ";,=":
+            if not stack and (char in ";/" or (end == "=>" and char in ",=")):
                 return False
             token = self.next_token(char)
             self.tokens.append(token)

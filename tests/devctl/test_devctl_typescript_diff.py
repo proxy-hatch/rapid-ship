@@ -271,3 +271,62 @@ def test_jsx_return_annotation_lookalikes_preserve_text(jsx: str) -> None:
     source = f'const el = {jsx}; test("real", () => {{}}); expect(true).toBeTruthy();'
     assert vitest.test_identities(source) == (["real"], [])
     assert vitest.tautologies(source) == [(1, "expect(true).toBeTruthy()")]
+
+
+@pytest.mark.parametrize(
+    "generic",
+    [
+        "T extends Array<string>",
+        "T = Array<string>",
+        "T extends Map<string, Array<Item>>, U = Promise<T>",
+        'T extends { value: Array<string>; label: ">"; nested: [Item, { x: Item }] }',
+        'T = Array<"</T>">',
+        "T extends Array</* > </T> */ string>",
+        "T extends Array<\n// > </T>\nstring>",
+        "T extends ((x: Item) => Array<Item>)",
+        "T = { make: <U>(x: U) => Array<U> }",
+        "T = `value-${Item & string}>`",
+    ],
+)
+@pytest.mark.parametrize("return_type", ["", ": Promise<Array<T>>"])
+@pytest.mark.parametrize("reader", ["identities", "tautologies"])
+def test_nested_type_parameters_keep_later_content_opaque(
+    generic: str, return_type: str, reader: str
+) -> None:
+    source = (
+        f"const f = <{generic}>(x: T){return_type} => x;\n"
+        'const text = "</T>"; const pattern = /<\\/T>/; const template = `</T>`;\n'
+        '/* </T> */ describe("outer", () => { test("real", () => { '
+        "expect(true).toBeTruthy(); }); });\n"
+        'test("later", () => {});'
+    )
+    if reader == "identities":
+        assert vitest.test_identities(source) == (["outer > real", "later"], [])
+    else:
+        assert vitest.tautologies(source) == [
+            (source[: source.index("expect")].count("\n") + 1, "expect(true).toBeTruthy()")
+        ]
+
+
+@pytest.mark.parametrize("generic", ["T extends Array<string>", "T = Array<string>"])
+@pytest.mark.parametrize("reader", ["identities", "tautologies"])
+def test_nested_generic_return_type_reproduction(generic: str, reader: str) -> None:
+    source = f'const f = <{generic}>(x: T): T => x; const text = "</T>"; test("real", () => {{}});'
+    if reader == "identities":
+        assert vitest.test_identities(source) == (["real"], [])
+    else:
+        assert vitest.tautologies(source) == []
+
+
+@pytest.mark.parametrize(
+    "jsx",
+    [
+        '<T title=">" other={a > b}>(text){expect(x).toBe(x)}</T>',
+        "<T value={(x: Item) => x}>(Don't){expect(x).toBe(x)}</T>",
+        "<T>(text): Array&lt;Item&gt;; don't{expect(x).toBe(x)}</T>",
+    ],
+)
+def test_type_boundary_probe_preserves_jsx_greater_than_and_arrows(jsx: str) -> None:
+    source = f'const el = {jsx}; test("real", () => {{}});'
+    assert vitest.test_identities(source) == (["real"], [])
+    assert vitest.tautologies(source) == [(1, "expect(x).toBe(x)")]
