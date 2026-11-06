@@ -1110,7 +1110,7 @@ Each PR's last task fills its row with the command, its exit code and the summar
 | --- | --- | --- | --- | --- | --- |
 | 6.1a | Exit 0; 2,196 passed in 425.04s | Exit 0; seven steps passed | Exit 0; 49 managed files unchanged | Pending hosted exact-head full check; not run locally | Pending hosted exact-head Docs build; not run locally |
 | 6.1b | | | | | |
-| 6.2a | | | | | |
+| 6.2a | Exit 0 after approved 6.1a integration; 2,233 passed | Exit 0; seven steps passed | Exit 0; 51 managed files unchanged | Not run locally; hosted check pending | Not run locally; hosted Docs check pending |
 | 6.2b | | | | | |
 | 6.3 | | | | | |
 
@@ -1135,3 +1135,11 @@ No local full devctl, standalone distribution smoke or site build was run for th
 Later integration and the Owner trial remain pending.
 Not covered: `rapid-ship init` still writes one root stack pending 6.1b;
 TypeScript blocks the step list pending 6.2a; removal of the transitional lock reader remains in 6.3.
+
+### TypeScript steps and doctor: local verification, 2026-11-06
+
+Units 6, 12a and 9 are implemented. The exact approved 6.1a head `1b7c9de80da54006a65286dd7a804dda6fd0cbba` is integrated through a normal merge. After integration, the whole pytest suite passed 2,233 tests; configured mypy, vulture and deptry passed, with deptry JSON `[]`; fast and strict Kit checks passed. The assignment has 833 counted lines against that prerequisite. Template/vendor pairs and managed hashes match, and production modules stay within 500 lines.
+
+The whole suite used CPython 3.13.12, Node.js v24.19.0 and npm 11.17.0. The real knip test installs only pinned knip 6.43.0 and TypeScript 6.0.3 in scratch state. Its observations set `KNIP_FLOOR_KEYS` to `rules` and `ignoreExportsUsedInFile`; `--include` overrides the tested `include` and `exclude` settings. No package or pin changes ship. Common Protected paths remain rooted at the repository; the new TypeScript settings tuple is placed under each stack directory for the Guard owner to consume.
+
+Full devctl, distribution and site commands were not run locally under the hosted-check rule. Hosted checks and independent exact-head review remain pending. Not covered: a real TypeScript project, which 6.3's integration tests check; the TypeScript suppressions and references (6.2b). These are Worker observations, not review approval or final acceptance.

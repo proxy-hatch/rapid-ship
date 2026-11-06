@@ -217,7 +217,7 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines the remaining work in two plans:
 
-- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** remaining work after devctl stack settings, ownership, Python execution and per-stack doctor: init/rendering, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
+- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** remaining work after devctl stack settings, ownership, Python and TypeScript execution, installation, CI Node setup and per-stack doctor: init/rendering, TypeScript suppressions and references, the React skeleton, starter Patterns, integration and the Owner trial.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. They replace `rapid-ship-engineering`.
 
 Spec 3 gets its plan next, and GA includes it:
