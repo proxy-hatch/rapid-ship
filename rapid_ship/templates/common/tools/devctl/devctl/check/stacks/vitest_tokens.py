@@ -121,7 +121,37 @@ class Lexer:
             depth += (token.text == "(") - (token.text == ")")
             if depth == 0:
                 self.trivia()
+                if self.source.startswith(":", self.position):
+                    self.position += 1
+                    return self.arrow_return_type()
                 return self.source.startswith("=>", self.position)
+        return False
+
+    def arrow_return_type(self) -> bool:
+        """Read an optional annotation, bounded by balanced type syntax and statement ends."""
+        stack: list[str] = []
+        closing = {"(": ")", "[": "]", "{": "}", "<": ">"}
+        while self.position < len(self.source):
+            self.trivia()
+            if self.position == len(self.source):
+                return False
+            if self.source.startswith("=>", self.position):
+                if not stack:
+                    return True
+                # A function type's arrow belongs to the surrounding type container.
+                self.position += 2
+                continue
+            char = self.source[self.position]
+            if not stack and char in ";,=":
+                return False
+            token = self.next_token(char)
+            self.tokens.append(token)
+            if token.kind != "code":
+                continue
+            if char in closing:
+                stack.append(closing[char])
+            elif char in ")]}>" and (not stack or stack.pop() != char):
+                return False
         return False
 
     def trivia(self) -> None:

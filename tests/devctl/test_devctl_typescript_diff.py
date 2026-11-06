@@ -225,3 +225,49 @@ def test_conditional_each_and_dynamic_titles_stay_unchecked(chain: str) -> None:
 def test_generic_closing_tag_string_preserves_tautology_reader() -> None:
     source = 'const f = <T>(x: T) => x; const text = "</T>"; test("real", () => {});'
     assert vitest.tautologies(source) == []
+
+
+@pytest.mark.parametrize("generic", ["T", "T extends Item"])
+@pytest.mark.parametrize(
+    "return_type",
+    [
+        "T",
+        "Promise<Array<T | null>>",
+        '{ value: T; label: "</T>"; nested: [T, { key: T }] }',
+        '((value: T) => { result: T; label: "</T>" })',
+        "(T extends Item ? { value: T } : readonly T[])",
+        "/* before */ Promise<T> /* after */",
+        "`value-${T & string}`",
+    ],
+)
+@pytest.mark.parametrize("reader", ["identities", "tautologies"])
+def test_generic_arrow_return_types_keep_later_literals_opaque(
+    generic: str, return_type: str, reader: str
+) -> None:
+    source = (
+        f"const f = <{generic}>(x: T): {return_type} => x; "
+        'const text = "</T>"; const pattern = /<\\/T>/; const template = `</T>`;\n'
+        'describe("outer", () => { test("real", () => { expect(true).toBeTruthy(); }); });\n'
+        'test("later", () => {});'
+    )
+    if reader == "identities":
+        assert vitest.test_identities(source) == (["outer > real", "later"], [])
+    else:
+        assert vitest.tautologies(source) == [(2, "expect(true).toBeTruthy()")]
+
+
+@pytest.mark.parametrize("generic", ["T", "T extends Item"])
+@pytest.mark.parametrize("reader", ["identities", "tautologies"])
+def test_explicit_generic_return_type_reproduction(generic: str, reader: str) -> None:
+    source = f'const f = <{generic}>(x: T): T => x; const text = "</T>"; test("real", () => {{}});'
+    if reader == "identities":
+        assert vitest.test_identities(source) == (["real"], [])
+    else:
+        assert vitest.tautologies(source) == []
+
+
+@pytest.mark.parametrize("jsx", ["<T>(text): words; don't</T>", '<T>(text): "=>"</T>'])
+def test_jsx_return_annotation_lookalikes_preserve_text(jsx: str) -> None:
+    source = f'const el = {jsx}; test("real", () => {{}}); expect(true).toBeTruthy();'
+    assert vitest.test_identities(source) == (["real"], [])
+    assert vitest.tautologies(source) == [(1, "expect(true).toBeTruthy()")]

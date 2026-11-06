@@ -191,7 +191,7 @@ sha256 = "c47fbd64b475f7dab51c377a83ed93259c639dea341c2c7e95a7f191a35b08ea"
 [[file]]
 path = "tools/devctl/devctl/check/stacks/vitest_tokens.py"
 kind = "managed"
-sha256 = "e5d2b3eb0acd19f40ec73170b7b0ed1afff457d7a254fdd3d17f3b5338e2e553"
+sha256 = "072d4d0fe1cbc19aa7d19cf08d1b410f56df4433da0ae9db8602b7d58bd96ec9"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
