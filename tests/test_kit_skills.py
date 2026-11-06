@@ -15,3 +15,11 @@ def test_only_the_user_invoked_kit_skills_disable_model_invocation() -> None:
         front_matter = parts[1] if len(parts) >= 3 else ""
         has_disable = "disable-model-invocation: true" in front_matter
         assert has_disable == (name in USER_INVOKED), f"{name}: disable-model-invocation mismatch"
+
+
+def test_the_root_guides_name_the_writing_and_ponytail_skills() -> None:
+    templates = REPOSITORY / "rapid_ship/templates"
+    for guide in (templates / "common/AGENTS.md", templates / "python/AGENTS.md"):
+        for name in ("rs-writing", "rs-ponytail"):
+            assert name in guide.read_text()
+            assert (templates / "common/.agents/skills" / name / "SKILL.md").is_file()
