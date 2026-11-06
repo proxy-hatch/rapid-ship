@@ -2705,12 +2705,11 @@ def test_claude_md_imports_the_guide():
     assert text("neutral", "CLAUDE.md") == "@AGENTS.md\n"
 
 
-def test_feature_and_pattern_formats_name_every_key():
-    features = text("neutral", "docs/golden-paths/README.md")
-    for key in ("purpose", "entry_points", "data", "observe", "reproduce"):
-        assert f"`{key}`" in features
-    # Plan 3's map check requires at least one entry point.
-    assert "| Paths where the feature is entered | A non-empty list; each path exists |" in features
+def test_golden_paths_and_pattern_formats():
+    golden_paths = text("neutral", "docs/golden-paths/README.md")
+    assert "Golden paths" in golden_paths
+    assert "Pattern" in golden_paths
+    assert "merged" in golden_paths
     patterns = text("neutral", "docs/patterns/README.md")
     for key in (
         "`reference`",
@@ -2894,31 +2893,21 @@ The skeleton names `./devctl check` and `./devctl doctor`, which plans 3 and 4 a
 ````markdown
 # Golden paths
 
-Each feature has one file here, named after the feature, such as `sign-up.md`. Agents keep these files current with the code, and `./devctl check` validates them.
+Golden paths are worked examples that show an agent how to build a similar, bigger feature, such as another API on an existing server. Each entry points to real code from a merged change.
 
-Every feature file starts with YAML front matter:
+Golden paths are separate from Patterns:
+- A **Pattern** enforces code style or solves smaller recurring problems, with a reference implementation and a check.
+- A **Golden path** gives an agent an example when working on similar, bigger problems. It requires no check and no command.
 
-```yaml
----
-purpose: Lets a visitor create an account with an email address.
-entry_points:
-  - src/app/web/sign_up.py
-data:
-  - src/app/accounts/store.py
-observe: The log line "account created" with the new account ID.
-reproduce: ./devctl seed-account demo@example.com
----
-```
+## Library format
 
-| Key | Value | `./devctl check` requires |
-| --- | --- | --- |
-| `purpose` | One sentence on what the feature does for its user | Present and not empty |
-| `entry_points` | Paths where the feature is entered | A non-empty list; each path exists |
-| `data` | Paths of the data it reads or writes, or `[]` | A list, possibly empty; each path exists |
-| `observe` | How to see the feature working | Present and not empty |
-| `reproduce` | A `./devctl` command that exercises the feature | The word after `./devctl` is a registered devctl verb |
+The library holds one entry per kind of bigger feature. Each entry describes the feature kind and points to real code from a merged change:
 
-The text after the front matter describes the feature for a reader who has not seen it.
+- **Kind of feature:** what this example builds (for example, a new API endpoint or service integration).
+- **Merged reference:** paths to real, merged code and pull requests showing how the feature was built and tested.
+- **Key takeaways:** what an agent should replicate when building a similar feature.
+
+This library starts empty. As the repository merges new kinds of features, add worked examples here pointing to the merged code.
 ````
 
 `rapid_ship/templates/common/docs/patterns/README.md`:
@@ -4291,7 +4280,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - New `rapid_ship/kit/AGENTS.md`: one line per module. `templates.py` covers the manifest and rendering, including which template files count, `lock.py` the lock, `init.py` create-only all-or-nothing writes, `status.py` read-only classification, `sync.py` merges, branch, PR and restoring the work tree after a failed write, and `git.py` the git calls. `KitError` exits 2 and `KitRefusal` exits 1. Tests are `tests/test_kit_*.py`; sync's push and PR use a fake there.
   - `tests/AGENTS.md`: replace plan 1's "Keep tests flat and name them for the behavior or module they cover." with "Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.py`. Name each test for the behavior or module it covers." Add rows for `test_kit_*.py`, `conftest.py` (template trees, scratch repositories) and `devctl/`, which imports the vendored copy and must have no `__init__.py`.
   - `scripts/AGENTS.md`: what `smoke_distribution.py` now checks, and that `check.py` runs `status --strict`.
-  - `docs/AGENTS.md`: `features/` and `patterns/` and their formats.
+  - `docs/AGENTS.md`: `golden-paths/` and `patterns/` and their formats.
   - `.github/AGENTS.md`: `CODEOWNERS` is seeded by the Kit; Walk assigns every path to the owner.
   - `ARCHITECTURE.md`: the rapid-ship CLI section matches what was built (commands, `rapid_ship/kit/`, lock, templates, dog-food); add a short section if plan 1 left none.
 
@@ -4328,7 +4317,7 @@ Expected:
 - `status --strict` exits 0, and the navigation check passes.
 - `check.py` prints `Python and repository validation passed.`
 - The smoke prints its pass line.
-- The docs build succeeds with no broken links and publishes the feature and Pattern READMEs.
+- The docs build succeeds with no broken links and publishes the golden-paths and Pattern READMEs.
 - `git status --porcelain` is empty after Step 4's commit.
 
 - [ ] **Step 4: Fill in the record below, then commit.**
@@ -4357,7 +4346,7 @@ Run on 2026-10-15 at base `6f140ed` plus this task's edits, on macOS with git 2.
 | Full validation | `uv run python scripts/check.py` | Exit 0, `Python and repository validation passed.` It ran navigation, `status --strict`, ruff check and format, mypy, 284 tests, `uv build` and the smoke in a temporary copy. The same command also passed on Python 3.12.10 in a scratch environment (`UV_PROJECT_ENVIRONMENT` set to a scratch directory, `uv run --python 3.12`). |
 | Wheel templates and installed smoke | `rm -rf dist && uv build && uv run python scripts/smoke_distribution.py` | `Successfully built dist/rapid_ship-0.1.0.tar.gz` and `dist/rapid_ship-0.1.0-py3-none-any.whl`; the smoke ended with `Wheel templates, isolated init, status and devctl smoke passed.` (exit 0). |
 | Template check catches a dropped file | Task 12, Step 2 | Re-run here with `rapid_ship/templates/common/build/probe.txt` added by `git add -f`: after `uv build`, the smoke exited 1 and printed `The wheel lacks template files; hatch drops git-ignored paths:` and `rapid_ship/templates/common/build/probe.txt`. The probe was then removed and `git status` showed only this task's files. |
-| Docs site | `npm --prefix website ci --no-audit --no-fund`, then `npm --prefix website run build` | `ci`: `added 1259 packages in 7s`, with `allow-scripts` warnings for `core-js` and `fsevents` only. `build`: `[SUCCESS] Generated static files in "build".` The site sets `onBrokenLinks` and `onBrokenAnchors` to `throw`. `website/build/docs/golden-paths/index.html` and `website/build/docs/patterns/index.html` exist. |
+| Docs site | `npm --prefix website ci --no-audit --no-fund`, then `npm --prefix website run build` | `ci`: `added 1259 packages in 7s`, with `allow-scripts` warnings for `core-js` and `fsevents` only. `build`: `[SUCCESS] Generated static files in "build".` The site sets `onBrokenLinks` and `onBrokenAnchors` to `throw`. `website/build/docs/features/index.html` and `website/build/docs/patterns/index.html` exist. *(Note added 2026-11-06: PRO-167 retired `docs/features/` in favour of `docs/golden-paths/`; the historical October 15 build observed `website/build/docs/features/index.html`.)* |
 | Clean work tree | `git status --porcelain` | Empty after this task's commit. |
 
 Re-run on 2026-10-15 after the final review fixes F-1 to F-3, at base `34cdbfe` plus those edits: `uv run pytest` gave `291 passed`, with no failures, errors or skips. `uv lock --check`, ruff check and format (`117 files already formatted`), mypy (`17 source files`), `status --strict`, the navigation check, `scripts/check.py`, `uv build` with the smoke, and the docs build passed again.

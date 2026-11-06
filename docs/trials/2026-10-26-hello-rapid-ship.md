@@ -413,7 +413,7 @@ Each defect has a Linear issue in the rapid-ship project, with steps to reproduc
 | 4 | [PRO-159](https://linear.app/ph-trading-strategy-builder/issue/PRO-159) | low | `init` leaves `[github] repository` unset, although it parses the `origin` remote for the project name (section 2) | Plan 6 reworks `init`'s arguments |
 | 5 | [PRO-160](https://linear.app/ph-trading-strategy-builder/issue/PRO-160) | low | `init`'s last line names the `rs-setup` skill, and the seeded root guide names `rs-writing`, `rs-ponytail`, `GLOSSARY.md` and `docs/adr/`. Kit 0.2.0 ships none of them, and the Worker searched for them (sections 2 and 9) | - |
 | 6 | [PRO-161](https://linear.app/ph-trading-strategy-builder/issue/PRO-161) | low | In a repository without commits, `init` commits the Kit on `main`, so Setup has no `rapid-ship/init` branch for its PR (section 1) | Plan 6 reworks `init` |
-| 7 | [PRO-162](https://linear.app/ph-trading-strategy-builder/issue/PRO-162) | low | A feature file's `reproduce` must name a registered devctl verb. A new project has none, and adding one is a Protected change, so the Worker left the feature map empty (section 9) | The TypeScript stack meets the same rule |
+| 7 | [PRO-162](https://linear.app/ph-trading-strategy-builder/issue/PRO-162) | low | A feature file's `reproduce` must name a registered devctl verb. A new project has none, and adding one is a Protected change, so the Worker left the feature map empty (section 9) | Superseded by PRO-167: golden paths replace the feature map with no command requirement |
 
 Not defects:
 

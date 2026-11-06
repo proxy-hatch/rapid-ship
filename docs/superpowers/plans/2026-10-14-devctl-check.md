@@ -33,7 +33,7 @@
 2. **Blocked outranks failed, and a step that raises is blocked.** Results with both a failure and a blocked step exit 2, and an exception inside a step becomes a blocked result instead of a traceback that exits 1. Pinned in task 2.
 3. **Exception IDs that are stale or misused.** An entry that no marker carries fails as stale; an ID on two lines fails; a marker whose entry names another path or rule fails. A rule with a tool prefix and several names, such as `zizmor:a,b`, matches its entry in any name order. Pinned in task 7.
 4. **PR context in CI.** On GitHub's merge commit the base is the merge's first parent, not a stale `base.sha`; a null PR body becomes `""` so the evidence step fails instead of being skipped; CRLF line endings from the web editor are normalised. Pinned in task 2.
-5. **Rules bullets with nested lists or fenced code, and feature files with no front matter.** A nested list item is part of its parent rule and needs no marker; a list inside a fenced block is code; a feature file without front matter fails with a message, not a crash. Pinned in task 5.
+5. **Rules bullets with nested lists or fenced code, and Pattern files with no front matter.** A nested list item is part of its parent rule and needs no marker; a list inside a fenced block is code; a Pattern file without front matter fails with a message, not a crash. Pinned in task 5.
 6. **Project overrides and extensions.** A Kit path under `[kit] exclude` in `project.toml` is the project's: the kit step does not require it, and the exceptions and file-size steps scan it. devctl reads the list only as `ProjectSettings.excluded`, never from a mark in the lock, and decides with its own `is_excluded`, which a parity test holds equal to the CLI's. A project's own verb and check step run through the seeded interface, and this repository's own steps still run after `sync --in-place` vendors a managed template edit and leaves the seeded `devctl_project` alone although its template changed. Pinned in tasks 6, 7, 16 and 17.
 
 ---
@@ -1407,7 +1407,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test, unchanged: plan 2's `tests/test_kit_contents.py`, whose devctl workspace test must stay green with PyYAML in the lock
 
 **Interfaces:**
-- Consumes: `all_steps` (for `check:`), `build_parser()` (for registered verbs).
+- Consumes: `all_steps` (for `check:`).
 - Produces:
 
 ```python
@@ -1550,76 +1550,22 @@ def test_python_only_kinds_do_not_resolve_for_the_neutral_stack(workspace: Works
 - [ ] **Step 3: Write the failing map document tests.** Create `tests/devctl/test_devctl_map_documents.py`:
 
 ```python
-"""Map rules 4-6: feature files, Pattern files and Rules bullets."""
+"""Map rules 5-6: Pattern files and Rules bullets."""
 
 from __future__ import annotations
 
 from check_workspace import Workspace
-from devctl.check.map import feature_errors, guides, pattern_errors, rule_errors
+from devctl.check.map import guides, pattern_errors, rule_errors
 from devctl.check.markdown import rules_items
-
-FEATURE = """---
-purpose: Sign users in
-entry_points: [src/app/auth.py]
-data: [src/app/models.py]
-observe: The auth.login log line with the user ID.
-reproduce: ./devctl check --tier fast
----
-# Sign-in
-"""
-
-
-def features(workspace: Workspace) -> list[str]:
-    context = workspace.context()
-    return feature_errors(context, context.repo.files())
-
-
-def test_valid_feature_and_readme_pass(workspace: Workspace) -> None:
-    workspace.write("src/app/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/golden-paths/README.md", "# Feature files\n")
-    workspace.write("docs/features/sign-in.md", FEATURE)
-
-    assert features(workspace) == []
-
-
-def test_feature_without_front_matter_fails(workspace: Workspace) -> None:
-    workspace.write("docs/features/sign-in.md", "# Sign-in\n")
-
-    assert features(workspace) == [
-        "docs/features/sign-in.md: no front matter; start the file with --- and the keys "
-        "purpose, entry_points, data, observe and reproduce"
-    ]
-
-
-def test_feature_names_missing_path_missing_key_and_unknown_verb(workspace: Workspace) -> None:
-    workspace.write(
-        "docs/features/sign-in.md",
-        "---\npurpose: Sign in\nentry_points: [src/app/gone.py]\ndata: []\n"
-        "reproduce: ./devctl seed-demo\n---\n",
-    )
-
-    assert features(workspace) == [
-        "docs/features/sign-in.md: entry_points names src/app/gone.py, which does not exist",
-        "docs/features/sign-in.md: observe is missing or empty",
-        "docs/features/sign-in.md: reproduce runs ./devctl seed-demo; seed-demo is not a devctl verb",
-    ]
-
-
-def test_feature_needs_at_least_one_entry_point(workspace: Workspace) -> None:
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/sign-in.md", FEATURE.replace("[src/app/auth.py]", "[]"))
-
-    assert features(workspace) == ["docs/features/sign-in.md: entry_points is missing or empty"]
 
 
 def test_unclosed_or_invalid_front_matter_fails(workspace: Workspace) -> None:
-    workspace.write("docs/features/a.md", "---\npurpose: x\n")
-    workspace.write("docs/features/b.md", "---\n- a list\n---\n")
+    workspace.write("docs/patterns/a.md", "---\nreference: x\n")
+    workspace.write("docs/patterns/b.md", "---\n- a list\n---\n")
 
-    assert features(workspace) == [
-        "docs/features/a.md: front matter is not closed with ---",
-        "docs/features/b.md: front matter must be a mapping",
+    assert pattern_errors(workspace.context(), workspace.context().repo.files()) == [
+        "docs/patterns/a.md: front matter is not closed with ---",
+        "docs/patterns/b.md: front matter must be a mapping",
     ]
 
 
@@ -1897,9 +1843,9 @@ def rules_items(text: str) -> list[ListItem]:
 ```
 
 - [ ] **Step 7: Implement the map document rules.**
-- `pattern_errors`: the same loading for `docs/patterns/`, then `reference` must name an existing path and `enforced_by` must be a non-empty list whose items each `resolve`; an unresolved item reports `"<path>: <reason>"`.
+- `pattern_errors`: for each `.md` file under `docs/patterns/` except `docs/patterns/README.md`, call `front_matter`. `None` gives `"<path>: no front matter; start the file with --- and the keys reference and enforced_by"`; `ValueError` and `yaml.YAMLError` give `"<path>: <error>"`; a non-mapping gives `"<path>: front matter must be a mapping"`. Then `reference` must name an existing path and `enforced_by` must be a non-empty list whose items each `resolve`; an unresolved item reports `"<path>: <reason>"`.
 - `rule_errors`: for each guide and each `rules_items` entry, match `_RULE_END` (below) against the item text. No match gives `"<guide>:<line>: end the rule with 'enforced by: <reference>' or 'advisory'"`; an unresolved reference gives `"<guide>:<line>: <reason>"`.
-- `skill_errors`: for each name in task 3's `_skill_names(root, files, ".agents/skills")` whose `SKILL.md` is a file, load its front matter as `feature_errors` does, sharing one private loader that takes the key names for the "no front matter" message. `<path>` is `.agents/skills/<name>/SKILL.md`. A `name` that is not a string equal to `<name>` gives `"<path>: name must be <name>, the directory name"`. A `description` that is not a string, or is blank after `strip()`, gives `"<path>: description is missing or empty"`. Report skills in name order, a skill's `name` error before its `description` error. Kit and project skills follow the same rule, so the step never reads the lock.
+- `skill_errors`: for each name in task 3's `_skill_names(root, files, ".agents/skills")` whose `SKILL.md` is a file, load its front matter with the shared front matter loader that takes the key names for the "no front matter" message. `<path>` is `.agents/skills/<name>/SKILL.md`. A `name` that is not a string equal to `<name>` gives `"<path>: name must be <name>, the directory name"`. A `description` that is not a string, or is blank after `strip()`, gives `"<path>: description is missing or empty"`. Report skills in name order, a skill's `name` error before its `description` error. Kit and project skills follow the same rule, so the step never reads the lock.
 
 ```python
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
@@ -1920,7 +1866,7 @@ Expected: all pass.
 ```bash
 git add rapid_ship/templates/common/tools/devctl tools/devctl .rapid-ship/kit.lock \
   pyproject.toml uv.lock tests/devctl
-git commit -m "feat: check feature files, Patterns, skills and Rules in the devctl map
+git commit -m "feat: check Patterns, skills and Rules in the devctl map
 
 Every Rule ends with 'enforced by: <reference>' or 'advisory', and every
 reference must name a check, test, Ruff rule, banned API, contract or
@@ -4212,7 +4158,7 @@ Expected: the integration test fails on the fast tier's map step for both stacks
 - `rapid_ship/templates/common/docs/AGENTS.md`: links `golden-paths/README.md` and `patterns/README.md`, and says each holds worked examples of larger features or one file per Pattern. It has no Rules heading.
 - `rapid_ship/templates/python/src/AGENTS.md`: "`{{package}}/` is the product's code. Add a guide for each directory directly under it." `rapid_ship/templates/python/tests/AGENTS.md`: "pytest runs every test here. Unit tests go in `unit/`, which `[tests] unit` in `.rapid-ship/project.toml` names; every other test counts as behavioural."
 - `rapid_ship/templates/python/.gitignore`: the four lines `__pycache__/`, `*.py[cod]`, `.venv/` and `dist/`. Without it, the first pytest run leaves `src/<package>/__pycache__/` beside the code, and `rs-setup`'s `git add -A` would commit the bytecode.
-- In `rapid_ship/templates/common/AGENTS.md`, add two rows to "Find the change", after Patterns: `| Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |` and `| This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |`.
+- In `rapid_ship/templates/common/AGENTS.md`, add two rows to "Find the change", after Patterns: `| Where golden paths and Patterns live | [Documentation](docs/AGENTS.md) |` and `| This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |`.
 - `rapid_ship/templates/python/AGENTS.md` is a copy of the common root guide with two more rows after Tools: `| Product code | [Source](src/AGENTS.md) |` and `| Tests, and which count as unit tests | [Tests](tests/AGENTS.md) |`. The stack layer overrides `common/` (plan 2, task 2), and `test_the_python_root_guide_only_adds_the_source_and_test_rows` keeps the two copies in step.
 - In `rapid_ship/templates/kit.toml`, add `docs/AGENTS.md` and `tools/AGENTS.md` to `seeded`, and `.gitignore`, `src/AGENTS.md` and `tests/AGENTS.md` to `new_project`: an existing project already has its own source layout and ignore rules. Plan 2 already seeds `source_roots = []` for the neutral stack, and its root guide's Rules already end with markers.
 
@@ -4823,13 +4769,12 @@ The executor fills each line with the observed result. A skipped or blocked chec
       - `tests/conftest.py::_git` ignores `stdout_truncated`; the largest listing is 9 KB against the runner's 1 MiB cap.
     - **Files that the index lists but the work tree lacks.** `Repo.files` uses `ls-files --cached`, so it still lists a file deleted from the work tree but not from the index. Steps that open each path then report blocked, map rule 2 accepts a deleted guide, and `_stray_files` calls a deleted, tracked skill alias a stray file beside a contradictory "add a relative symlink" line.
     - **Map step:**
-      - A feature's `reproduce` accepts a command chain such as `./devctl check && <command>`, because only the first two words are checked. Agents are meant to run this field.
       - A `ruff:<code>` reference resolves for any code that starts with a selected prefix, such as `ruff:S99999` under `select = ["S"]`.
       - The "missing target" and "not maintained" messages quote the raw link target, escapes included, not the path that was checked.
       - `[map] unguided` and `source_roots` are compared as written: `"docs/"` or `"./docs"` has no effect, unlike `[map] exclude`.
       - An empty front matter block, or a file that starts with a byte-order mark, is reported as "no front matter". A YAML error is PyYAML's raw text, with no hint to quote a value that contains `: `.
       - The Rules scanner counts only spaces, so a tab-indented nested bullet joins its parent's text and fails the end-marker check.
-      - No test pins project verbs in `registered_verbs`, an unreadable guide that `rule_errors` skips, the order of a skill's name and description errors, a Pattern with a missing `reference` or a non-list `enforced_by`, or a feature with a non-list `data`.
+      - No test pins an unreadable guide that `rule_errors` skips, the order of a skill's name and description errors, or a Pattern with a missing `reference` or a non-list `enforced_by`.
       - `without_fences` and `fenced_blocks` each carry their own fence scanner; one shared scanner would keep them in step.
       - `map.py` has 443 of its 500 lines; the document rules could move to a sibling module.
       - Spec section 4's `[map]` table and map rule 2 do not mention `[map] exclude` or `__pycache__` (owner's call: amend the spec).
