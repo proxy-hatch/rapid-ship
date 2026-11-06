@@ -12,6 +12,7 @@ import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import PurePosixPath
 
+from devctl.check.stacks import typescript_references
 from devctl.check.stacks.python import test_identities
 from devctl.check.steps import CheckContext
 from devctl.check.tracked import TrackedFiles
@@ -58,10 +59,11 @@ def resolve(
         return _check(reference, value, context, holder)
     if kind == "test":
         return _test(reference, value, context, tracked)
-    if kind not in _PYTHON_KINDS:
+    if kind not in _PYTHON_KINDS | {"eslint"}:
         return f"{reference}: unknown reference kind {kind}"
     owners = context.project.owners(holder)
-    candidates = [stack for stack in (owners or context.project.stacks) if stack.name == "python"]
+    stack_name = _stack_name(kind, value)
+    candidates = [stack for stack in (owners or context.project.stacks) if stack.name == stack_name]
     if not candidates:
         return f"{reference}: unknown reference kind {kind} for {holder}"
     if len(candidates) > 1:
@@ -70,6 +72,13 @@ def resolve(
             f"{reference}: ambiguous for {holder}: {choices}; use test:<path>::<name> or "
             "check:<step> with a directory-qualified name, such as lint (backend)"
         )
+    if stack_name == "typescript":
+        resolver = (
+            typescript_references.resolve_eslint
+            if kind == "eslint"
+            else typescript_references.resolve_type
+        )
+        return resolver(reference, value, tracked, candidates[0])
     path = under(candidates[0].directory, "pyproject.toml")
     try:
         data = _pyproject(tracked, path)
@@ -79,6 +88,15 @@ def resolve(
         return _PYTHON_RESOLVERS[kind](reference, value, tracked, data, path)
     except _Unreadable as error:
         return f"{reference}: {path}: {error}"
+
+
+def _stack_name(kind: str, value: str) -> str:
+    if kind != "type":
+        return "typescript" if kind == "eslint" else "python"
+    suffix = PurePosixPath(value).suffix
+    if suffix in (".ts", ".tsx", ".mts", ".cts"):
+        return "typescript"
+    return "python" if suffix in (".py", ".pyi") else ""
 
 
 def _check(reference: str, step: str, context: CheckContext, holder: str) -> str | None:

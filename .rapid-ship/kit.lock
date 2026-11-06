@@ -126,7 +126,7 @@ sha256 = "605a770b8070d1bc9761a4bc0cc56e8adb79c2f009f8f4ac4a9a708f7be9c8b4"
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "3ab800082396e6b68079b287c0bd3d4bbbfcb0b36b52ef9626d6022cc6643459"
+sha256 = "c669a0bb9083f920735543b9087e87842512e83421bae1d92304f048ef6546df"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -156,7 +156,7 @@ sha256 = "29f1a0aee0e5a0322b5b104a1fc27b8bba2a856b2f82ba53d91584186383390e"
 [[file]]
 path = "tools/devctl/devctl/check/references.py"
 kind = "managed"
-sha256 = "fc2d9c788a4f370c673d45a80e44343425d48c932f44a79cb0f92f02a5791d61"
+sha256 = "486a67426a02b9fedc99085095b2e401f267ff5baeb51ac4967f3d4086b04956"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"
@@ -177,6 +177,11 @@ sha256 = "818d59b7705ace4bc5d84d0a88ef6466ca0ea64dab8cecabacc11ca396c9ba48"
 path = "tools/devctl/devctl/check/stacks/python_dead_code.py"
 kind = "managed"
 sha256 = "d32b198aa22ee42f7bc6ab664d28157fa282d4eb8955ccee227c56f49cbac9a9"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/typescript_references.py"
+kind = "managed"
+sha256 = "46be8e74d7448445a416f2fe28c1fc76e931074b764e8cc9bbe13675817d2911"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/typescript_suppressions.py"

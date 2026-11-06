@@ -872,6 +872,8 @@ TYPESCRIPT_PROTECTED_PATHS = (
 
 ### Unit 7: The TypeScript suppressions, knip's allowlist, and the TypeScript references
 
+**Checkpoint:** exception scanning and tracked computed references are integrated. The own diff exceeds the cap before Unit 8; publication requires a split. Vitest remains standalone.
+
 **Files:**
 - Create: `devctl/check/stacks/typescript_suppressions.py`, `devctl/check/stacks/typescript_references.py`, `tests/devctl/test_devctl_typescript_suppressions.py`, `tests/devctl/test_devctl_typescript_knip_allowlist.py`, `tests/devctl/test_devctl_typescript_references.py`
 - Modify: `devctl/check/exceptions.py` (`scan`, `ExceptionsStep.run`), `devctl/check/references.py` (kinds by stack)
