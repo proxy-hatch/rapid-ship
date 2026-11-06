@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import base64
+import builtins
+import io
+import os
 from dataclasses import replace
 from itertools import count
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -820,3 +824,46 @@ def test_malformed_base_contents_deny_without_reading_checks(found: object) -> N
     assert denial.startswith("merge denied: the merge guard cannot check this merge:")
     assert ".rapid-ship/project.toml" in denial
     assert reader.paths == [PR, SETTINGS]
+
+
+@pytest.mark.parametrize("directory", ["absent", "symlink"])
+@pytest.mark.parametrize(
+    ("base", "body", "expected"),
+    [
+        (WALK, None, IN_WALK),
+        (IDENTITY, None, UNAPPROVED),
+        (FLIGHT, REMOVES_BEHAVIOURAL, DECLARES.format(REMOVED_BEHAVIOURAL)),
+        (project_toml(tests=EVERY_TEST_UNIT), REMOVES_BEHAVIOURAL, None),
+    ],
+    ids=["mode", "apps", "behavioural-test", "unit-test"],
+)
+def test_base_policy_does_not_consult_the_head_filesystem(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    directory: str,
+    base: str,
+    body: str | None,
+    expected: str | None,
+) -> None:
+    base += '\n[map]\nsource_roots = ["base-src"]\n'
+    head = project(tmp_path)
+    if directory == "symlink":
+        target = tmp_path / "outside"
+        target.mkdir()
+        (head / "base-src").symlink_to(target, target_is_directory=True)
+    monkeypatch.chdir(head)
+    reader = owner(base=base, body=body, reviews=[])
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        raise AssertionError("base policy consulted the head filesystem")
+
+    with monkeypatch.context() as probe:
+        probe.setattr(builtins, "open", forbidden)
+        probe.setattr(io, "open", forbidden)
+        for name in ("open", "stat", "lstat", "scandir", "listdir", "readlink", "getcwd"):
+            probe.setattr(os, name, forbidden)
+        actual = guarded(line, reader)
+
+    assert actual == expected
+    assert reader.paths[:2] == [PR, SETTINGS]
