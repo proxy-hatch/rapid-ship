@@ -1,8 +1,11 @@
 # Repository skill discovery
 
-`skills/` contains relative symlinks to the canonical packaged [skills](../rapid_ship/skills/).
-Edit the canonical files; these aliases let coding agents discover the same reviewed content.
-The [.claude](../.claude/AGENTS.md) surface points to that same source.
+`skills/` holds discovery paths for coding agents:
+- Kit-managed skills (`rs-*`), rendered from templates under `rapid_ship/templates/common/.agents/skills/`.
+- Relative symlinks to canonical packaged [skills](../rapid_ship/skills/), such as `rapid-ship-engineering`.
+
+Edit Kit skill templates and sync; edit repository skills under `rapid_ship/skills/`.
+The [.claude](../.claude/AGENTS.md) surface links to these discovery paths.
 
 Before changing skill behavior or references, read the packaged [skills guide](../rapid_ship/skills/AGENTS.md).
 Keep maintainer navigation outside individual skill bundles.
