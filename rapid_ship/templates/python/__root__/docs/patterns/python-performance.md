@@ -1,8 +1,8 @@
 ---
 task: Find slow code
-reference: src/{{package}}/profiling.py
+reference: {{directory}}src/{{package}}/profiling.py
 enforced_by:
-  - test:tests/test_profiling.py::test_the_profiling_entry_point_runs_on_a_small_input
+  - test:{{directory}}tests/test_profiling.py::test_the_profiling_entry_point_runs_on_a_small_input
 ---
 # Find slow code
 

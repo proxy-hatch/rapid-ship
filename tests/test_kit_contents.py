@@ -12,7 +12,7 @@ import pytest
 from devctl.codeowners import codeowners_match
 from devctl.process import run_process
 from devctl.settings import load_project
-from rapid_ship.kit.stacks import STACKS, StackName
+from rapid_ship.kit.stacks import STACKS, ProjectStack, StackName
 from rapid_ship.kit.templates import (
     Template,
     load_manifest,
@@ -50,7 +50,9 @@ SEEDED = {
 
 
 def rendered(stack: StackName = "python", **variables: str) -> dict[str, Template]:
-    return {t.path: t for t in render_files(stack, {**VARIABLES, **variables}, ())}
+    return {
+        t.path: t for t in render_files((ProjectStack(stack, "."),), {**VARIABLES, **variables}, ())
+    }
 
 
 def text(stack: StackName, path: str, **variables: str) -> str:
@@ -65,8 +67,11 @@ def content(template: Template) -> bytes:
 def test_every_manifest_path_exists_in_a_layer() -> None:
     manifest = load_manifest()
     root = packaged_templates()
-    for path in manifest.seeded | manifest.new_project | manifest.executable:
+    for path in manifest.seeded | manifest.executable:
         assert any((root / layer / path).is_file() for layer in ("common", *STACKS)), path
+    for stack, paths in manifest.new_project.items():
+        for path in paths:
+            assert (root / stack / path).is_file(), (stack, path)
 
 
 @pytest.mark.parametrize("stack", STACKS)
