@@ -604,7 +604,17 @@ Each PR's last task fills its own subsection with each command, its exit code an
 
 ### 7.1a
 
-Pending.
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` (toolchain git, settings valid with 25 Protected paths, Claude Code wiring and agy wiring passed) |
+| `uv run pytest tests/test_kit_upstream.py tests/test_skill_discovery.py tests/test_kit_skills.py tests/devctl/test_devctl_doctor_github_limits.py -q` | exit 0: `63 passed in 22.69s` |
+| `uv run rapid-ship status --strict` | exit 0: `Kit 0.2.0 (installed rapid-ship 0.2.0), stack python`; `55 managed files unchanged.` |
+| `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed |
+| `git diff --check` | exit 0: clean whitespace |
+| `./devctl check --tier full` | Pending exact-head hosted run after publication per EM standing rule; not run locally |
+| `npm --prefix website run build` | Pending exact-head hosted run after publication per EM standing rule; not run locally |
+
+Evidence: Not covered: the patched forks, `rs-writing` and `rs-ponytail`, which 7.1b adds; live skill behavior in Sessions is unverified.
 
 ### 7.1b
 
