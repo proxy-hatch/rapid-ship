@@ -16,11 +16,15 @@ from devctl.settings import ProjectSettings
 Tier = Literal["fast", "full"]
 Status = Literal["passed", "failed", "blocked", "not_applicable"]
 
-# Variables a check tool may need besides PATH and HOME. Never add one that can hold a token.
+# Variables a check tool may need besides PATH and HOME. The proxy and certificate settings let a
+# step that fetches packages or advisories work behind a proxy. Never add one that can hold a
+# token; a proxy URL can hold only the proxy's own password.
 PASSED_VARIABLES = (
+    *process.NETWORK_VARIABLES,
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
     "TMPDIR",
     "CI",
-    "SSL_CERT_FILE",
     "UV_CACHE_DIR",
     "UV_PYTHON",
     "UV_PYTHON_INSTALL_DIR",
