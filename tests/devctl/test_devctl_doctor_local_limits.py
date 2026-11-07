@@ -29,6 +29,7 @@ from devctl.doctor_local import gitleaks_item
 from devctl.process import MAX_OUTPUT_BYTES, ProcessResult
 from devctl.settings import ProjectStack
 from github_fakes import FakeRun, MakeContext, RepoFiles
+from rapid_ship.kit.stacks import ProjectStack as KitStack
 from rapid_ship.kit.templates import render_files
 from test_devctl_doctor_wiring import rendered_seed
 
@@ -58,14 +59,20 @@ def adjusted(context: DoctorContext, **changes: object) -> DoctorContext:
 
 def rendered_agnostic_seed(path: str) -> str:
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    [template] = [t for t in render_files("agnostic", variables, ()) if t.path == path]
+    [template] = [
+        t for t in render_files((KitStack("agnostic", "."),), variables, ()) if t.path == path
+    ]
     assert template.content is not None
     return template.content.decode()
 
 
 def seeded_pyproject_text() -> str:
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    [template] = [t for t in render_files("python", variables, ()) if t.path == "pyproject.toml"]
+    [template] = [
+        t
+        for t in render_files((KitStack("python", "."),), variables, ())
+        if t.path == "pyproject.toml"
+    ]
     assert template.content is not None
     return template.content.decode()
 

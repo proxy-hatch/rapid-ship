@@ -24,7 +24,7 @@ from rapid_ship.kit.git import (
     work_tree_root,
 )
 from rapid_ship.kit.lock import LOCK_PATH, Lock, entry_for, write_lock
-from rapid_ship.kit.stacks import ProjectStack, checked_stacks, detect_stacks, proposal
+from rapid_ship.kit.stacks import KITS, ProjectStack, checked_stacks, detect_stacks, proposal, under
 from rapid_ship.kit.status import locate
 from rapid_ship.kit.templates import (
     KitError,
@@ -33,7 +33,6 @@ from rapid_ship.kit.templates import (
     installed_version,
     load_manifest,
     render_files,
-    render_path,
 )
 from rapid_ship.kit.writes import Undo
 
@@ -144,19 +143,17 @@ def init_repository(
 ) -> InitResult:
     root = root.resolve()
     start = _check_init_start(root)
-    existing_project = os.path.lexists(root / "pyproject.toml")
     if not stacks:
         raise KitError(proposal(detect_stacks(root)))
     stacks = checked_stacks(root, stacks)
-    if len(stacks) != 1 or stacks[0].directory != ".":
-        raise KitError("this rapid-ship renders one stack at the root only")
     manifest = load_manifest(templates_root)
-    new_project_only = {render_path(path, variables) for path in manifest.new_project}
-    templates = [
-        template
-        for template in render_files(stacks[0].name, variables, (), root=templates_root)
-        if not (existing_project and template.path in new_project_only)
+    new_projects = [
+        s
+        for s in stacks
+        if (marker := KITS[s.name].new_project_marker)
+        and not os.path.lexists(root / under(s.directory, marker))
     ]
+    templates = render_files(stacks, variables, (), new_projects=new_projects, root=templates_root)
     writes, skipped, conflicts = _plan(root, templates)
     if conflicts:
         return InitResult(stacks, (), tuple(skipped), tuple(conflicts))

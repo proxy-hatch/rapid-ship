@@ -8,8 +8,8 @@ from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from rapid_ship.files import UnsafePath, safe_path
-from rapid_ship.kit.lock import LockEntry, file_sha256, read_lock, template_hash
-from rapid_ship.kit.stacks import ProjectStack
+from rapid_ship.kit.lock import Lock, LockEntry, file_sha256, read_lock, template_hash
+from rapid_ship.kit.stacks import KITS, ProjectStack, under
 from rapid_ship.kit.templates import (
     Kind,
     Template,
@@ -89,7 +89,11 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
     templates = {
         t.path: t
         for t in render_files(
-            lock.stacks[0].name, lock.variables, read_optional_skills(root), root=templates_root
+            lock.stacks,
+            lock.variables,
+            read_optional_skills(root),
+            new_projects=new_projects_from_lock(lock),
+            root=templates_root,
         )
     }
     excluded = read_excluded(root)
@@ -137,4 +141,13 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
         tuple(files),
         tuple(outdated),
         tuple(not_installed),
+    )
+
+
+def new_projects_from_lock(lock: Lock) -> tuple[ProjectStack, ...]:
+    seeded = {e.path for e in lock.entries if e.kind == "seeded"}
+    return tuple(
+        s
+        for s in lock.stacks
+        if (marker := KITS[s.name].new_project_marker) and under(s.directory, marker) in seeded
     )

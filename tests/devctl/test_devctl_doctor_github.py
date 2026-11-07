@@ -31,6 +31,7 @@ from github_fakes import (
     MakeContext,
     RecordedOwner,
 )
+from rapid_ship.kit.stacks import ProjectStack as KitStack
 from rapid_ship.kit.templates import render_files
 
 FIXTURES = Path(__file__).parent / "fixtures" / "github"
@@ -260,7 +261,7 @@ def test_python_flight_codeowners_protects_the_guardrail_settings() -> None:
 
 def test_protected_paths_match_the_seeded_codeowners() -> None:
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    templates = render_files("python", variables, ())
+    templates = render_files((KitStack("python", "."),), variables, ())
     [template] = [t for t in templates if t.path == ".github/CODEOWNERS"]
     assert template.content is not None
     flight = [

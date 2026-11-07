@@ -8,6 +8,7 @@ import pytest
 
 from devctl.check.stacks.python import guardrail_gaps
 from devctl.doctor import devctl_exclusion_gaps
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import render_files
 
 RUFF = "ruff: tools/devctl is not in exclude or extend-exclude"
@@ -18,7 +19,11 @@ UV = "uv: [tool.uv.workspace] members match tools/devctl; add it to exclude"
 
 def seeded_pyproject() -> dict[str, Any]:
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    [template] = [t for t in render_files("python", variables, ()) if t.path == "pyproject.toml"]
+    [template] = [
+        t
+        for t in render_files((ProjectStack("python", "."),), variables, ())
+        if t.path == "pyproject.toml"
+    ]
     assert template.content is not None
     return tomllib.loads(template.content.decode())
 

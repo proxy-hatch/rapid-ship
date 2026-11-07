@@ -1,9 +1,9 @@
 ---
 task: Validate input
-reference: src/{{package}}/inputs.py
+reference: {{directory}}src/{{package}}/inputs.py
 enforced_by:
-  - type:tests/test_inputs.py
-  - test:tests/test_inputs.py::test_an_unknown_value_is_rejected
+  - type:{{directory}}tests/test_inputs.py
+  - test:{{directory}}tests/test_inputs.py::test_an_unknown_value_is_rejected
 ---
 # Validate input
 

@@ -1,10 +1,10 @@
 ---
 task: Read configuration
-reference: src/{{package}}/settings.py
+reference: {{directory}}src/{{package}}/settings.py
 enforced_by:
   - banned:os.environ
   - banned:os.getenv
-  - test:tests/test_settings.py::test_an_out_of_range_value_is_rejected
+  - test:{{directory}}tests/test_settings.py::test_an_out_of_range_value_is_rejected
 ---
 # Read configuration
 

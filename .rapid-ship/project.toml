@@ -31,7 +31,7 @@ source_roots = ["rapid_ship"]
 unguided = []
 # Directories whose AGENTS.md files are template content. Here the template trees hold the
 # AGENTS.md files of future projects, not guides of this one.
-exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python", "rapid_ship/templates/agnostic"]
+exclude = ["rapid_ship/templates/common", "rapid_ship/templates/python"]
 
 [tests]
 unit = ["tests/unit/**"]   # every other test counts as behavioural
