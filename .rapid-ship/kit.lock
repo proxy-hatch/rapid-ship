@@ -116,17 +116,17 @@ sha256 = "03212e6ac44d9bf953cf032aced0149718bda1d934fa4372be30e1e38ae096d8"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "f9f20f61071d2f8c27d5b0beb299a289bbcc8520fb901f2c03e23b228fcd4608"
+sha256 = "0ed56ffbcd045c3f89db38bfef1abd79bfc266b77aaaafa915896be059eaed28"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
 kind = "managed"
-sha256 = "605a770b8070d1bc9761a4bc0cc56e8adb79c2f009f8f4ac4a9a708f7be9c8b4"
+sha256 = "c477b466507b70e0ec896d778f61e50bf8d5dc1da0bb91a5ab65b24701802b79"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "3ab800082396e6b68079b287c0bd3d4bbbfcb0b36b52ef9626d6022cc6643459"
+sha256 = "c669a0bb9083f920735543b9087e87842512e83421bae1d92304f048ef6546df"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -141,7 +141,7 @@ sha256 = "761f21dabe9a04537f41b0471c44578f14949dd3ede7e04a940ac145f9c7dbe2"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "fb1c9d087463f2c4bc592c5fb69c8d53cf1f127aa226e459ec033632b6b00cf7"
+sha256 = "c1b8d54dc998187673088b7a3d3c2c4f668630d2a669cfee9c6ae521672c1dd2"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
@@ -156,7 +156,7 @@ sha256 = "29f1a0aee0e5a0322b5b104a1fc27b8bba2a856b2f82ba53d91584186383390e"
 [[file]]
 path = "tools/devctl/devctl/check/references.py"
 kind = "managed"
-sha256 = "fc2d9c788a4f370c673d45a80e44343425d48c932f44a79cb0f92f02a5791d61"
+sha256 = "e6c5febb214bf2b4204eee4353f6967ed7f1a9c9b0e27f9253e2ff887d357777"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"
@@ -179,9 +179,14 @@ kind = "managed"
 sha256 = "d32b198aa22ee42f7bc6ab664d28157fa282d4eb8955ccee227c56f49cbac9a9"
 
 [[file]]
+path = "tools/devctl/devctl/check/stacks/typescript_references.py"
+kind = "managed"
+sha256 = "1c1ba9a32b0fa2b7bd01e2352e96dffc8a421c942d9fe81c93a7b3ee427d6cc4"
+
+[[file]]
 path = "tools/devctl/devctl/check/stacks/typescript_suppressions.py"
 kind = "managed"
-sha256 = "a4f87b0799b49615519ee65dd8e6796fc8f4bff2a7cbc102cfd83216003905ec"
+sha256 = "35cfe701370350311fa49a13f7c91e3349f16297e41524135559c4fa380cac38"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/vitest.py"

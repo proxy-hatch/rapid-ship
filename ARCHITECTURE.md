@@ -69,6 +69,15 @@ The single-root Python order, including this repository's three project steps, i
 References use their holder's ownership, with a unique matching stack as fallback outside stack directories.
 Ambiguity names candidates and suggests `test:<path>::<name>` or an exact qualified `check:<step>`, such as `check:lint (backend)`.
 Python reference diagnostics name the selected repository-relative `pyproject.toml`.
+TypeScript exception scanning reads owned suppression lines and top-level knip allowlist items.
+Alternate knip settings fail; malformed JSON names its path and blocks the step.
+TypeScript references require tracked inputs before invoking ESLint or tsc and cache results per tracked snapshot and directory.
+Type-reference suffixes select mypy or tsc in shared directories.
+The diff step applies removed-test and tautology policies to owned Vitest test files.
+Moved title chains remain present; dynamic base titles receive unchecked notes.
+Unreadable heads retain base identities and report a read error.
+Test references select Python, Vitest or word-search readers by path.
+Evidence and Rule references preserve backticked identities with spaces; Flight leaves declared behavioural removals to the owner.
 
 This devctl subset does not complete plan 6. `rapid-ship init` still writes one root stack pending 6.1b.
 TypeScript settings are accepted, but a TypeScript stack blocks the step list until 6.2a.
