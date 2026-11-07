@@ -19,9 +19,54 @@ kind = "seeded"
 template_sha256 = "48c270b994a7c94887ddd832857cc00f40ec046f65f40bb6814159056d2df869"
 
 [[file]]
+path = ".agents/skills/rs-codebase-design/DEEPENING.md"
+kind = "managed"
+sha256 = "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DESIGN-IT-TWICE.md"
+kind = "managed"
+sha256 = "52b52e75655a27aea59c6966b410bac82448968ad46ef1ebb9f07c274e3ae010"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/SKILL.md"
+kind = "managed"
+sha256 = "5522b5b206f09f94aa48b51d96206aa10d13b9ec800f177c379b038a4a0370de"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL-MECHANICS.md"
+kind = "managed"
+sha256 = "c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL.md"
+kind = "managed"
+sha256 = "46ee278a8e2146cdb937eecdeb27d47480f5dc6fa9b230ae666b58815b18408d"
+
+[[file]]
 path = ".claude/settings.json"
 kind = "seeded"
 template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0de7"
+
+[[file]]
+path = ".claude/skills/rs-codebase-design"
+kind = "managed"
+link = "../../.agents/skills/rs-codebase-design"
+
+[[file]]
+path = ".claude/skills/rs-writing-for-agents"
+kind = "managed"
+link = "../../.agents/skills/rs-writing-for-agents"
 
 [[file]]
 path = ".githooks/pre-commit"
