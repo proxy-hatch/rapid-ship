@@ -144,3 +144,32 @@ def test_every_unreadable_declaration_is_reported(workspace: Workspace) -> None:
 )
 def test_over_cap_reason_reads_the_evidence_section(body: str, reason: str | None) -> None:
     assert over_cap_reason(body) == reason
+
+
+def rs_pr_body() -> str:
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "rapid_ship/templates/common/.agents/skills/rs-pr/SKILL.md"
+    )
+    return path.read_text().split("```markdown\n", 1)[1].split("\n```", 1)[0]
+
+
+def test_the_rs_pr_template_passes_the_evidence_step(workspace: Workspace) -> None:
+    body = rs_pr_body()
+    assert EvidenceStep().run(workspace.context(pr_body=body)).status == "passed"
+    assert over_cap_reason(body) is None
+    assert removed_test_declarations(body) == ({}, [])
+
+
+def test_the_rs_pr_template_without_not_covered_fails(workspace: Workspace) -> None:
+    body = "\n".join(
+        line for line in rs_pr_body().splitlines() if not line.startswith("Not covered:")
+    )
+    result = EvidenceStep().run(workspace.context(pr_body=body))
+    assert result.status == "failed"
+    assert (
+        "Evidence: add a line starting 'Not covered:' that names what the commands do not show"
+        in result.details
+    )

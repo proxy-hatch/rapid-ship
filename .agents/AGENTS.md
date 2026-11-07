@@ -1,13 +1,7 @@
 # Repository skill discovery
 
-`skills/` holds discovery paths for coding agents:
-- Kit-managed skills (`rs-*`), rendered from templates under `rapid_ship/templates/common/.agents/skills/`.
-- Relative symlinks to canonical packaged [skills](../rapid_ship/skills/), such as `rapid-ship-engineering`.
-
-Edit Kit skill templates and sync; edit repository skills under `rapid_ship/skills/`.
-The [.claude](../.claude/AGENTS.md) surface links to these discovery paths.
-
-Before changing skill behavior or references, read the packaged [skills guide](../rapid_ship/skills/AGENTS.md).
+`skills/` holds Kit-managed skills rendered from `rapid_ship/templates/common/.agents/skills/`.
+Edit Kit skill templates and sync. The [.claude](../.claude/AGENTS.md) surface links to these discovery paths.
 Keep maintainer navigation outside individual skill bundles.
 After changing discovery paths or bundled references, run `uv run pytest tests/test_skill_discovery.py` from the repository root.
 
