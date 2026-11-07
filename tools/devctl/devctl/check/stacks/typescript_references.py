@@ -31,11 +31,16 @@ def resolve_eslint(
     reference: str, rule: str, tracked: TrackedFiles, stack: ProjectStack
 ) -> str | None:
     directory = tracked.root / stack.directory
-    configs = sorted(directory.glob("eslint.config.*"))
-    config = (
-        configs[0].relative_to(tracked.root).as_posix()
-        if configs
-        else under(stack.directory, "eslint.config.js")
+    # ESLint 10 starts beside the probe, then searches its ancestors. Keep lookup within
+    # this stack so an ancestor stack's config cannot satisfy a missing local config.
+    config = next(
+        (
+            path.relative_to(tracked.root).as_posix()
+            for parent in ((directory / node.ESLINT_PROBE).parent, directory)
+            for extension in ("js", "mjs", "cjs", "ts", "mts", "cts")
+            if (path := parent / f"eslint.config.{extension}").is_file() or path.is_symlink()
+        ),
+        under(stack.directory, "eslint.config.js"),
     )
     if error := _inputs(
         reference,
