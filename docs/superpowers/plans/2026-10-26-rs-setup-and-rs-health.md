@@ -640,6 +640,8 @@ Pending.
 | Diff step against `21d98e2824ad171ec6654bddea0b71f5558173e6` | passed: `diff cap: 146 of 1,500 counted lines`. |
 | `./devctl check --tier full` and website build | Pending hosted runs after publication; not run locally. |
 
+Pinned-main intermediate integration: `1596780282fb543c7e033dfeafe59b17c98b216a`. Local diagnostics: `uv run --locked mypy` exit 0, 148 source files; `uv run --locked vulture --min-confidence 0` exit 0, no findings; `uv run --locked deptry . --no-ansi --json-output <report-path>` exit 0, no dependency issues; `uv run rapid-ship status --strict` exit 0, 59 managed files unchanged; `./devctl check --tier fast` exit 0, all seven steps passed. The diff against pinned main counts 140 of 1,500 lines. `uv run pytest -q` exit 0, 2,099 passed in 662.56 seconds. Hosted full and site checks remain pending.
+
 The final audit wording waits for the merged golden-path library (PRO-167): reconcile the shared audit and Health reads with that library and remove obsolete feature-map drift without inventing a format, location, command or check. Not covered: `rs-health` in a Session, which Task 9 runs; `rs-contribute`'s push and PR, which would open a real PR on rapid-ship. This intermediate evidence is not independent review or final readiness.
 
 ### 7.4
