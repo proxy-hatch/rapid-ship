@@ -4,7 +4,7 @@
 
 **Goal:** Let a repository hold several stacks and add the TypeScript stack, so a Python backend and React TypeScript frontend pass `./devctl check` from day one.
 
-**Architecture:** Five code PRs add devctl's stack interfaces, then CLI rendering and TypeScript checks in parallel, then templates and integration tests. `StackStep` runs in its stack's directory, and file ownership follows the innermost stack directory. rapid-ship renders common files at the root, stack files under their directory and `__root__/` files at the root, with one guide per directory.
+**Architecture:** Six code PRs add devctl's stack interfaces, then CLI rendering and TypeScript checks in parallel, then templates and integration tests. `StackStep` runs in its stack's directory, and file ownership follows the innermost stack directory. rapid-ship renders common files at the root, stack files under their directory and `__root__/` files at the root, with one guide per directory.
 
 **Scope:** `[[stack]]` settings and lock tables, repeatable `init --stack NAME[=DIRECTORY]`, detection proposals, TypeScript tools and Patterns, doctor and CI. Unit 14 fixes `repository` from `origin` and commitless Setup (PRO-159, PRO-161) in 6.1b. This includes part of PRO-108; the rest of monorepo support stays deferred.
 
@@ -12,7 +12,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`init` stacks and detection, the lock), 4 (Kit contents, settings files, starter Patterns, the Protected set, CI, TypeScript guardrail settings), 5 (steps, dead code, several stacks, output, references, exceptions, diff policy), 6 (`doctor`), 8 (steps 6 and 13: the sandbox, and the Setup PR's branch) and 10 (plan 6's tests, the integration test, the live trial), as revised for the owner's descope of 2026-10-26. Plan 6 of 7 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Shared interfaces and "Plan 6" outline bind this plan. The [hello-rapid-ship trial](../../trials/2026-10-26-hello-rapid-ship.md) names the defects it builds on.
 
-**Status:** revised for approval in PRO-169, its own documentation PR. The 6.1a devctl subset is implemented: stack settings, helpers, ownership, Python execution, references and per-stack doctor. Local verification is recorded below; hosted full/site checks and independent final-head review remain pending. This does not complete plan 6. The fixed review base is `f107a89`; the earlier draft is `419f219`.
+**Status:** revised for approval in PRO-169, its own documentation PR. The 6.1a devctl subset is implemented: stack settings, helpers, ownership, Python execution, references and per-stack doctor. Local verification is recorded below; hosted full/site checks and independent final-head review remain pending. The standalone suppression, knip allowlist and Vitest readers are implemented in 6.2b-1, integrated with 6.1a. Unit 7 integration and Unit 8 wiring remain in 6.2b-2; their acceptance is pending. This does not complete plan 6. The fixed review base is `f107a89`; the earlier draft is `419f219`.
 
 **Owner steps:** confirm the six decisions below by their deadlines; run Unit 13 Step 2's live trial; push workflow edits in Unit 12a, which the Worker App cannot push. Approve each G5 ask for Protected edits, including `.rapid-ship/project.toml` in Units 1, 3b and 10, and guides in Units 3b, 5, 9 and 13. In a headless Session the owner makes those edits. No agent performs an Owner step.
 
@@ -26,24 +26,26 @@ Each PR is one Task as GLOSSARY.md defines it. The numbered Units below retain t
 | 6.1a | `plan6-stacks`, on `main` | 1, 1b, 4, 3a, 5 | devctl stack settings, lock reader, helpers, ownership, references and doctor | about 1,250 before review additions |
 | 6.1b | `plan6-stacks-init`, on 6.1a | 2, 14, 3b | init, detection, lock writer, rendering and commitless Setup | about 1,420 before fixture and shared-guide additions |
 | 6.2a | `plan6-ts-steps`, on 6.1a | 6, 12a, 9 | TypeScript steps, install, CI and doctor | about 950 |
-| 6.2b | `plan6-ts-rules`, on 6.1a | 7, 8 | TypeScript suppressions, references, Vitest and declarations | about 1,150 |
+| 6.2b-1 | `plan6-ts-readers`, on 6.1a | 7 standalone suppression/knip readers; 8 standalone Vitest readers | Pure readers and boundary regression tests only | about 1,040 |
+| 6.2b-2 | `plan6-ts-rules`, on 6.2b-1 | 7 integration and references; 8 diff, evidence, map and test-reference wiring, documents and verification | Connect the readers to checks; restore knip settings constants with their consumers | about 480 for Unit 7 integration, plus Unit 8; measure before publication |
 | 6.3 | `plan6-ts-templates`, on `main` after 6.1b and 6.2a | 10, 11, 12b, 13 | TypeScript templates, integration tests and live trial; remove devctl's temporary lock reader | about 900 |
 
 - **6.1a first:** after plan approval and the merged wave-1 prerequisites below. It produces `ProjectStack`, `CheckContext.directory`, `StackStep`, `owners`, `jsonc`, `node` and `node_tools`.
 - **Preparation during 6.1a:** after decisions 1 and 2, prototype Units 10 and 11 in an isolated scratch directory. Run `npm install --no-audit --no-fund`, `npx --no-install prettier --check .`, `npx --no-install eslint --max-warnings 0 .`, `npx --no-install tsc --noEmit`, `npx --no-install knip --include files,dependencies,unlisted,binaries,unresolved,exports,types,enumMembers,namespaceMembers` and `npx --no-install vitest run`. Each must exit 0 before its seed is accepted. A second independent preparation may build Vitest parsing and suppression scanning test-first. Neither preparation replaces its Unit's tests or review. Three plan-6 agents is the documentation's Walk advice; the owner sets the total across plans and other Tasks.
-- **6.1b, 6.2a and 6.2b:** may branch from 6.1a while review continues. Before recording squash ancestry, each must merge any missing review fixes from its current remote prerequisite head (Global Constraints).
+- **6.1b, 6.2a and 6.2b-1:** may branch from 6.1a while review continues. Before recording squash ancestry, each must merge any missing review fixes from its current remote prerequisite head (Global Constraints).
 
 | PR | Source and test ownership |
 | --- | --- |
 | 6.1b | `rapid_ship/` outside devctl templates, `scripts/`, `tests/test_kit_*.py`, and `[map] exclude` in project settings |
 | 6.2a | devctl `check/__init__.py`, `check/filesize.py`, `cli.py`, `doctor_local.py`, `doctor_rules.py`, `doctor_typescript.py`, `check/stacks/typescript.py`; CI templates and corresponding tests; conditional PRO-158 fallback extension |
-| 6.2b | devctl `check/exceptions.py`, `check/references.py`, `check/diff.py`, `check/evidence.py`, `check/map.py`, `check/stacks/typescript_suppressions.py`, `typescript_references.py`, `vitest.py` and corresponding tests |
+| 6.2b-1 | devctl standalone suppression, knip allowlist and Vitest reader modules and their boundary regression tests; no check wiring |
+| 6.2b-2 | devctl `check/exceptions.py`, `check/references.py`, `check/diff.py`, `check/evidence.py`, `check/map.py`, `check/stacks/typescript_suppressions.py`, `typescript_references.py`, `vitest.py` and corresponding tests |
 
-All three consume Unit 1b's helpers without changing them. Each sync regenerates `.rapid-ship/kit.lock`; never resolve it by hand. Shared documents are `ARCHITECTURE.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, root `AGENTS.md`, `README.md`, `rapid_ship/templates/AGENTS.md`, this index and Spec 1. Merge their paragraphs without dropping other Tasks' text.
+These PRs consume Unit 1b's helpers without changing them. Each sync regenerates `.rapid-ship/kit.lock`; never resolve it by hand. Shared documents are `ARCHITECTURE.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, root `AGENTS.md`, `README.md`, `rapid_ship/templates/AGENTS.md`, this index and Spec 1. Merge their paragraphs without dropping other Tasks' text.
 
 - **Diff-cap margin:** estimates are not permission to exceed 1,500 counted additions plus deletions. 6.1b's nominal 80-line margin is insufficient assurance: Unit 2 rewrites roughly 71 call sites, Unit 14 changes commitless fixtures, and shared-guide tests add lines. Keep Unit 14 in 6.1b. Measure after each Unit with `./devctl check --tier full --base <base> --pr-body <body>` and retain its `diff` count. If necessary, split other independent work at a Unit boundary before publication; 6.1a can split Unit 3a. Recalculate dependent bases and verification rows. A declared overage requires the owner's prior acceptance; never hide it or weaken checks.
-- **6.3 last:** Units 10 and 12b require merged 6.1b and 6.2a. Unit 11 also waits for 6.2b, brought in by a normal merge of `origin/main`. Only its tests import `doctor_typescript` and `doctor_rules`; `rapid_ship` never imports devctl.
-- **Merge order:** 6.1a; then 6.1b, 6.2a and 6.2b as reviews finish; then 6.3. Record decision 3 before the first merge. After each squash merge, follow the ancestry procedure below; never use `ours` for a sibling.
+- **6.3 last:** Units 10 and 12b require merged 6.1b and 6.2a. Unit 11 also waits for 6.2b-2, brought in by a normal merge of `origin/main`. Only its tests import `doctor_typescript` and `doctor_rules`; `rapid_ship` never imports devctl.
+- **Merge order:** 6.1a; then 6.1b, 6.2a and 6.2b-1 as reviews finish; then 6.2b-2 after 6.2b-1; then 6.3. Record decision 3 before the first merge. After each squash merge, follow the ancestry procedure below; never use `ours` for a sibling.
 - **Other plans:** plan 7's 7.2 changes init's dirty-tree message and `tests/test_kit_init.py`; its 7.1b adds a glossary bullet to the root guide. Spec 3 adds the Correction Rule there. Apply these to `common/AGENTS.md` after 6.1b. Spec 3 alone renames `optional_skills` to `optional` in PR 3.7; plan 7 uses the current reader APIs and names until then. Whichever PR lands second updates shared callers and fixtures. Plan 7 must quote the exact `cannot_run` text, `engines.node = ">=24.15.0 <25"`, proposal first line and Unit 14 report. Its ruleset step depends on Unit 14's owner-terminal default-branch push before ruleset application.
 - **Ledger references:** Spec 3 passes a ledger entry's path as `holder` to `resolve`. Unit 4 resolves a unique matching stack. Ambiguity fails with candidate stacks and the supported alternatives `test:<path>::<name>` or `check:<step>` with its directory-qualified name, such as `lint (backend)`. No new reference syntax is added; Unit 5 records this contract in Spec 1 section 5.
 
@@ -868,7 +870,13 @@ TYPESCRIPT_PROTECTED_PATHS = (
 - [ ] **Step 5: documents.** `ARCHITECTURE.md` (the TypeScript steps, `--install`, CI's `setup-node`, doctor's items), `tools/AGENTS.md`, `tests/AGENTS.md`, and root `AGENTS.md`'s Commands (Protected; G5 asks; in a headless Session the owner makes this edit). All prerequisite descriptions, including `ARCHITECTURE.md`, say `./devctl check` and `uv run pytest` need network, gitleaks 8.30.1 on `PATH`, and Node.js 24.15.0 or later in major 24 with npm from this PR. Spec 1 section 5's Dead code bullet on `--include`, with the knip test's result; the index's Layout (`check/stacks/typescript.py`, `doctor_typescript.py`). Commit `docs: describe the TypeScript steps and doctor's items`.
 - [ ] **Step 6: verify** with `--base origin/plan6-stacks`, record the five checks, and commit `docs: record PR 6.2a's verification`. `Not covered: a real TypeScript project, which 6.3's integration tests check; the TypeScript suppressions and references (6.2b)`.
 
-## PR 6.2b: the TypeScript rules (`plan6-ts-rules`, on `plan6-stacks`)
+## PRs 6.2b-1 and 6.2b-2: the TypeScript readers and rules
+
+The approved split keeps both Tasks within the 1,500-line cap without a waiver. 6.2b-1 contains only standalone suppression, knip allowlist and Vitest readers, including their shared lexer and boundary regression tests. It merges after 6.1a. It changes no parser API or `ProjectStack` path set and adds no exceptions, references, diff, evidence or map wiring.
+
+6.2b-2 stacks on the verified final 6.2b-1 head and merges after it. It owns Unit 7's exceptions integration and TypeScript references, and Unit 8's check wiring, declarations, documents and final verification. Its final evidence includes both 6.2b-1 and 6.1a. The Unit descriptions below remain the combined contract; their checkboxes do not claim integrated completion for standalone readers.
+
+`KNIP_SETTINGS` and `OTHER_KNIP_SETTINGS`, shown in Unit 7's interface below, are deferred from 6.2b-1. 6.2b-2 restores their exact definitions alongside their real Unit 7 consumers. Standalone dead-code verification requires their absence, with no suppression or artificial use. Each PR requires independent review and its own measured diff count before publication.
 
 ### Unit 7: The TypeScript suppressions, knip's allowlist, and the TypeScript references
 
@@ -952,7 +960,7 @@ def resolve_type(
 - [ ] **Step 3: implement**; format, check, sync.
 - [ ] **Step 4: run** `uv run pytest tests/devctl -q -k "typescript or exceptions or references"`; expected PASS. Commit `feat: read the TypeScript suppressions and references`.
 
-### Unit 8: The diff policy for Vitest, and PR 6.2b's verification
+### Unit 8: The diff policy for Vitest, and PR 6.2b-2's verification
 
 **Files:**
 - Create: `devctl/check/stacks/vitest.py`, `tests/devctl/test_devctl_typescript_diff.py`
@@ -993,7 +1001,7 @@ def tautologies(source: str) -> list[tuple[int, str]]: ...
 - [ ] **Step 3: implement**; format, check, sync.
 - [ ] **Step 4: run** `uv run pytest tests/devctl -q`; expected PASS. Commit `feat: apply the diff policy to Vitest tests`.
 - [ ] **Step 5: documents.** `ARCHITECTURE.md` (the TypeScript suppressions, references and diff rules), `tools/AGENTS.md`, `tests/AGENTS.md`; the index's Suppressions paragraph: the table above as plan 6's TypeScript rule names, and knip's items. Spec 1 section 5: the `/* eslint */` comment and Vitest's options object among the TypeScript suppressions, and the `eslint-disable` and `/* eslint */` comments in Exceptions rule 1's list of comments whose several rules are one rule. Commit `docs: describe the TypeScript suppressions, references and diff rules`.
-- [ ] **Step 6: verify** with `--base origin/plan6-stacks`, record the five checks, and commit `docs: record PR 6.2b's verification`. `Not covered: a dynamic skip through the test context, such as ctx.skip(), which devctl cannot see and review treats as an unmarked suppression; a Vitest options object spread over several lines, whose skip, todo or fails key is not on the call's line; a suppression form inside a string, which counts too`.
+- [ ] **Step 6: verify** with `--base origin/plan6-stacks`, record the five checks, and commit `docs: record PR 6.2b-2's verification`. `Not covered: a dynamic skip through the test context, such as ctx.skip(), which devctl cannot see and review treats as an unmarked suppression; a Vitest options object spread over several lines, whose skip, todo or fails key is not on the call's line; a suppression form inside a string, which counts too`.
 
 ## PR 6.3: the TypeScript templates and the integration tests (`plan6-ts-templates`, on `main` once 6.1b and 6.2a have merged)
 
@@ -1111,7 +1119,8 @@ Each PR's last task fills its row with the command, its exit code and the summar
 | 6.1a | Exit 0; 2,196 passed in 425.04s | Exit 0; seven steps passed | Exit 0; 49 managed files unchanged | Pending hosted exact-head full check; not run locally | Pending hosted exact-head Docs build; not run locally |
 | 6.1b | | | | | |
 | 6.2a | | | | | |
-| 6.2b | | | | | |
+| 6.2b-1 | Exit 0; 2,392 passed in 414.00s | Exit 0; seven steps passed | Exit 0; 52 managed files unchanged | Not run locally; hosted CI and independent final-head review pending | Not run locally; hosted Docs build pending |
+| 6.2b-2 | | | | | |
 | 6.3 | | | | | |
 
 6.1b's row also records Unit 3b Step 5's `cmp` of the root-stack seeds.
