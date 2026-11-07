@@ -69,6 +69,9 @@ def test_every_manifest_path_exists_in_a_layer() -> None:
     root = packaged_templates()
     for path in manifest.seeded | manifest.executable:
         assert any((root / layer / path).is_file() for layer in ("common", *STACKS)), path
+    for stack, paths in manifest.new_project.items():
+        for path in paths:
+            assert (root / stack / path).is_file(), (stack, path)
 
 
 @pytest.mark.parametrize("stack", STACKS)
