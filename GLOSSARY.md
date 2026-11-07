@@ -43,8 +43,8 @@ A language toolchain the Kit supports, such as Python or TypeScript, with its ow
 A repository's own developer CLI, used by people, agents and CI to run and verify that repository. It never starts an agent to do work. Only `devctl doctor --skills` starts a short headless Session, to check which skills a Harness loads.
 _Avoid_: controller
 
-**Feature map**:
-A per-feature description of what the feature does, where it is entered, what data it touches, how to observe it and how to reproduce it.
+**Golden path**:
+A worked example from merged code that shows an agent how to build a similar, bigger feature, such as another API on an existing server. It has no check and no command, unlike a Pattern which enforces code style or smaller problems.
 
 **Pattern**:
 The one supported way to do a recurring task: a reference implementation, what that reference does right, and the check that enforces it. The Kit seeds a starter set for each stack, which the project owns and adapts.

@@ -475,7 +475,7 @@ Gardening is routine upkeep of a repository's standards, done in passes. Review 
 - It never changes CI, guardrail settings, devctl, a skill, an existing Pattern file, `exceptions.toml` or any other Protected setting. It proposes a task instead.
 - It never starts, schedules or stops an agent, and never starts work on a task: each proposed task stays in the backlog.
 
-A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md file or `docs/features/` to match what the repository already does. It adds, removes or changes no Rule, Pattern, check, setting, skill or code. Anything else is a rule change and becomes a proposed task.
+A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md file or `docs/golden-paths/` to match what the repository already does. It adds, removes or changes no Rule, Pattern, check, setting, skill or code. Anything else is a rule change and becomes a proposed task.
 
 ### Steps
 
@@ -496,7 +496,7 @@ A **doc-only fix** changes prose in `README.md`, `ARCHITECTURE.md`, an AGENTS.md
 | Drift | Output in `rs-garden` |
 | --- | --- |
 | A statement, command, path or link in `README.md`, `ARCHITECTURE.md` or an AGENTS.md file that no longer matches the repository | Doc-only fix |
-| A feature file in `docs/features/` that no longer describes its feature | Doc-only fix |
+| A golden path in `docs/golden-paths/` that no longer matches merged code | Doc-only fix |
 | Code changed in the range that hides or obscures an error, against the base rule below | Proposed task |
 | Code changed in the range that departs from its Pattern, the starter Patterns included | Proposed task |
 | A recurring task done more than one way, with no Pattern | Proposed task for a Pattern |
