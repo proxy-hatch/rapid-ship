@@ -9,9 +9,9 @@ from typing import Literal
 
 from rapid_ship.files import UnsafePath, safe_path
 from rapid_ship.kit.lock import LockEntry, file_sha256, read_lock, template_hash
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import (
     Kind,
-    Stack,
     Template,
     installed_version,
     is_excluded,
@@ -34,7 +34,7 @@ class FileStatus:
 class StatusReport:
     kit_version: str  # the version that wrote the lock
     installed_version: str
-    stack: Stack
+    stacks: tuple[ProjectStack, ...]
     files: tuple[FileStatus, ...]
     outdated: tuple[str, ...]  # managed entries the installed templates no longer match
     not_installed: tuple[str, ...]  # managed templates with no lock entry
@@ -89,7 +89,7 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
     templates = {
         t.path: t
         for t in render_files(
-            lock.stack, lock.variables, read_optional_skills(root), root=templates_root
+            lock.stacks[0].name, lock.variables, read_optional_skills(root), root=templates_root
         )
     }
     excluded = read_excluded(root)
@@ -133,7 +133,7 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
     return StatusReport(
         lock.kit_version,
         installed_version(),
-        lock.stack,
+        lock.stacks,
         tuple(files),
         tuple(outdated),
         tuple(not_installed),

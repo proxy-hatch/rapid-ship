@@ -24,10 +24,13 @@ Each PR is one Task as GLOSSARY.md defines it. The numbered Units below retain t
 | --- | --- | --- | --- | --- |
 | PRO-169 | documentation branch, on `main` | This plan and its index entries | Plan approval only; no implementation | Markdown is excluded |
 | 6.1a | `plan6-stacks`, on `main` | 1, 1b, 4, 3a, 5 | devctl stack settings, lock reader, helpers, ownership, references and doctor | about 1,250 before review additions |
-| 6.1b | `plan6-stacks-init`, on 6.1a | 2, 14, 3b | init, detection, lock writer, rendering and commitless Setup | about 1,420 before fixture and shared-guide additions |
+| 6.1b-1 | `plan6-stacks-init`, on 6.1a | 2, 14 | init, detection, lock writer and commitless Setup; single-root rendering refusal retained | 1,139 counted against the approved 6.1a prerequisite |
+| 6.1b-2 | on the independently reviewed 6.1b-1 head, after 6.1b-1 | 3b | directory rendering, repository seeds, guides and integration; unimplemented | measure separately; the 1,500-line cap still applies |
 | 6.2a | `plan6-ts-steps`, on 6.1a | 6, 12a, 9 | TypeScript steps, install, CI and doctor | about 950 |
 | 6.2b | `plan6-ts-rules`, on 6.1a | 7, 8 | TypeScript suppressions, references, Vitest and declarations | about 1,150 |
 | 6.3 | `plan6-ts-templates`, on `main` after 6.1b and 6.2a | 10, 11, 12b, 13 | TypeScript templates, integration tests and live trial; remove devctl's temporary lock reader | about 900 |
+
+The split of 6.1b was approved on 2026-11-06. References below to 6.1b cover both parts; Unit 3b remains unimplemented and belongs only to 6.1b-2. This split grants no diff-cap waiver.
 
 - **6.1a first:** after plan approval and the merged wave-1 prerequisites below. It produces `ProjectStack`, `CheckContext.directory`, `StackStep`, `owners`, `jsonc`, `node` and `node_tools`.
 - **Preparation during 6.1a:** after decisions 1 and 2, prototype Units 10 and 11 in an isolated scratch directory. Run `npm install --no-audit --no-fund`, `npx --no-install prettier --check .`, `npx --no-install eslint --max-warnings 0 .`, `npx --no-install tsc --noEmit`, `npx --no-install knip --include files,dependencies,unlisted,binaries,unresolved,exports,types,enumMembers,namespaceMembers` and `npx --no-install vitest run`. Each must exit 0 before its seed is accepted. A second independent preparation may build Vitest parsing and suppression scanning test-first. Neither preparation replaces its Unit's tests or review. Three plan-6 agents is the documentation's Walk advice; the owner sets the total across plans and other Tasks.

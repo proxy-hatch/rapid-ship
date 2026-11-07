@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from rapid_ship.kit.init import _github_repository_name, resolve_variables
+from rapid_ship.kit.init import _github_repository, resolve_variables
 from rapid_ship.kit.templates import KitError
 
 
@@ -89,7 +89,7 @@ def test_an_invalid_value_is_named_with_its_option(tmp_path: Path) -> None:
     ],
 )
 def test_a_github_remote_url_gives_its_repository_name(url: str, name: str) -> None:
-    assert _github_repository_name(url) == name
+    assert _github_repository(url) == f"octo/{name}"
 
 
 @pytest.mark.parametrize(
@@ -110,7 +110,7 @@ def test_a_github_remote_url_gives_its_repository_name(url: str, name: str) -> N
     ],
 )
 def test_another_host_or_an_unparsable_url_gives_no_name(url: str) -> None:
-    assert _github_repository_name(url) is None
+    assert _github_repository(url) is None
 
 
 def test_variables_default_to_the_origin_repository_name(
@@ -122,7 +122,8 @@ def test_variables_default_to_the_origin_repository_name(
 
     assert variables["project_name"] == "Widget"
     assert variables["package"] == "widget"
-    assert variables["repository"] == ""  # the name comes from origin; the repository is not set
+    assert variables["repository"] == "octo/Widget"
+    assert variables["owner"] == ""
 
 
 def test_the_repository_option_beats_the_origin_remote(
@@ -151,6 +152,7 @@ def test_a_remote_that_is_not_origin_does_not_name_the_project(
     run_git(git_repo, "remote", "add", "upstream", "https://github.com/octo/upstream-name.git")
 
     assert resolve_variables(git_repo)["project_name"] == "project"
+    assert resolve_variables(git_repo)["repository"] == ""
 
 
 def test_a_non_github_origin_falls_back_to_the_checkout_directory(
@@ -159,10 +161,12 @@ def test_a_non_github_origin_falls_back_to_the_checkout_directory(
     run_git(git_repo, "remote", "add", "origin", "https://gitlab.com/octo/widget.git")
 
     assert resolve_variables(git_repo)["project_name"] == "project"
+    assert resolve_variables(git_repo)["repository"] == ""
 
 
 def test_a_repository_without_a_remote_uses_its_directory_name(git_repo: Path) -> None:
     assert resolve_variables(git_repo)["project_name"] == "project"
+    assert resolve_variables(git_repo)["repository"] == ""
 
 
 def test_a_linked_worktree_without_a_remote_uses_the_main_checkout_name(

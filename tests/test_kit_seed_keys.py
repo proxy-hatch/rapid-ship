@@ -5,7 +5,8 @@ import re
 import pytest
 
 from devctl.settings import EXCEPTION_KEYS, PROJECT_KEYS
-from rapid_ship.kit.templates import STACKS, Stack, render_files
+from rapid_ship.kit.stacks import STACKS, StackName
+from rapid_ship.kit.templates import render_files
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -16,7 +17,7 @@ VARIABLES = {
 TABLE = re.compile(r"\s*\[\[?([\w.-]+)\]\]?\s*(#.*)?")
 
 
-def seed(stack: Stack, path: str) -> str:
+def seed(stack: StackName, path: str) -> str:
     templates = {t.path: t for t in render_files(stack, VARIABLES, ())}
     content = templates[path].content
     assert content is not None, f"{path} is a symlink"
@@ -37,7 +38,7 @@ def table_keys(text: str) -> set[tuple[str, str]]:
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_each_seed_names_every_key_its_loader_accepts(stack: Stack) -> None:
+def test_each_seed_names_every_key_its_loader_accepts(stack: StackName) -> None:
     accepted = {(table, key) for table, keys in PROJECT_KEYS.items() for key in keys}
 
     assert table_keys(seed(stack, ".rapid-ship/project.toml")) == accepted

@@ -13,10 +13,9 @@ from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from rapid_ship.files import UnsafePath, relative_parts, safe_path
+from rapid_ship.kit.stacks import StackName
 
-Stack = Literal["python", "agnostic"]
 Kind = Literal["managed", "seeded"]
-STACKS: tuple[Stack, ...] = ("python", "agnostic")
 
 PROJECT_SETTINGS = ".rapid-ship/project.toml"
 _VARIABLE = re.compile(r"\{\{([a-z_]+)\}\}")
@@ -90,7 +89,11 @@ def render_path(path: str, variables: Mapping[str, str]) -> str:
 
 
 def render_files(
-    stack: Stack, variables: Mapping[str, str], optional: Sequence[str], *, root: Path | None = None
+    stack: StackName,
+    variables: Mapping[str, str],
+    optional: Sequence[str],
+    *,
+    root: Path | None = None,
 ) -> list[Template]:
     """Render every template for one project, sorted by path. root=None means the packaged ones."""
     root = root or packaged_templates()

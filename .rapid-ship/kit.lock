@@ -1,6 +1,9 @@
 # Written by rapid-ship. To own or drop a Kit file, list it under [kit] exclude in project.toml.
 kit_version = "0.2.0"
-stack = "python"
+
+[[stack]]
+name = "python"
+directory = "."
 
 [variables]
 owner = "proxy-hatch"
