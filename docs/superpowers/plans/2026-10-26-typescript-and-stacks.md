@@ -872,7 +872,7 @@ TYPESCRIPT_PROTECTED_PATHS = (
 
 ### Unit 7: The TypeScript suppressions, knip's allowlist, and the TypeScript references
 
-**Checkpoint:** exception scanning and tracked computed references are integrated. The own diff exceeds the cap before Unit 8; publication requires a split. Vitest remains standalone.
+**Checkpoint:** exception scanning, tracked computed references and Vitest integration are implemented in split checkpoints. The corrected standalone dependency and effective publication base remain pending coordinator assignment; no final integration or publication is claimed.
 
 **Files:**
 - Create: `devctl/check/stacks/typescript_suppressions.py`, `devctl/check/stacks/typescript_references.py`, `tests/devctl/test_devctl_typescript_suppressions.py`, `tests/devctl/test_devctl_typescript_knip_allowlist.py`, `tests/devctl/test_devctl_typescript_references.py`
@@ -1137,3 +1137,13 @@ No local full devctl, standalone distribution smoke or site build was run for th
 Later integration and the Owner trial remain pending.
 Not covered: `rapid-ship init` still writes one root stack pending 6.1b;
 TypeScript blocks the step list pending 6.2a; removal of the transitional lock reader remains in 6.3.
+
+
+### Vitest integration checkpoint
+
+The diff step now reads owned Vitest tests, detects undeclared removals and added tautologies,
+keeps moved identities, notes dynamic base titles and retains base identities on an unreadable head.
+Test references select their reader by path. Evidence and map declarations preserve backticked spaces;
+Flight leaves declared behavioural removals to the owner, including spaced title chains.
+The approved standalone readers are unchanged. Final prerequisite integration, independent review,
+hosted full/Docs checks and publication remain pending. This checkpoint does not complete plan 6.

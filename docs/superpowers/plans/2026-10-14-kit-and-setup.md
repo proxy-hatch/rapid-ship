@@ -518,7 +518,7 @@ If review finds a PR too large, it splits at a task boundary.
 
 **Goal:** Support a Python backend with a React TypeScript frontend from day one. `project.toml` lists each stack with its directory, `init` writes each stack's files under its directory, and `devctl check` runs each stack's steps there. The TypeScript stack brings ESLint, Prettier, `tsc --noEmit`, Vitest, knip and `npm audit`, with npm as the package manager, its guardrail settings, a React skeleton, its starter Patterns and CI support. This brings part of backlog PRO-108 into scope; the rest of monorepo support stays deferred.
 
-**State:** TypeScript exception scanning and tracked ESLint/tsc references are implemented as a checkpoint pending a diff-cap split. Vitest diff/reference wiring and spaced declarations remain unfinished. devctl accepts several stacks and runs Python steps under their directories. Init still writes one root stack pending 6.1b; TypeScript blocks the step list pending 6.2a. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
+**State:** TypeScript exception scanning, tracked ESLint/tsc references, Vitest diff/reference wiring and spaced declarations are implemented in split checkpoints. Final dependency integration and exact-head review remain pending. devctl accepts several stacks and runs Python steps under their directories. Init still writes one root stack pending 6.1b; TypeScript blocks the step list pending 6.2a. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
 
 **PRs**, in order. Each is reviewed and merged on its own, and its last task records its verification:
 

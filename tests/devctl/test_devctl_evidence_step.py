@@ -57,7 +57,8 @@ def test_complete_evidence_passes(workspace: Workspace, body: str) -> None:
         ),
         (
             "## Evidence\n\n- `make test`: ok\n\nRemoved tests:\n- test_a\n\nNot covered: x\n",
-            "Removed tests: cannot read '- test_a'; write '- `<path>::<test>`: <reason>'",
+            "Removed tests: cannot read '- test_a'; write '- `<path>::<test>`: <reason>' "
+            "(use backticks for spaces)",
         ),
     ],
 )
@@ -121,9 +122,11 @@ def test_every_unreadable_declaration_is_reported(workspace: Workspace) -> None:
 
     assert result.details == (
         "Removed tests: cannot read '- tests/test_b.py::test_b'; "
-        "write '- `<path>::<test>`: <reason>'",
+        "write '- `<path>::<test>`: <reason>' "
+        "(use backticks for spaces)",
         "Removed tests: cannot read '+ tests/test_c.py::test_c: x'; "
-        "write '- `<path>::<test>`: <reason>'",
+        "write '- `<path>::<test>`: <reason>' "
+        "(use backticks for spaces)",
     )
     assert removed_test_declarations(body)[0] == {"tests/test_a.py::test_a": "gone"}
 
@@ -144,3 +147,17 @@ def test_every_unreadable_declaration_is_reported(workspace: Workspace) -> None:
 )
 def test_over_cap_reason_reads_the_evidence_section(body: str, reason: str | None) -> None:
     assert over_cap_reason(body) == reason
+
+
+@pytest.mark.parametrize(
+    "identity", ["frontend/src/a.test.ts::a > b", "front end/a.test.ts::a > b"]
+)
+def test_backticked_test_identities_can_hold_spaces(workspace: Workspace, identity: str) -> None:
+    body = (
+        f"## Evidence\n\n- `pytest`: passed\n\nRemoved tests:\n- `{identity}`: gone\n"
+        "\nNot covered: live tools\n"
+    )
+    assert removed_test_declarations(body) == ({identity: "gone"}, [])
+    assert EvidenceStep().run(workspace.context(pr_body=body)).status == "passed"
+    for item in (f"- `{identity}`:", f"- {identity}: gone", f"- `{identity}: gone"):
+        assert removed_test_declarations(f"## Evidence\nRemoved tests:\n{item}\n")[1] == [item]

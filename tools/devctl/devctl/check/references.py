@@ -1,7 +1,8 @@
 """Resolve references: the names of the checks that enforce a Rule or a Pattern.
 
 A reference is `<kind>:<value>`. `check` and `test` work for every stack. `ruff`, `banned`,
-`contract` and `type` read pyproject.toml and exist only for the Python stack. A file that a
+`contract` and Python `type` read pyproject.toml. TypeScript uses ESLint and tsc;
+`test` selects Python identities, Vitest title chains or word search by file path. A file that a
 reference reads or names counts only when git tracks it.
 """
 
@@ -12,7 +13,7 @@ import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import PurePosixPath
 
-from devctl.check.stacks import typescript_references
+from devctl.check.stacks import typescript_references, vitest
 from devctl.check.stacks.python import test_identities
 from devctl.check.steps import CheckContext
 from devctl.check.tracked import TrackedFiles
@@ -126,13 +127,17 @@ def _test(reference: str, value: str, context: CheckContext, tracked: TrackedFil
         text = (tracked.root / path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         return f"{reference}: cannot read {path}: {error}"
-    if PurePosixPath(path).suffix == ".py":
-        try:
+    try:
+        if PurePosixPath(path).suffix == ".py":
             found = name in test_identities(text)
-        except SyntaxError as error:
-            return f"{reference}: {path} does not parse: {error.msg} (line {error.lineno})"
-    else:
-        found = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+        elif vitest.is_test_file(path):
+            found = name in vitest.test_identities(text)[0]
+        else:
+            found = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+    except SyntaxError as error:
+        return f"{reference}: {path} does not parse: {error.msg} (line {error.lineno})"
+    except ValueError as error:
+        return f"{reference}: {path} does not parse: {error}"
     return None if found else f"{reference}: {path} has no test named {name}"
 
 

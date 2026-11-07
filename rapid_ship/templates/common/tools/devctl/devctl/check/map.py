@@ -37,7 +37,10 @@ ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")
 FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
-_RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
+_RULE_END = re.compile(
+    r"(?:^|\s)(?:enforced by: (?P<quoted>`)?"
+    r"(?P<reference>(?(quoted)[^`\n]+|[^\s`]+))(?(quoted)`)|advisory)$"
+)
 
 
 class MapStep:

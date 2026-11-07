@@ -39,3 +39,5 @@ Run affected files with `uv run pytest tests/test_<area>.py` from the repository
 `test_devctl_check_stacks.py` covers per-stack step names, working directories, ownership and tracked holder references.
 
 `test_devctl_typescript_integration.py` covers TypeScript exception scanning, knip settings diagnostics, tracked ESLint/tsc inputs, computed settings caches and shared-directory suffix selection. Node tools there are simulated; these tests do not validate live TypeScript tools.
+
+`devctl/test_devctl_typescript_wiring.py` covers Vitest removals, moves, unreadable heads, dynamic-title notes, tautologies and path-selected references offline. Evidence, map and merge-guard tests cover spaced identities and Flight behavioural-removal ownership.
