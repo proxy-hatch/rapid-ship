@@ -8,6 +8,7 @@ from pathlib import Path
 from devctl.check.map import pattern_errors, pattern_lesson_errors
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES
 from devctl.check.steps import CheckContext
+from devctl.check.tracked import TrackedFiles
 from devctl.process import run_process
 from devctl.repo import Repo
 from devctl.settings import load_project
@@ -36,12 +37,12 @@ def test_the_python_starter_patterns_pass_the_pattern_file_checks(
     init_repository(git_repo, stack="python", variables=kit_variables)
     commit_all(git_repo)
     context = CheckContext(Repo.discover(git_repo), load_project(git_repo), None, None)
-    files = context.repo.tracked_files()
+    tracked = TrackedFiles.read(context.repo)
 
-    patterns = [path for path in files if path.startswith("docs/patterns/python-")]
+    patterns = [path for path in tracked.files if path.startswith("docs/patterns/python-")]
     assert sorted(patterns) == [f"docs/patterns/{name}" for name in PATTERNS]
-    assert pattern_errors(context, files) == []
-    assert pattern_lesson_errors(context, files) == []
+    assert pattern_errors(context, tracked) == []
+    assert pattern_lesson_errors(context, tracked) == []
 
 
 def test_the_starter_patterns_are_new_project_seeds_only(
