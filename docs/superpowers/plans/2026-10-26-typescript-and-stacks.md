@@ -1147,3 +1147,23 @@ Test references select their reader by path. Evidence and map declarations prese
 Flight leaves declared behavioural removals to the owner, including spaced title chains.
 The approved standalone readers are unchanged. Final prerequisite integration, independent review,
 hosted full/Docs checks and publication remain pending. This checkpoint does not complete plan 6.
+
+
+Local validation of code head `41883d5892bdd297f74225cd0eaee5ca34fdea48`:
+`uv run pytest -q` exited 0 (2458 passed in 431.45s (0:07:11));
+`uv run pytest tests/devctl -q` exited 0 (1980 passed in 317.82s (0:05:17)).
+`./devctl check --tier fast` passed all seven steps; `uv run rapid-ship status --strict`
+reported 53 unchanged managed files. Configured `uv run --locked mypy`,
+`uv run --locked vulture --min-confidence 0` and
+`uv run --locked deptry . --no-ansi --json-output <ignored-local-report-path>` exited 0;
+deptry wrote an empty JSON array. Tests and tools used CPython 3.13.12.
+The new spaced Flight cases failed before wiring and passed afterward;
+the focused integration run passed 165 tests, and the reader/exception/reference regression
+selection passed 260 tests. These are offline reader and simulated-tool checks, with no live Node trial.
+The integration diff is 767 counted lines against its immutable start; the prerequisite-inclusive
+range is 1,805 lines and requires the assigned split publication base.
+Production modules remain below 500 lines. Template parity and all 53 managed hashes match.
+The two knip constants retain byte-identical definitions with real consumers.
+The local identifier screen passed; it is interim evidence, not formal publication approval.
+The corrected standalone dependency, final integration, independent exact-head review,
+hosted full/Docs checks and owner merge remain pending. No full devctl or site build was run.
