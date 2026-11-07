@@ -1019,11 +1019,9 @@ Each PR's last task fills its own subsection with each command, its exit code an
 
 ### 3.1
 
-Observed on branch `t3/merge-main-metrics-verification` at commit `f7963b0` (merge of `origin/main` at `1596780282fb543c7e033dfeafe59b17c98b216a` into PR #62 `spec3-settings` start `acffca7e866967eece27889d4da476d0934ab536`):
+Observed at commit `f7963b0` (merge of `origin/main` at `1596780282fb543c7e033dfeafe59b17c98b216a` into PR #62 `spec3-settings` start `acffca7e866967eece27889d4da476d0934ab536`):
 
-- `uv run pytest -q tests/devctl`: exit 0: `1646 passed in 318.28s (0:05:18)`
-- `uv run pytest -q tests/test_*.py`: exit 0: `501 passed in 170.65s (0:02:50)`
-- Total test suite (2,147 tests across `tests/devctl` and `tests/test_*.py`): exit 0, all 2,147 passed.
+- `uv run pytest -q`: exit 0: `2147 passed in 339.81s (0:05:39)`
 - Focused metrics and kit suite (`uv run pytest tests/devctl/test_devctl_metrics_settings*.py tests/devctl/test_devctl_metrics_model.py tests/devctl/test_devctl_doctor_github_limits.py tests/test_kit_seed_keys.py tests/test_kit_contents.py tests/test_kit_sync.py -q`): exit 0: `163 passed in 53.92s`
 - `./devctl check --tier fast`: exit 0: `passed format`, `passed lint`, `passed map`, `passed exceptions`, `passed file-size`, `passed kit`, `passed vendored`
 - `uv run rapid-ship status --strict`: exit 0: `Kit 0.2.0 (installed rapid-ship 0.2.0), stack python; 59 managed files unchanged.`
