@@ -1019,7 +1019,21 @@ Each PR's last task fills its own subsection with each command, its exit code an
 
 ### 3.1
 
-Pending.
+Observed on branch `t3/merge-main-metrics-verification` at commit `f7963b0` (merge of `origin/main` at `1596780282fb543c7e033dfeafe59b17c98b216a` into PR #62 `spec3-settings` start `acffca7e866967eece27889d4da476d0934ab536`):
+
+- `uv run pytest -q tests/devctl`: exit 0: `1646 passed in 318.28s (0:05:18)`
+- `uv run pytest -q tests/test_*.py`: exit 0: `501 passed in 170.65s (0:02:50)`
+- Total test suite (2,147 tests across `tests/devctl` and `tests/test_*.py`): exit 0, all 2,147 passed.
+- Focused metrics and kit suite (`uv run pytest tests/devctl/test_devctl_metrics_settings*.py tests/devctl/test_devctl_metrics_model.py tests/devctl/test_devctl_doctor_github_limits.py tests/test_kit_seed_keys.py tests/test_kit_contents.py tests/test_kit_sync.py -q`): exit 0: `163 passed in 53.92s`
+- `./devctl check --tier fast`: exit 0: `passed format`, `passed lint`, `passed map`, `passed exceptions`, `passed file-size`, `passed kit`, `passed vendored`
+- `uv run rapid-ship status --strict`: exit 0: `Kit 0.2.0 (installed rapid-ship 0.2.0), stack python; 59 managed files unchanged.`
+- `uv run --locked mypy`: exit 0: `Success: no issues found in 154 source files`
+- `uv run --locked vulture --min-confidence 0`: exit 0 (clean, no findings)
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0: `Scanning 19 files... Success! No dependency issues found. []`
+- Counted lines vs incoming `origin/main` (`1596780`): 1,459 counted lines, under the 1,500-line diff cap.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>`: pending hosted check on PR #62 at updated head per EM standing hosted-checks rule (supersedes local heavy scheduling).
+- `npm --prefix website run build`: pending hosted Docs build check on PR #62 at updated head per EM standing hosted-checks rule.
+- Not covered: devctl metrics itself, which 3.4 adds.
 
 ### 3.2
 
