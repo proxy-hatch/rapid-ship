@@ -38,6 +38,7 @@ SEEDED = {
     ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
+    ".rapid-ship/metrics.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "ARCHITECTURE.md",

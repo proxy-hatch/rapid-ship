@@ -49,6 +49,11 @@ kind = "seeded"
 template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233cf1"
 
 [[file]]
+path = ".rapid-ship/metrics.toml"
+kind = "seeded"
+template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b376e8"
+
+[[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
 template_sha256 = "d58f6cf9ada8b7ed69651285449f19470c4643e47054f162d8974fab57012451"
@@ -282,6 +287,26 @@ sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
 sha256 = "759d72b37ff4001f16dd3dda97d3358dfa13c8aa9c8551c522354a8f0fab2f2a"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/__init__.py"
+kind = "managed"
+sha256 = "64b5a187b0037031957c02b5221276a92430c07257c962336a19c468d3274e57"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/_order.py"
+kind = "managed"
+sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/model.py"
+kind = "managed"
+sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/settings.py"
+kind = "managed"
+sha256 = "569279e468307ece0f31c623096cdf330a9585e96f204c28687d2060244f3ad9"
 
 [[file]]
 path = "tools/devctl/devctl/process.py"
