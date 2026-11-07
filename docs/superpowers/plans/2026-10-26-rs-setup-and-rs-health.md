@@ -639,6 +639,10 @@ Task 5's final green run and integration await merged 7.3, including `rs-health`
 | Full devctl and site build | Pending hosted gate; not run locally |
 
 
+Pinned main `1596780282fb543c7e033dfeafe59b17c98b216a` is integrated as an intermediate baseline. The approved Setup corrections and the independent 23-dependency/49-known-failure audit remain in place. Task 5's final green and final integration still await the approved final Health head. Plan 6, wiring and sandbox reconciliation, Owner Tasks 9 and 10, live trials, hosted checks, privacy screening and exact-head review remain pending.
+
+Intermediate baseline diagnostics: `uv run pytest -q` exited 0, 2104 passed in 673.06s; `uv run --locked mypy` exited 0, no issues in 148 source files; `uv run --locked vulture --min-confidence 0` exited 0; `uv run --locked deptry . --no-ansi --json-output <report-path>` exited 0, no dependency issues. `uv run rapid-ship status --strict` exited 0, 61 managed files unchanged. These results do not satisfy the final Health integration gate.
+
 ### 7.3
 
 Pending.
