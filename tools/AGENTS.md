@@ -15,3 +15,6 @@ The `dead-code` step for Python, its floor settings (`dead_code_gaps`) and the r
 `check/stacks/typescript_suppressions.py` exposes pure TypeScript line rules and located knip JSONC allowlist items. `check/stacks/vitest.py` reads test identities and tautologies through the shared lexer in `vitest_tokens.py`. The exceptions step calls the TypeScript and knip readers for owned files. `check/stacks/typescript_references.py` validates tracked inputs before computing ESLint settings or tsc files, caching each tool per tracked snapshot and directory.
 
 The diff and reference steps select the Vitest readers by test-file path. Evidence declarations and Rule references accept spaced identities inside backticks. The diff step notes dynamic base titles and retains base identities when head parsing fails.
+
+
+`devctl/metrics/` is built in part: `settings.py` loads and validates `.rapid-ship/metrics.toml`, `model.py` defines the evaluation models and status logic, and `devctl metrics` CLI arrives in PR 3.4.

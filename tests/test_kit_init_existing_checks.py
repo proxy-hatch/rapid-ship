@@ -10,6 +10,7 @@ import pytest
 
 from rapid_ship.cli import main
 from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.stacks import ProjectStack
 
 
 @pytest.fixture(autouse=True)  # noqa: V103  # rs-exception: EX-25
@@ -41,7 +42,10 @@ def listed(
     write(git_repo, files)
     commit_all(git_repo)
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
     assert result.conflicts == ()
     assert result.commit
@@ -70,7 +74,10 @@ def test_init_lists_the_settings_hooks_and_workflows_already_there_sorted_withou
         (hooks / name).chmod(mode)  # commit-msg is not executable, so git would not run it
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert result.existing_checks == (
@@ -271,7 +278,10 @@ def test_a_configured_hooks_path_is_listed_with_its_executable_hooks(
     run_git(git_repo, "config", "core.hooksPath", ".githooks")
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     # git ignores .git/hooks once core.hooksPath is set, so its samples and hooks are not listed.
@@ -292,7 +302,10 @@ def test_a_hooks_path_of_dev_null_is_not_a_hook(
     hook.chmod(0o755)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert result.existing_checks == ()
@@ -312,7 +325,10 @@ def test_an_unreadable_hooks_directory_is_listed_and_init_succeeds(
     hooks.chmod(0)
     try:
         result = init_repository(
-            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+            git_repo,
+            stacks=(ProjectStack("python", "."),),
+            variables=kit_variables,
+            templates_root=make_templates(),
         )
     finally:
         hooks.chmod(0o755)
@@ -336,7 +352,10 @@ def test_a_file_the_kit_writes_is_not_listed_because_init_looks_before_it_writes
     )
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=templates
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=templates,
     )
 
     assert {"ruff.toml", ".github/workflows/devctl-check.yml"} <= set(result.created)
@@ -353,7 +372,10 @@ def test_a_conflict_lists_no_checks(
     commit_all(git_repo)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert result.conflicts == ("devctl: exists",)
@@ -377,7 +399,7 @@ def test_init_lists_the_checks_already_there_between_the_commit_and_the_next_ste
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init"]) == 0
+    assert main(["init", "--stack", "python"]) == 0
 
     out = capsys.readouterr().out
     commit = run_git(git_repo, "rev-parse", "HEAD").strip()
@@ -402,7 +424,10 @@ def test_init_lists_a_hook_in_a_repository_with_no_commits(
     assert main(["init", "--stack", "agnostic"]) == 0
 
     assert capsys.readouterr().out.endswith(
-        f"{EXISTING}  .git/hooks/pre-commit\nNext: run the rs-setup skill in your coding agent.\n"
+        f"{EXISTING}  .git/hooks/pre-commit\n"
+        "Next: push main from your own terminal, because the Kit's guardrails deny an agent's "
+        "push to the default branch; then open a pull request from rapid-ship/init. "
+        "The rs-setup skill in your coding agent does that.\n"
     )
 
 
@@ -416,6 +441,6 @@ def test_an_unreadable_setting_is_listed_and_does_not_change_the_exit_code(
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init"]) == 0
+    assert main(["init", "--stack", "python"]) == 0
 
     assert f"{EXISTING}  pyproject.toml (unreadable)\nNext: " in capsys.readouterr().out

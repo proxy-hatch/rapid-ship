@@ -42,7 +42,7 @@ packages = ["rapid_ship"]
 # state left by the removed controller.
 [tool.hatch.build.targets.sdist]
 # Hatch follows directory symlinks and visits each inode once. Skip checkout skill
-# aliases before traversal so their canonical package resources remain in the package.
+# aliases before traversal so the template resources remain in the package.
 skip-excluded-dirs = true
 exclude = [
     "/.agents/skills", "/.claude/skills",

@@ -8,6 +8,7 @@ import pytest
 
 import rapid_ship
 from check_workspace import stack_table
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import (
     KitError,
     Template,
@@ -31,7 +32,7 @@ def test_managed_files_are_copied_and_seeded_files_are_substituted(
 ) -> None:
     root = make_templates()
 
-    rendered = by_path(render_files("python", kit_variables, (), root=root))
+    rendered = by_path(render_files((ProjectStack("python", "."),), kit_variables, (), root=root))
 
     assert rendered["devctl"].kind == "managed"
     assert rendered["devctl"].content == (root / "common/devctl").read_bytes()
@@ -47,11 +48,15 @@ def test_the_stack_layer_overrides_common(
     root = make_templates(changes={"common/CLAUDE.md": "common\n", "python/CLAUDE.md": "python\n"})
 
     assert (
-        by_path(render_files("python", kit_variables, (), root=root))["CLAUDE.md"].content
+        by_path(render_files((ProjectStack("python", "."),), kit_variables, (), root=root))[
+            "CLAUDE.md"
+        ].content
         == b"python\n"
     )
     assert (
-        by_path(render_files("agnostic", kit_variables, (), root=root))["CLAUDE.md"].content
+        by_path(render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root))[
+            "CLAUDE.md"
+        ].content
         == b"common\n"
     )
 
@@ -61,8 +66,10 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
 ) -> None:
     root = make_templates()
 
-    default = by_path(render_files("agnostic", kit_variables, (), root=root))
-    opted = by_path(render_files("agnostic", kit_variables, ("rs-extra",), root=root))
+    default = by_path(render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root))
+    opted = by_path(
+        render_files((ProjectStack("agnostic", "."),), kit_variables, ("rs-extra",), root=root)
+    )
 
     link = Template(".claude/skills/rs-demo", "managed", None, "../../.agents/skills/rs-demo")
     assert default[".claude/skills/rs-demo"] == link
@@ -70,7 +77,7 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
     assert ".claude/skills/rs-extra" not in default
     assert opted[".claude/skills/rs-extra"].link == "../../.agents/skills/rs-extra"
     with pytest.raises(KitError, match="unknown optional Kit skill 'rs-unknown'"):
-        render_files("agnostic", kit_variables, ("rs-unknown",), root=root)
+        render_files((ProjectStack("agnostic", "."),), kit_variables, ("rs-unknown",), root=root)
 
 
 def test_an_empty_owner_comments_out_its_line(
@@ -80,7 +87,11 @@ def test_an_empty_owner_comments_out_its_line(
         changes={"common/.github/CODEOWNERS": "# Walk\n* @{{owner}}\n# /.github/ @{{owner}}\n"}
     )
 
-    rendered = by_path(render_files("agnostic", {**kit_variables, "owner": ""}, (), root=root))
+    rendered = by_path(
+        render_files(
+            (ProjectStack("agnostic", "."),), {**kit_variables, "owner": ""}, (), root=root
+        )
+    )
 
     assert rendered[".github/CODEOWNERS"].content == b"# Walk\n# * @<owner>\n# /.github/ @<owner>\n"
 
@@ -96,7 +107,11 @@ def test_code_owner_is_the_owner_with_an_at_sign_and_stays_empty_without_one(
         changes={"agnostic/.rapid-ship/project.toml": '[github]\ncode_owner = "{{code_owner}}"\n'}
     )
 
-    rendered = by_path(render_files("agnostic", {**kit_variables, "owner": owner}, (), root=root))
+    rendered = by_path(
+        render_files(
+            (ProjectStack("agnostic", "."),), {**kit_variables, "owner": owner}, (), root=root
+        )
+    )
 
     assert rendered[".rapid-ship/project.toml"].content == f"[github]\n{line}\n".encode()
 
@@ -125,7 +140,9 @@ def test_template_errors_name_the_file(
     root = make_templates(changes=changes)
 
     with pytest.raises(KitError, match=message):
-        render_files("agnostic", {**kit_variables, **variables}, (), root=root)
+        render_files(
+            (ProjectStack("agnostic", "."),), {**kit_variables, **variables}, (), root=root
+        )
 
 
 def test_symlinks_in_the_template_tree_are_refused(
@@ -135,7 +152,7 @@ def test_symlinks_in_the_template_tree_are_refused(
     (root / "common/alias").symlink_to("devctl")
 
     with pytest.raises(KitError, match="alias is a symlink"):
-        render_files("agnostic", kit_variables, (), root=root)
+        render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root)
 
 
 def test_generated_files_in_the_template_tree_are_ignored(
@@ -151,7 +168,7 @@ def test_generated_files_in_the_template_tree_are_ignored(
     # uv's environments hold symlinks, which the template walk would otherwise refuse.
     (root / "common/tools/devctl/.venv/bin/python").symlink_to("python3.12")
 
-    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
+    paths = by_path(render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root))
 
     generated = {"__pycache__", ".venv", ".DS_Store"}
     assert not any(generated & set(path.split("/")) for path in paths)
@@ -172,7 +189,7 @@ def test_a_tracked_template_tree_renders_only_what_git_keeps(
     run_git(git_repo, "add", "--force", "templates/common/kept.local")
     (root / "common/draft.md").write_text("not added yet\n")
 
-    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
+    paths = by_path(render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root))
 
     assert "scratch.local" not in paths  # ignored and untracked, so the wheel would not ship it
     assert "kept.local" in paths  # tracked, though an ignore pattern matches it
@@ -187,7 +204,7 @@ def test_an_untracked_template_tree_inside_a_repository_is_read_as_it_is(
     (git_repo / ".gitignore").write_text(".venv/\n")
     root = make_templates("project/.venv/site-packages/rapid_ship/templates")
 
-    paths = by_path(render_files("agnostic", kit_variables, (), root=root))
+    paths = by_path(render_files((ProjectStack("agnostic", "."),), kit_variables, (), root=root))
 
     assert {"devctl", "AGENTS.md", ".claude/skills/rs-demo"} <= set(paths)
 
@@ -197,7 +214,7 @@ def test_the_manifest_reads_every_list(make_templates: Callable[..., Path]) -> N
 
     assert manifest.executable == frozenset({"devctl"})
     assert manifest.optional_skills == frozenset({"rs-extra"})
-    assert "src/__package__/__init__.py" in manifest.new_project
+    assert "src/__package__/__init__.py" in manifest.new_project["python"]
 
 
 def test_kit_exclude_is_read_and_normalised(

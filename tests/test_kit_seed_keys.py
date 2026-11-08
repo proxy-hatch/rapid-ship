@@ -5,7 +5,8 @@ import re
 import pytest
 
 from devctl.settings import EXCEPTION_KEYS, PROJECT_KEYS
-from rapid_ship.kit.templates import STACKS, Stack, render_files
+from rapid_ship.kit.stacks import STACKS, ProjectStack, StackName
+from rapid_ship.kit.templates import render_files
 
 VARIABLES = {
     "project_name": "demo-app",
@@ -16,8 +17,8 @@ VARIABLES = {
 TABLE = re.compile(r"\s*\[\[?([\w.-]+)\]\]?\s*(#.*)?")
 
 
-def seed(stack: Stack, path: str) -> str:
-    templates = {t.path: t for t in render_files(stack, VARIABLES, ())}
+def seed(stack: StackName, path: str) -> str:
+    templates = {t.path: t for t in render_files((ProjectStack(stack, "."),), VARIABLES, ())}
     content = templates[path].content
     assert content is not None, f"{path} is a symlink"
     return content.decode()
@@ -37,10 +38,24 @@ def table_keys(text: str) -> set[tuple[str, str]]:
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_each_seed_names_every_key_its_loader_accepts(stack: Stack) -> None:
+def test_each_seed_names_every_key_its_loader_accepts(stack: StackName) -> None:
     accepted = {(table, key) for table, keys in PROJECT_KEYS.items() for key in keys}
 
     assert table_keys(seed(stack, ".rapid-ship/project.toml")) == accepted
     example = seed(stack, ".rapid-ship/exceptions.toml").splitlines()
     for key in EXCEPTION_KEYS:
         assert any(line.startswith(f"# {key} = ") for line in example), key
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_metrics_seed_names_every_key_its_loader_accepts(stack: StackName) -> None:
+    content = seed(stack, ".rapid-ship/metrics.toml")
+    keys = table_keys(content)
+    assert ("", "window") in keys
+    assert ("", "thresholds") in keys
+    for default_key in ("revisions", "reverts", "red_merges", "closed_unmerged"):
+        assert ("thresholds", default_key) in keys
+
+    example_lines = content.splitlines()
+    for key in ("id", "title", "source", "label", "environment", "count"):
+        assert any(re.match(rf"\s*#\s*{key}\s*=", line) for line in example_lines), key
