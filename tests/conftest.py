@@ -8,17 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import Workspace, new_workspace
+from check_workspace import Workspace, new_workspace, stack_table
 from devctl.process import run_process
 
 pytest_plugins = ["github_fixtures"]  # noqa: V107  # rs-exception: EX-28
 
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
-new_project = ["pyproject.toml", "src/__package__/__init__.py"]
 executable = ["devctl"]
 optional_skills = ["rs-extra"]
 variables = ["code_owner", "owner", "package", "project_name", "repository"]
+[new_project]
+python = ["pyproject.toml", "src/__package__/__init__.py"]
 """
 
 TEMPLATE_FILES = {
@@ -29,8 +30,8 @@ TEMPLATE_FILES = {
     "common/.github/CODEOWNERS": "* @{{owner}}\n",
     "common/.agents/skills/rs-demo/SKILL.md": "demo\n",
     "common/.agents/skills/rs-extra/SKILL.md": "extra\n",
-    "python/.rapid-ship/project.toml": 'stack = "python"\n\n[kit]\noptional = []\n',
-    "agnostic/.rapid-ship/project.toml": 'stack = "agnostic"\n\n[kit]\noptional = []\n',
+    "python/.rapid-ship/project.toml": stack_table("python") + "\n[kit]\noptional = []\n",
+    "agnostic/.rapid-ship/project.toml": stack_table("agnostic") + "\n[kit]\noptional = []\n",
     "python/pyproject.toml": '[project]\nname = "{{project_name}}"\n',
     "python/src/__package__/__init__.py": '"""{{package}}."""\n',
 }
@@ -115,7 +116,7 @@ def write_kit_settings() -> Callable[..., None]:
         path.parent.mkdir(parents=True, exist_ok=True)
         kit = f"optional = {json.dumps(list(optional))}\nexclude = {json.dumps(list(exclude))}\n"
         path.write_text(
-            f'stack = "python"\n\n[kit]\n{kit}'
+            stack_table("python") + f"\n[kit]\n{kit}"
         )  # a JSON list of strings is a TOML array
 
     return write
@@ -132,7 +133,10 @@ def vendored(
     test_kit_cli.py overrides it with a version that runs the rapid-ship command.
     """
     from rapid_ship.kit.init import init_repository
+    from rapid_ship.kit.stacks import ProjectStack
 
     old = make_templates("old")
-    init_repository(git_repo, stack="python", variables=kit_variables, templates_root=old)
+    init_repository(
+        git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables, templates_root=old
+    )
     return old

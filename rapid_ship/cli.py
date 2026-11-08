@@ -16,9 +16,10 @@ from rapid_ship.github_app import current_repository, gh_owner_get, recorded_app
 from rapid_ship.kit.git import work_tree_root
 from rapid_ship.kit.init import init_repository, resolve_variables
 from rapid_ship.kit.pull_request import REVERT
+from rapid_ship.kit.stacks import ProjectStack, describe, parse_stack
 from rapid_ship.kit.status import classify
 from rapid_ship.kit.sync import sync_repository
-from rapid_ship.kit.templates import STACKS, KitError, KitRefusal, installed_version
+from rapid_ship.kit.templates import KitError, KitRefusal, installed_version
 
 _NO_METADATA = (
     "cannot read rapid-ship's package metadata; run the installed command, "
@@ -49,6 +50,13 @@ class _Version(argparse.Action):
         parser.exit()
 
 
+def _stack_option(option: str) -> ProjectStack:
+    try:
+        return parse_stack(option)
+    except KitError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rapid-ship", description="Vendor rapid-ship's Kit and keep it current."
@@ -62,11 +70,24 @@ def build_parser() -> argparse.ArgumentParser:
             "rapid-ship/init; the work tree must be clean"
         ),
     )
-    init.add_argument("--stack", choices=STACKS, help="required when there is no pyproject.toml")
+    init.add_argument(
+        "--stack",
+        action="append",
+        type=_stack_option,
+        default=[],
+        metavar="NAME[=DIRECTORY]",
+        help=(
+            "a stack and its directory, the root by default; repeat it for each stack. "
+            "Without it, init proposes the stacks it finds and writes nothing"
+        ),
+    )
     init.add_argument(
         "--owner", help="your GitHub login, for CODEOWNERS; rs-setup fills it when absent"
     )
-    init.add_argument("--repository", help="owner/name on GitHub")
+    init.add_argument(
+        "--repository",
+        help="owner/name on GitHub; default: the origin remote's, when it is on github.com",
+    )
     init.add_argument(
         "--name",
         help="project name; default: the GitHub repository name, else the main checkout's name",
@@ -186,7 +207,7 @@ def _init(root: Path, args: argparse.Namespace) -> int:
         owner=args.owner,
         repository=args.repository,
     )
-    result = init_repository(root, stack=args.stack, variables=variables)
+    result = init_repository(root, stacks=args.stack, variables=variables)
     if result.conflicts:
         sys.stderr.write(
             "rapid-ship init wrote nothing. These Kit files conflict with the repository:\n"
@@ -195,7 +216,7 @@ def _init(root: Path, args: argparse.Namespace) -> int:
             sys.stderr.write(f"  {conflict}\n")
         return 1
     sys.stdout.write(
-        f"Vendored the {result.stack} Kit {installed_version()} "
+        f"Vendored the {describe(result.stacks)} Kit {installed_version()} "
         f"for {variables['project_name']} (package {variables['package']}).\n"
     )
     _print_paths("Created:", result.created)
@@ -206,16 +227,21 @@ def _init(root: Path, args: argparse.Namespace) -> int:
             "CODEOWNERS has no owner line and [github] code_owner is empty; rs-setup writes both.\n"
         )
     commit = result.commit[:12]
-    if result.base is None:
+    if result.first_commit:
         sys.stdout.write(
-            "The repository had no commits, so the Kit is its first commit, "
-            f"{commit} on {result.branch}.\n"
+            "The repository had no commits, so init made an empty first commit, "
+            f"{result.first_commit[:12]}, on {result.base}.\n"
         )
-        next_step = "Next: run the rs-setup skill in your coding agent.\n"
+    sys.stdout.write(
+        f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
+    )
+    if result.first_commit:
+        next_step = (
+            f"Next: push {result.base} from your own terminal, because the Kit's guardrails "
+            "deny an agent's push to the default branch; then open a pull request from "
+            f"{result.branch}. The rs-setup skill in your coding agent does that.\n"
+        )
     else:
-        sys.stdout.write(
-            f"Committed the Kit as {commit} on {result.branch}, a new branch from {result.base}.\n"
-        )
         next_step = (
             f"Next: open a pull request from {result.branch}. "
             "The rs-setup skill in your coding agent does it.\n"
@@ -235,7 +261,7 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
         document = {
             "kit_version": report.kit_version,
             "installed_version": report.installed_version,
-            "stack": report.stack,
+            "stacks": [asdict(s) for s in report.stacks],
             "files": [asdict(item) for item in report.files],
             "outdated": report.outdated,
             "not_installed": report.not_installed,
@@ -245,7 +271,7 @@ def _status(root: Path, *, strict: bool, as_json: bool) -> int:
     else:
         sys.stdout.write(
             f"Kit {report.kit_version} (installed rapid-ship {report.installed_version}), "
-            f"stack {report.stack}\n"
+            f"stack {describe(report.stacks)}\n"
         )
         lines: list[tuple[str, str]] = [
             (item.state, item.path) for item in report.files if item.state != "unchanged"
@@ -295,6 +321,8 @@ def _sync(root: Path, *, in_place: bool, revert: Sequence[str]) -> int:
         sys.stdout.write(f"To give one back to the Kit, run {REVERT}.\n")
     for conflict in result.conflicts:
         sys.stdout.write(f"Conflict: {conflict.path}: {conflict.reason}\n")
+    if result.lock_rewritten:
+        sys.stdout.write("Rewrote .rapid-ship/kit.lock with [[stack]] tables.\n")
     if result.changed:
         if in_place:
             sys.stdout.write("Wrote the changes to the work tree.\n")

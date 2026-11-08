@@ -8,6 +8,7 @@ from check_workspace import Workspace
 from devctl.check.diff import Change, DiffStep, changed_files, removed_tests
 from devctl.check.steps import StepResult
 from devctl.codeowners import glob_match
+from devctl.settings import ProjectStack
 
 EVIDENCE = "## Evidence\n\n~~~\n$ make test\nok\n~~~\n\nNot covered: x\n\n"
 NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
@@ -208,7 +209,7 @@ def test_agnostic_stack_does_not_read_tests(workspace: Workspace) -> None:
     base = workspace.commit()
     workspace.write("tests/test_api.py", "\n")
 
-    context = workspace.context(base=base, stack="agnostic")
+    context = workspace.context(base=base, stacks=(ProjectStack("agnostic", "."),))
 
     assert DiffStep().run(context) == StepResult("diff", "passed", (NO_CODEOWNERS, cap(2)))
 

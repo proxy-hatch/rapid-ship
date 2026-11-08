@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import Workspace, new_workspace
+from check_workspace import Workspace, new_workspace, stack_table
 from devctl import cli
 from devctl.hook import decide
 from devctl.hook_protocols import WIRED_TOOLS, ToolCall, answer, read_event
@@ -19,10 +19,10 @@ from devctl.merge_guard import LocalBranches
 FIXTURES = Path(__file__).parent / "fixtures" / "hooks" / "agy"
 CLAUDE_FIXTURES = Path(__file__).parent / "fixtures" / "hooks" / "claude"
 REPO = Path("/repo")
-PYTHON = 'stack = "python"\n'
-INVALID = 'stack = "python"\n\n[linear]\nteam = "x"\n'
+PYTHON = stack_table("python")
+INVALID = stack_table("python") + '\n[linear]\nteam = "x"\n'
 IDENTITY = (
-    'stack = "python"\n\n[github]\nrepository = "o/r"\n'
+    stack_table("python") + '\n[github]\nrepository = "o/r"\n'
     'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
     'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n'
 )

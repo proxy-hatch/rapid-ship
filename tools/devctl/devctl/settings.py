@@ -11,13 +11,14 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal, cast, get_args
+from typing import Literal, cast
 
 PROJECT = ".rapid-ship/project.toml"
 EXCEPTIONS = ".rapid-ship/exceptions.toml"
 
 Role = Literal["worker", "reviewer"]
-Stack = Literal["python", "agnostic"]
+StackName = Literal["python", "typescript", "agnostic"]
+STACK_NAMES: tuple[StackName, ...] = ("python", "typescript", "agnostic")
 ROLES: tuple[Role, ...] = ("worker", "reviewer")
 _PROVIDERS = "rapid-ship does not run agents across several Providers; delete the table"
 # Tables devctl refuses, and what replaced each or why nothing did.
@@ -33,6 +34,7 @@ REMOVED_TABLES = {
 # to name every one.
 PROJECT_KEYS: dict[str, frozenset[str]] = {
     "": frozenset({"stack", "github", "escalation", "kit", "map", "tests"}),
+    "stack": frozenset({"name", "directory"}),
     "github": frozenset(
         {
             "repository",
@@ -75,8 +77,18 @@ class Escalation:
 
 
 @dataclass(frozen=True)
+class ProjectStack:
+    name: StackName
+    directory: str
+
+
+def under(directory: str, path: str) -> str:
+    return path if directory == "." else f"{directory}/{path}"
+
+
+@dataclass(frozen=True)
 class ProjectSettings:
-    stack: Stack
+    stacks: tuple[ProjectStack, ...]
     repository: str | None  # "owner/name"
     code_owner: str | None  # "@login" or "@organisation/team"; None when "" or absent
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
@@ -90,6 +102,13 @@ class ProjectSettings:
     # [map] exclude: directories whose AGENTS.md files are template content, not guides.
     map_exclude: tuple[str, ...]
     unit_tests: tuple[str, ...]  # [tests] unit; default ("tests/unit/**",)
+
+    def owners(self, path: str) -> tuple[ProjectStack, ...]:
+        matches = tuple(
+            s for s in self.stacks if s.directory == "." or path.startswith(s.directory + "/")
+        )
+        depth = max((len(s.directory) if s.directory != "." else 0 for s in matches), default=-1)
+        return tuple(s for s in matches if (len(s.directory) if s.directory != "." else 0) == depth)
 
     @property
     def agent_identity(self) -> bool:
@@ -160,14 +179,18 @@ class _Table:
         return tuple(value)
 
 
-def _read(root: Path, relative: str) -> dict[str, object]:
+def _read_text(root: Path, relative: str) -> str:
     try:
         text = (root / relative).read_text(encoding="utf-8")
     except FileNotFoundError:
         raise SettingsError(f"{relative}: missing; rapid-ship init seeds it") from None
     except (OSError, UnicodeDecodeError) as error:
         raise SettingsError(f"{relative}: {error}") from error
-    return _parse(text, relative)
+    return text
+
+
+def _read(root: Path, relative: str) -> dict[str, object]:
+    return _parse(_read_text(root, relative), relative)
 
 
 def _parse(text: str, relative: str) -> dict[str, object]:
@@ -251,20 +274,68 @@ def _refuse_removed(data: dict[str, object]) -> None:
             raise SettingsError(f"{PROJECT}: [{name}] was removed: {replacement}")
 
 
+def _stacks(value: object) -> tuple[ProjectStack, ...]:
+    if isinstance(value, str):
+        raise SettingsError(
+            f'{PROJECT}: stack = "{value}" is no longer read; rewrite it as '
+            f'one [[stack]] table with name = "{value}" and directory = "."'
+        )
+    if not isinstance(value, list) or not value:
+        raise SettingsError(
+            f"{PROJECT} [[stack]]: required; add one table for each stack, "
+            f"with its name and directory"
+        )
+    stacks: list[ProjectStack] = []
+    for number, item in enumerate(value, 1):
+        row = _Table(item, f"{PROJECT} [[stack]] #{number}", PROJECT_KEYS["stack"])
+        name = cast(StackName, row.choice("name", STACK_NAMES))
+        if "directory" not in row.values:
+            raise SettingsError(f"{row.where} directory: required")
+        entry = row.values["directory"]
+        directory = None
+        if isinstance(entry, str):
+            directory = "." if entry in (".", "./") else _inside_repository(entry)
+        if directory is None:
+            raise row._error("directory", "a directory inside the repository that is not a symlink")
+        if name == "agnostic" and directory != ".":
+            raise SettingsError(f'{row.where} directory: the agnostic stack\'s directory is "."')
+        stack = ProjectStack(name, directory)
+        if stack in stacks:
+            raise SettingsError(f"{PROJECT}: two [[stack]] tables name {name} in {directory}")
+        stacks.append(stack)
+    if len(stacks) > 1 and any(s.name == "agnostic" for s in stacks):
+        raise SettingsError(f"{PROJECT}: the agnostic stack cannot sit beside another stack")
+    return tuple(sorted(stacks, key=lambda s: (s.directory, s.name)))
+
+
 def load_project(root: Path) -> ProjectSettings:
-    return _project(_read(root, PROJECT))
+    text = _read_text(root, PROJECT)
+    project = parse_project(text)
+    rows = cast(list[object], _parse(text, PROJECT)["stack"])
+    for number, item in enumerate(rows, 1):
+        row = _Table(item, f"{PROJECT} [[stack]] #{number}", PROJECT_KEYS["stack"])
+        entry = cast(str, row.values["directory"])
+        directory = "." if entry in (".", "./") else cast(str, _inside_repository(entry))
+        if directory != "." and (
+            not (root / directory).is_dir()
+            or any(
+                (root / Path(*PurePosixPath(directory).parts[:n])).is_symlink()
+                for n in range(1, len(PurePosixPath(directory).parts) + 1)
+            )
+        ):
+            raise row._error("directory", "a directory inside the repository that is not a symlink")
+    return project
 
 
 def parse_project(text: str) -> ProjectSettings:
-    """project.toml's text, such as a copy from another branch, checked as load_project checks
-    the file, with the same SettingsError messages."""
+    """Validate project.toml schema and paths without consulting the filesystem."""
     return _project(_parse(text, PROJECT))
 
 
 def _project(data: dict[str, object]) -> ProjectSettings:
     _refuse_removed(data)
     top = _Table(data, PROJECT, PROJECT_KEYS[""])
-    stack = cast(Stack, top.choice("stack", get_args(Stack)))
+    stacks = _stacks(top.values.get("stack"))
     github = top.table("github")
     kit = top.table("kit")
     source_map = top.table("map")
@@ -275,7 +346,7 @@ def _project(data: dict[str, object]) -> ProjectSettings:
         raise github._error("repository", "owner/name")
     worker_app, reviewer_app = _apps(github, repository)
     return ProjectSettings(
-        stack=stack,
+        stacks=stacks,
         repository=repository,
         code_owner=_code_owner(github),
         worker_app=worker_app,

@@ -5,6 +5,7 @@ from pathlib import Path
 import jwt
 import pytest
 
+from check_workspace import stack_table
 from devctl.github.api import GitHubError
 from devctl.github.app import (
     AppError,
@@ -73,7 +74,7 @@ def test_the_key_is_read_from_the_item_of_the_app_that_github_records(
 ) -> None:
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship" / "project.toml").write_text(
-        'stack = "agnostic"\n[github]\nrepository = "o/r"\n'
+        stack_table("agnostic") + '[github]\nrepository = "o/r"\n'
         'worker_app_id = 5376519\nworker_app_slug = "o-rs-worker"\n'
         'reviewer_app_id = 5376520\nreviewer_app_slug = "o-rs-reviewer"\n'
     )

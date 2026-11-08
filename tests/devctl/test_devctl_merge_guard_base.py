@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from devctl.doctor_items import OwnerReadError
@@ -18,6 +20,7 @@ from test_devctl_merge_guard import (
     contents,
     guarded,
     owner,
+    project_toml,
 )
 
 BASE_SHA = "c" * 40
@@ -68,3 +71,15 @@ def test_absent_or_malformed_base_sha_denies_before_reading_policy(base: object)
     assert denial is not None
     assert "the pull request's base" in denial
     assert reader.paths == [PR]
+
+
+@pytest.mark.parametrize("symlink", [False, True], ids=["absent", "symlink"])
+def test_base_stack_directory_in_head_cannot_affect_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, symlink: bool
+) -> None:
+    if symlink:
+        (tmp_path / "real").mkdir()
+        (tmp_path / "backend").symlink_to("real", target_is_directory=True)
+    monkeypatch.chdir(tmp_path)
+    base = project_toml().replace('directory = "."', 'directory = "backend"')
+    assert guarded(LINE, owner(base=base)) is None

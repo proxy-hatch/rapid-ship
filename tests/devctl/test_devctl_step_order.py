@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from check_workspace import project_settings
 from devctl.check import core_steps
+from devctl.settings import ProjectStack
 
 PYTHON = [
     "format",
@@ -25,8 +26,8 @@ PYTHON = [
 
 
 def test_each_stack_has_its_core_steps_in_order() -> None:
-    python = core_steps(project_settings(stack="python"))
-    agnostic = core_steps(project_settings(stack="agnostic"))
+    python = core_steps(project_settings(stacks=(ProjectStack("python", "."),)))
+    agnostic = core_steps(project_settings(stacks=(ProjectStack("agnostic", "."),)))
 
     assert [step.name for step in python] == PYTHON
     assert [step.name for step in agnostic] == [

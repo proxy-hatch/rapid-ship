@@ -13,7 +13,7 @@ from typing import NoReturn
 
 import pytest
 
-from check_workspace import new_workspace
+from check_workspace import new_workspace, stack_table
 from devctl.codeowners import FileChange
 from devctl.command_line import simple_commands
 from devctl.doctor_items import OWNER_GET_TIMEOUT_SECONDS, OwnerGet, OwnerReadError, gh_get
@@ -68,7 +68,8 @@ EVERY_TEST_UNIT = '\n[tests]\nunit = ["tests/**"]\n'
 def project_toml(github: str = "", mode: str = "every_pr = false", tests: str = "") -> str:
     """A project.toml for o/r, in Flight with Agent identity off unless told otherwise."""
     return (
-        f'stack = "python"\n\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}{tests}'
+        stack_table("python")
+        + f'\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}{tests}'
     )
 
 
@@ -729,8 +730,8 @@ def test_a_base_project_toml_that_cannot_be_read_denies(error: OwnerReadError, r
     "text",
     [
         "stack = \n",
-        'stack = "python"\n\n[escalation]\nevery_pr = "no"\n',
-        'stack = "python"\n\n[linear]\nteam = "x"\n',
+        stack_table("python") + '\n[escalation]\nevery_pr = "no"\n',
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
         FLIGHT + 'worker_app_id = 1\nworker_app_slug = "o-worker"\n',
     ],
     ids=["not-toml", "invalid-mode", "removed-table", "one-app"],
@@ -752,7 +753,7 @@ def test_the_settings_are_read_on_the_pull_requests_own_base_branch() -> None:
 
 
 def test_an_invalid_base_project_toml_is_denied_with_the_branch_the_file_and_the_key() -> None:
-    reader = owner(base='stack = "python"\n\n[escalation]\nevery_pr = "no"\n')
+    reader = owner(base=stack_table("python") + '\n[escalation]\nevery_pr = "no"\n')
     assert guarded("gh pr merge 7", reader) == CANNOT.format(
         "on the base branch main, .rapid-ship/project.toml [escalation] every_pr: "
         "expected true or false"
@@ -774,7 +775,10 @@ def test_unreadable_settings_deny_every_merge(tmp_path: Path) -> None:
     assert reader.paths == []
 
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n\n[linear]\nteam = "x"\n')
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
+    )
     decision, reason = hooked(workspace.root, line, reader)
     assert decision == "deny"
     assert reason.startswith("merge denied: the merge guard cannot check this merge: ")
@@ -786,7 +790,7 @@ def test_unreadable_settings_deny_every_merge(tmp_path: Path) -> None:
 def test_local_flight_cannot_override_walk_on_base(tmp_path: Path) -> None:
     """Offline GitHub simulation: the branch weakens its own Mode before merging."""
     reader = owner()
-    text = 'stack = "python"\n[escalation]\nevery_pr = true\n'
+    text = stack_table("python") + "[escalation]\nevery_pr = true\n"
     reader.serve(
         SETTINGS,
         {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()},

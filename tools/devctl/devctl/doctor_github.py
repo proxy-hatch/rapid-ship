@@ -155,8 +155,8 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
         if error.status == 404:
             return _github(name, "missing", f".github/CODEOWNERS is not on {default}")
         return _unreadable(name, ".github/CODEOWNERS", error)
-    every_pr, stack = ctx.project.escalation.every_pr, ctx.project.stack
-    problems = codeowners_problems(text, every_pr, code_owner, stack)
+    every_pr, stacks = ctx.project.escalation.every_pr, ctx.project.stacks
+    problems = codeowners_problems(text, every_pr, code_owner, stacks)
     if problems:
         return _github(name, "missing", "; ".join(problems))
     # The text cannot show whether GitHub accepts each owner: a login needs write access to the
@@ -166,7 +166,7 @@ def _codeowners_item(ctx: DoctorContext, repository: str, repo: Mapping[str, obj
     except OwnerReadError as error:
         return _unreadable(name, "GitHub's CODEOWNERS errors", error)
     errors = _codeowners_errors(json_object(reply, "the CODEOWNERS errors reply"))
-    problems = codeowners_error_problems(errors, text, every_pr, stack, default)
+    problems = codeowners_error_problems(errors, text, every_pr, stacks, default)
     if problems:
         return _github(name, "missing", "; ".join(problems))
     detail = (

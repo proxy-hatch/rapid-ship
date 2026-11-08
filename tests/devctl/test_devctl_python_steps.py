@@ -12,6 +12,7 @@ from check_workspace import Workspace, fake_tool
 from devctl.check import core_steps
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES
 from devctl.check.steps import CommandStep
+from devctl.settings import ProjectStack
 
 
 @pytest.fixture
@@ -105,7 +106,7 @@ def test_tools_get_a_scrubbed_environment(
 
 
 def test_python_projects_run_the_tools_around_the_core_checks(workspace: Workspace) -> None:
-    steps = core_steps(workspace.context(stack="python").project)
+    steps = core_steps(workspace.context(stacks=(ProjectStack("python", "."),)).project)
 
     assert [(step.name, step.tier) for step in steps] == [
         ("format", "fast"),

@@ -16,6 +16,7 @@ from devctl.doctor import (
     codeowners_error_problems,
     github_items,
 )
+from devctl.settings import ProjectStack
 from github_fakes import MakeContext, RecordedOwner
 
 CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
@@ -43,9 +44,12 @@ def owned_by(ctx: MakeContext, code_owner: str, *, every_pr: bool = True) -> Doc
     agnostic stack."""
     context = ctx()
     escalation = dataclasses.replace(context.project.escalation, every_pr=every_pr)
-    stack = context.project.stack if every_pr else "agnostic"
+    stack = context.project.stacks[0].name if every_pr else "agnostic"
     project = dataclasses.replace(
-        context.project, code_owner=code_owner, escalation=escalation, stack=stack
+        context.project,
+        code_owner=code_owner,
+        escalation=escalation,
+        stacks=(ProjectStack(stack, "."),),
     )
     return dataclasses.replace(context, project=project)
 
@@ -219,9 +223,9 @@ def test_a_reply_not_in_githubs_shape_leaves_the_item_unknown(
 
 def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
     walk = [CodeownersError(1, "Unknown owner", None), CodeownersError(2, "Unknown owner", "x")]
-    assert codeowners_error_problems(walk, WALK, True, "agnostic", "main") == [
-        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
-    ]
+    assert codeowners_error_problems(
+        walk, WALK, True, (ProjectStack("agnostic", "."),), "main"
+    ) == [f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"]
     # In Flight the last line for a path is the one GitHub applies, so only that line counts.
     overridden = f"/devctl @o/old\n{FLIGHT}"
     devctl_line = 2 + PROTECTED_PATHS.index("devctl")
@@ -229,10 +233,10 @@ def test_only_errors_on_the_lines_doctor_checks_are_problems() -> None:
         CodeownersError(1, "Unknown owner", None),
         CodeownersError(devctl_line, "Unknown owner", None),
     ]
-    assert codeowners_error_problems(errors, overridden, False, "agnostic", "main") == [
-        f"GitHub reports Unknown owner on line {devctl_line} {ON_MAIN}"
-    ]
-    assert codeowners_error_problems([], WALK, True, "agnostic", "main") == []
+    assert codeowners_error_problems(
+        errors, overridden, False, (ProjectStack("agnostic", "."),), "main"
+    ) == [f"GitHub reports Unknown owner on line {devctl_line} {ON_MAIN}"]
+    assert codeowners_error_problems([], WALK, True, (ProjectStack("agnostic", "."),), "main") == []
 
 
 def test_errors_with_one_kind_and_suggestion_are_one_problem_in_line_order() -> None:
@@ -245,7 +249,9 @@ def test_errors_with_one_kind_and_suggestion_are_one_problem_in_line_order() -> 
         CodeownersError(4, "Invalid owner", "a"),
         CodeownersError(6, "Invalid owner", None),
     ]
-    assert codeowners_error_problems(errors, FLIGHT, False, "agnostic", "main") == [
+    assert codeowners_error_problems(
+        errors, FLIGHT, False, (ProjectStack("agnostic", "."),), "main"
+    ) == [
         f"GitHub reports Unknown owner on lines 2, 3 and 5 {ON_MAIN}: a",
         f"GitHub reports Unknown owner on line 3 {ON_MAIN}: b",
         f"GitHub reports Invalid owner on line 4 {ON_MAIN}: a",
@@ -259,14 +265,14 @@ def test_only_a_newline_ends_a_codeowners_line(separator: str) -> None:
     one at the separator and number the * line 3."""
     text = f"# Walk{separator}# note\n* {TEAM}\n"
     unknown = [CodeownersError(2, "Unknown owner", "x")]
-    assert codeowners_error_problems(unknown, text, True, "agnostic", "main") == [
-        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
-    ]
+    assert codeowners_error_problems(
+        unknown, text, True, (ProjectStack("agnostic", "."),), "main"
+    ) == [f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"]
 
 
 def test_crlf_line_ends_keep_the_line_numbers() -> None:
     unknown = [CodeownersError(2, "Unknown owner", "x")]
     crlf = WALK.replace("\n", "\r\n")
-    assert codeowners_error_problems(unknown, crlf, True, "agnostic", "main") == [
-        f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"
-    ]
+    assert codeowners_error_problems(
+        unknown, crlf, True, (ProjectStack("agnostic", "."),), "main"
+    ) == [f"GitHub reports Unknown owner on line 2 {ON_MAIN}: x"]
