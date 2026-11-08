@@ -1,37 +1,65 @@
-# Code owners. GitHub reads this file from the pull request's base branch,
-# so a pull request cannot exempt itself.
-#
-# Walk: the owner reviews every path. When init ran without --owner, every
-# owner below reads <owner>; rs-setup writes the login and uncomments this line.
-* @proxy-hatch
-#
-# Flight: replace the Walk line with the Protected set below, uncommented.
-# Add a line for each existing Pattern file in docs/patterns/, and for the
-# paths the project adds for access, the data model or the public API.
-# The set ends with the settings files of the check tools, because a
-# settings file can switch its check off.
-# /.github/ @proxy-hatch
-# /.githooks/ @proxy-hatch
-# /devctl @proxy-hatch
-# /tools/devctl/ @proxy-hatch
-# /.agents/ @proxy-hatch
-# /.claude/ @proxy-hatch
-# /**/AGENTS.md @proxy-hatch
-# /**/CLAUDE.md @proxy-hatch
-# /.rapid-ship/ @proxy-hatch
-# /.gitleaks.toml @proxy-hatch
-# /.gitleaksignore @proxy-hatch
-# /zizmor.yml @proxy-hatch
-# /zizmor.yaml @proxy-hatch
-# /pyproject.toml @proxy-hatch
-# /**/ruff.toml @proxy-hatch
-# /**/.ruff.toml @proxy-hatch
-# /mypy.ini @proxy-hatch
-# /.mypy.ini @proxy-hatch
-# /pytest.ini @proxy-hatch
-# /.pytest.ini @proxy-hatch
-# /pytest.toml @proxy-hatch
-# /.pytest.toml @proxy-hatch
-# /setup.cfg @proxy-hatch
-# /tox.ini @proxy-hatch
-# /.importlinter @proxy-hatch
+# Dog-fooding: Flight. The owner still merges every Protected-set PR.
+# GitHub reads CODEOWNERS from the PR base branch; a PR cannot exempt itself.
+# Guardrails, guides and project settings.
+/.github/ @proxy-hatch
+/.githooks/ @proxy-hatch
+/devctl @proxy-hatch
+/tools/devctl/ @proxy-hatch
+/.agents/ @proxy-hatch
+/.claude/ @proxy-hatch
+/**/AGENTS.md @proxy-hatch
+/**/CLAUDE.md @proxy-hatch
+/.rapid-ship/ @proxy-hatch
+# Patterns, guardrail templates, access, public CLI and Kit data models.
+/docs/patterns/ @proxy-hatch
+/rapid_ship/templates/ @proxy-hatch
+/rapid_ship/app_flow.py @proxy-hatch
+/rapid_ship/app_import.py @proxy-hatch
+/rapid_ship/app_keychain.py @proxy-hatch
+/rapid_ship/github_app.py @proxy-hatch
+/rapid_ship/cli.py @proxy-hatch
+/rapid_ship/kit/lock.py @proxy-hatch
+/rapid_ship/kit/templates.py @proxy-hatch
+/rapid_ship/templates/python/docs/patterns/python-configuration.md @proxy-hatch
+/rapid_ship/templates/python/docs/patterns/python-error-handling.md @proxy-hatch
+/rapid_ship/templates/python/docs/patterns/python-input-validation.md @proxy-hatch
+/rapid_ship/templates/python/docs/patterns/python-performance.md @proxy-hatch
+# Check-tool settings. Keep root entries for the current doctor contract.
+/.gitleaks.toml @proxy-hatch
+/.gitleaksignore @proxy-hatch
+/zizmor.yml @proxy-hatch
+/zizmor.yaml @proxy-hatch
+/pyproject.toml @proxy-hatch
+/**/ruff.toml @proxy-hatch
+/**/.ruff.toml @proxy-hatch
+/mypy.ini @proxy-hatch
+/.mypy.ini @proxy-hatch
+/pytest.ini @proxy-hatch
+/.pytest.ini @proxy-hatch
+/pytest.toml @proxy-hatch
+/.pytest.toml @proxy-hatch
+/setup.cfg @proxy-hatch
+/tox.ini @proxy-hatch
+/.importlinter @proxy-hatch
+/ruff.toml @proxy-hatch
+/.ruff.toml @proxy-hatch
+/uv.toml @proxy-hatch
+/uv.lock @proxy-hatch
+/.python-version @proxy-hatch
+/.gitignore @proxy-hatch
+/**/.gitignore @proxy-hatch
+/.ignore @proxy-hatch
+/**/.ignore @proxy-hatch
+# Nested Python settings, including template trees and future stack directories.
+/**/pyproject.toml @proxy-hatch
+/**/mypy.ini @proxy-hatch
+/**/.mypy.ini @proxy-hatch
+/**/pytest.ini @proxy-hatch
+/**/.pytest.ini @proxy-hatch
+/**/pytest.toml @proxy-hatch
+/**/.pytest.toml @proxy-hatch
+/**/setup.cfg @proxy-hatch
+/**/tox.ini @proxy-hatch
+/**/.importlinter @proxy-hatch
+/**/uv.toml @proxy-hatch
+/**/uv.lock @proxy-hatch

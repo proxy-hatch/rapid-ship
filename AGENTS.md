@@ -28,7 +28,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | Work | Start here |
 | --- | --- |
 | What the project does, and how to run and check it | [README](README.md) |
-| The `rapid-ship` package, its file helpers and the engineering skill | [Source map](rapid_ship/AGENTS.md) |
+| The `rapid-ship` package and its file helpers | [Source map](rapid_ship/AGENTS.md) |
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |
 | The vendored devctl, and this repository's own check steps in `tools/devctl/devctl_project/` | [Tools](tools/AGENTS.md) |
@@ -45,7 +45,7 @@ When adding or moving a maintained directory, update its guide and parent naviga
 
 ## Writing
 
-Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
+Read `.agents/skills/rs-writing/SKILL.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
 
 Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Keep exact commands, limits and safety conditions.
 
@@ -53,7 +53,7 @@ Prefer clear names, types, and simple control flow. Add comments only when they 
 
 ## Development
 
-- Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
+- Before coding or review, read `.agents/skills/rs-ponytail/SKILL.md`. Use `rs-tdd` for tests, `rs-diagnosing-bugs` for debugging, `rs-codebase-design` for architecture and `rs-pr` for pull requests. Reviews follow the Pull requests section, `rs-ponytail` and the Harness’s own review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
 - A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary.
 - Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete.
@@ -80,7 +80,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
-- This repository is in Walk (`[escalation] every_pr = true` in [project.toml](.rapid-ship/project.toml)), so the merge guard denies every agent merge and the owner merges each pull request.
+- This repository dog-foods Flight (`[escalation] every_pr = false` in [project.toml](.rapid-ship/project.toml)). Agents may merge only non-Protected pull requests after checks pass and the Reviewer App approves the exact head, with no open owner question. The owner merges Protected-set pull requests, declared behavioural-test removals and declared diff-cap overages. This Mode-change PR is Protected and waits for the owner.
 
 ## Safety
 
