@@ -21,6 +21,16 @@ KNIP_ALLOWLIST_KEYS = (
     "ignoreIssues",
     "tags",
 )
+KNIP_SETTINGS = "knip.jsonc"
+OTHER_KNIP_SETTINGS = (
+    "knip.json",
+    ".knip.json",
+    ".knip.jsonc",
+    "knip.ts",
+    "knip.config.ts",
+    "knip.js",
+    "knip.config.js",
+)
 _DISABLE = re.compile(r"\beslint-disable(?:-next-line|-line)?\b([^\r\n]*?)(?:\*/|$)")
 _INLINE = re.compile(r"/\*\s*eslint\s+(.+?)\*/")
 _RULE = re.compile(r"""(?:^|,)\s*["']?([@\w/-]+)["']?\s*:""")
