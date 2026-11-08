@@ -22,6 +22,7 @@ from devctl.settings import (
     load_project,
 )
 from rapid_ship.kit.init import resolve_variables
+from rapid_ship.kit.stacks import ProjectStack as KitStack
 from rapid_ship.kit.templates import KitError, load_manifest, render_files
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +42,7 @@ def write(root: Path, relative: str, text: str) -> None:
 
 
 def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
-    for template in render_files("python", VARIABLES, ()):
+    for template in render_files((KitStack("python", "."),), VARIABLES, ()):
         if template.path.startswith(".rapid-ship/"):
             assert template.content is not None
             write(tmp_path, template.path, template.content.decode())
@@ -290,7 +291,7 @@ def test_this_repository_settings_load() -> None:
     assert project.code_owner == "@proxy-hatch"
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
     assert project.excluded == ()
-    assert project.escalation.every_pr  # Walk
+    assert not project.escalation.every_pr  # Flight
     assert not (ROOT / ".rapid-ship/gate.toml").exists()
 
 
