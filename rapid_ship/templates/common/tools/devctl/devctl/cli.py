@@ -13,6 +13,7 @@ import devctl_project
 from devctl import __version__, doctor, hook, identity
 from devctl.check import ChangeError, exit_code, resolve_change, run_check
 from devctl.check.steps import CheckContext, Status, StepResult
+from devctl.metrics import command
 from devctl.repo import Repo, RepoError
 from devctl.settings import SettingsError, load_project
 
@@ -79,6 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.register(commands)
     identity.register(commands)
     hook.register(commands)
+    command.register(commands)
     devctl_project.register(commands)
     return parser
 
