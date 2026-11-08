@@ -58,7 +58,8 @@ def test_clean_report_passes(workspace: Workspace, tools: Path) -> None:
     assert argv[0][:4] == ["export", "--locked", "--format", "requirements-txt"]
     # Without --all-extras, a dependency reachable only through an extra is never audited.
     assert {"--all-groups", "--all-extras"} <= set(argv[0])
-    assert argv[1][:5] == ["tool", "run", "--from", "pip-audit==2.10.1", "pip-audit"]
+    # --isolated keeps uv out of its tools directory, which a sandbox may not let it write.
+    assert argv[1][:6] == ["tool", "run", "--isolated", "--from", "pip-audit==2.10.1", "pip-audit"]
     assert {"--require-hashes", "--disable-pip", "--strict"} <= set(argv[1])
 
 
@@ -154,3 +155,19 @@ def test_missing_uv_is_blocked(
     result = AuditStep().run(context)
 
     assert (result.status, result.details) == ("blocked", ("uv is not on PATH",))
+
+
+def test_audit_uses_a_temporary_http_cache(workspace: Workspace, tools: Path) -> None:
+    """Simulated: the audit tool must not need a write in the owner's home directory."""
+    body = UV.replace(
+        'report = here / "report.json"',
+        '''cache = pathlib.Path(args[args.index("--cache-dir") + 1])
+cache.mkdir()
+(cache / "response").write_text("cached advisory")
+(here / "cache-path").write_text(str(cache))
+report = here / "report.json"''',
+    )
+    fake_tool(tools, "uv", body)
+    assert audit(workspace, tools, CLEAN, 0) == ("passed",)
+    cache = Path((tools / "cache-path").read_text())
+    assert not cache.exists()
