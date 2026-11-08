@@ -492,3 +492,35 @@ def test_the_pull_request_body_lists_owned_files_and_the_way_back() -> None:
         "1 updated, 1 owned, 1 seeded changed, 1 conflicts\n\n"
         "Not covered: sync did not run ./devctl check; CI runs it on this pull request.\n"
     )
+
+
+def test_sync_adds_metrics_toml_and_leaves_gate_toml(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
+    gate = git_repo / ".rapid-ship/gate.toml"
+    gate.write_text('mode = "walk"\n')
+    commit_all(git_repo)
+    manifest = (
+        (vendored / "kit.toml")
+        .read_text()
+        .replace(
+            '".rapid-ship/project.toml"]',
+            '".rapid-ship/metrics.toml", ".rapid-ship/project.toml"]',
+        )
+    )
+    new = make_templates(
+        "new",
+        {
+            "kit.toml": manifest,
+            "common/.rapid-ship/metrics.toml": "window = 30\n",
+        },
+    )
+
+    result = sync(git_repo, new, in_place=True)
+
+    assert result.added == [".rapid-ship/metrics.toml"]
+    assert (git_repo / ".rapid-ship/metrics.toml").read_text() == "window = 30\n"
+    assert gate.read_text() == 'mode = "walk"\n'

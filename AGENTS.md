@@ -5,8 +5,8 @@ rapid-ship is being rebuilt as a Kit that a repository vendors: a project CLI ca
 Plans 1 to 5 are built: `rapid-ship init`, `status`, `sync` and `app`, and `devctl check`, `doctor`, `as` and `hook`. Plan 4 and its follow-ups are merged in PRs #31 to #33, and the owner tagged `v0.1.0`: `rapid-ship app` supports repositories that an organisation owns, and `app --import-key` stores a developer's own key. Plan 5 is built in PRs 5.1 to 5.5: the hook spike (PRO-139); `devctl hook claude pre-tool` with G1 to G5, G7, G8, the merge guard and the seeded Claude Code wiring; the README.md and ARCHITECTURE.md seeds with map rule 8, `doctor --settings`, the Pattern `task` key and Lessons section, the Python starter Patterns, the `SKILL.md` rule, the 1,500-line diff cap, the Corrections ledger rule and one CI concurrency group for each push run; settings seeds that comment each key's contract, with loaders that name what each key accepts; and the `dead-code` check step for Python, with vulture and deptry. A plan 5 follow-up wires agy: `devctl hook agy pre-tool`, without G5, and the seeded `.agents/hooks.json` (PRO-155). Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backward compatibility: `sync` never edits a seeded file, and a new check fails at once ([Spec 1](docs/superpowers/specs/2026-10-14-kit-and-setup-design.md) section 3). This repository vendors its own Kit, so `devctl`, `tools/devctl/`, `.githooks/`, `.github/workflows/devctl-check.yml` and the settings in `.rapid-ship/` come from its templates. Not built yet:
 
 - Plan 6 is partly implemented: devctl reads several stacks, runs Python steps in their directories and checks per-stack settings. Remaining: init/rendering (6.1b), TypeScript checks (6.2a/6.2b), templates, integration and the live trial (6.3).
-- Plan 7, `rs-setup` and `rs-health`.
-- [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`. Its plan is written next. GA includes Spec 3, so plan 7's PR 7.4 lands after it.
+- [Plan 7](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md), `rs-setup` and `rs-health`: document written, awaiting owner approval; implementation unbuilt.
+- [Spec 3](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md)'s metrics, gardening and `rs-preflight`, planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md). GA includes Spec 3, so plan 7's PR 7.4 lands after it.
 
 The settings hold the code owner, the Mode (`[escalation] every_pr`) and each App's ID and slug. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built. rapid-ship does not run agents across several Providers, so nothing replaces `[agents]` or `[roster]`. The Kit no longer seeds or reads `gate.toml`. The design sets no cap on the number of agents; it only advises at most 3 agents at work at once in Walk.
 
@@ -28,7 +28,7 @@ Read the directory guide before editing there; parent instructions still apply. 
 | Work | Start here |
 | --- | --- |
 | What the project does, and how to run and check it | [README](README.md) |
-| The `rapid-ship` package, its file helpers and the engineering skill | [Source map](rapid_ship/AGENTS.md) |
+| The `rapid-ship` package and its file helpers | [Source map](rapid_ship/AGENTS.md) |
 | `rapid-ship init`, `status` and `sync`, and the lock | [Kit CLI](rapid_ship/kit/AGENTS.md) |
 | Kit templates, including the source of the vendored `devctl`, `tools/devctl/devctl/`, hook and CI workflow: edit the template, then sync | [Kit templates](rapid_ship/templates/AGENTS.md) |
 | The vendored devctl, and this repository's own check steps in `tools/devctl/devctl_project/` | [Tools](tools/AGENTS.md) |
@@ -45,7 +45,7 @@ When adding or moving a maintained directory, update its guide and parent naviga
 
 ## Writing
 
-Read `.agents/skills/rapid-ship-engineering/references/writing.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
+Read `.agents/skills/rs-writing/SKILL.md` before writing commits, PRs, documentation or agent reports. Use the terms in [GLOSSARY.md](GLOSSARY.md), and read the [ADRs](docs/adr/) before reopening a settled decision.
 
 Lead with the outcome or problem. Prefer one precise finding over several vague ones; name the problem, consequence and file:line. Keep exact commands, limits and safety conditions.
 
@@ -54,8 +54,7 @@ Prefer clear names, types, and simple control flow. Add comments only when they 
 ## Development
 
 - When the owner corrects you in a Session, add an open entry to the Corrections ledger with `source: session`.
-
-- Before coding or review, read `.agents/skills/rapid-ship-engineering/references/ponytail.md`. Use the engineering skill for clarification, TDD, debugging, architecture work and review.
+- Before coding or review, read `.agents/skills/rs-ponytail/SKILL.md`. Use `rs-tdd` for tests, `rs-diagnosing-bugs` for debugging, `rs-codebase-design` for architecture and `rs-pr` for pull requests. Reviews follow the Pull requests section, `rs-ponytail` and the Harness’s own review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
 - A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary.
 - Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete.
@@ -82,7 +81,7 @@ These are this repository's choices, not product behaviour. Product text names t
 - Agents sign in with vendor subscriptions only, never an API key, gateway or proxy, because Providers have suspended accounts that used third-party clients or gateways.
 - agy is never a Reviewer.
 - This repository records its Worker App, `proxy-hatch-rs-worker`, and its Reviewer App, `proxy-hatch-rs-reviewer`, under `[github]` in [project.toml](.rapid-ship/project.toml), so Agent identity is on here.
-- This repository is in Walk (`[escalation] every_pr = true` in [project.toml](.rapid-ship/project.toml)), so the merge guard denies every agent merge and the owner merges each pull request.
+- This repository dog-foods Flight (`[escalation] every_pr = false` in [project.toml](.rapid-ship/project.toml)). Agents may merge only non-Protected pull requests after checks pass and the Reviewer App approves the exact head, with no open owner question. The owner merges Protected-set pull requests, declared behavioural-test removals and declared diff-cap overages. This Mode-change PR is Protected and waits for the owner.
 
 ## Safety
 

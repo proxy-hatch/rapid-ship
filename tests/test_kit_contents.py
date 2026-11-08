@@ -38,6 +38,7 @@ SEEDED = {
     ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
+    ".rapid-ship/metrics.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "ARCHITECTURE.md",
@@ -655,3 +656,22 @@ def test_the_ledger_readme_names_every_field_and_status() -> None:
     readme = text("agnostic", "docs/corrections/README.md")
     for name in (*REQUIRED_FIELDS, *OPTIONAL_FIELDS, *STATUSES, *WRITERS, "source: session"):
         assert name in readme
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_root_guide_says_where_terms_and_decisions_go(stack: Stack) -> None:
+    section = (
+        text(stack, "AGENTS.md")
+        .split("## Shared language and decisions\n", 1)[1]
+        .split("\n## ", 1)[0]
+    )
+    assert [line for line in section.splitlines() if line.startswith("- ")] == [
+        (
+            "- Record the project's terms in `GLOSSARY.md` and its decisions in `docs/adr/`. "
+            "A new project has neither until it records the first."
+        ),
+        (
+            "- Follow the `rs-writing` skill for prose and the `rs-ponytail` skill "
+            "for building only what is needed."
+        ),
+    ]
