@@ -1,6 +1,9 @@
 # Claude skill discovery
 
-`skills/` provides Claude's aliases to the canonical packaged [skills](../rapid_ship/skills/).
+`skills/` provides Claude's aliases to discovery paths:
+- For Kit-managed skills, symlinks to [`.agents/skills/`](../.agents/AGENTS.md).
+- For repository skills, symlinks to canonical packaged [skills](../rapid_ship/skills/).
+
 Read the shared [discovery guidance](../.agents/AGENTS.md) before changing an alias or its target.
 Edit canonical files so both agent discovery surfaces receive the same content.
 
