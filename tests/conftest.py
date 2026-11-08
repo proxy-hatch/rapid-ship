@@ -15,10 +15,11 @@ pytest_plugins = ["github_fixtures"]  # noqa: V107  # rs-exception: EX-28
 
 KIT_TOML = """\
 seeded = [".github/CODEOWNERS", ".rapid-ship/project.toml", "AGENTS.md"]
-new_project = ["pyproject.toml", "src/__package__/__init__.py"]
 executable = ["devctl"]
 optional_skills = ["rs-extra"]
 variables = ["code_owner", "owner", "package", "project_name", "repository"]
+[new_project]
+python = ["pyproject.toml", "src/__package__/__init__.py"]
 """
 
 TEMPLATE_FILES = {

@@ -1,8 +1,10 @@
 """Stack options and read-only detection of project roots."""
 
+import json
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import groupby
 from pathlib import Path
 from typing import Literal
 
@@ -123,3 +125,153 @@ def describe(stacks: Sequence[ProjectStack]) -> str:
     if len(stacks) == 1 and stacks[0].directory == ".":
         return stacks[0].name
     return ", ".join(f"{s.name} ({s.directory})" for s in stacks)
+
+
+@dataclass(frozen=True)
+class StackKit:
+    markers: tuple[str, ...]
+    new_project_marker: str | None
+    source_root: str
+    unit_tests: tuple[str, ...]
+    guide_rows: tuple[str, ...]
+    guide_rules: tuple[str, ...]
+    lint_rules: bool
+    patterns: tuple[str, ...]
+    protected: tuple[str, ...]
+
+
+KITS: dict[StackName, StackKit] = {
+    "python": StackKit(
+        ("pyproject.toml",),
+        "pyproject.toml",
+        "src/{package}",
+        ("tests/unit/**",),
+        (
+            "| Product code | [Source](src/AGENTS.md) |",
+            "| Tests, and which count as unit tests | [Tests](tests/AGENTS.md) |",
+        ),
+        (
+            (
+                "- Mark a `dead-code` false positive where devctl can see it, with its `rs-"
+                "exception` marker. Use `# noqa: V<code>` on the line vulture reports, and `# "
+                "deptry: ignore[<code>]` on the line deptry reports. For a dependency that "
+                "deptry reports as unused, add an item under `DEP002` in "
+                "`[tool.deptry.per_rule_ignores]`. For one definition, prefer the comment to an "
+                "`ignore_names` item, which spares every definition of the name. Never hide a "
+                "finding with a vulture whitelist module, a bare reference to the name, a "
+                "leading `_`, an `__all__` entry or a `getattr` string. devctl cannot detect "
+                "these, so review treats each as an unmarked suppression. advisory"
+            ),
+        ),
+        True,
+        (
+            "python-error-handling.md",
+            "python-configuration.md",
+            "python-input-validation.md",
+            "python-performance.md",
+        ),
+        (
+            "pyproject.toml",
+            "**/ruff.toml",
+            "**/.ruff.toml",
+            "mypy.ini",
+            ".mypy.ini",
+            "pytest.ini",
+            ".pytest.ini",
+            "pytest.toml",
+            ".pytest.toml",
+            "setup.cfg",
+            "tox.ini",
+            ".importlinter",
+        ),
+    ),
+    "agnostic": StackKit((), None, "", ("tests/unit/**",), (), (), False, (), ()),
+}
+DERIVED = frozenset(
+    {
+        "directory",
+        "guide_rows",
+        "lint_marker",
+        "source_roots",
+        "stack_patterns",
+        "stack_protected",
+        "stack_rows",
+        "stack_rules",
+        "stack_tables",
+        "stack_title",
+        "unit_tests",
+    }
+)
+
+
+def guide_directories(stacks: Sequence[ProjectStack]) -> list[str]:
+    return sorted(
+        {
+            str(parent)
+            for s in stacks
+            if s.directory != "."
+            for parent in (Path(s.directory), *Path(s.directory).parents)
+            if str(parent) != "."
+        }
+    )
+
+
+def navigation_row(directory: str, title: str) -> str:
+    return f"| {title} | [{directory}/]({directory}/AGENTS.md) |"
+
+
+def stack_variables(stacks: Sequence[ProjectStack]) -> dict[str, str]:
+    ordered = sorted(stacks, key=lambda s: s.name)
+    names = " and ".join(s.name.title() for s in ordered)
+    title = f"The {names} stack" + ("s" if len(ordered) > 1 else "")
+    return {
+        "directory": "" if ordered[0].directory == "." else ordered[0].directory + "/",
+        "guide_rows": "\n".join(
+            dict.fromkeys(row for s in ordered for row in KITS[s.name].guide_rows)
+        ),
+        "stack_title": title,
+    }
+
+
+def derived_variables(
+    stacks: Sequence[ProjectStack], variables: Mapping[str, str]
+) -> dict[str, str]:
+    ordered = sorted(stacks, key=lambda s: (s.directory, s.name))
+    names = list(dict.fromkeys(s.name for s in ordered))
+    owner = variables.get("owner") or "<owner>"
+    groups = {d: list(items) for d, items in groupby(ordered, key=lambda s: s.directory)}
+    rows = [stack_variables(groups["."])["guide_rows"]] if "." in groups else []
+    for d in guide_directories(ordered):
+        title = stack_variables(groups[d])["stack_title"] if d in groups else "Directory navigation"
+        rows.append(navigation_row(d, title))
+    return {
+        "stack_tables": "\n\n".join(
+            f"[[stack]]\nname = {json.dumps(s.name)}\ndirectory = {json.dumps(s.directory)}"
+            for s in ordered
+        ),
+        "source_roots": ", ".join(
+            json.dumps(under(s.directory, KITS[s.name].source_root.format(**variables)))
+            for s in ordered
+            if KITS[s.name].source_root
+        ),
+        "unit_tests": ", ".join(
+            dict.fromkeys(
+                json.dumps(under(s.directory, item))
+                for s in ordered
+                for item in KITS[s.name].unit_tests
+            )
+        ),
+        "stack_patterns": "\n".join(
+            f"# /docs/patterns/{item} @{owner}" for name in names for item in KITS[name].patterns
+        ),
+        "stack_protected": "\n".join(
+            f"# /{under(s.directory, item)} @{owner}"
+            for s in ordered
+            for item in KITS[s.name].protected
+        ),
+        "stack_rows": "\n".join(rows),
+        "stack_rules": "\n".join(rule for name in names for rule in KITS[name].guide_rules),
+        "lint_marker": "enforced by: check:lint"
+        if all(KITS[s.name].lint_rules for s in ordered)
+        else "advisory",
+    }

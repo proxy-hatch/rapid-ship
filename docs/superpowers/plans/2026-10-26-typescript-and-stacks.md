@@ -1138,3 +1138,11 @@ No local full devctl, standalone distribution smoke or site build was run for th
 Later integration and the Owner trial remain pending.
 Not covered: `rapid-ship init` still writes one root stack pending 6.1b;
 TypeScript blocks the step list pending 6.2a; removal of the transitional lock reader remains in 6.3.
+
+### Directory-rendering verification
+
+The directory renderer now supports Python stacks at root, nested and parent/child directories. Root repository seeds derive every stack's settings and ownership paths; stack guides coalesce ancestor navigation. New-project marker entries in the lock retain rendering provenance for status and sync.
+
+Local verification: 486 Kit tests passed, including real map-step acceptance on deep and parent/child stacks. Three new-project integration tests passed with local tools and network access, without GitHub. Six `cmp` comparisons of root-stack AGENTS.md, CODEOWNERS and project.toml against the pre-rendering snapshots passed byte for byte. All 49 managed hashes match. Configured mypy, vulture and deptry, strict Kit status and the fast tier passed. The configured counted delta against `abd3174` is 895 lines; each changed production module is below 500 lines.
+
+At code head `f5cc090832a7b854e400a00c3a6c1972f1f0fe53`, `uv run pytest -q` passed all 2,235 tests. The configured mypy, vulture and deptry commands also passed there. This verification update changes documentation only. Independent exact-head review and hosted full/Docs checks remain required. No local full devctl, site or standalone distribution run is claimed. The existing prerequisite history is preserved; no new dependency merge was performed.

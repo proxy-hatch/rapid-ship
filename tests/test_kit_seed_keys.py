@@ -5,7 +5,7 @@ import re
 import pytest
 
 from devctl.settings import EXCEPTION_KEYS, PROJECT_KEYS
-from rapid_ship.kit.stacks import STACKS, StackName
+from rapid_ship.kit.stacks import STACKS, ProjectStack, StackName
 from rapid_ship.kit.templates import render_files
 
 VARIABLES = {
@@ -18,7 +18,7 @@ TABLE = re.compile(r"\s*\[\[?([\w.-]+)\]\]?\s*(#.*)?")
 
 
 def seed(stack: StackName, path: str) -> str:
-    templates = {t.path: t for t in render_files(stack, VARIABLES, ())}
+    templates = {t.path: t for t in render_files((ProjectStack(stack, "."),), VARIABLES, ())}
     content = templates[path].content
     assert content is not None, f"{path} is a symlink"
     return content.decode()

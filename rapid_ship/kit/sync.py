@@ -20,7 +20,13 @@ from rapid_ship.kit.lock import (
     write_lock,
 )
 from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
-from rapid_ship.kit.status import entry_fingerprint, fingerprint, locate, template_fingerprint
+from rapid_ship.kit.status import (
+    entry_fingerprint,
+    fingerprint,
+    locate,
+    new_projects_from_lock,
+    template_fingerprint,
+)
 from rapid_ship.kit.templates import (
     KitError,
     KitRefusal,
@@ -31,7 +37,6 @@ from rapid_ship.kit.templates import (
     read_excluded,
     read_optional_skills,
     render_files,
-    render_path,
 )
 from rapid_ship.kit.writes import Undo, delete_file, write_template
 
@@ -105,7 +110,13 @@ def sync_repository(
     optional = read_optional_skills(root)
     excluded = read_excluded(root)
     manifest = load_manifest(templates_root)
-    rendered = render_files(lock.stacks[0].name, lock.variables, optional, root=templates_root)
+    rendered = render_files(
+        lock.stacks,
+        lock.variables,
+        optional,
+        new_projects=new_projects_from_lock(lock),
+        root=templates_root,
+    )
     # Excluded paths get no action at all; their lock entries go back unchanged below.
     new = {t.path: t for t in rendered if not is_excluded(t.path, excluded)}
     result = SyncResult(kit_version=version, lock_rewritten=lock.older_form)
@@ -115,8 +126,7 @@ def sync_repository(
     writes: dict[str, Template] = {}
     deletes: list[str] = []
     _plan_managed(root, new, planned, writes, deletes, result, reverting)
-    new_project_only = {render_path(path, lock.variables) for path in manifest.new_project}
-    _plan_seeded(root, new, planned, writes, result, new_project_only)
+    _plan_seeded(root, new, planned, writes, result)
     # [kit] exclude is the only record of an exclusion, so the lock carries no mark.
     kept = {path: entry for path, entry in entries.items() if is_excluded(path, excluded)}
     if not result.changed:
@@ -313,7 +323,6 @@ def _plan_seeded(
     entries: dict[str, LockEntry],
     writes: dict[str, Template],
     result: SyncResult,
-    new_project_only: set[str],
 ) -> None:
     """Record template changes for the project's files. A new seed is written only where nothing
     exists. A seeded entry's template may be managed, after the project edited a managed file."""
@@ -325,7 +334,7 @@ def _plan_seeded(
                 result.seeded_changed.append(path)
                 entries[path] = seeded_entry(path, template_hash(template))
             continue
-        if template.kind != "seeded" or path in new_project_only:
+        if template.kind != "seeded" or template.new_project:
             continue  # _plan_managed adds managed files; sync never adds a new-project seed
         try:
             disk = fingerprint(root, path)

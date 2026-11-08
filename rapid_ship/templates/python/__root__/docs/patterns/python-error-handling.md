@@ -1,10 +1,10 @@
 ---
 task: Report an error
-reference: src/{{package}}/errors.py
+reference: {{directory}}src/{{package}}/errors.py
 enforced_by:
   - ruff:BLE001
   - ruff:S110
-  - test:tests/test_errors.py::test_an_error_keeps_its_cause_and_names_the_next_step
+  - test:{{directory}}tests/test_errors.py::test_an_error_keeps_its_cause_and_names_the_next_step
 ---
 # Report an error
 

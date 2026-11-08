@@ -97,9 +97,13 @@ def test_init_without_stack_proposes_and_writes_nothing(
 def test_nested_stack_rendering_is_refused_before_writing(
     git_repo: Path, run_git: Callable[..., str]
 ) -> None:
-    with pytest.raises(KitError, match="renders one stack at the root only"):
-        init_repository(git_repo, stacks=[ProjectStack("python", "backend")], variables={})
-    assert not list(git_repo.glob("backend"))
+    from test_kit_contents import VARIABLES
+
+    result = init_repository(
+        git_repo, stacks=[ProjectStack("python", "backend")], variables=VARIABLES
+    )
+    assert not result.conflicts
+    assert (git_repo / "backend/pyproject.toml").is_file()
 
 
 def test_tracked_roots_produce_the_exact_proposal_without_writes(

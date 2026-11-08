@@ -61,9 +61,10 @@ rapid_ship/                      # the rapid-ship CLI package, run with uvx
   templates/
     kit.toml                     # see "Kit manifest" below
     common/                      # files for every stack, laid out as in a project
-    python/                      # Python stack additions and overrides
+    python/                      # stack-directory guide and skeleton
+      __root__/docs/patterns/     # repository-root Patterns, once per stack name
     typescript/                  # plan 6: TypeScript stack additions
-    agnostic/                    # stack-agnostic additions
+    # agnostic uses common only; no layer directory
 tests/
   conftest.py                    # the only conftest; plan 4 adds pytest_plugins = ["github_fixtures"]
   test_files.py test_kit_*.py    # rapid-ship CLI tests; plan 4 adds test_kit_app*.py, plan 6 test_kit_stacks*.py, plan 7 test_kit_upstream.py
@@ -143,14 +144,17 @@ seeded = [".claude/settings.json", ".github/CODEOWNERS", ".rapid-ship/exceptions
   ".rapid-ship/project.toml", "AGENTS.md", "ARCHITECTURE.md", "CLAUDE.md", "README.md",
   "docs/AGENTS.md", "docs/features/README.md", "docs/patterns/README.md", "tools/AGENTS.md",
   "tools/devctl/devctl_project/__init__.py"]
-new_project = [".gitignore", "pyproject.toml", "src/AGENTS.md", "src/__package__/__init__.py",
-  "tests/AGENTS.md", "tests/test_import.py"]   # seeded only when init starts a Python project
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
 optional_skills = ["rs-contribute"]
-variables = ["owner", "package", "project_name", "repository"]
+variables = ["owner", "package", "project_name", "repository", "code_owner",
+  "directory", "guide_rows", "lint_marker", "source_roots", "stack_patterns",
+  "stack_protected", "stack_rows", "stack_rules", "stack_tables", "stack_title", "unit_tests"]
+[new_project]
+python = [".gitignore", "pyproject.toml", "src/AGENTS.md", "src/__package__/__init__.py",
+  "tests/AGENTS.md", "tests/test_import.py"]
 ```
 
-Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds three seeds, `.claude/settings.json`, `ARCHITECTURE.md` and `README.md`, and adds the Python starter Patterns, with their reference code and tests, to `new_project`. Plan 6 makes `new_project` a list for each stack, with paths relative to the stack's directory, and adds the TypeScript stack's. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
+Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds three seeds, `.claude/settings.json`, `ARCHITECTURE.md` and `README.md`, and adds the Python starter Patterns, with their reference code and tests, to `new_project`. Plan 6 makes `new_project` a table of path lists by stack name. Paths are layer-relative; `__root__/` paths render at the repository root once per name. TypeScript joins in 6.3. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only part of the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
 
 Template rules, as plan 2 built them:
 

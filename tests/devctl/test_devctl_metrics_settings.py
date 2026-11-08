@@ -13,6 +13,7 @@ from devctl.metrics.settings import (
     gate_note,
     load_metrics,
 )
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import render_files
 
 VARIABLES = {
@@ -24,7 +25,7 @@ VARIABLES = {
 
 
 def test_the_seed_loads_with_the_defaults(tmp_path: Path) -> None:
-    templates = {t.path: t for t in render_files("python", VARIABLES, ())}
+    templates = {t.path: t for t in render_files((ProjectStack("python", "."),), VARIABLES, ())}
     metrics_template = templates[".rapid-ship/metrics.toml"]
     assert metrics_template.content is not None
     target = tmp_path / ".rapid-ship/metrics.toml"

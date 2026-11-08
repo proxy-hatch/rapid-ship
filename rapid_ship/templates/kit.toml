@@ -17,12 +17,18 @@ seeded = [
     "tools/AGENTS.md",
     "tools/devctl/devctl_project/__init__.py",
 ]
-new_project = [
+
+executable = ["devctl", ".agents/devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
+optional_skills = []
+variables = ["code_owner", "owner", "package", "project_name", "repository", "directory", "guide_rows", "lint_marker", "source_roots", "stack_patterns", "stack_protected", "stack_rows", "stack_rules", "stack_tables", "stack_title", "unit_tests"]
+
+[new_project]
+python = [
     ".gitignore",
-    "docs/patterns/python-configuration.md",
-    "docs/patterns/python-error-handling.md",
-    "docs/patterns/python-input-validation.md",
-    "docs/patterns/python-performance.md",
+    "__root__/docs/patterns/python-configuration.md",
+    "__root__/docs/patterns/python-error-handling.md",
+    "__root__/docs/patterns/python-input-validation.md",
+    "__root__/docs/patterns/python-performance.md",
     "pyproject.toml",
     "src/AGENTS.md",
     "src/__package__/__init__.py",
@@ -37,6 +43,3 @@ new_project = [
     "tests/test_profiling.py",
     "tests/test_settings.py",
 ]
-executable = ["devctl", ".agents/devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
-optional_skills = []
-variables = ["code_owner", "owner", "package", "project_name", "repository"]

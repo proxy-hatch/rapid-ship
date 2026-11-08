@@ -162,9 +162,10 @@ rapid_ship/
   templates/
     kit.toml          # seeded, new-project, executable and optional lists; template variables
     common/           # every stack: devctl, tools/devctl, skills, settings, CI, hook, guides
-    python/           # Python stack: pyproject.toml seed, guardrail settings, skeleton, CODEOWNERS
+    python/           # Python stack: directory guide, pyproject.toml seed and skeleton
+      __root__/       # repository-root starter Patterns
     typescript/       # plan 6: TypeScript stack: package.json, tsconfig.json, ESLint and Vite seeds, React skeleton
-    agnostic/         # stack-agnostic project.toml
+    # agnostic uses common templates only
 ```
 
 `rapid_ship` never imports devctl. The upstream lock for forked skills (section 7) lives in this repository only, beside the templates.
@@ -222,7 +223,7 @@ From plan 6 the lock records each stack and its directory as `[[stack]]` tables,
 | `.rapid-ship/kit.lock` | written by `rapid-ship` | The lock; not a template |
 | `.rapid-ship/project.toml` | seeded | Stacks, repository, Agent identity, the Mode, Kit, map and test settings |
 | `.rapid-ship/exceptions.toml` | seeded | Break-glass exceptions |
-| `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | seeded | The root guide and the first directory guides |
+| `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, stack-directory and ancestor `AGENTS.md` | seeded | The common root guide and create-only directory navigation guides |
 | `CLAUDE.md` | seeded | `@AGENTS.md`, so Claude Code reads the same instructions |
 | `README.md`, `ARCHITECTURE.md` | seeded, plan 5 | Skeletons that `devctl check` verifies |
 | `.claude/settings.json` | seeded, plan 5 | Harness guardrail wiring for Claude Code (section 4) |
@@ -237,7 +238,9 @@ From plan 6 the lock records each stack and its directory as `[[stack]]` tables,
 
 devctl runs through uv for every stack, so a TypeScript project needs uv as well as Node.js and npm. Its own lock keeps its dependencies apart from the project's. Kit-owned code is excluded from the project's lint, type, test and dead-code settings; this repository checks it upstream.
 
-A stack's files are written under its directory. With the Python stack in `backend/`, for example, the seed is `backend/pyproject.toml` (plan 6). The Kit's common files, such as devctl, the root guides, CI and the hook, stay at the repository root.
+A stack's files are written under its directory. With the Python stack in `backend/`, for example, the seed is `backend/pyproject.toml` (plan 6). The Kit's common files, such as devctl, the root guides, CI and the hook, stay at the repository root. Each non-root stack directory and its maintained ancestors get one navigation guide. Parent stack guides coalesce child links. Root navigation links every guide, even when an existing ancestor guide is retained. Init skips existing regular files and symlinks; sync never rewrites seeded guides and adds a new guide only at an absent, unrecorded path. Failed writes roll back newly created guides.
+
+The common CODEOWNERS seed lists each stack name's Pattern paths once, immediately after `/.rapid-ship/`, and each stack's Protected settings under its directory. New-project seeds render separately per stack when its marker is absent. Patterns under `__root__/` render once per stack name, pointing to its first new project. The lock's seeded marker entries retain that provenance for status and sync; sync never adds new-project seeds.
 
 The Kit aims to give each area it touches a base template that a new project builds on and owns: the guides, the settings files, the starter Patterns, the CI workflow, the hook and each stack's guardrail settings.
 
@@ -914,7 +917,7 @@ The new plans add:
 - Plan 5's agy follow-up: `devctl hook agy pre-tool` against the agy events that the hook spike recorded: each event read into a call, each rule's decision in agy's answer, G5 absent, and every failure of devctl's own answered `deny` with exit 0. doctor's agy wiring item: the matcher, `enabled`, the timeout and the command's words; the probe's command, directory and event; a hook that exits non-zero, answers `allow` or gives no answer; and `doctor --settings` running the real hook through a stand-in shim. The seed and the widened Protected set.
 - Plan 6: `[[stack]]` settings: names, directories inside the repository, duplicates, `agnostic` alone, and the old `stack` key rejected. `init --stack NAME=DIRECTORY`, and detection without it: nested roots, skipped vendored and generated directories, no root found, and nothing written. Each stack's steps in its directory with their names, from fake tools; the TypeScript steps blocked without `node_modules`; `--install`. The TypeScript suppressions, the `eslint:` and `type:` references, removed Vitest tests and tautologies. CODEOWNERS and `project.toml` rendered for two stacks. doctor's Node.js and TypeScript floor items. The `dead-code` step from a fake knip, with its issue types on the command line; knip's suppressions: `@public`, `@beta` and the items of `knip.jsonc`; and which of knip's `rules`, `include` and `exclude` settings `--include` overrides.
 - Plan 7: the upstream lock (`verbatim` and `patched` files), every Kit skill through map rule 7, and `ruleset.json` passing doctor's ruleset check.
-- The descope of 2026-10-26: `[escalation] kinds` and `revision_rounds` refused as unknown keys. The merge guard against a fake GitHub reader: its Walk denial, with and without Agent identity; its Flight denial of a body that declares a removed behavioural test, an overage of the diff cap or both, and no denial for a body whose `Removed tests:` entries all match `[tests] unit`; and the six denials in their order. Both root-guide seeds holding the first Rule's new text and the Pull requests section.
+- The descope of 2026-10-26: `[escalation] kinds` and `revision_rounds` refused as unknown keys. The merge guard against a fake GitHub reader: its Walk denial, with and without Agent identity; its Flight denial of a body that declares a removed behavioural test, an overage of the diff cap or both, and no denial for a body whose `Removed tests:` entries all match `[tests] unit`; and the six denials in their order. The common root-guide seed holding the first Rule's new text and the Pull requests section.
 
 **Integration tests**, each labelled with what it needs: `init` on scratch repositories for each stack, after which `./devctl check` passes; from plan 5, a new Python project with an unused function and a declared dependency that nothing imports, which fails the `dead-code` step and no other step; `sync --in-place` between two template versions; and this repository's dog-food tests. The `init` tests need network access, for `uv sync` and pip-audit's lookups in the Python stack, and gitleaks on `PATH`. From plan 6, `init` on a scratch repository with a Python `backend/` and a React TypeScript `frontend/`, after which `./devctl check` passes. That test needs network access for `npm ci` and is labelled so.
 
