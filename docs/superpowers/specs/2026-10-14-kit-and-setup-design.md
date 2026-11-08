@@ -606,11 +606,13 @@ A file belongs to the stack whose directory contains it, the innermost one when 
 
 ### Map rules
 
-1. Every Markdown link in every AGENTS.md resolves to a tracked or non-ignored file. A link that starts with `/` resolves against the repository root, as GitHub resolves it.
-2. Every maintained directory has an AGENTS.md. Maintained directories are the top-level tracked directories and the immediate children of each source root, except hidden directories and those listed in `[map] unguided`. AGENTS.md files under a `[map] exclude` directory are template content: the map rules ignore them.
+The map rules read only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds. A guide, link target, maintained directory, feature file, Pattern, skill or root document counts only when git tracks it, and so does each path that a feature file, Pattern or reference names, and the `pyproject.toml` that references read. An untracked file does not count, even when git does not ignore it.
+
+1. Every Markdown link in every AGENTS.md resolves to a tracked file or to a directory that holds one. A link that starts with `/` resolves against the repository root, as GitHub resolves it.
+2. Every maintained directory has a tracked AGENTS.md. Maintained directories are the top-level directories and the immediate children of each source root that hold a tracked file, except hidden directories and those listed in `[map] unguided`. AGENTS.md files under a `[map] exclude` directory are template content: the map rules ignore them.
 3. Every AGENTS.md is reachable by links from the root AGENTS.md.
-4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names exists. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.
-5. Every file in `docs/patterns/` other than its README has front matter with a non-empty `task`, a `reference` that exists and a non-empty `enforced_by` list whose references resolve, and the file has a non-empty `## Lessons` section. Plan 5 adds `task` and the Lessons section.
+4. Every file in `docs/features/` other than its README has front matter with `purpose`, `entry_points`, `data`, `observe` and `reproduce`. Each path it names is a tracked file or a directory that holds one. `entry_points` is not empty. Each `reproduce` command is `./devctl` followed by a registered verb.
+5. Every file in `docs/patterns/` other than its README has front matter with a non-empty `task`, a `reference` that is a tracked file or a directory that holds one, and a non-empty `enforced_by` list whose references resolve, and the file has a non-empty `## Lessons` section. Plan 5 adds `task` and the Lessons section.
 6. Every bullet under a `Rules` heading in any AGENTS.md ends with `enforced by: <reference>` or `advisory`. Each reference resolves.
 7. Every skill directory under `.agents/skills/`, from the Kit or the project, has a `SKILL.md` whose front matter `name` equals the directory name and whose `description` is not empty, and a relative symlink at `.claude/skills/<name>` that points to it. No other entry exists under `.claude/skills/`. A skill directory that is itself a symlink must be relative and stay inside the repository. Plan 5 adds: `SKILL.md` is a regular file, not a symlink.
 8. Plan 5: `README.md` and `ARCHITECTURE.md` exist at the repository root, every local link in them resolves, and the root AGENTS.md links to both.
@@ -626,11 +628,11 @@ A reference names the check that enforces a Rule or Pattern. The stack defines t
 | Reference | Resolves when |
 | --- | --- |
 | `check:<step>` | The devctl check step exists |
-| `test:<path>::<name>` | The test exists |
+| `test:<path>::<name>` | The test exists in a tracked file |
 | `ruff:<code>` | The rule is selected in the Ruff settings (Python) |
 | `banned:<module.member>` | The member is in Ruff's `banned-api` table (Python) |
 | `contract:<name>` | An import-linter contract has that name (Python) |
-| `type:<path>` | The file exists and the stack's type checker checks it: mypy (Python), or `tsc` through `tsconfig.json` (TypeScript, plan 6) |
+| `type:<path>` | The file is tracked and the stack's type checker checks it: mypy (Python), or `tsc` through `tsconfig.json` (TypeScript, plan 6) |
 | `eslint:<rule>` | The rule is on, as an error, in the configuration that `eslint --print-config` computes for the stack (TypeScript, plan 6) |
 
 These map to the four Pattern enforcement types: import contract, banned-API rule, type fixture and architecture test.
@@ -838,7 +840,7 @@ A project may apply the same change to its vendored copy at once. When the fix s
 3. **Patterns.**
    - New: walk the owner through the starter Patterns that `init` seeded with the skeleton, and adapt each one, its reference and its Lessons, to the project. Agree any further Patterns, such as how a domain object is stored. For each, write the Pattern file, a minimal reference implementation and its enforcing check. When the reference needs real product code, propose the Pattern as a task instead, as `rs-health` proposes its tasks (section 9).
    - Existing: offer each starter Pattern as a task. `rs-health` proposes its reference from the project's own code.
-4. **Checks.**
+4. **Checks.** Before each `./devctl check` in this step, stage the files that `rs-setup` has written with `git add`, because the map rules read only tracked files (section 5). Otherwise the `map` step fails on a maintained directory's new guide, and checks no other new guide or Pattern file until the commit.
    1. Confirm gitleaks 8.30.1 with `gitleaks version`, and for a TypeScript stack Node.js and npm; if one is missing, ask the owner to install it.
    2. New project: run `uv sync`, and `npm install` in each TypeScript stack's directory, which writes its lock. Then run `./devctl check`. The seeded skeleton passes.
    3. Existing project: devctl's checks can overlap or conflict with the project's own linters, hooks and CI, and the owner decides how to combine them. Exclude `tools/devctl` from the project's lint, type, test, dead-code and uv workspace settings. Show each overlap or conflict with the settings, hooks and workflows that `init` listed, such as hooks in `.git/hooks` that `core.hooksPath` would stop running, and offer to fold them into `devctl_project`. Leave the project's own tool settings as they are in the Setup PR; step 14 offers the rules they lack. Warn about duplicate checks, which are harmless, and about checks that race, such as two hooks writing the same files, which are harmful. Never block on either.
