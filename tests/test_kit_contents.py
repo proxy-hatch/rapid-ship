@@ -38,6 +38,7 @@ SEEDED = {
     ".claude/settings.json",
     ".github/CODEOWNERS",
     ".rapid-ship/exceptions.toml",
+    ".rapid-ship/metrics.toml",
     ".rapid-ship/project.toml",
     "AGENTS.md",
     "ARCHITECTURE.md",
@@ -636,3 +637,22 @@ def test_agy_forwarder_uses_its_location_and_preserves_shell_arguments(
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == [args, payload]
     assert not (tmp_path / "never").exists()
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_root_guide_says_where_terms_and_decisions_go(stack: Stack) -> None:
+    section = (
+        text(stack, "AGENTS.md")
+        .split("## Shared language and decisions\n", 1)[1]
+        .split("\n## ", 1)[0]
+    )
+    assert [line for line in section.splitlines() if line.startswith("- ")] == [
+        (
+            "- Record the project's terms in `GLOSSARY.md` and its decisions in `docs/adr/`. "
+            "A new project has neither until it records the first."
+        ),
+        (
+            "- Follow the `rs-writing` skill for prose and the `rs-ponytail` skill "
+            "for building only what is needed."
+        ),
+    ]

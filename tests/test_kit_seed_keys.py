@@ -44,3 +44,17 @@ def test_each_seed_names_every_key_its_loader_accepts(stack: Stack) -> None:
     example = seed(stack, ".rapid-ship/exceptions.toml").splitlines()
     for key in EXCEPTION_KEYS:
         assert any(line.startswith(f"# {key} = ") for line in example), key
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_the_metrics_seed_names_every_key_its_loader_accepts(stack: Stack) -> None:
+    content = seed(stack, ".rapid-ship/metrics.toml")
+    keys = table_keys(content)
+    assert ("", "window") in keys
+    assert ("", "thresholds") in keys
+    for default_key in ("revisions", "reverts", "red_merges", "closed_unmerged"):
+        assert ("thresholds", default_key) in keys
+
+    example_lines = content.splitlines()
+    for key in ("id", "title", "source", "label", "environment", "count"):
+        assert any(re.match(rf"\s*#\s*{key}\s*=", line) for line in example_lines), key

@@ -51,5 +51,5 @@ Add a row for each directory guide.
 
 ## Shared language and decisions
 
-- Terms are in `GLOSSARY.md`, and decisions in `docs/adr/`.
+- Record the project's terms in `GLOSSARY.md` and its decisions in `docs/adr/`. A new project has neither until it records the first.
 - Follow the `rs-writing` skill for prose and the `rs-ponytail` skill for building only what is needed.

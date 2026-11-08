@@ -24,6 +24,7 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | Setup ruleset, settings commands and quoted errors | [devctl/test_devctl_ruleset_json.py](devctl/test_devctl_ruleset_json.py) |
 | Skill links and discovery aliases | [test_skill_discovery.py](test_skill_discovery.py) |
 | This repository's `.gitleaks.toml`: gitleaks's default rules still apply, and only the placeholder key a plan quotes is allowed | [test_gitleaks_settings.py](test_gitleaks_settings.py) |
+| devctl metrics settings loader and status evaluation | [devctl/test_devctl_metrics_settings.py](devctl/test_devctl_metrics_settings.py), [devctl/test_devctl_metrics_settings_order.py](devctl/test_devctl_metrics_settings_order.py), [devctl/test_devctl_metrics_model.py](devctl/test_devctl_metrics_model.py) |
 
 Annotate every test, fixture and helper: mypy strict and Ruff's rules cover `tests/`, with only `S101` (assert) ignored. Start a process through `devctl.process.run_process`, as `conftest.py` and `check_workspace.py` do, so a test needs no `rs-exception`.
 Use `tmp_path` for repository state and temporary executables for command stand-ins. The Kit tests build scratch git repositories with the `git_repo` fixture, whose commits need no signing and run no hooks.

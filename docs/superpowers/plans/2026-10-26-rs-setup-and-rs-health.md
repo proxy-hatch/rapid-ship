@@ -618,7 +618,20 @@ Evidence: Not covered: the patched forks, `rs-writing` and `rs-ponytail`, which 
 
 ### 7.1b
 
-Pending.
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
+| `uv run pytest tests/test_kit_upstream.py tests/test_kit_skills.py tests/test_kit_contents.py tests/test_skill_discovery.py tests/devctl/test_devctl_evidence_step.py tests/devctl/test_devctl_doctor_github_limits.py -q` | exit 0: `143 passed in 17.32s` |
+| `uv run --locked mypy` | exit 0: `Success: no issues found in 147 source files` |
+| `uv run --locked vulture --min-confidence 0` | exit 0: no output |
+| `uv run --locked deptry . --no-ansi --json-output .devctl/state/worker-71b/deptry-report.json` | exit 0: `Success! No dependency issues found.` |
+| `uv run rapid-ship sync --in-place` | exit 0: `Kit is current; nothing to sync.` |
+| `uv run rapid-ship status --strict` | exit 0: `75 managed files unchanged.` |
+| `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed |
+| `git diff --check` and `git diff --cached --check` | exit 0: clean whitespace |
+| Full check and website build | Not run locally; hosted CI is the check of record after publication |
+
+Evidence: Not covered: the skills' behaviour in a live Session, which Task 9 exercises.
 
 ### 7.2
 
@@ -642,6 +655,11 @@ Task 5's final green run and integration await merged 7.3, including `rs-health`
 Pinned main `1596780282fb543c7e033dfeafe59b17c98b216a` is integrated as an intermediate baseline. The approved Setup corrections and the independent 23-dependency/49-known-failure audit remain in place. Task 5's final green and final integration still await the approved final Health head. Plan 6, wiring and sandbox reconciliation, Owner Tasks 9 and 10, live trials, hosted checks, privacy screening and exact-head review remain pending.
 
 Intermediate baseline diagnostics: `uv run pytest -q` exited 0, 2104 passed in 673.06s; `uv run --locked mypy` exited 0, no issues in 148 source files; `uv run --locked vulture --min-confidence 0` exited 0; `uv run --locked deptry . --no-ansi --json-output <report-path>` exited 0, no dependency issues. `uv run rapid-ship status --strict` exited 0, 61 managed files unchanged. These results do not satisfy the final Health integration gate.
+
+
+Pinned main `4a6387c46c279e7f676dccfcb602b1fbec268998` is integrated as an intermediate baseline. `DiffStep` reports 185 of 1,500 counted lines against it, including the 54-line ruleset template. The 23-dependency and 49-known-failure review remains applicable to the prior corrections; final reconciliation remains pending.
+
+Intermediate diagnostics: `uv run pytest -q` exited 0 with 2169 passed in 345.20s; `uv run --locked mypy` exited 0 with no issues in 155 source files; `uv run --locked vulture --min-confidence 0` exited 0; `uv run --locked deptry . --no-ansi --json-output <report-path>` exited 0 with no dependency issues. `uv run rapid-ship sync --in-place` exited 0 and `uv run rapid-ship status --strict` exited 0 with 85 managed files unchanged. `./devctl check --tier fast` exited 0 with all seven steps passed. These diagnostics do not satisfy Task 5's final green gate, which awaits the approved final Health head. Plan 6, wiring and sandbox reconciliation, Owner Tasks 9 and 10, live trials, hosted checks and exact-head review remain pending.
 
 ### 7.3
 
