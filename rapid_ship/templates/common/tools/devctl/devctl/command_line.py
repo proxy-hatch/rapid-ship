@@ -1,16 +1,14 @@
-"""Shell splitting, and the git and gh forms that devctl hook's rules read.
+"""Shell splitting, and the arguments of the git and gh forms that devctl hook's rules read.
 
-The hook follows no script, alias, sh -c string or wrapper other than devctl as.
+devctl.program names the program that each simple command runs.
 """
 
 from __future__ import annotations
 
 import re
 import shlex
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import PurePosixPath
-from typing import Literal
 
 _PUNCTUATION = "();<>|&`\n"
 # A file-descriptor number written directly before a redirection, as the 2 of 2>&1.
@@ -18,9 +16,24 @@ _DESCRIPTOR = re.compile(r"(?<![^\s;&|()<>`])\d+(?=[<>])")
 _WORD_BREAKS = frozenset(" \t\n;&|()<>`")  # an unescaped one of these ends a word
 # Reserved words that stand before a command, as in "if git push; then git log; fi".
 _RESERVED = frozenset({"!", "{", "do", "elif", "else", "if", "then", "time", "until", "while"})
-_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
-# git's global options that take the next word as their value.
-_GIT_VALUED = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
+# git reads an unambiguous prefix of a long option as that option, and rejects an ambiguous one.
+# These are the git long options that the rules read, --no-verify in any git command and the
+# others in git push, each with the shortest prefix that git reads as it, measured on git 2.39.
+# --force needs no entry: each shorter prefix of it also starts --force-with-lease and
+# --force-if-includes, so git reads only --force in full.
+GIT_ABBREVIATIONS: Mapping[str, str] = {
+    "--no-verify": "--no-veri",
+    "--force-with-lease": "--force-w",
+    "--force-if-includes": "--force-i",
+    "--all": "--al",
+    "--branches": "--b",  # --all's newer name, which git 2.39 lacks; no other push option has b
+    "--mirror": "--m",
+    "--delete": "--de",
+    "--repo": "--rep",
+    "--push-option": "--pu",
+    "--receive-pack": "--rece",
+    "--exec": "--e",
+}
 _PUSH_VALUED = frozenset({"-o", "--push-option", "--repo", "--receive-pack", "--exec"})
 _FORCE = frozenset({"--force", "-f", "--force-with-lease", "--force-if-includes"})
 _API_FIELDS = frozenset({"-f", "--raw-field", "-F", "--field"})
@@ -328,43 +341,12 @@ def _operator(token: str) -> tuple[bool, bool]:
 def _past_reserved_words(words: list[str]) -> tuple[str, ...]:
     start = 0
     while start < len(words) and words[start] in _RESERVED:
+        timed = words[start] == "time"
         start += 1
+        if timed:  # bash's time keyword takes -p, then --
+            start += int(words[start : start + 1] == ["-p"])
+            start += int(words[start : start + 1] == ["--"])
     return tuple(words[start:])
-
-
-@dataclass(frozen=True)
-class Command:
-    words: tuple[str, ...]  # the simple command as written
-    program: Literal["git", "gh", "other"]
-    args: tuple[str, ...]  # after the program; for git, after its global options
-    through_devctl: bool  # gh run as ./devctl as <role> gh
-
-
-def parse_command(words: Sequence[str]) -> Command:
-    """Name the program of a simple command, after any leading NAME=value words.
-
-    The program matches by basename, so /usr/bin/git is git. ./devctl as <role> gh <args>
-    counts as gh <args>; no other wrapper is followed.
-    """
-    written = tuple(words)
-    start = next((at for at, word in enumerate(written) if not _ASSIGNMENT.match(word)), None)
-    if start is None:
-        return Command(written, "other", (), False)
-    name, rest = PurePosixPath(written[start]).name, written[start + 1 :]
-    if name == "git":
-        return Command(written, "git", _past_git_options(rest), False)
-    if name == "gh":
-        return Command(written, "gh", rest, False)
-    if name == "devctl" and len(rest) >= 3 and rest[0] == "as" and rest[2] == "gh":
-        return Command(written, "gh", rest[3:], True)
-    return Command(written, "other", rest, False)
-
-
-def _past_git_options(rest: tuple[str, ...]) -> tuple[str, ...]:
-    index = 0
-    while index < len(rest) and rest[index].startswith("-"):
-        index += 2 if rest[index] in _GIT_VALUED else 1
-    return rest[index:]
 
 
 @dataclass(frozen=True)
@@ -377,12 +359,15 @@ class Argument:
     end: int  # the index after its last word
 
 
-def read_arguments(args: Sequence[str], valued: Collection[str]) -> list[Argument]:
+def read_arguments(
+    args: Sequence[str], valued: Collection[str], abbreviations: Mapping[str, str] | None = None
+) -> list[Argument]:
     """Each option and positional word of args, read as git and gh read them.
 
     An option in valued takes the next word as its value, unless it is given after "=" or, for
     a short option, attached; in a cluster such as -uf, each letter is an option up to one that
-    takes a value. "--" ends the options.
+    takes a value. "--" ends the options. A long option that abbreviates one in abbreviations,
+    as long_option reads it, is read as that option; gh reads no prefix of an option.
     """
     found: list[Argument] = []
     index = 0
@@ -394,7 +379,7 @@ def read_arguments(args: Sequence[str], valued: Collection[str]) -> list[Argumen
             )
             break
         if word.startswith("--"):
-            found.append(_long_option(args, index, valued))
+            found.append(_long_option(args, index, valued, abbreviations or {}))
         elif word.startswith("-") and word != "-":
             found += _short_options(args, index, valued)
         else:
@@ -403,8 +388,11 @@ def read_arguments(args: Sequence[str], valued: Collection[str]) -> list[Argumen
     return found
 
 
-def _long_option(args: Sequence[str], index: int, valued: Collection[str]) -> Argument:
-    name, equals, value = args[index].partition("=")
+def _long_option(
+    args: Sequence[str], index: int, valued: Collection[str], abbreviations: Mapping[str, str]
+) -> Argument:
+    name = long_option(args[index], abbreviations)
+    _, equals, value = args[index].partition("=")
     if equals:
         return Argument(name, value, index, index + 1)
     if name in valued and index + 1 < len(args):
@@ -428,11 +416,23 @@ def _short_options(args: Sequence[str], index: int, valued: Collection[str]) -> 
     return found
 
 
+def long_option(word: str, abbreviations: Mapping[str, str]) -> str:
+    """The long option that word names, without any =value: the option in abbreviations that it
+    is a prefix of, at least as long as that option's shortest prefix; else the word as written."""
+    name = word.partition("=")[0]
+    named = (
+        option
+        for option, shortest in abbreviations.items()
+        if option.startswith(name) and name.startswith(shortest)
+    )
+    return next(named, name)
+
+
 @dataclass(frozen=True)
 class Push:
     """The arguments of git push."""
 
-    options: frozenset[str]  # each option given, such as "--force" or "-f", without its value
+    options: frozenset[str]  # each option given, such as "--force" or "-f", unabbreviated
     remote: str | None  # the first positional word
     refspecs: tuple[str, ...]  # the positional words after the remote
 
@@ -444,7 +444,7 @@ class Push:
 
 def parse_push(args: Sequence[str]) -> Push:
     """git push's arguments, from the words after push."""
-    found = read_arguments(args, _PUSH_VALUED)
+    found = read_arguments(args, _PUSH_VALUED, GIT_ABBREVIATIONS)
     words = [item.value for item in found if item.option is None and item.value is not None]
     options = frozenset(item.option for item in found if item.option is not None)
     return Push(options, words[0] if words else None, tuple(words[1:]))

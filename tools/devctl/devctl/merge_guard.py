@@ -1,7 +1,8 @@
 """The merge guard, and find_merge, which names each way to land a change on the default branch.
 
-Those ways are gh pr merge, which guard checks, and the forms that the hook denies outright. A gh
-command run through ./devctl as <role> gh counts as the gh command it runs.
+Those ways are gh pr merge, which guard checks, and the forms that the hook denies outright. A
+command run through a wrapper, or a gh command through ./devctl as <role> gh, counts as the
+command it runs (devctl.program).
 
 guard reads GitHub only through OwnerGet, doctor's GET with the owner's gh sign-in, and only for
 gh pr merge. Once it has recognised a merge it denies every merge it cannot check, its own errors
@@ -24,10 +25,8 @@ from devctl.codeowners import protected_changes
 from devctl.command_line import (
     REPOSITORY_OPTIONS,
     ApiCall,
-    Command,
     gh_subcommand,
     parse_api,
-    parse_command,
     parse_push,
     read_arguments,
 )
@@ -41,6 +40,7 @@ from devctl.merge_guard_github import (
     find_pull,
     reviewer_approved,
 )
+from devctl.program import Command, parse_command
 
 MergeForm = Literal["pr-merge", "admin", "push", "rest", "graphql"]
 
