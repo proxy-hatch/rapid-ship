@@ -1057,7 +1057,21 @@ Observed locally at `fc7f5d9acdbfcb0645a0fda53c1faf8c273bfa07`, after merging fi
 
 ### 3.4
 
-Pending.
+Local Tasks 5 and 6 implementation on the reviewed reader/window base, with recorded GitHub responses only. Revisions and Red merges are implemented; no live metrics request was made.
+
+- Reproduced the continuation baseline: command/report tests exited 1 with 4 failed and 18 passed. Simulated stderr omitted gh's parenthesized HTTP status. Correcting the fixtures preserved the shared reader and doctor parser.
+- `uv run pytest tests/devctl/test_devctl_metrics_revisions.py tests/devctl/test_devctl_metrics_red_merges.py -q`: exit 0, 15 passed.
+- `uv run pytest tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_metrics_report.py -q`: exit 0, 26 passed. Added empty/full/unavailable report windows, UTC and extra fields, no upper window limit, absent thresholds, a longer first-parent walk and exhaustion after a partial count.
+- `uv run pytest tests/devctl/test_devctl_metrics_*.py tests/devctl/test_devctl_cli.py -q`: exit 0, 139 passed.
+- `uv run --locked mypy`: exit 0, no issues in 167 source files.
+- `uv run --locked vulture --min-confidence 0`: exit 0, no findings.
+- `uv run --locked deptry . --no-ansi --json-output <temporary-report>`: exit 0, no dependency issues; inspected JSON is `[]`.
+- `uv run rapid-ship sync --in-place`, `uv run rapid-ship status --strict` and `./devctl check --tier fast`: exit 0; all seven fast steps passed. All five template/generated pairs match.
+- `git diff --check`: exit 0. The immutable-base comparison counts 986 of 1,500 lines; the largest changed source module is 139 of 500 lines.
+- `uv run pytest -q`: exit 0, 2,238 passed in 288.06 seconds on the final test set. An earlier complete run passed 2,237 tests before the last regression was added.
+- Final reader/window and current-main integration, the lead's live GET-only metrics run, hosted full check and Docs build, final privacy and independent exact-head review remain pending. No local full or site build was assigned. Publication waits for PR #71 to land; its unlanded head was not imported.
+- Not covered: Reverts, Closed unmerged and Corrections, which 3.5 adds; project-defined metrics, posting, the scheduled Action and gardening remain deferred.
+
 
 ### 3.5
 

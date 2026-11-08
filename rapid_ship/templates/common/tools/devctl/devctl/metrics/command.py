@@ -15,7 +15,7 @@ from devctl.metrics.model import NEEDS_IDENTITY, Measured, Population, judge
 from devctl.metrics.red_merges import red_merges
 from devctl.metrics.report import Report, exit_code, render_json, render_text
 from devctl.metrics.revisions import revisions
-from devctl.metrics.settings import gate_note, load_metrics
+from devctl.metrics.settings import MetricsSettingsError, gate_note, load_metrics
 from devctl.metrics.window import MetricsError, Window, build_window, default_branch, resolve_tip
 from devctl.repo import Repo, RepoError
 from devctl.settings import ProjectSettings, SettingsError, load_project
@@ -101,7 +101,12 @@ def _command(args: argparse.Namespace) -> int:
                 '[github] repository is not set in .rapid-ship/project.toml; set it to "owner/name"'
             )
         reader = GitHubReader(project.repository, get=gh_get)
-        report = build_report(repo.root, project, args.window, reader, lambda: datetime.now(UTC))
+        try:
+            report = build_report(
+                repo.root, project, args.window, reader, lambda: datetime.now(UTC)
+            )
+        except MetricsSettingsError as error:
+            raise MetricsError(str(error)) from error
     except (SettingsError, MetricsError, GitHubError, RepoError) as error:
         sys.stderr.write(f"devctl metrics: {error}\n")
         return 2

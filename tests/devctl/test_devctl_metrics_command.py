@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -142,7 +143,7 @@ def test_each_failure_exits_2_and_names_its_fix(
     if failure == "settings":
         (h.path / ".rapid-ship/metrics.toml").write_text("window = 0\nwrong = 1\n")
     elif failure == "401":
-        h.owner.serve("repos/o/r/", {"error": "HTTP 401: signed out"})
+        h.owner.serve("repos/o/r/", {"error": "gh: Bad credentials (HTTP 401)"})
     elif failure == "origin":
         from github_fakes import git
 
@@ -150,9 +151,13 @@ def test_each_failure_exits_2_and_names_its_fix(
     elif failure == "repository":
         (h.path / ".rapid-ship/project.toml").write_text('stack = "python"\n')
     if failure == "missing_gh":
-        fake_gh(h.path.parent / "bin", responses(h))
+        bin_path = h.path.parent / "bin"
+        bin_path.mkdir()
+        git_path = shutil.which("git")
+        assert git_path is not None
+        (bin_path / "git").symlink_to(git_path)
         monkeypatch.chdir(h.path)
-        monkeypatch.setattr("devctl.metrics.command.gh_get", lambda *a, **k: missing_gh())
+        monkeypatch.setenv("PATH", str(bin_path))
         code = main(["metrics"])
     else:
         code = cli(h, monkeypatch)
@@ -164,12 +169,6 @@ def test_each_failure_exits_2_and_names_its_fix(
         assert "wrong" in error
 
 
-def missing_gh() -> object:
-    from devctl.doctor_items import OwnerReadError
-
-    raise OwnerReadError(None, "gh could not start")
-
-
 @pytest.mark.parametrize("phase", ["before", "walk", "metric"])
 def test_allowance_exhaustion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], phase: str
@@ -178,15 +177,19 @@ def test_allowance_exhaustion(
     if phase == "before":
         path = "repos/o/r/"
     elif phase == "walk":
-        path = next(p for p in responses(h) if "/commits/" in p)
+        for _ in range(8):
+            h.push({})
+        h.publish()
+        paths = [p for p in responses(h) if "/commits/" in p]
+        path = paths[5]
     else:
         path = next(p for p in responses(h) if "/runs?" in p)
-    h.owner.serve(path, {"error": "HTTP 403: API rate limit exceeded"})
+    h.owner.serve(path, {"error": "gh: API rate limit exceeded for 192.0.2.1. (HTTP 403)"})
     h.owner.serve("rate_limit", {"resources": {"core": {"reset": 1791007920}}})
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
     affected = result["metrics"] if phase != "metric" else result["metrics"][1:]
-    assert all(m["value"] is None and "it resets at" in m["reason"] for m in affected)
+    assert all(m["value"] is None and "it resets at 06:12 UTC" in m["reason"] for m in affected)
     if phase != "metric":
         assert result["window"] is None
         assert (result["default_branch"]["name"] is None) == (phase == "before")
@@ -277,3 +280,45 @@ def test_builder_uses_the_supplied_project_and_reader(tmp_path: Path) -> None:
     assert result.repository == "o/r"
     assert result.window is not None
     assert result.window.size == 1
+
+
+def test_window_has_no_upper_limit_and_absent_thresholds_have_no_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path)
+    (h.path / ".rapid-ship/metrics.toml").write_text("window = 1\n")
+    assert cli(h, monkeypatch, "--window", "1000000", "--json") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["window"]["size"] == 1000000
+    assert all(m["status"] is None and m["threshold"] is None for m in result["metrics"])
+
+
+def test_a_partial_red_count_is_unknown_and_a_finished_breach_still_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, count=2)
+    h.owner.serve(
+        "repos/o/r/pulls/1/reviews?per_page=64&page=1",
+        [
+            {
+                "state": "CHANGES_REQUESTED",
+                "commit_id": head,
+                "submitted_at": "2026-10-01T00:00:00Z",
+            }
+            for head in ("A", "B", "C")
+        ],
+    )
+    runs = [p for p in responses(h) if "/runs?" in p]
+    h.owner.serve(
+        runs[0],
+        {"workflow_runs": [{"id": 2, "run_number": 2, "run_attempt": 1, "conclusion": "failure"}]},
+    )
+    h.owner.serve(runs[1], {"error": "gh: API rate limit exceeded (HTTP 403)"})
+    h.owner.serve("rate_limit", {"resources": {"core": {"reset": 1791007920}}})
+    assert cli(h, monkeypatch, "--json") == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["metrics"][0]["value"] == 1.5
+    assert result["metrics"][0]["status"] == "breached"
+    assert result["metrics"][1]["value"] is None
+    assert result["metrics"][1]["items"] == []
+    assert result["metrics"][1]["status"] == "unknown"

@@ -446,7 +446,7 @@ sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
 [[file]]
 path = "tools/devctl/devctl/metrics/command.py"
 kind = "managed"
-sha256 = "e4df18042dd69017f496e7c894cf8cc1edc50bfed340586accd4718539323424"
+sha256 = "3712c4f0114e3b8aaa3d09df472e637614d75dc1a93797a2beda46e98bf7e8e9"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/github.py"

@@ -9,7 +9,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py`, `app_import.py`, `app_flow.py`, `app_keychain.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: finds or creates the Worker and Reviewer Apps of the repository's owner, a person or an organisation, for Agent identity; `app --import-key` stores a developer's own key for an App that exists |
 | Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
 | devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push`; `devctl hook`, the Harness guardrails with the merge guard, which Claude Code and agy run before each shell command and file edit |
-| devctl metrics | `tools/devctl/devctl/metrics/` | Built in part: `.rapid-ship/metrics.toml` loader and status evaluation models; CLI added in later change |
+| devctl metrics | `tools/devctl/devctl/metrics/` | Built in part: read-only CLI, Revisions, Red merges, settings, status evaluation, GitHub reader and local window |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
 | Vendored Kit | `devctl`, `tools/devctl/` (the `devctl` package, `pyproject.toml`, `uv.lock`, `.gitignore`), `.githooks/pre-commit`, `.github/workflows/devctl-check.yml` | Managed files from this repository's own `rapid-ship init`, kept equal to the templates. `rapid-ship` writes `.rapid-ship/kit.lock` itself; it is not a template |
 | Seeded files | `.rapid-ship/project.toml` and `exceptions.toml`, `tools/devctl/devctl_project/`, `.github/CODEOWNERS`, `.claude/settings.json`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `docs/AGENTS.md`, `tools/AGENTS.md`, `docs/features/README.md`, `docs/patterns/README.md` | Kit files this repository owns; `sync` never rewrites them |
@@ -18,7 +18,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Kit skills | `rapid_ship/templates/common/.agents/skills/`, vendored into `.agents/skills/` and linked from `.claude/skills/` | Guides agents working on projects |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Spec 1's plans 6 and 7 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Spec 1's plans 6 and 7 and the remaining parts of Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -187,7 +187,7 @@ Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) define
 
 Spec 3 is planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md), and GA includes it:
 
-- **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl/metrics/` is built in part (`metrics.toml` loader and status rule); `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden`, and `rs-preflight` arrive in subsequent tasks.
+- **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics [--window <n>] [--json]` reports Revisions and Red merges against Suggested thresholds. It reads GitHub through GET requests and local `origin/<default branch>` without fetching. Text and version-1 JSON preserve unknown values; exits are 0 for no breach, 1 for a breach and 2 for a guided error. Reverts, Closed unmerged, Corrections, project-defined metrics, posting, the scheduled Action, gardening and `rs-preflight` remain deferred.
 
 Decisions with lasting trade-offs are in [ADR 0002](docs/adr/0002-github-gates-merges-reviews-run-locally.md) (GitHub gates merges, the merge guard also checks each agent merge, and Agent identity is optional) and [ADR 0004](docs/adr/0004-team-management-boundary.md) (the team-management boundary). ADR 0003, which deferred rapid-orchestrator, was withdrawn before merge; [its text](https://github.com/proxy-hatch/rapid-ship/blob/401b57ddfba495efebb6fbbc647293bbc4cf2542/docs/adr/0003-walk-on-bare-sessions-orchestrator-deferred.md) stays at commit `401b57d`.
 
