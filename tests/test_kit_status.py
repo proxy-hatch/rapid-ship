@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.status import StatusReport, classify
 from rapid_ship.kit.sync import sync_repository
 
@@ -13,7 +14,9 @@ def states(report: StatusReport) -> dict[str, str]:
 
 
 def vendor(root: Path, templates: Path, variables: dict[str, str]) -> None:
-    init_repository(root, stack="python", variables=variables, templates_root=templates)
+    init_repository(
+        root, stacks=(ProjectStack("python", "."),), variables=variables, templates_root=templates
+    )
 
 
 def test_a_fresh_init_is_strictly_current(

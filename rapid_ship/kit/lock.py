@@ -8,12 +8,12 @@ import tomllib
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 import tomli_w
 
 from rapid_ship.files import UnsafePath, atomic_replace, relative_parts, safe_path
-from rapid_ship.kit.templates import STACKS, Kind, KitError, Stack, Template
+from rapid_ship.kit.stacks import STACKS, ProjectStack, checked_stacks, parse_stack
+from rapid_ship.kit.templates import Kind, KitError, Template
 
 LOCK_PATH = ".rapid-ship/kit.lock"
 
@@ -39,9 +39,10 @@ class LockEntry:
 @dataclass(frozen=True)
 class Lock:
     kit_version: str
-    stack: Stack
+    stacks: tuple[ProjectStack, ...]
     variables: Mapping[str, str]
     entries: tuple[LockEntry, ...]
+    older_form: bool = False
 
 
 def file_sha256(content: bytes) -> str:
@@ -80,8 +81,7 @@ def read_lock(root: Path) -> Lock:
     variables, items = data.get("variables", {}), data.get("file", [])
     if not isinstance(version, str) or not version:
         raise KitError(f"{LOCK_PATH}: kit_version must be a non-empty string")
-    if stack not in STACKS:
-        raise KitError(f"{LOCK_PATH}: stack must be python or agnostic")
+    stacks = _stacks(root, stack)
     if not isinstance(variables, dict) or not all(isinstance(v, str) for v in variables.values()):
         raise KitError(f"{LOCK_PATH}: [variables] must map names to strings")
     if not isinstance(items, list):
@@ -92,7 +92,27 @@ def read_lock(root: Path) -> Lock:
         if entry.path in seen:
             raise KitError(f"{LOCK_PATH}: {entry.path} is listed twice")
         seen.add(entry.path)
-    return Lock(version, cast(Stack, stack), dict(variables), entries)
+    return Lock(version, stacks, dict(variables), entries, isinstance(stack, str))
+
+
+def _stacks(root: Path, value: object) -> tuple[ProjectStack, ...]:
+    items = [{"name": value, "directory": "."}] if isinstance(value, str) else value
+    if not isinstance(items, list) or not items:
+        raise KitError(f"{LOCK_PATH}: stack must be non-empty [[stack]] tables")
+    result = []
+    for number, item in enumerate(items, 1):
+        try:
+            if not isinstance(item, dict) or set(item) != {"name", "directory"}:
+                raise KitError("invalid stack table")
+            if item["name"] not in STACKS or not isinstance(item["directory"], str):
+                raise KitError("invalid stack values")
+            result.append(parse_stack(f"{item['name']}={item['directory']}"))
+        except KitError as error:
+            raise KitError(
+                f"{LOCK_PATH}: [[stack]] #{number}: name must be python or agnostic "
+                "and directory a path inside the repository"
+            ) from error
+    return checked_stacks(root, result)
 
 
 def write_lock(root: Path, lock: Lock) -> None:
@@ -101,13 +121,17 @@ def write_lock(root: Path, lock: Lock) -> None:
     except UnsafePath as error:
         raise KitError(str(error)) from error
     path.parent.mkdir(exist_ok=True)
-    document = {
-        "kit_version": lock.kit_version,
-        "stack": lock.stack,
-        "variables": dict(sorted(lock.variables.items())),
-        "file": [_table(entry) for entry in sorted(lock.entries, key=lambda entry: entry.path)],
-    }
-    atomic_replace(path, (_HEADER + tomli_w.dumps(document)).encode("utf-8"), mode=0o644)
+    document: dict[str, object] = {"variables": dict(sorted(lock.variables.items()))}
+    if lock.entries:
+        document["file"] = [
+            _table(entry) for entry in sorted(lock.entries, key=lambda entry: entry.path)
+        ]
+    header = _HEADER + tomli_w.dumps({"kit_version": lock.kit_version})
+    for stack in sorted(lock.stacks, key=lambda s: (s.directory, s.name)):
+        header += "\n[[stack]]\n" + tomli_w.dumps(
+            {"name": stack.name, "directory": stack.directory}
+        )
+    atomic_replace(path, (header + "\n" + tomli_w.dumps(document)).encode("utf-8"), mode=0o644)
 
 
 def _known(table: Mapping[str, object], keys: Collection[str], where: str) -> None:

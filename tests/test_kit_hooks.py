@@ -9,6 +9,7 @@ import pytest
 from rapid_ship.kit import init as init_module
 from rapid_ship.kit import sync as sync_module
 from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.sync import sync_repository
 from rapid_ship.kit.templates import KitError
 
@@ -57,7 +58,10 @@ def test_init_runs_no_hook_from_a_tracked_hooks_path(
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert not log.exists()  # checked first: the test's own git calls below may run hooks
@@ -77,7 +81,10 @@ def test_init_lists_a_tracked_hooks_path_and_its_hooks_without_running_them(
     track_failing_hooks(git_repo, log, commit_all, run_git)
 
     result = init_repository(
-        git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
     )
 
     assert not log.exists()  # checked first: the test's own git calls below may run hooks
@@ -149,7 +156,10 @@ def test_a_failed_switch_to_the_init_branch_restores_the_start(
 
     with pytest.raises(KitError) as stopped:
         init_repository(
-            git_repo, stack="python", variables=kit_variables, templates_root=make_templates()
+            git_repo,
+            stacks=(ProjectStack("python", "."),),
+            variables=kit_variables,
+            templates_root=make_templates(),
         )
 
     assert str(stopped.value) == (
@@ -186,10 +196,36 @@ def test_a_failed_switch_to_the_sync_branch_restores_the_start(
 
     assert str(stopped.value) == (
         "sync stopped (git switch failed: exit status 1) and restored the files it had changed; "
-        f"back on main, {SYNC_BRANCH} deleted"
+        f"back on rapid-ship/init, {SYNC_BRANCH} deleted"
     )
-    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
-    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""
+    assert run_git(git_repo, "branch", "--show-current").strip() == "rapid-ship/init"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/kit-sync-*") == ""
     assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
     assert run_git(git_repo, "rev-parse", "HEAD") == head
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
+
+
+def test_init_runs_no_hook_for_either_commit_in_an_empty_repository(
+    git_repo: Path,
+    make_templates: Callable[..., Path],
+    kit_variables: dict[str, str],
+    run_git: Callable[..., str],
+    tmp_path: Path,
+) -> None:
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    log = tmp_path / "hook-log"
+    for name in HOOKS:
+        path = hooks / name
+        path.write_text(f'#!/bin/sh\necho ran >> "{log}"\nexit 1\n')
+        path.chmod(0o755)
+    run_git(git_repo, "config", "core.hooksPath", str(hooks))
+    result = init_repository(
+        git_repo,
+        stacks=(ProjectStack("python", "."),),
+        variables=kit_variables,
+        templates_root=make_templates(),
+    )
+    assert result.first_commit
+    assert result.commit != result.first_commit
+    assert not log.exists()

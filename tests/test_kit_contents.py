@@ -12,9 +12,8 @@ import pytest
 from devctl.codeowners import codeowners_match
 from devctl.process import run_process
 from devctl.settings import load_project
+from rapid_ship.kit.stacks import STACKS, StackName
 from rapid_ship.kit.templates import (
-    STACKS,
-    Stack,
     Template,
     load_manifest,
     packaged_templates,
@@ -51,11 +50,11 @@ SEEDED = {
 }
 
 
-def rendered(stack: Stack = "python", **variables: str) -> dict[str, Template]:
+def rendered(stack: StackName = "python", **variables: str) -> dict[str, Template]:
     return {t.path: t for t in render_files(stack, {**VARIABLES, **variables}, ())}
 
 
-def text(stack: Stack, path: str, **variables: str) -> str:
+def text(stack: StackName, path: str, **variables: str) -> str:
     return content(rendered(stack, **variables)[path]).decode()
 
 
@@ -72,20 +71,20 @@ def test_every_manifest_path_exists_in_a_layer() -> None:
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_every_stack_seeds_the_shared_files(stack: Stack) -> None:
+def test_every_stack_seeds_the_shared_files(stack: StackName) -> None:
     kinds = {path: t.kind for path, t in rendered(stack).items()}
     assert {path for path in SEEDED if kinds.get(path) == "seeded"} == SEEDED
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_claude_code_wiring_seed_holds_only_the_pre_tool_hook(stack: Stack) -> None:
+def test_the_claude_code_wiring_seed_holds_only_the_pre_tool_hook(stack: StackName) -> None:
     # The seed's PreToolUse hook sets no timeout: the merge guard's 300-second budget relies on
     # Claude Code's default of 600 seconds.
     assert json.loads(text(stack, ".claude/settings.json")) == CLAUDE_WIRING
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_agy_wiring_seed_holds_only_the_devctl_hook(stack: Stack) -> None:
+def test_the_agy_wiring_seed_holds_only_the_devctl_hook(stack: StackName) -> None:
     assert json.loads(text(stack, ".agents/hooks.json")) == AGY_WIRING
 
 
@@ -105,7 +104,7 @@ def test_python_new_project_seeds() -> None:
 
 
 @pytest.mark.parametrize(("stack", "roots"), [("python", ["src/demo_app"]), ("agnostic", [])])
-def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[str]) -> None:
+def test_project_settings_seed_has_the_kit_defaults(stack: StackName, roots: list[str]) -> None:
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
         "stack": [{"name": stack, "directory": "."}],
@@ -130,7 +129,7 @@ def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[st
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: Stack) -> None:
+def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: StackName) -> None:
     lines = text(stack, ".rapid-ship/project.toml", owner="").splitlines()
 
     # devctl reads "" as unset; a placeholder there would fail every later devctl command.
@@ -142,7 +141,9 @@ def test_without_an_owner_the_code_owner_seed_is_empty_not_a_placeholder(stack: 
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_settings_seed_names_no_roster_and_still_loads(stack: Stack, tmp_path: Path) -> None:
+def test_the_settings_seed_names_no_roster_and_still_loads(
+    stack: StackName, tmp_path: Path
+) -> None:
     seed = text(stack, ".rapid-ship/project.toml")
 
     # rapid-ship does not run agents across several Providers, so the seed names none.
@@ -216,7 +217,7 @@ STARTER_PYTHON_FILES = (
 
 @pytest.mark.parametrize(("stack", "expected"), [("python", PYTHON_SET), ("agnostic", PROTECTED)])
 def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
-    stack: Stack, expected: tuple[str, ...]
+    stack: StackName, expected: tuple[str, ...]
 ) -> None:
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     assert active(lines) == ["* @octo"]
@@ -225,7 +226,7 @@ def test_codeowners_has_the_walk_line_and_the_stack_protected_set(
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_the_flight_set_protects_every_agent_instruction(stack: Stack) -> None:
+def test_the_flight_set_protects_every_agent_instruction(stack: StackName) -> None:
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     patterns = [line.split()[1] for line in lines if re.fullmatch(r"# /\S+ @octo", line)]
     instructions = (
@@ -253,7 +254,7 @@ def test_the_python_codeowners_only_adds_the_python_settings() -> None:
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_codeowners_moves_to_flight_with_every_pr_in_one_pull_request(stack: Stack) -> None:
+def test_codeowners_moves_to_flight_with_every_pr_in_one_pull_request(stack: StackName) -> None:
     lines = text(stack, ".github/CODEOWNERS").splitlines()
     comment = " ".join(line.removeprefix("# ") for line in lines if line.startswith("# "))
     assert (
@@ -264,7 +265,7 @@ def test_codeowners_moves_to_flight_with_every_pr_in_one_pull_request(stack: Sta
 
 
 @pytest.mark.parametrize("stack", ["python", "agnostic"])
-def test_codeowners_has_no_placeholder_for_harness_settings(stack: Stack) -> None:
+def test_codeowners_has_no_placeholder_for_harness_settings(stack: StackName) -> None:
     assert "Harness settings" not in text(stack, ".github/CODEOWNERS")
 
 
@@ -420,7 +421,7 @@ POINTERS = (
     ],
 )
 def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
-    stack: Stack, links: list[str]
+    stack: StackName, links: list[str]
 ) -> None:
     guide = text(stack, "AGENTS.md")
     headings = re.findall(r"^#+ .*$", guide, flags=re.MULTILINE)
@@ -456,7 +457,7 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
 
 @pytest.mark.parametrize("stack", STACKS)
 def test_root_guide_keeps_changes_in_scope_and_says_how_to_handle_pull_requests(
-    stack: Stack,
+    stack: StackName,
 ) -> None:
     guide = text(stack, "AGENTS.md")
     rules = guide.split("\n## Rules\n")[1].split("\n## ")[0]
@@ -581,7 +582,7 @@ def test_askpass_is_written_executable() -> None:
     assert "tools/devctl/devctl/github/askpass.py" in load_manifest().executable
 
 
-def agy_launch_files(root: Path, stack: Stack, shim: str) -> str:
+def agy_launch_files(root: Path, stack: StackName, shim: str) -> str:
     """Render real launch files; replace only canonical devctl with a controlled stand-in."""
     executable = load_manifest().executable
     for path, template in rendered(stack).items():
@@ -605,7 +606,7 @@ def echo_shim() -> str:
 @pytest.mark.parametrize("directory", [".", ".agents"])
 @pytest.mark.parametrize("shell", [False, True], ids=["direct", "shell"])
 def test_agy_seed_launch_preserves_arguments_and_stdin(
-    tmp_path: Path, stack: Stack, directory: str, shell: bool
+    tmp_path: Path, stack: StackName, directory: str, shell: bool
 ) -> None:
     root = tmp_path / "project with spaces"
     command = agy_launch_files(root, stack, echo_shim())
@@ -643,7 +644,7 @@ def test_agy_forwarder_uses_its_location_and_preserves_shell_arguments(
 
 
 @pytest.mark.parametrize("stack", STACKS)
-def test_root_guide_says_where_terms_and_decisions_go(stack: Stack) -> None:
+def test_root_guide_says_where_terms_and_decisions_go(stack: StackName) -> None:
     section = (
         text(stack, "AGENTS.md")
         .split("## Shared language and decisions\n", 1)[1]

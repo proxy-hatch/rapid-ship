@@ -8,6 +8,7 @@ from check_workspace import Workspace, stack_table
 from devctl.check.kit import KitLockError, KitStep, is_excluded, managed_paths
 from devctl.settings import PROJECT, load_project
 from rapid_ship.kit.lock import Lock, LockEntry, write_lock
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import is_excluded as cli_is_excluded
 
 SKILL = ".agents/skills/rs-demo"
@@ -18,7 +19,7 @@ def lock(workspace: Workspace) -> None:
         workspace.root,
         Lock(
             "0.2.0",
-            "python",
+            (ProjectStack("python", "."),),
             {"package": "app"},
             (
                 LockEntry("devctl", "managed", "a" * 64, None, None),
@@ -74,7 +75,7 @@ def test_a_kit_file_the_lock_records_as_the_projects_own_is_not_required(
         workspace.root,
         Lock(
             "0.2.0",
-            "python",
+            (ProjectStack("python", "."),),
             {"package": "app"},
             (
                 LockEntry("devctl", "seeded", None, None, "a" * 64),
@@ -106,7 +107,7 @@ def test_an_excluded_skill_directory_covers_its_link(workspace: Workspace) -> No
         workspace.root,
         Lock(
             "0.2.0",
-            "python",
+            (ProjectStack("python", "."),),
             {"package": "app"},
             (
                 LockEntry("devctl", "managed", "a" * 64, None, None),
@@ -201,11 +202,11 @@ def test_a_file_or_link_of_the_wrong_kind_is_missing(workspace: Workspace) -> No
 def test_both_lock_forms_are_read(workspace: Workspace) -> None:
     lock(workspace)
     path = workspace.root / ".rapid-ship/kit.lock"
-    older = path.read_text()
+    newer = path.read_text()
     expected = managed_paths(workspace.root, ())
-    path.write_text(
-        older.replace('stack = "python"', '[[stack]]\nname = "python"\ndirectory = "."')
-    )
+    assert '[[stack]]\nname = "python"\ndirectory = "."' in newer
+    older = newer.replace('[[stack]]\nname = "python"\ndirectory = "."', 'stack = "python"')
+    path.write_text(older)
     assert managed_paths(workspace.root, ()) == expected
     path.write_text(older.replace('stack = "python"', 'stack = "go"'))
     with pytest.raises(KitLockError, match="stack must be"):
