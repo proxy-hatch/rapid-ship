@@ -1035,7 +1035,29 @@ Observed at commit `f7963b0` (merge of `origin/main` at `1596780282fb543c7e033df
 
 ### 3.2
 
-Pending.
+Local integration verification, 2026-11-08: merged landed main `b16724a5de5825bd68e32aa51a4b08ea70367084` into reviewed ledger head `89e64ff341261ac9ba5488c85ad79a05be296dab`. Merge `f56aa10ffe8b23199ab623861a9a0dc7f34b55f5` preserves those exact first and second parents. Incoming Flight protections remain, with only the ledger README protection added to CODEOWNERS. Spec 1 line 3 equals incoming main.
+
+EM interpretation of Task 2: a repository path that exists means tracked by git. The fallback uses `path_problem(path, tracked)`, never an on-disk existence fallback. The regression preserves a passing tracked path and treats an untracked file on disk as missing. References retain `entry.file` as holder and incoming guided ambiguity diagnostics. The reviewed deferred front-matter import and offline fresh-process regression remain intact.
+
+Observed local commands and results:
+
+- `./devctl doctor --settings`: exit 0; four items ok, 60 Protected paths.
+- `uv run pytest -q`: exit 0; 2319 passed in 323.32 seconds.
+- `uv run pytest tests/devctl/test_devctl_ledger.py tests/devctl/test_devctl_map_ledger.py tests/test_kit_contents.py tests/devctl/test_devctl_codeowners.py tests/devctl/test_devctl_doctor_github.py -q`: exit 0; 151 passed.
+- `uv run --locked mypy`: exit 0; 167 source files, no issues.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output .local/main-integration/deptry-report.json`: exit 0; 19 files scanned, inspected JSON `[]`.
+- `uv run rapid-ship sync --in-place`: exit 0; generated map wiring, doctor rules and lock from canonical templates. Seeded files remained project-owned.
+- `uv run rapid-ship status --strict`: exit 0; 84 managed files unchanged.
+- `./devctl check --tier fast`: exit 0; format, lint, map, exceptions, file-size, kit and vendored passed before the merge commit.
+- `git diff --check` and `git diff --check 2d1811892471261a244fc8f4ffb9566fe9972b16 HEAD`: exit 0.
+- Repository `counted_lines`: 597 against incoming main, within 1,500; 2,918 against immutable base `2d1811892471261a244fc8f4ffb9566fe9972b16`, including externally owned incoming work. Configured file-size checks passed. Canonical/generated Python and ledger README seed bytes match.
+
+The first conflict-edit script truncated file tails; the pre-commit fast command exited 1 with a SyntaxError. Reconstructing the affected files from the original merge inputs corrected this mechanical resolution error. The passing commands above ran after that correction; no hook was bypassed.
+
+These suites use offline fixtures and simulated services where designed; they do not verify live services. Final #71 landing/current-main alignment, independent integration review, canonical final privacy, hosted exact-head full and Docs checks, and owner merge remain pending. Publication waits for #71 to land and integration of main at that time; its unlanded head was not imported. No local full/site check ran. Ask the EM before any future PR merge.
+
+Not covered: Corrections as a metric, which 3.5 adds; whether agents follow the advisory Rule.
 
 ### 3.3
 
