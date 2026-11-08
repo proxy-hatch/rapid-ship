@@ -10,6 +10,7 @@ from typing import NoReturn
 
 import pytest
 
+from check_workspace import stack_table
 from rapid_ship.kit import git as git_module
 from rapid_ship.kit.lock import LOCK_PATH, LockEntry, file_sha256, read_lock
 from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
@@ -224,7 +225,7 @@ def test_a_managed_file_the_kit_now_seeds_is_kept_for_the_project(
 
 def test_opting_in_to_an_optional_skill_adds_it(git_repo: Path, vendored: Path) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
-        'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
+        stack_table("python") + '\n[kit]\noptional = ["rs-extra"]\n'
     )
 
     result = sync(git_repo, vendored, in_place=True)
@@ -246,7 +247,7 @@ def test_a_refused_symlink_leaves_nothing_half_written(
     in_place: bool,
 ) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
-        'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
+        stack_table("python") + '\n[kit]\noptional = ["rs-extra"]\n'
     )
     commit_all(git_repo)
     skill = git_repo / ".agents/skills/rs-demo/SKILL.md"

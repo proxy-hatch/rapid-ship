@@ -18,7 +18,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Kit skills | `rapid_ship/templates/common/.agents/skills/`, vendored into `.agents/skills/` and linked from `.claude/skills/` | Guides agents working on projects |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Spec 1's plans 6 and 7 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Spec 1's plan 6 is partly implemented in devctl; its remaining work, plan 7 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
@@ -46,6 +46,35 @@ The Python starter Patterns are `docs/patterns/python-error-handling.md`, `pytho
 The `project.toml` seeds hold the settings of the re-scope: `[github]` with the code owner and each App's ID and slug, and `[escalation] every_pr`, the Mode: `true`, the seed, is Walk, and `false` is Flight. The merge guard enforces the Mode, and doctor checks CODEOWNERS and the ruleset against it. The table has no other key, so devctl rejects the `kinds` and `revision_rounds` it once held as unknown keys. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built. Each message says why the table went and asks the project to delete it. For `[agents]` and `[roster]`, the reason is that rapid-ship does not run agents across several Providers; the owner's Harness chooses each agent's model. The Kit no longer seeds or reads `gate.toml`. The design sets no cap on the number of agents; it only advises at most 3 agents at work at once in Walk.
 
 A seed comments a key only where its name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint, such as a Protected file. The `exceptions.toml` seed's commented example names each key. `tests/test_kit_seed_keys.py` holds each seed to the keys its loader accepts: `PROJECT_KEYS` and `EXCEPTION_KEYS` in devctl's `settings.py`. The loader's error for an unknown key names what its table accepts. It requires `[map] source_roots`, `[map] unguided` and `[tests] unit` to name paths inside the repository, and accepts in `[kit] optional` only the Kit's optional skills, `OPTIONAL_SKILLS`, none in Kit 0.2.0; a test holds that set equal to `kit.toml`'s `optional_skills`.
+
+## Stack settings and ownership
+
+devctl reads sorted `[[stack]]` tables from `.rapid-ship/project.toml`, ordered by `(directory, name)`.
+Each names `python`, `typescript` or `agnostic`, with `directory = "."` or a repository-relative POSIX directory.
+Directories must stay inside the repository without symlinks; duplicate pairs are refused.
+The agnostic stack stands alone at `"."`. The old top-level `stack` key is refused.
+
+`ProjectSettings.owners(path)` returns the stacks in the innermost containing directory, including both when they share it.
+Python suppressions, diff policies and source-size checks follow that ownership.
+Files outside all stacks retain common suppression forms and count toward file size.
+Python source-size checks count `.py` and `.pyi`; TypeScript ownership selects `.ts` and `.tsx`.
+
+`CheckContext.directory` selects the stack directory, or the repository root for common and project steps.
+Mutable `StackStep` wraps each stack step with its stack context and result name.
+One stack at the root retains plain names. Otherwise names are `lint (backend)` or `lint (.)`;
+shared directories use `lint (backend, python)`.
+Order is each stack's fast steps, then `map`, `exceptions`, `file-size`, `kit`,
+each stack's full steps, then `secrets`, `workflows`, `diff`, `evidence`, and project steps.
+The single-root Python order, including this repository's three project steps, is unchanged.
+
+References use their holder's ownership, with a unique matching stack as fallback outside stack directories.
+Ambiguity names candidates and suggests `test:<path>::<name>` or an exact qualified `check:<step>`, such as `check:lint (backend)`.
+Python reference diagnostics name the selected repository-relative `pyproject.toml`.
+
+This devctl subset does not complete plan 6. `rapid-ship init` still writes one root stack pending 6.1b.
+TypeScript settings are accepted, but a TypeScript stack blocks the step list until 6.2a.
+devctl temporarily reads both lock forms; 6.3 removes the older form after 6.1b changes the writer.
+The CLI and template layers described here still use their existing single-stack interfaces.
 
 ## The lock
 
@@ -105,6 +134,7 @@ Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backwar
 
 `./devctl doctor [--skills | --settings]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_wiring.py` for the two Harness wiring items, `doctor_skills.py` for `--skills`, `harness.py` for its headless Claude Code Session, and `doctor_items.py` for the types they share. No item checks a Harness's sign-in.
 
+- **Per-stack items:** doctor reads each Python stack's guardrail floor under its directory, naming it `Python guardrail settings (<directory>)` except for one root stack. CODEOWNERS validates the common Protected paths once and each stack's Protected paths under its directory. TypeScript floor/tool checks remain pending 6.2a.
 - **Local items:** git 2.31 or later, the settings files, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Claude Code wiring in `.claude/settings.json`, the agy wiring in `.agents/hooks.json`, whose hook doctor also runs on a probe event, the Python guardrail settings with the `dead-code` step's, `tools/devctl` left out of the project's own tools, vulture and deptry included, and the Kit files against the lock.
 - **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr` and `[github] code_owner`, branch deletion after merge and fork-PR workflow approval. While `code_owner` is unset, the CODEOWNERS item is missing and names the key. Once the file matches, the item reads GitHub's CODEOWNERS errors for the default branch: an error on a line it checks, such as an unknown owner, makes it missing, and a failed read makes it unknown. A GitHub Free private repository has no rulesets, and the item says so.
 - **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each key in its Keychain item, `rapid-ship/<role>-app/<App ID>`, proved by minting a token that is dropped unprinted.
@@ -182,9 +212,9 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 [Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142). After agy's interactive runs (PRO-143), a plan 5 follow-up, [the agy wiring](docs/superpowers/plans/2026-10-26-agy-wiring.md), wires agy without G5 (PRO-155); its live trial in agy is a pending Owner step.
 
-Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines two more plans, not started:
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines the remaining work in two plans:
 
-- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
+- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** remaining work after devctl stack settings, ownership, Python execution and per-stack doctor: init/rendering, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. The engineering skills replace `rapid-ship-engineering`; [the plan document](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md) describes the remaining work.
 
 Spec 3 is planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md), and GA includes it:

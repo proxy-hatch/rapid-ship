@@ -19,7 +19,7 @@ from devctl.doctor import (
     run_doctor,
     skills_items,
 )
-from devctl.settings import ProjectSettings
+from devctl.settings import ProjectSettings, ProjectStack
 from github_fakes import FakeHarness, Remote, git
 from github_fixtures import no_owner_reads
 
@@ -96,7 +96,7 @@ class TestNames:
         [
             {},
             {"worker_app": None, "reviewer_app": None},
-            {"stack": "agnostic", "repository": None, "code_owner": None},
+            {"stacks": (ProjectStack("agnostic", "."),), "repository": None, "code_owner": None},
             {"excluded": (".agents/skills",)},
         ],
         ids=["agent identity on", "agent identity off", "agnostic, no repository", "excluded"],

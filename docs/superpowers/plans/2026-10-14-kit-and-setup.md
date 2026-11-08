@@ -11,7 +11,7 @@ Spec 1 is built as seven plans, in this order. Each ends with a working, tested 
 | 3 | [`devctl check`](2026-10-14-devctl-check.md), the CI workflow and the hook; this repository switches to `./devctl check` | 4, 5 | 2 | Built: PR #30, `codex/devctl-check` |
 | 4 | [Doctor and Agent identity](2026-10-16-doctor-and-agent-identity.md): `devctl doctor`, `rapid-ship app`, the token code, `devctl as`, and the settings for the escalation list ([outline](#plan-4-doctor-and-agent-identity)) | 3, 4, 6, 10 | 3 | Built and merged, with follow-ups 1 to 4 and 7 to 9: PRs #31, #32 and #33 (`plan4-settings-tokens`, `plan4-doctor`, `doctor-agent-identity`). Its live trials and the organisation trial (follow-up 5) are pending Owner steps. #33 turns this repository's Agent identity on (follow-up 6) |
 | 5 | [Kit standards and Harness guardrails](#plan-5-kit-standards-and-harness-guardrails): the hook spike first, then `devctl hook` with the merge guard and its Claude Code wiring, the standards seeds and checks, documented settings, and the `dead-code` step for Python | 3, 4, 5, 6, 10 | 4 | Built: PR 5.1, the hook spike, in #35 (`plan5-hook-spike`); PR 5.2, the guardrails, on `plan5-guardrails` (#37), with its live trial recorded; PR 5.3, the standards, on `plan5-standards` (#38); PR 5.4, documented settings, on `plan5-settings-migrations`; PR 5.5, the `dead-code` step, on `plan5-dead-code`. Follow-up: the [agy wiring](2026-10-26-agy-wiring.md) (PRO-155), on `agy-wiring` |
-| 6 | [TypeScript stack and several stacks in one repository](2026-10-26-typescript-and-stacks.md) | 3, 4, 5, 6, 10 | 5 | Plan approval: own documentation PR PRO-169. Code unbuilt: 6.1a, 6.1b, 6.2a, 6.2b, 6.3 start after Shawn approves; Unit 14 stays in 6.1b |
+| 6 | [TypeScript stack and several stacks in one repository](2026-10-26-typescript-and-stacks.md) | 3, 4, 5, 6, 10 | 5 | Plan approval: own documentation PR PRO-169. Partly implemented: 6.1a devctl subset; 6.1b, 6.2a, 6.2b and 6.3 remain; Unit 14 stays in 6.1b |
 | 7 | [`rs-setup` and `rs-health`](2026-10-26-rs-setup-and-rs-health.md), with the engineering skills, `rs-contribute` and the documentation site ([outline](#plan-7-rs-setup-and-rs-health)) | 7, 8, 9, 10 | 4, 5, 6 | Planned: the plan document PR, then five code PRs (7.1a, 7.1b, 7.2, 7.3 and 7.4) plus Owner Tasks 9 and 10. Only Task 9 and 7.4 wait on plan 6's code; 7.2 quotes plan 6's document. 7.4 also waits for Spec 3 and Owner Tasks 9 and 10; Task 12 verifies GA |
 
 PRs #28 to #33 form a stack on the design PR, #27: each is based on the one before, and a change to the design lands on #27 and is merged up. Each plan document lives in its plan's PRs: plans 1 to 3 in #28 to #30, and plan 4's, `2026-10-16-doctor-and-agent-identity.md`, in #31 to #33.
@@ -93,6 +93,8 @@ tools/devctl/
     cli.py                       # build_parser, main; core verbs, then devctl_project.register
     repo.py                      # Repo, RepoError
     settings.py                  # ProjectSettings and friends, SettingsError (plans 4 to 6 reshape it)
+    jsonc.py                     # plan 6: JSONC reader
+    node.py                      # plan 6: local Node tools, ESLint configuration and install advice
     process.py                   # ProcessResult, safe_environment, run_process
     codeowners.py                # plan 5: the Protected-set lines and their matcher, moved from check/diff.py
     check/                       # plan 3: __init__, steps, markdown, map, references, exceptions,
@@ -164,7 +166,7 @@ Template rules, as plan 2 built them:
 ### Settings (plan 4; plans 5 and 6 change it)
 
 ```python
-# devctl/settings.py after plan 6
+# devctl/settings.py: stack interfaces implemented in 6.1a
 Role = Literal["worker", "reviewer"]
 # plan 4 has Stack = Literal["python", "agnostic"]
 StackName = Literal["python", "typescript", "agnostic"]
@@ -173,7 +175,7 @@ StackName = Literal["python", "typescript", "agnostic"]
 @dataclass(frozen=True)
 class ProjectStack:  # plan 6: one [[stack]] table
     name: StackName
-    directory: str  # repository-relative POSIX path, inside the repository; "." is the root
+    directory: str  # "." or repository-relative POSIX directory; no symlinks, inside the repository
 
 
 @dataclass(frozen=True)
@@ -189,7 +191,7 @@ class Escalation:
 
 @dataclass(frozen=True)
 class ProjectSettings:
-    stacks: tuple[ProjectStack, ...]  # plan 6; plan 4 has stack: Stack, one stack at the root
+    stacks: tuple[ProjectStack, ...]  # sorted by (directory, name); agnostic alone at "."
     repository: str | None  # "owner/name"
     code_owner: str | None  # plan 4's follow-ups: "@login" or "@organisation/team"
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
@@ -201,6 +203,8 @@ class ProjectSettings:
     unguided: tuple[str, ...]  # [map] unguided
     map_exclude: tuple[str, ...]  # [map] exclude
     unit_tests: tuple[str, ...]  # [tests] unit
+
+    def owners(self, path: str) -> tuple[ProjectStack, ...]: ...  # innermost directory
 
     @property
     def agent_identity(self) -> bool: ...  # both Apps recorded
@@ -558,7 +562,9 @@ If review finds a PR too large, it splits at a task boundary.
 
 ## Plan 6: TypeScript stack and several stacks in one repository
 
-**Plan:** [TypeScript Stack and Several Stacks](2026-10-26-typescript-and-stacks.md), revised for approval in its own documentation PR, PRO-169. Implementation is unbuilt. Shawn approves the plan before code starts; its six owner confirmations remain pending on that PR.
+**Plan:** [TypeScript Stack and Several Stacks](2026-10-26-typescript-and-stacks.md), revised for approval in its own documentation PR, PRO-169. The 6.1a devctl subset is implemented; the remaining code is unbuilt. The plan requires Shawn’s approval before code starts; its six owner confirmations remain pending on that PR.
+
+**State:** devctl accepts several stacks and runs Python steps under their directories. Init still writes one root stack pending 6.1b; TypeScript blocks the step list pending 6.2a. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
 
 **Goal:** Let several stacks share a repository and add TypeScript, so a Python backend and React TypeScript frontend pass `./devctl check` from day one.
 
@@ -566,7 +572,7 @@ Each PR below is one Task. The numbered Units retain the original outline's numb
 
 | PR | Units | Content |
 | --- | --- | --- |
-| 6.1a | 1, 1b, 4, 3a, 5 | devctl settings and temporary lock reader, JSONC/Node helpers, stack ownership, tracked references and doctor |
+| 6.1a | 1, 1b, 4, 3a, 5 | devctl settings and temporary lock reader, JSONC/Node helpers, stack ownership, tracked references and doctor; implemented subset, verification pending |
 | 6.1b | 2, 14, 3b | init, detection, lock rewrite, directory rendering and repository seeds; PRO-159/161 stay here |
 | 6.2a | 6, 12a, 9 | TypeScript steps, install, CI Node.js and doctor |
 | 6.2b | 7, 8 | Suppressions, tracked references, Vitest diff policy, spaced declarations and Rule references |

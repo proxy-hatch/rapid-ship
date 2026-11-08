@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import Workspace
+from check_workspace import Workspace, stack_table
 from devctl import doctor
 from devctl.cli import main
 from devctl.doctor import DoctorContext
@@ -23,7 +23,7 @@ SHIM = (
     f"PYTHONPATH={shlex.quote(str(DEVCTL))} exec {shlex.quote(sys.executable)} "
     "-c 'import sys; from devctl.cli import main; sys.exit(main())' \"$@\"\n"
 )
-INVALID_KEY = 'stack = "python"\n[escalation]\nevery_pr = "no"\n'
+INVALID_KEY = stack_table("python") + '[escalation]\nevery_pr = "no"\n'
 
 
 def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:

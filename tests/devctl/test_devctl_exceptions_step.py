@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import Workspace
+from check_workspace import Workspace, project_settings
 from devctl.check.exceptions import ExceptionsStep, normal_rule, scan
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack
 
 ENTRY = """
 [[exception]]
@@ -244,7 +245,7 @@ def test_vulture_and_deptry_read_the_whole_line(tmp_path: Path) -> None:
     # second name of line 24's import.
     (tmp_path / "run.py").write_text(TOOL_LINES)
 
-    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+    lines = scan(tmp_path, ["run.py"], frozenset(), project_settings())
 
     assert {line.number: list(line.rules) for line in lines} == {
         1: ["noqa"],
@@ -265,7 +266,7 @@ def test_where_the_source_does_not_parse_every_line_counts_for_vulture(tmp_path:
     # vulture's Python may parse what devctl's cannot, such as newer syntax.
     (tmp_path / "run.py").write_text(f"X = 1 +\n'''\n{NOQA}\n'''\n")
 
-    lines = scan(tmp_path, ["run.py"], frozenset(), "python")
+    lines = scan(tmp_path, ["run.py"], frozenset(), project_settings())
 
     assert [(line.number, line.rules) for line in lines] == [(3, ("noqa",))]
 
@@ -349,7 +350,7 @@ EVERY_PYTHON_SUPPRESSION = (
 def test_each_python_suppression_names_its_rule(tmp_path: Path) -> None:
     (tmp_path / "test_all.py").write_text(EVERY_PYTHON_SUPPRESSION)
 
-    lines = scan(tmp_path, ["test_all.py"], frozenset(), "python")
+    lines = scan(tmp_path, ["test_all.py"], frozenset(), project_settings())
 
     assert {line.number: list(line.rules) for line in lines} == {
         1: ["E501"],
@@ -373,7 +374,7 @@ def test_the_agnostic_stack_reads_only_text_rules(workspace: Workspace) -> None:
     workspace.write("src/run.py", "x = 1  # noqa: E501\n")
     workspace.write("notes.txt", "token  # gitleaks" + ":allow\n")
 
-    result = ExceptionsStep().run(workspace.context(stack="agnostic"))
+    result = ExceptionsStep().run(workspace.context(stacks=(ProjectStack("agnostic", "."),)))
 
     assert result.details == (
         "notes.txt:1: suppression gitleaks needs '# rs-exception: EX-<n>' "

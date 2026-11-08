@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from check_workspace import Workspace
+from check_workspace import Workspace, stack_table
 from devctl.check.kit import KitLockError, KitStep, is_excluded, managed_paths
 from devctl.settings import PROJECT, load_project
 from rapid_ship.kit.lock import Lock, LockEntry, write_lock
@@ -94,7 +94,7 @@ def test_a_deleted_path_that_project_toml_excludes_is_not_required(workspace: Wo
     lock(workspace)
     workspace.write(".agents/skills/rs-tdd/SKILL.md", "# TDD\n")
     workspace.link(".claude/skills/rs-tdd", "../../.agents/skills/rs-tdd")
-    workspace.write(PROJECT, 'stack = "python"\n\n[kit]\nexclude = ["devctl"]\n')
+    workspace.write(PROJECT, stack_table("python") + '\n[kit]\nexclude = ["devctl"]\n')
     excluded = load_project(workspace.root).excluded
 
     assert KitStep().run(workspace.context(excluded=excluded)).status == "passed"
@@ -196,3 +196,17 @@ def test_a_file_or_link_of_the_wrong_kind_is_missing(workspace: Workspace) -> No
         f".claude/skills/rs-tdd: managed link is missing; {choices('.claude/skills/rs-tdd')}",
         f"devctl: managed file is missing; {choices('devctl')}",
     ]
+
+
+def test_both_lock_forms_are_read(workspace: Workspace) -> None:
+    lock(workspace)
+    path = workspace.root / ".rapid-ship/kit.lock"
+    older = path.read_text()
+    expected = managed_paths(workspace.root, ())
+    path.write_text(
+        older.replace('stack = "python"', '[[stack]]\nname = "python"\ndirectory = "."')
+    )
+    assert managed_paths(workspace.root, ()) == expected
+    path.write_text(older.replace('stack = "python"', 'stack = "go"'))
+    with pytest.raises(KitLockError, match="stack must be"):
+        managed_paths(workspace.root, ())

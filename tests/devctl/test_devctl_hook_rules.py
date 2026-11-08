@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import new_workspace
+from check_workspace import new_workspace, stack_table
 from devctl.command_line import simple_commands
 from devctl.hook import decide, read_settings, work_tree_root
 from devctl.hook_protocols import Decision, HookSettings, ToolCall
@@ -476,7 +476,10 @@ def test_unreadable_settings_switch_off_the_rules_that_need_them_and_say_why(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n\n[linear]\nteam = "x"\n')
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
+    )
 
     reason = read_settings(workspace.root)
 
@@ -487,7 +490,7 @@ def test_unreadable_settings_switch_off_the_rules_that_need_them_and_say_why(
     assert reason in line
     assert line.endswith("; G5, G7 and G8 give no decision")
 
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n')
+    workspace.write(".rapid-ship/project.toml", stack_table("python"))
     (workspace.root / ".github").mkdir()
     (workspace.root / ".github/CODEOWNERS").write_bytes(b"/.github/ @o\n\xff\xfe\n")
     assert isinstance(read_settings(workspace.root), str)
@@ -495,7 +498,7 @@ def test_unreadable_settings_switch_off_the_rules_that_need_them_and_say_why(
 
 def test_a_missing_codeowners_is_an_empty_protected_set(tmp_path: Path) -> None:
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n')
+    workspace.write(".rapid-ship/project.toml", stack_table("python"))
 
     assert read_settings(workspace.root) == replace(
         OFF, protected=(), repository=None, reviewer_app_slug=None
@@ -506,7 +509,7 @@ def test_read_settings_takes_the_reviewer_app_slug_with_agent_identity(tmp_path:
     workspace = new_workspace(tmp_path / "main")
     workspace.write(
         ".rapid-ship/project.toml",
-        'stack = "python"\n\n[github]\nrepository = "o/r"\n'
+        stack_table("python") + '\n[github]\nrepository = "o/r"\n'
         'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
         'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n',
     )
@@ -519,7 +522,8 @@ def test_read_settings_takes_the_mode_and_the_unit_test_patterns(tmp_path: Path)
     workspace = new_workspace(tmp_path / "main")
     workspace.write(
         ".rapid-ship/project.toml",
-        'stack = "python"\n\n[escalation]\nevery_pr = false\n\n[tests]\nunit = ["tests/fast/**"]\n',
+        stack_table("python")
+        + '\n[escalation]\nevery_pr = false\n\n[tests]\nunit = ["tests/fast/**"]\n',
     )
 
     settings = read_settings(workspace.root)

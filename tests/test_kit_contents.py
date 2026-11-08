@@ -108,7 +108,7 @@ def test_python_new_project_seeds() -> None:
 def test_project_settings_seed_has_the_kit_defaults(stack: Stack, roots: list[str]) -> None:
     settings = tomllib.loads(text(stack, ".rapid-ship/project.toml"))
     assert settings == {
-        "stack": stack,
+        "stack": [{"name": stack, "directory": "."}],
         "github": {
             "repository": "octo/demo-app",
             "code_owner": "@octo",
@@ -150,7 +150,7 @@ def test_the_settings_seed_names_no_roster_and_still_loads(stack: Stack, tmp_pat
     assert "Provider" not in seed
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(seed)
-    assert load_project(tmp_path).stack == stack
+    assert load_project(tmp_path).stacks[0].name == stack
 
 
 def test_the_kit_no_longer_seeds_gate_toml() -> None:
