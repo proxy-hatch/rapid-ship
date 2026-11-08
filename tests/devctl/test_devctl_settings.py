@@ -291,7 +291,7 @@ def test_this_repository_settings_load() -> None:
     assert project.code_owner == "@proxy-hatch"
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
     assert project.excluded == ()
-    assert project.escalation.every_pr  # Walk
+    assert not project.escalation.every_pr  # Flight
     assert not (ROOT / ".rapid-ship/gate.toml").exists()
 
 

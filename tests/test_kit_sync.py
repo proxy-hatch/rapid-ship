@@ -518,3 +518,35 @@ def test_sync_rewrites_an_older_lock(
     assert not read_lock(git_repo).older_form
     if not in_place:
         assert run_git(git_repo, "show", "--format=", "--name-only", "HEAD").strip() == LOCK_PATH
+
+
+def test_sync_adds_metrics_toml_and_leaves_gate_toml(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
+    gate = git_repo / ".rapid-ship/gate.toml"
+    gate.write_text('mode = "walk"\n')
+    commit_all(git_repo)
+    manifest = (
+        (vendored / "kit.toml")
+        .read_text()
+        .replace(
+            '".rapid-ship/project.toml"]',
+            '".rapid-ship/metrics.toml", ".rapid-ship/project.toml"]',
+        )
+    )
+    new = make_templates(
+        "new",
+        {
+            "kit.toml": manifest,
+            "common/.rapid-ship/metrics.toml": "window = 30\n",
+        },
+    )
+
+    result = sync(git_repo, new, in_place=True)
+
+    assert result.added == [".rapid-ship/metrics.toml"]
+    assert (git_repo / ".rapid-ship/metrics.toml").read_text() == "window = 30\n"
+    assert gate.read_text() == 'mode = "walk"\n'
