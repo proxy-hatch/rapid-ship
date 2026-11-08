@@ -94,7 +94,7 @@ Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backwar
 
 - The pre-commit hook, `.githooks/pre-commit`, runs `./devctl check --tier fast`. `git config core.hooksPath .githooks` enables it, and `git commit --no-verify` skips it once.
 - CI runs `./devctl check --tier full` in `.github/workflows/devctl-check.yml`, a managed Kit file. It runs on each PR, including body edits, on pushes to `main` or `master`, nightly and on demand. A push run has its own concurrency group, its commit's, so a later push never replaces the queued run of an earlier commit; a pull request has one group per ref and cancels its older run. It has `contents: read` only, installs gitleaks 8.30.1 checked against its SHA-256, and its job is named `devctl check`, which Spec 1's ruleset requires.
-- `.github/CODEOWNERS` is seeded. In Walk its one active line, `* @proxy-hatch`, assigns every path to the owner. Below it, commented out for Flight, is the Protected set: `.github/`, `.githooks/`, devctl, `.agents/`, `.claude/`, every AGENTS.md and CLAUDE.md, `.rapid-ship/`, and the settings files of the check tools. `.agents/` covers the skills and the agy wiring, and `.claude/` the Claude Code wiring; Codex's wiring file joins the set when it lands. The `diff` step, `devctl hook` and the merge guard read these lines, commented or not, through `devctl/codeowners.py`.
+- **Dog-fooding:** this repository uses Flight (`[escalation] every_pr = false`). Its seeded `.github/CODEOWNERS` activates the Protected set without a catch-all. It covers guardrails, guides, Patterns, the Kit template tree, access modules, the public CLI, Kit data models and root and nested check settings. The owner still merges Protected-set PRs, including this Mode change. Agents may merge other PRs only with passing checks, exact-head Reviewer App approval and no open owner question. The `diff` step, `devctl hook` and the merge guard read Protected lines, commented or not, through `devctl/codeowners.py`.
 
 `.github/workflows/docs.yml` is this repository's own: it builds the documentation site and deploys `main` to GitHub Pages.
 
@@ -184,7 +184,7 @@ Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) define
 - **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. The engineering skills replace `rapid-ship-engineering`; [the plan document](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md) describes the remaining work.
 
-Spec 3 gets its plan next, and GA includes it:
+Spec 3 is planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md), and GA includes it:
 
 - **[Spec 3, Metrics and gardening](docs/superpowers/specs/2026-10-16-metrics-and-gardening-design.md):** `devctl metrics`, the scheduled metrics Action, Suggested thresholds, project-defined metrics, the Corrections ledger, `rs-garden`, and `rs-preflight`, the advisory readiness review before the owner widens the Mode toward Flight.
 
