@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
+from devctl.check.tracked import TrackedFiles
 from devctl.repo import Repo
 from rapid_ship.cli import main
 from rapid_ship.kit.templates import load_manifest
@@ -37,10 +38,10 @@ def test_every_kit_skill_has_its_named_skill_md_and_claude_link_in_a_new_project
 ) -> None:
     monkeypatch.chdir(git_repo)
     assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
-    files = Repo.discover(git_repo).tracked_files()
-    assert skill_errors(git_repo, files) == []
-    assert skill_file_errors(git_repo, files) == []
-    assert skill_alias_errors(git_repo, files) == []
+    tracked = TrackedFiles.read(Repo.discover(git_repo))
+    assert skill_errors(tracked) == []
+    assert skill_file_errors(tracked) == []
+    assert skill_alias_errors(tracked) == []
     templates = REPOSITORY / "rapid_ship/templates/common/.agents/skills"
     optional = load_manifest().optional_skills
     expected = {p.parent.name for p in templates.glob("*/SKILL.md")} - optional

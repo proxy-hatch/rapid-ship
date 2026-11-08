@@ -12,6 +12,7 @@ import pytest
 from rapid_ship.kit.init import init_repository
 from rapid_ship.kit.lock import LOCK_PATH, LockEntry, file_sha256, read_lock
 from rapid_ship.kit.pull_request import push_and_open_pull_request
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.status import classify
 from rapid_ship.kit.sync import OpenPullRequest, SyncResult, sync_repository
 from rapid_ship.kit.templates import KitRefusal
@@ -260,7 +261,9 @@ def test_sync_keeps_the_stack_version_over_the_common_one(
     path = "tools/devctl/devctl/stack.py"
     layers = {f"common/{path}": "common\n", f"python/{path}": "python\n"}
     old = make_templates("old", layers)
-    init_repository(git_repo, stack="python", variables=kit_variables, templates_root=old)
+    init_repository(
+        git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables, templates_root=old
+    )
     commit_all(git_repo)
 
     common_only = sync(
@@ -309,7 +312,9 @@ def test_a_modified_devctl_project_survives_sync(
         (old / "kit.toml").read_text().replace('"AGENTS.md"]', f'"AGENTS.md", "{PROJECT_HOOKS}"]')
     )
     (old / "kit.toml").write_text(manifest)
-    init_repository(git_repo, stack="python", variables=kit_variables, templates_root=old)
+    init_repository(
+        git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables, templates_root=old
+    )
     ours = seed.replace("    pass\n", '    commands.add_parser("seed-demo")\n')
     (git_repo / PROJECT_HOOKS).write_text(ours)
     (git_repo / "tools/devctl/devctl_project/verbs.py").write_text("VERBS = []\n")

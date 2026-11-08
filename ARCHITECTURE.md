@@ -7,7 +7,7 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Part | Where | What it does |
 | --- | --- | --- |
 | `rapid-ship` CLI | `rapid_ship/cli.py`, `rapid_ship/kit/`, `rapid_ship/github_app.py`, `app_import.py`, `app_flow.py`, `app_keychain.py` | `init`, `status` and `sync`: writes the Kit into a repository and keeps it current. `app`: finds or creates the Worker and Reviewer Apps of the repository's owner, a person or an organisation, for Agent identity; `app --import-key` stores a developer's own key for an App that exists |
-| Kit templates | `rapid_ship/templates/` | `kit.toml` and three layers, `common/`, `python/` and `agnostic/`, which the commands render and the wheel ships |
+| Kit templates | `rapid_ship/templates/` | `kit.toml` and common repository templates and the `python/` stack layer, which the commands render and the wheel ships |
 | devctl | `tools/devctl/`, run through the `devctl` shim | `devctl check`, the one entry point for every check, in the pre-commit hook and in CI; `devctl doctor`, which reports what this machine and repository lack; `devctl as`, Agent identity's command for `gh` and `git push`; `devctl hook`, the Harness guardrails with the merge guard, which Claude Code and agy run before each shell command and file edit |
 | devctl metrics | `tools/devctl/devctl/metrics/` | Built in part: `.rapid-ship/metrics.toml` loader and status evaluation models; CLI added in later change |
 | This repository's check steps | `tools/devctl/devctl_project/` | `vendored`, `distribution` and `python-3.12`, after the Kit's steps |
@@ -18,13 +18,13 @@ rapid-ship is being rebuilt as a Kit that projects vendor into their repositorie
 | Kit skills | `rapid_ship/templates/common/.agents/skills/`, vendored into `.agents/skills/` and linked from `.claude/skills/` | Guides agents working on projects |
 | Documentation site | `website/` | Builds the Markdown in this repository; rewritten once the product works |
 
-Nothing here runs as a service. Spec 1's plans 6 and 7 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
+Nothing here runs as a service. Spec 1's plan 6 is partly implemented in devctl; its remaining work, plan 7 and Spec 3 are designed but not built ([Designed, not built](#designed-not-built)).
 
 ## The rapid-ship CLI
 
 `rapid-ship` writes and updates the Kit. Run it with `uv run rapid-ship` here. In another repository, run `uvx --from git+https://github.com/proxy-hatch/rapid-ship@v<version> rapid-ship <command>` for a release the owner tagged `v<version>` on `main`, the first being `v0.1.0`, or `uvx --from <local checkout> rapid-ship <command>` for a version that has no tag yet. The package is not on PyPI. A command exits 0 on success, 1 when a check failed or the repository's state refused the request, and 2 when it could not run.
 
-- `init` vendors the Kit at the top of a git work tree. The work tree must be clean, with no `.rapid-ship/kit.lock` and no branch `rapid-ship/init`. Without `--stack`, a repository with `pyproject.toml` gets the Python stack, and one without it cannot run (exit 2); pass `--stack python` or `--stack agnostic`. `--owner`, `--repository`, `--name` and `--package` fill the template variables. `init` commits the Kit on a new branch, `rapid-ship/init`; a repository with no commits gets the Kit as its first commit on the current branch instead.
+- `init` requires a clean work tree, no Kit lock and no `rapid-ship/init` branch. Repeat `--stack NAME[=DIRECTORY]` for each stack. Without it, detection proposes roots and exits 2 without writes. Python roots have `pyproject.toml`; `agnostic` stands alone at the root. Variables default from a validated GitHub origin, except the owner. Init commits on `rapid-ship/init`; a commitless repository first gets an empty commit, restored on failure.
 - `init` never edits an existing file and runs no project code or git hook. It writes nothing when a managed file already exists. It skips an existing seeded file, a symlink included, and lists it for `rs-setup`. Before it writes, it looks for the tool settings, hooks and workflows the repository already has, such as Ruff or mypy settings, `.pre-commit-config.yaml`, executable hooks in the git hooks directory and files in `.github/workflows/`. After a successful run it lists them, because devctl's checks can overlap or conflict with them. A conflict or failure lists nothing, and a file it cannot read is listed as unreadable. A failed switch, write or commit removes what `init` created and returns to the starting branch.
 - `status` compares the repository with the lock and the installed templates, and never writes. It reports each managed file as unchanged, modified or missing, each seeded file whose template changed as `template updated`, and each path under `[kit] exclude` as excluded. A managed lock entry that the installed template no longer matches, or that the installed Kit dropped, is `outdated`; this repository shows it right after a template edit and before `sync --in-place`. A managed template of the installed Kit that the lock does not list yet, such as a file a newer Kit added, is `not installed`. `--strict` exits 1 unless every managed file that is not excluded is unchanged and matches the current template. `--json` prints the report as data.
 - `sync` brings the vendored Kit to the installed templates. It replaces unchanged managed files, adds new ones and deletes unchanged ones the Kit dropped. A managed file the project edited or deleted becomes the project's own: sync leaves it as it is, records it as seeded and prints how to give it back with `sync --revert <path>`. It never changes a seeded or project-authored file, and records the new template hash of a seeded file whose template changed. Without `--in-place` it commits on `rapid-ship/kit-sync-<version>` and opens a PR with `gh`; with `--in-place` it writes the work tree only. A failed write restores the work tree.
@@ -34,8 +34,9 @@ Nothing here runs as a service. Spec 1's plans 6 and 7 and Spec 3 are designed b
 `rapid_ship/templates/kit.toml` lists the seeded files, the new-project seeds, the executable files, the optional skills and the template variables. Every other template is managed.
 
 - `common/` holds the files for every stack: the `devctl` shim, `tools/devctl/`, the CI workflow, the pre-commit hook, the settings seeds, CODEOWNERS, the guide skeletons and the README.md and ARCHITECTURE.md seeds.
-- `python/` adds or overrides files for the Python stack: a seeded `pyproject.toml` with the guardrail settings, a source and test skeleton, four starter Patterns with their reference code and tests, and its own `project.toml`, root guide and CODEOWNERS. Its CODEOWNERS adds the Python tools' settings files to the Protected set. Where a stack file and a common file share a path, the stack's wins.
-- `agnostic/` holds only the stack-agnostic `.rapid-ship/project.toml` today.
+- `python/` renders a guide under each non-root stack directory. New projects also get a Python skeleton there. `python/__root__/` renders starter Patterns once per stack name at the repository root, with references to the first new project's directory.
+- Common settings and CODEOWNERS derive stack tables, source roots, test globs and Protected settings paths from all stacks. Root stack rows join the common guide. Non-root stacks and their maintained ancestors get navigation guides; a parent stack's guide coalesces child links. Existing regular and symlinked guides remain project-owned.
+- The manifest's `new_project` table lists layer-relative paths per stack. The lock stores sorted stack tables and seeded marker entries; status and sync use those entries to render the seeds init wrote. Sync rewrites older single-stack locks and never adds new-project-only seeds.
 
 A managed file is copied byte for byte, and `sync` replaces it with each new template. A seeded file substitutes `{{project_name}}`, `{{package}}`, `{{owner}}`, `{{repository}}` and `{{code_owner}}`, is written once and then belongs to the project. An empty owner or repository renders as `<owner>` or `<repository>` and comments out its line, which only TOML and CODEOWNERS templates allow. `{{code_owner}}` is `@` and the owner, or empty without an owner, so the seed's `code_owner = ""` stays unset rather than a placeholder. The Python stack's new-project seeds, a `pyproject.toml`, a skeleton package and test, and the four starter Patterns with their reference code and tests, are written only when `init` finds no `pyproject.toml`. Each `.claude/skills/<name>` is a relative symlink to `.agents/skills/<name>`. A project lists the Kit paths it owns under `[kit] exclude` in `.rapid-ship/project.toml`, and `sync` never touches them.
 
@@ -46,6 +47,35 @@ The Python starter Patterns are `docs/patterns/python-error-handling.md`, `pytho
 The `project.toml` seeds hold the settings of the re-scope: `[github]` with the code owner and each App's ID and slug, and `[escalation] every_pr`, the Mode: `true`, the seed, is Walk, and `false` is Flight. The merge guard enforces the Mode, and doctor checks CODEOWNERS and the ruleset against it. The table has no other key, so devctl rejects the `kinds` and `revision_rounds` it once held as unknown keys. devctl refuses the `[agents]`, `[linear]`, `[dispatch]` and `[release]` tables from before the re-scope, and the `[roster]` table that plan 4 built. Each message says why the table went and asks the project to delete it. For `[agents]` and `[roster]`, the reason is that rapid-ship does not run agents across several Providers; the owner's Harness chooses each agent's model. The Kit no longer seeds or reads `gate.toml`. The design sets no cap on the number of agents; it only advises at most 3 agents at work at once in Walk.
 
 A seed comments a key only where its name and value do not show its contract: the values or units it accepts, a default that is not obvious, or a constraint, such as a Protected file. The `exceptions.toml` seed's commented example names each key. `tests/test_kit_seed_keys.py` holds each seed to the keys its loader accepts: `PROJECT_KEYS` and `EXCEPTION_KEYS` in devctl's `settings.py`. The loader's error for an unknown key names what its table accepts. It requires `[map] source_roots`, `[map] unguided` and `[tests] unit` to name paths inside the repository, and accepts in `[kit] optional` only the Kit's optional skills, `OPTIONAL_SKILLS`, none in Kit 0.2.0; a test holds that set equal to `kit.toml`'s `optional_skills`.
+
+## Stack settings and ownership
+
+devctl reads sorted `[[stack]]` tables from `.rapid-ship/project.toml`, ordered by `(directory, name)`.
+Each names `python`, `typescript` or `agnostic`, with `directory = "."` or a repository-relative POSIX directory.
+Directories must stay inside the repository without symlinks; duplicate pairs are refused.
+The agnostic stack stands alone at `"."`. The old top-level `stack` key is refused.
+
+`ProjectSettings.owners(path)` returns the stacks in the innermost containing directory, including both when they share it.
+Python suppressions, diff policies and source-size checks follow that ownership.
+Files outside all stacks retain common suppression forms and count toward file size.
+Python source-size checks count `.py` and `.pyi`; TypeScript ownership selects `.ts` and `.tsx`.
+
+`CheckContext.directory` selects the stack directory, or the repository root for common and project steps.
+Mutable `StackStep` wraps each stack step with its stack context and result name.
+One stack at the root retains plain names. Otherwise names are `lint (backend)` or `lint (.)`;
+shared directories use `lint (backend, python)`.
+Order is each stack's fast steps, then `map`, `exceptions`, `file-size`, `kit`,
+each stack's full steps, then `secrets`, `workflows`, `diff`, `evidence`, and project steps.
+The single-root Python order, including this repository's three project steps, is unchanged.
+
+References use their holder's ownership, with a unique matching stack as fallback outside stack directories.
+Ambiguity names candidates and suggests `test:<path>::<name>` or an exact qualified `check:<step>`, such as `check:lint (backend)`.
+Python reference diagnostics name the selected repository-relative `pyproject.toml`.
+
+This devctl subset does not complete plan 6. `rapid-ship init` still writes one root stack pending 6.1b.
+TypeScript settings are accepted, but a TypeScript stack blocks the step list until 6.2a.
+devctl temporarily reads both lock forms; 6.3 removes the older form after 6.1b changes the writer.
+The CLI and template layers described here still use their existing single-stack interfaces.
 
 ## The lock
 
@@ -60,7 +90,7 @@ The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so 
 | Step | Tier | Fails when |
 | --- | --- | --- |
 | `format`, `lint` | fast | `ruff format --check` or `ruff check` reports a finding |
-| `map` | fast | An AGENTS.md link is broken, a maintained directory has no guide, a guide is unreachable from the root guide, a feature file, Pattern file or Rule lacks its fields or names something that does not exist, a Pattern lacks its `task` or a non-empty `## Lessons` section, a skill lacks its front matter, a regular `SKILL.md` or its `.claude/skills` link, or `README.md` or `ARCHITECTURE.md` is missing, unlinked from the root guide or holds a broken local link |
+| `map` | fast | An AGENTS.md link is broken, a maintained directory has no guide, a guide is unreachable from the root guide, a feature file, Pattern file or Rule lacks its fields or names something that git does not track, a Pattern lacks its `task` or a non-empty `## Lessons` section, a skill lacks its front matter, a regular `SKILL.md` or its `.claude/skills` link, or `README.md` or `ARCHITECTURE.md` is missing, unlinked from the root guide or holds a broken local link |
 | `exceptions` | fast | A suppression lacks its `rs-exception: EX-<n>` marker and entry in `.rapid-ship/exceptions.toml`, or an entry matches nothing |
 | `file-size` | fast | A source file exceeds 500 lines without an exception |
 | `kit` | fast | The lock is unreadable, or a managed file that is not excluded is missing |
@@ -72,6 +102,8 @@ The `devctl` shim runs devctl with `uv run --project tools/devctl --frozen`, so 
 | `workflows` | full | zizmor 1.30.1 reports a finding in a GitHub Actions workflow |
 | `diff` | full | The change removes a test without declaring it, turns an assertion into a tautology, adds an `autouse` fixture without an exception, or adds and removes more than 1,500 counted lines without declaring the overage. It also lists each Protected path the change touches, and each Corrections ledger entry it changes or removes, without failing |
 | `evidence` | full, PRs only | The PR body lacks its `## Evidence` section with a command, its result and a `Not covered:` line |
+
+The `map` step reads only the files that git tracks, staged ones included, so the pre-commit hook sees a file that the commit adds, and no file that CI will lack. An untracked guide, directory, feature file, Pattern, skill or link target does not count, and its errors say what to stage (`check/tracked.py`). The `exceptions` and `file-size` steps also read untracked files that git does not ignore.
 
 The agnostic stack has no `format`, `lint`, `types`, `contracts`, `dead-code`, `tests` or `audit` step. pip-audit and zizmor run through `uv tool run --from <pin>`; they are not dependencies. vulture and deptry are dev dependencies and run through `uv run --locked`, as Ruff and mypy do, because deptry maps each import to a distribution installed in the project's environment.
 
@@ -103,6 +135,7 @@ Before GA, the documentation release (plan 7's PR 7.4), the Kit keeps no backwar
 
 `./devctl doctor [--skills | --settings]` reports each item as ok, missing or unknown, then a summary line, and exits 0 when every item is ok, 1 when one is missing and 2 when one could not be checked. It changes nothing in the repository and never reads a token file. The modules are `doctor.py`, which runs and prints the items, `doctor_local.py` for this machine and the repository, `doctor_github.py` with the rules in `doctor_rules.py` for GitHub, `doctor_wiring.py` for the two Harness wiring items, `doctor_skills.py` for `--skills`, `harness.py` for its headless Claude Code Session, and `doctor_items.py` for the types they share. No item checks a Harness's sign-in.
 
+- **Per-stack items:** doctor reads each Python stack's guardrail floor under its directory, naming it `Python guardrail settings (<directory>)` except for one root stack. CODEOWNERS validates the common Protected paths once and each stack's Protected paths under its directory. TypeScript floor/tool checks remain pending 6.2a.
 - **Local items:** git 2.31 or later, the settings files, uv, gh and its sign-in, gitleaks 8.30.1, `core.hooksPath`, the CI job named `devctl check`, the Claude Code wiring in `.claude/settings.json`, the agy wiring in `.agents/hooks.json`, whose hook doctor also runs on a probe event, the Python guardrail settings with the `dead-code` step's, `tools/devctl` left out of the project's own tools, vulture and deptry included, and the Kit files against the lock.
 - **GitHub items:** read with the owner's `gh` sign-in, always as `GET`: the ruleset for the current Mode, CODEOWNERS against `every_pr` and `[github] code_owner`, branch deletion after merge and fork-PR workflow approval. While `code_owner` is unset, the CODEOWNERS item is missing and names the key. Once the file matches, the item reads GitHub's CODEOWNERS errors for the default branch: an error on a line it checks, such as an unknown owner, makes it missing, and a failed read makes it unknown. A GitHub Free private repository has no rulesets, and the item says so.
 - **Agent identity items:** only while `[github]` records both Apps: each App's installation, its exact permissions and its slug, read as the App, and each key in its Keychain item, `rapid-ship/<role>-app/<App ID>`, proved by minting a token that is dropped unprinted.
@@ -181,9 +214,9 @@ Never edit the vendored copy itself. `sync` would record the edited file as this
 
 [Plan 5, Kit standards and Harness guardrails](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-5-kit-standards-and-harness-guardrails), is built. Its hook spike (backlog item PRO-139) is recorded, and the [live trial](docs/trials/2026-10-23-harness-guardrails.md) of `devctl hook` in headless Claude Code Sessions gave every expected decision and message. From the spike, a follow-up wires Codex without G5 (PRO-142). After agy's interactive runs (PRO-143), a plan 5 follow-up, [the agy wiring](docs/superpowers/plans/2026-10-26-agy-wiring.md), wires agy without G5 (PRO-155); its live trial in agy is a pending Owner step.
 
-Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines two more plans, not started:
+Spec 1's [plan index](docs/superpowers/plans/2026-10-14-kit-and-setup.md) defines the remaining work in two plans:
 
-- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** one `[[stack]]` table per stack, each stack's files and check steps in its own directory, and a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
+- **[Plan 6, TypeScript stack and several stacks in one repository](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-6-typescript-stack-and-several-stacks-in-one-repository):** remaining work after stack settings, Python execution, per-stack doctor and directory rendering: a TypeScript stack for React that checks with ESLint, Prettier, `tsc --noEmit`, Vitest and `npm audit`, with its starter Patterns and CI support.
 - **[Plan 7, `rs-setup` and `rs-health`](docs/superpowers/plans/2026-10-14-kit-and-setup.md#plan-7-rs-setup-and-rs-health):** the Kit's first skills, with the forked engineering skills and the optional `rs-contribute`. The engineering skills replace `rapid-ship-engineering`; [the plan document](docs/superpowers/plans/2026-10-26-rs-setup-and-rs-health.md) describes the remaining work.
 
 Spec 3 is planned in [Metrics and gardening](docs/superpowers/plans/2026-10-26-metrics-and-gardening.md), and GA includes it:

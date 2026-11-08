@@ -1,5 +1,7 @@
 # rapid-ship project settings. No secrets. Changes need the owner (Protected set).
-stack = "agnostic"   # python or agnostic
+# One table per stack: python, typescript or agnostic.
+# directory is relative to the repository; agnostic stands alone at ".".
+{{stack_tables}}
 
 [github]
 # The GitHub repository, written "owner/name".
@@ -23,9 +25,9 @@ exclude = []           # Kit files or directories the project owns instead
 
 [map]
 # Source directories: each child directory needs a guide, and file-size caps their source files at 500 lines.
-source_roots = []
+source_roots = [{{source_roots}}]
 unguided = []
 exclude = []           # directories whose AGENTS.md files are template content
 
 [tests]
-unit = ["tests/unit/**"]   # every other test counts as behavioural
+unit = [{{unit_tests}}]   # every other test counts as behavioural

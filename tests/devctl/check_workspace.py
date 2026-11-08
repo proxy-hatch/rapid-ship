@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any, cast
 from devctl.check.steps import CheckContext, Status, StepResult, Tier
 from devctl.process import ProcessResult, run_process
 from devctl.repo import Repo
-from devctl.settings import Escalation, ProjectSettings
+from devctl.settings import Escalation, ProjectSettings, ProjectStack
 
 GIT_IDENTITY = (
     "-c",
@@ -25,9 +26,13 @@ GIT_IDENTITY = (
 )
 
 
+def stack_table(name: str, directory: str = ".") -> str:
+    return f"[[stack]]\nname = {json.dumps(name)}\ndirectory = {json.dumps(directory)}\n"
+
+
 def project_settings(**changes: object) -> ProjectSettings:
     base = ProjectSettings(
-        stack="python",
+        stacks=(ProjectStack("python", "."),),
         repository=None,
         code_owner=None,
         worker_app=None,
@@ -88,8 +93,12 @@ class Workspace:
         alias.parent.mkdir(parents=True, exist_ok=True)
         alias.symlink_to(target, target_is_directory=True)
 
-    def commit(self, message: str = "change") -> str:
+    def stage(self) -> None:
+        """Stage every file that git does not ignore, as before a commit."""
         self.git("add", "-A")
+
+    def commit(self, message: str = "change") -> str:
+        self.stage()
         self.git("commit", "-q", "--allow-empty", "-m", message)
         return self.git("rev-parse", "HEAD")
 
@@ -144,3 +153,9 @@ class FakeStep:
 class BrokenStep(FakeStep):
     def run(self, context: CheckContext) -> StepResult:
         raise RuntimeError("step bug")
+
+
+def node_tools(directory: Path, **bodies: str) -> None:
+    """Write fake Node.js tools without installing npm packages."""
+    for name, body in bodies.items():
+        fake_tool(directory / "node_modules/.bin", name, body)

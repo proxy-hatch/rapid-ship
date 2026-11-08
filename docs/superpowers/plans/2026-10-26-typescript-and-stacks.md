@@ -12,7 +12,7 @@
 
 **Spec:** [Spec 1: Kit and Setup](../specs/2026-10-14-kit-and-setup-design.md), sections 3 (`init` stacks and detection, the lock), 4 (Kit contents, settings files, starter Patterns, the Protected set, CI, TypeScript guardrail settings), 5 (steps, dead code, several stacks, output, references, exceptions, diff policy), 6 (`doctor`), 8 (steps 6 and 13: the sandbox, and the Setup PR's branch) and 10 (plan 6's tests, the integration test, the live trial), as revised for the owner's descope of 2026-10-26. Plan 6 of 7 in the [plan index](2026-10-14-kit-and-setup.md), whose Conventions, Layout, Shared interfaces and "Plan 6" outline bind this plan. The [hello-rapid-ship trial](../../trials/2026-10-26-hello-rapid-ship.md) names the defects it builds on.
 
-**Status:** revised for approval in PRO-169, its own documentation PR. Code is unbuilt and starts only after Shawn approves this plan. The fixed review base is `f107a89`; the earlier draft is `419f219`.
+**Status:** revised for approval in PRO-169, its own documentation PR. The 6.1a devctl subset is implemented: stack settings, helpers, ownership, Python execution, references and per-stack doctor. Local verification is recorded below; hosted full/site checks and independent final-head review remain pending. This does not complete plan 6. The fixed review base is `f107a89`; the earlier draft is `419f219`.
 
 **Owner steps:** confirm the six decisions below by their deadlines; run Unit 13 Step 2's live trial; push workflow edits in Unit 12a, which the Worker App cannot push. Approve each G5 ask for Protected edits, including `.rapid-ship/project.toml` in Units 1, 3b and 10, and guides in Units 3b, 5, 9 and 13. In a headless Session the owner makes those edits. No agent performs an Owner step.
 
@@ -24,10 +24,13 @@ Each PR is one Task as GLOSSARY.md defines it. The numbered Units below retain t
 | --- | --- | --- | --- | --- |
 | PRO-169 | documentation branch, on `main` | This plan and its index entries | Plan approval only; no implementation | Markdown is excluded |
 | 6.1a | `plan6-stacks`, on `main` | 1, 1b, 4, 3a, 5 | devctl stack settings, lock reader, helpers, ownership, references and doctor | about 1,250 before review additions |
-| 6.1b | `plan6-stacks-init`, on 6.1a | 2, 14, 3b | init, detection, lock writer, rendering and commitless Setup | about 1,420 before fixture and shared-guide additions |
+| 6.1b-1 | `plan6-stacks-init`, on 6.1a | 2, 14 | init, detection, lock writer and commitless Setup; single-root rendering refusal retained | 1,139 counted against the approved 6.1a prerequisite |
+| 6.1b-2 | on the independently reviewed 6.1b-1 head, after 6.1b-1 | 3b | directory rendering, repository seeds, guides and integration; unimplemented | measure separately; the 1,500-line cap still applies |
 | 6.2a | `plan6-ts-steps`, on 6.1a | 6, 12a, 9 | TypeScript steps, install, CI and doctor | about 950 |
 | 6.2b | `plan6-ts-rules`, on 6.1a | 7, 8 | TypeScript suppressions, references, Vitest and declarations | about 1,150 |
 | 6.3 | `plan6-ts-templates`, on `main` after 6.1b and 6.2a | 10, 11, 12b, 13 | TypeScript templates, integration tests and live trial; remove devctl's temporary lock reader | about 900 |
+
+The split of 6.1b was approved on 2026-11-06. References below to 6.1b cover both parts; Unit 3b remains unimplemented and belongs only to 6.1b-2. This split grants no diff-cap waiver.
 
 - **6.1a first:** after plan approval and the merged wave-1 prerequisites below. It produces `ProjectStack`, `CheckContext.directory`, `StackStep`, `owners`, `jsonc`, `node` and `node_tools`.
 - **Preparation during 6.1a:** after decisions 1 and 2, prototype Units 10 and 11 in an isolated scratch directory. Run `npm install --no-audit --no-fund`, `npx --no-install prettier --check .`, `npx --no-install eslint --max-warnings 0 .`, `npx --no-install tsc --noEmit`, `npx --no-install knip --include files,dependencies,unlisted,binaries,unresolved,exports,types,enumMembers,namespaceMembers` and `npx --no-install vitest run`. Each must exit 0 before its seed is accepted. A second independent preparation may build Vitest parsing and suppression scanning test-first. Neither preparation replaces its Unit's tests or review. Three plan-6 agents is the documentation's Walk advice; the owner sets the total across plans and other Tasks.
@@ -1108,10 +1111,38 @@ Each PR's last task fills its row with the command, its exit code and the summar
 
 | PR | `uv run pytest -q` | `./devctl check --tier fast` | `uv run rapid-ship status --strict` | `./devctl check --tier full --base <base> --pr-body <body>` | `npm --prefix website run build` |
 | --- | --- | --- | --- | --- | --- |
-| 6.1a | | | | | |
+| 6.1a | Exit 0; 2,196 passed in 425.04s | Exit 0; seven steps passed | Exit 0; 49 managed files unchanged | Pending hosted exact-head full check; not run locally | Pending hosted exact-head Docs build; not run locally |
 | 6.1b | | | | | |
 | 6.2a | | | | | |
 | 6.2b | | | | | |
 | 6.3 | | | | | |
 
 6.1b's row also records Unit 3b Step 5's `cmp` of the root-stack seeds.
+
+
+### 6.1a local verification limits
+
+The single-root Python step names and order match the prior root implementation through pure API inspection, including all three project steps.
+Nested mypy reference and malformed-settings regressions failed on the old diagnostics, then passed after correction.
+The focused references, exceptions and stack-order run passed 90 tests; documentation map checks passed 53 tests.
+Configured root tools passed: `uv run --locked mypy` (154 source files),
+`uv run --locked vulture --min-confidence 0`, and `uv run --locked deptry . --no-ansi --json-output <ignored-local-report-path>` (empty JSON report).
+These local results are Worker evidence; they do not replace independent review.
+
+The P6 difference against its exact merged prerequisite is 1,439 counted lines, leaving 61 below the 1,500-line cap.
+The combined review-base range is 2,816 counted lines and cannot be published as a single in-cap change without a corrected effective base or valid split.
+No overage approval is claimed.
+
+Hosted full and Docs checks must cover the published exact head after final independent review and privacy screening.
+No local full devctl, standalone distribution smoke or site build was run for this record.
+Later integration and the Owner trial remain pending.
+Not covered: `rapid-ship init` still writes one root stack pending 6.1b;
+TypeScript blocks the step list pending 6.2a; removal of the transitional lock reader remains in 6.3.
+
+### Directory-rendering verification
+
+The directory renderer now supports Python stacks at root, nested and parent/child directories. Root repository seeds derive every stack's settings and ownership paths; stack guides coalesce ancestor navigation. New-project marker entries in the lock retain rendering provenance for status and sync.
+
+Local verification: 486 Kit tests passed, including real map-step acceptance on deep and parent/child stacks. Three new-project integration tests passed with local tools and network access, without GitHub. Six `cmp` comparisons of root-stack AGENTS.md, CODEOWNERS and project.toml against the pre-rendering snapshots passed byte for byte. All 49 managed hashes match. Configured mypy, vulture and deptry, strict Kit status and the fast tier passed. The configured counted delta against `abd3174` is 895 lines; each changed production module is below 500 lines.
+
+At code head `f5cc090832a7b854e400a00c3a6c1972f1f0fe53`, `uv run pytest -q` passed all 2,235 tests. The configured mypy, vulture and deptry commands also passed there. This verification update changes documentation only. Independent exact-head review and hosted full/Docs checks remain required. No local full devctl, site or standalone distribution run is claimed. The existing prerequisite history is preserved; no new dependency merge was performed.

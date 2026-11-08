@@ -6,17 +6,26 @@ import importlib.metadata
 import os
 import re
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from rapid_ship.files import UnsafePath, relative_parts, safe_path
+from rapid_ship.kit.stacks import (
+    DERIVED,
+    STACKS,
+    ProjectStack,
+    StackName,
+    derived_variables,
+    guide_directories,
+    navigation_row,
+    stack_variables,
+    under,
+)
 
-Stack = Literal["python", "agnostic"]
 Kind = Literal["managed", "seeded"]
-STACKS: tuple[Stack, ...] = ("python", "agnostic")
 
 PROJECT_SETTINGS = ".rapid-ship/project.toml"
 _VARIABLE = re.compile(r"\{\{([a-z_]+)\}\}")
@@ -44,12 +53,13 @@ class Template:
     kind: Kind
     content: bytes | None  # None for a symlink
     link: str | None  # "../../.agents/skills/<name>", for .claude/skills/<name>
+    new_project: bool = False
 
 
 @dataclass(frozen=True)
 class KitManifest:
     seeded: frozenset[str]
-    new_project: frozenset[str]
+    new_project: Mapping[StackName, frozenset[str]]
     executable: frozenset[str]
     optional_skills: frozenset[str]
     variables: frozenset[str]
@@ -75,11 +85,21 @@ def load_manifest(root: Path | None = None) -> KitManifest:
         raise KitError(f"kit.toml: unknown key {unknown[0]!r}")
     lists: dict[str, frozenset[str]] = {}
     for key in _MANIFEST_KEYS:
+        if key == "new_project":
+            continue
         items = data.get(key, [])
         if not isinstance(items, list) or not all(isinstance(item, str) and item for item in items):
             raise KitError(f"kit.toml {key}: expected a list of non-empty strings")
         lists[key] = frozenset(items)
-    return KitManifest(**lists)
+    new = data.get("new_project", {})
+    if not isinstance(new, dict) or any(
+        name not in STACKS
+        or not isinstance(paths, list)
+        or not all(isinstance(path, str) and path for path in paths)
+        for name, paths in new.items()
+    ):
+        raise KitError("kit.toml new_project: expected a table of path lists by stack name")
+    return KitManifest(new_project={name: frozenset(new.get(name, [])) for name in STACKS}, **lists)
 
 
 def render_path(path: str, variables: Mapping[str, str]) -> str:
@@ -90,43 +110,117 @@ def render_path(path: str, variables: Mapping[str, str]) -> str:
 
 
 def render_files(
-    stack: Stack, variables: Mapping[str, str], optional: Sequence[str], *, root: Path | None = None
+    stacks: Sequence[ProjectStack],
+    variables: Mapping[str, str],
+    optional: Sequence[str],
+    *,
+    new_projects: Collection[ProjectStack] | None = None,
+    root: Path | None = None,
 ) -> list[Template]:
-    """Render every template for one project, sorted by path. root=None means the packaged ones."""
+    """Render common files at the root and stack files under each directory."""
     root = root or packaged_templates()
     manifest = load_manifest(root)
     owner = variables.get("owner", "")
-    variables = {**variables, _CODE_OWNER: f"@{owner}" if owner else ""}
+    variables = {
+        **variables,
+        _CODE_OWNER: f"@{owner}" if owner else "",
+        **derived_variables(stacks, variables),
+    }
     unknown = sorted(set(optional) - manifest.optional_skills)
     if unknown:
         raise KitError(f"unknown optional Kit skill {unknown[0]!r}")
     kept = _kept_by_git(root)
-    sources = {
-        **_layer(root, "common", kept),
-        **_layer(root, stack, kept),
-    }  # the stack layer overrides common
-    templates: list[Template] = []
-    for path, source in sorted(sources.items()):
-        skill = _skill(path)
-        if skill is not None and skill in manifest.optional_skills and skill not in optional:
-            continue
-        if path in manifest.seeded or path in manifest.new_project:
-            text = _render_text(
-                path, source.read_bytes().decode("utf-8"), variables, manifest.variables
-            )
-            templates.append(
-                Template(render_path(path, variables), "seeded", text.encode("utf-8"), None)
-            )
-        elif "__package__" in PurePosixPath(path).parts:
-            raise KitError(f"{path}: only seeded templates may use __package__")
-        else:
-            templates.append(Template(path, "managed", source.read_bytes(), None))
+    selected = set(stacks if new_projects is None else new_projects)
+    output = {}
+    writers: dict[str, str] = {}
+    for path, source in _layer(root, "common", kept).items():
+        output[path] = _render_template(path, path, source, variables, manifest, False)
+    root_names: set[str] = set()
+    ordered = sorted(stacks, key=lambda s: (s.directory, s.name))
+    for stack in ordered:
+        local = {
+            **variables,
+            **stack_variables([s for s in ordered if s.directory == stack.directory]),
+        }
+        for path, source in _layer(root, stack.name, kept).items():
+            if path == "AGENTS.md":
+                continue  # Directory guides are coalesced separately; the common guide owns root.
+            new = path in manifest.new_project.get(stack.name, ())
+            at_root = path.startswith("__root__/")
+            if (new and stack not in selected) or (at_root and stack.name in root_names):
+                continue
+            relative = path.removeprefix("__root__/") if at_root else under(stack.directory, path)
+            template = _render_template(relative, path, source, local, manifest, new)
+            if template.path in writers:
+                raise KitError(
+                    f"{writers[template.path]} and {stack.name} both write {template.path}; "
+                    "give one stack its own directory"
+                )
+            writers[template.path] = stack.name
+            output[template.path] = template
+        if stack in selected:
+            root_names.add(stack.name)
+    output.update(_guides(root, ordered, variables, manifest, kept))
+    templates = [
+        t
+        for t in output.values()
+        if not ((skill := _skill(t.path)) in manifest.optional_skills and skill not in optional)
+    ]
     skills = sorted({name for template in templates if (name := _skill(template.path)) is not None})
     templates += [
         Template(f".claude/skills/{name}", "managed", None, f"../../.agents/skills/{name}")
         for name in skills
     ]
     return sorted(templates, key=lambda template: template.path)
+
+
+def _render_template(
+    path: str,
+    source_path: str,
+    source: Path,
+    variables: Mapping[str, str],
+    manifest: KitManifest,
+    new: bool,
+) -> Template:
+    if source_path in manifest.seeded or new:
+        text = _render_text(path, source.read_text(), variables, manifest.variables)
+        return Template(render_path(path, variables), "seeded", text.encode(), None, new)
+    if "__package__" in PurePosixPath(path).parts:
+        raise KitError(f"{path}: only seeded templates may use __package__")
+    return Template(path, "managed", source.read_bytes(), None)
+
+
+def _guides(
+    root: Path,
+    stacks: Sequence[ProjectStack],
+    variables: Mapping[str, str],
+    manifest: KitManifest,
+    kept: frozenset[str] | None,
+) -> dict[str, Template]:
+    directories = guide_directories(stacks)
+    result = {}
+    for directory in directories:
+        descendants = [
+            s for s in stacks if s.directory == directory or s.directory.startswith(directory + "/")
+        ]
+        local = [s for s in descendants if s.directory == directory]
+        values = stack_variables(local or descendants[:1])
+        if not local:
+            values.update(stack_title="Directory navigation", guide_rows="")
+        rows = [values["guide_rows"]] if values["guide_rows"] else []
+        rows += [
+            navigation_row(PurePosixPath(child).name, "Directory navigation")
+            for child in directories
+            if str(PurePosixPath(child).parent) == directory
+        ]
+        values["guide_rows"] = "\n".join(rows)
+        source = _layer(root, descendants[0].name, kept).get("AGENTS.md")
+        if source is not None:
+            path = under(directory, "AGENTS.md")
+            result[path] = _render_template(
+                path, "AGENTS.md", source, {**variables, **values}, manifest, False
+            )
+    return result
 
 
 def read_optional_skills(root: Path) -> tuple[str, ...]:
@@ -199,7 +293,15 @@ def _render_text(
         for name in names:
             if name not in declared or name not in variables:
                 raise KitError(f"{path}: unknown template variable {name!r}")
-        empty = [name for name in names if not variables[name] and name != _CODE_OWNER]
+        if line.strip() in {"{{" + name + "}}" for name in DERIVED} and not any(
+            variables[name] for name in names
+        ):
+            continue
+        empty = [
+            name
+            for name in names
+            if not variables[name] and name not in DERIVED and name != _CODE_OWNER
+        ]
         line = _VARIABLE.sub(lambda match: _value(match.group(1), variables), line)
         if empty and not line.lstrip().startswith("#"):
             if not (path.endswith(".toml") or PurePosixPath(path).name == "CODEOWNERS"):
@@ -210,7 +312,7 @@ def _render_text(
 
 
 def _value(name: str, variables: Mapping[str, str]) -> str:
-    return variables[name] or ("" if name == _CODE_OWNER else f"<{name}>")
+    return variables[name] or ("" if name == _CODE_OWNER or name in DERIVED else f"<{name}>")
 
 
 def _kept_by_git(root: Path) -> frozenset[str] | None:
