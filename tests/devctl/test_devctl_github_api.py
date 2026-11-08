@@ -53,4 +53,21 @@ def test_unreachable_server_raises_without_the_token() -> None:
     with pytest.raises(GitHubError) as caught:
         GitHubApi(secret, base_url="http://127.0.0.1:9").request("GET", "/x")
     assert caught.value.status is None
+    assert "cannot connect to 127.0.0.1:9: ConnectionRefusedError: " in str(caught.value)
     assert secret not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:secret@api.github.com",
+        "https://[secret]",
+        "https://api.github.com:secret",
+        "https://api.github.com:0",
+        "https://api.git\nhub.com",
+    ],
+)
+def test_invalid_api_urls_are_rejected_without_quoting_credentials(url: str) -> None:
+    with pytest.raises(ValueError, match="GitHub API URL") as caught:
+        GitHubApi(secrets.token_urlsafe(48), base_url=url)
+    assert "secret" not in str(caught.value)

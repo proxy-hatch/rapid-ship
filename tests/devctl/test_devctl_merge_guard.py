@@ -186,6 +186,8 @@ def test_an_added_ledger_entry_is_not_protected_whatever_its_status(status: str)
         ("gh pr merge 7 --squash", "gh pr merge 7 --squash"),
         (f"gh pr merge 7 --squash --match-head-commit {OTHER}", "gh pr merge 7 --squash"),
         ("./devctl as worker gh pr merge 7 --squash", "./devctl as worker gh pr merge 7 --squash"),
+        ("nohup env gh pr merge 7 --squash", "nohup env gh pr merge 7 --squash"),
+        ("env -S 'gh pr merge 7' --squash", "env gh pr merge 7 --squash"),
     ],
 )
 def test_a_merge_not_pinned_to_the_checked_head_is_denied_with_the_exact_retry(
@@ -419,6 +421,53 @@ def test_only_gh_pr_merge_reads_github(tmp_path: Path) -> None:
     reader = RecordedOwner({})
     hooked(root, "gh pr merge 7", reader)
     assert reader.paths[:1] == [PR]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "env gh pr merge 7",
+        "env -a x gh pr merge 7",
+        "env -S 'gh pr merge 7'",
+        "nohup gh pr merge 7 &",
+        "echo 1 | xargs gh pr merge 7",
+        "command gh pr merge 7",
+        "noglob gh pr merge 7",
+        "builtin command gh pr merge 7",
+        "exec gh pr merge 7",
+        "time gh pr merge 7",
+        "time -p -- gh pr merge 7",
+        "timeout 60 gh pr merge 7",
+        "caffeinate -t 600 stdbuf -o L setsid gh pr merge 7",
+    ],
+)
+def test_a_wrapped_merge_reaches_the_guard(tmp_path: Path, line: str) -> None:
+    reader = RecordedOwner({})
+    assert hooked(project(tmp_path), line, reader) == ("deny", CANNOT.format("Not Found"))
+    assert reader.paths[:1] == [PR]
+
+
+@pytest.mark.parametrize(
+    "line", ["gh pr merge 7 --help", "gh pr merge -h", "./devctl as worker gh pr merge 7 --help"]
+)
+def test_a_help_request_reads_no_github(tmp_path: Path, line: str) -> None:
+    assert hooked(project(tmp_path), line, unread_github) == (None, "")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "gh pr merge 7 -b --help",
+        "gh pr merge 7 $(printf %s --subject) --help",
+        "env gh pr merge 7 $(printf %s --subject) --help",
+        "./devctl as worker gh pr merge 7 $(printf %s --subject) --help",
+        "env ./devctl as worker gh pr merge 7 $(printf %s --subject) --help",
+    ],
+)
+def test_a_help_flag_that_is_an_options_value_is_guarded(tmp_path: Path, line: str) -> None:
+    reader = RecordedOwner({})
+    assert hooked(project(tmp_path), line, reader) == ("deny", CANNOT.format("Not Found"))
+    assert reader.paths == [PR]
 
 
 def test_with_agent_identity_a_direct_merge_is_denied_before_the_guard_runs(tmp_path: Path) -> None:
