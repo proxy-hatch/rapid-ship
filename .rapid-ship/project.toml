@@ -19,7 +19,7 @@ reviewer_app_slug = "proxy-hatch-rs-reviewer"
 
 [escalation]
 # The Mode. true is Walk: the owner merges every pull request. false is Flight.
-every_pr = true
+every_pr = false
 
 [kit]
 optional = []          # opt-in Kit skills; none in this Kit version
