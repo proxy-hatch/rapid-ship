@@ -1,0 +1,136 @@
+# Upstream files that the Kit's forked skills copy. path is relative to rapid_ship/templates/common.
+[[file]]
+path = ".agents/skills/rs-codebase-design/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/SKILL.md"
+blob = "3f63c8146dd2604b419c929e9876b90c30d410e9"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DEEPENING.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/DEEPENING.md"
+blob = "cd94075cfd754d147555c5d747a16431ed4c7dd8"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DESIGN-IT-TWICE.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/codebase-design/DESIGN-IT-TWICE.md"
+blob = "d0990138c35c800bd821289a73115e52680c1620"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/productivity/writing-for-agents/SKILL.md"
+blob = "a37608daf6e835e767deecfb498facecaaba82ba"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL-MECHANICS.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/productivity/writing-for-agents/SKILL-MECHANICS.md"
+blob = "9cdbdb22aadc438755392216e75ad9a14cc9832e"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-tdd/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/tdd/SKILL.md"
+blob = "01eadaa34e7c9a63a67d6dc3cce1cc81b0e49985"
+status = "patched"
+
+[[file]]
+path = ".agents/skills/rs-tdd/tests.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/tdd/tests.md"
+blob = "7ab86479f925a1f9e8ba680af33cb3b12e015381"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-tdd/mocking.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/tdd/mocking.md"
+blob = "71cbfee674d93244ce81d1830b930ca9a69200bd"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/diagnosing-bugs/SKILL.md"
+blob = "d039541ddd1c46e6ddbd662fe99d49b686fc5e12"
+status = "patched"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/scripts/hitl-loop.template.sh"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/diagnosing-bugs/scripts/hitl-loop.template.sh"
+blob = "243198464a8401a7ba1d63b3708fa43c3d067665"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-pr/SKILL.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/pr/SKILL.md"
+blob = "84dd4fb2f068e9f6282690235d20dd505b418119"
+status = "patched"
+
+[[file]]
+path = ".agents/skills/rs-pr/CREDITS.md"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "skills/engineering/pr/CREDITS.md"
+blob = "5314bda2fa6005e264c9b5c1de7c425e719dc91f"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-tdd/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"
+
+[[file]]
+path = ".agents/skills/rs-pr/LICENSE.txt"
+repository = "mattpocock/skills"
+commit = "49dd158d1076134a641b33efb035946536778336"
+upstream = "LICENSE"
+blob = "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+status = "verbatim"

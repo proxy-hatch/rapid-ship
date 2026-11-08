@@ -19,6 +19,7 @@
 | The one supported way to do a recurring task | [Patterns](docs/patterns/README.md) |
 | Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |
 | This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |
+{{stack_rows}}
 
 Add a row for each directory guide.
 
@@ -27,17 +28,18 @@ Add a row for each directory guide.
 - Keep each change inside the scope you were asked to change. advisory
 - Prefer clear names, types, and simple control flow. advisory
 - Add comments only when they convey a contract, rationale, invariant, or external constraint that the code does not adequately express. advisory
-- Delete commented-out code. advisory
+- Delete commented-out code. {{lint_marker}}
 - Keep local explanations beside the relevant code and broader design reasoning in linked documentation. advisory
 - Do not cite the document, plan or decision behind the code in a comment; documentation points to code, not the reverse. advisory
 - A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. advisory
 - A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary. advisory
-- Give each TODO its author and the issue that tracks it. advisory
+- Give each TODO its author and the issue that tracks it. {{lint_marker}}
 - Mark every suppression with `rs-exception: EX-<n>` and list it in `.rapid-ship/exceptions.toml`, with its reason and removal condition. enforced by: check:exceptions
 - Do not invent explanations, weaken tests, or suppress correctness checks to make a change appear complete. advisory
 - Declare each removed test under `Removed tests:` in the PR body, with a reason. enforced by: check:diff
 - Update comments with behaviour changes, and investigate existing constraint comments before removing them. advisory
 - Do not introduce unnecessary abstractions or broaden a refactor just to eliminate a useful comment. advisory
+{{stack_rules}}
 - Editing or deleting a Kit-managed file (`kind = "managed"` in `.rapid-ship/kit.lock`) makes it this project's own and stops its Kit updates. To change behaviour and keep updates, use `tools/devctl/devctl_project/` or the settings in `.rapid-ship/`. To own a Kit file outright, list it under `[kit] exclude`. To give one back to the Kit, run `rapid-ship sync --revert <path>`. advisory
 
 ## Pull requests
@@ -51,5 +53,5 @@ Add a row for each directory guide.
 
 ## Shared language and decisions
 
-- Terms are in `GLOSSARY.md`, and decisions in `docs/adr/`.
+- Record the project's terms in `GLOSSARY.md` and its decisions in `docs/adr/`. A new project has neither until it records the first.
 - Follow the `rs-writing` skill for prose and the `rs-ponytail` skill for building only what is needed.

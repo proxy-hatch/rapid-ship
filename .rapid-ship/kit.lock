@@ -1,6 +1,9 @@
 # Written by rapid-ship. To own or drop a Kit file, list it under [kit] exclude in project.toml.
 kit_version = "0.2.0"
-stack = "python"
+
+[[stack]]
+name = "python"
+directory = "."
 
 [variables]
 owner = "proxy-hatch"
@@ -19,9 +22,154 @@ kind = "seeded"
 template_sha256 = "48c270b994a7c94887ddd832857cc00f40ec046f65f40bb6814159056d2df869"
 
 [[file]]
+path = ".agents/skills/rs-codebase-design/DEEPENING.md"
+kind = "managed"
+sha256 = "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/DESIGN-IT-TWICE.md"
+kind = "managed"
+sha256 = "52b52e75655a27aea59c6966b410bac82448968ad46ef1ebb9f07c274e3ae010"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-codebase-design/SKILL.md"
+kind = "managed"
+sha256 = "5522b5b206f09f94aa48b51d96206aa10d13b9ec800f177c379b038a4a0370de"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/SKILL.md"
+kind = "managed"
+sha256 = "5132732a1f2a218b2a68fdcaedf18601f5b660d48f4c9eb0bd7f8585744df522"
+
+[[file]]
+path = ".agents/skills/rs-diagnosing-bugs/scripts/hitl-loop.template.sh"
+kind = "managed"
+sha256 = "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
+
+[[file]]
+path = ".agents/skills/rs-ponytail/PONYTAIL-LICENSE.txt"
+kind = "managed"
+sha256 = "01a6c8b63df20dd3f6cd59474385aaf17cb32e4c1c16e11e34173171735e2fc6"
+
+[[file]]
+path = ".agents/skills/rs-ponytail/SKILL.md"
+kind = "managed"
+sha256 = "3446e24b7ad9f3eb846a1d3def99f06a63d9dbbfae723785c3889010f8469afd"
+
+[[file]]
+path = ".agents/skills/rs-pr/CREDITS.md"
+kind = "managed"
+sha256 = "a7a087127665d7298a72280ef6e19c41ad8404523712a788c8dc3ab414bc2497"
+
+[[file]]
+path = ".agents/skills/rs-pr/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-pr/SKILL.md"
+kind = "managed"
+sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
+
+[[file]]
+path = ".agents/skills/rs-tdd/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-tdd/SKILL.md"
+kind = "managed"
+sha256 = "ad933cb5d85dda5b886a18ba75179ca2219c19bf6533da8f92d70ee489be63b8"
+
+[[file]]
+path = ".agents/skills/rs-tdd/mocking.md"
+kind = "managed"
+sha256 = "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
+
+[[file]]
+path = ".agents/skills/rs-tdd/tests.md"
+kind = "managed"
+sha256 = "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/LICENSE.txt"
+kind = "managed"
+sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL-MECHANICS.md"
+kind = "managed"
+sha256 = "c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059"
+
+[[file]]
+path = ".agents/skills/rs-writing-for-agents/SKILL.md"
+kind = "managed"
+sha256 = "46ee278a8e2146cdb937eecdeb27d47480f5dc6fa9b230ae666b58815b18408d"
+
+[[file]]
+path = ".agents/skills/rs-writing/ASD-STE100-SKILL-LICENSE.txt"
+kind = "managed"
+sha256 = "d3c674e8592076c9021a59b55177adbcba6fd7e1710082becb922522b22ec672"
+
+[[file]]
+path = ".agents/skills/rs-writing/SKILL.md"
+kind = "managed"
+sha256 = "dad11c4e34d1c3bb3ae947dd7eab6800fa83a6834d28ce831baf8b53c880c7f0"
+
+[[file]]
+path = ".agents/skills/rs-writing/TECHNICAL-ENGLISH-LICENSE.txt"
+kind = "managed"
+sha256 = "2706e27d551ed6a940cd2dca40588f4f2235896e5e16195fcabf6b1b329ab3c8"
+
+[[file]]
 path = ".claude/settings.json"
 kind = "seeded"
 template_sha256 = "48d63a2812f316e84c31e074fe661406b3c1b02fbfae58d5a5c1d3b34c0c0de7"
+
+[[file]]
+path = ".claude/skills/rs-codebase-design"
+kind = "managed"
+link = "../../.agents/skills/rs-codebase-design"
+
+[[file]]
+path = ".claude/skills/rs-diagnosing-bugs"
+kind = "managed"
+link = "../../.agents/skills/rs-diagnosing-bugs"
+
+[[file]]
+path = ".claude/skills/rs-ponytail"
+kind = "managed"
+link = "../../.agents/skills/rs-ponytail"
+
+[[file]]
+path = ".claude/skills/rs-pr"
+kind = "managed"
+link = "../../.agents/skills/rs-pr"
+
+[[file]]
+path = ".claude/skills/rs-tdd"
+kind = "managed"
+link = "../../.agents/skills/rs-tdd"
+
+[[file]]
+path = ".claude/skills/rs-writing"
+kind = "managed"
+link = "../../.agents/skills/rs-writing"
+
+[[file]]
+path = ".claude/skills/rs-writing-for-agents"
+kind = "managed"
+link = "../../.agents/skills/rs-writing-for-agents"
 
 [[file]]
 path = ".githooks/pre-commit"
@@ -49,6 +197,11 @@ kind = "seeded"
 template_sha256 = "96351fe23c3a8fba4d23faf32ef2c118276a0c33b4649c0ead5f422457233cf1"
 
 [[file]]
+path = ".rapid-ship/metrics.toml"
+kind = "seeded"
+template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b376e8"
+
+[[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
 template_sha256 = "548c372e33ef0c0cd48b9501116d2607e000349485842f7354b2ce5e1209c398"
@@ -56,7 +209,7 @@ template_sha256 = "548c372e33ef0c0cd48b9501116d2607e000349485842f7354b2ce5e1209c
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "b7ddab8183291ea9f53c32f0b8690fe176845d11c2ca2d239265e67797be49fe"
+template_sha256 = "ad3f2dee3b419d9fbca78d6bcaf831a46d4f9daa85d49e4c7b69110311343cbe"
 
 [[file]]
 path = "ARCHITECTURE.md"
@@ -116,17 +269,17 @@ sha256 = "18dd6d2597d5702c0ede74a53b5d83a7760f440da11018dab93c575fdab3a55a"
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
 kind = "managed"
-sha256 = "f9f20f61071d2f8c27d5b0beb299a289bbcc8520fb901f2c03e23b228fcd4608"
+sha256 = "0ed56ffbcd045c3f89db38bfef1abd79bfc266b77aaaafa915896be059eaed28"
 
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
 kind = "managed"
-sha256 = "605a770b8070d1bc9761a4bc0cc56e8adb79c2f009f8f4ac4a9a708f7be9c8b4"
+sha256 = "c477b466507b70e0ec896d778f61e50bf8d5dc1da0bb91a5ab65b24701802b79"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
 kind = "managed"
-sha256 = "3ab800082396e6b68079b287c0bd3d4bbbfcb0b36b52ef9626d6022cc6643459"
+sha256 = "c669a0bb9083f920735543b9087e87842512e83421bae1d92304f048ef6546df"
 
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
@@ -141,7 +294,7 @@ sha256 = "761f21dabe9a04537f41b0471c44578f14949dd3ede7e04a940ac145f9c7dbe2"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "fb1c9d087463f2c4bc592c5fb69c8d53cf1f127aa226e459ec033632b6b00cf7"
+sha256 = "c1b8d54dc998187673088b7a3d3c2c4f668630d2a669cfee9c6ae521672c1dd2"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"
@@ -156,7 +309,7 @@ sha256 = "29f1a0aee0e5a0322b5b104a1fc27b8bba2a856b2f82ba53d91584186383390e"
 [[file]]
 path = "tools/devctl/devctl/check/references.py"
 kind = "managed"
-sha256 = "fc2d9c788a4f370c673d45a80e44343425d48c932f44a79cb0f92f02a5791d61"
+sha256 = "e6c5febb214bf2b4204eee4353f6967ed7f1a9c9b0e27f9253e2ff887d357777"
 
 [[file]]
 path = "tools/devctl/devctl/check/stacks/__init__.py"
@@ -182,6 +335,26 @@ sha256 = "d32b198aa22ee42f7bc6ab664d28157fa282d4eb8955ccee227c56f49cbac9a9"
 path = "tools/devctl/devctl/check/stacks/typescript.py"
 kind = "managed"
 sha256 = "7cb85e888efbbf37901d47a7e1af00651d733b0f92ba840c7b0add88de5dd6bd"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/typescript_references.py"
+kind = "managed"
+sha256 = "1c1ba9a32b0fa2b7bd01e2352e96dffc8a421c942d9fe81c93a7b3ee427d6cc4"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/typescript_suppressions.py"
+kind = "managed"
+sha256 = "35cfe701370350311fa49a13f7c91e3349f16297e41524135559c4fa380cac38"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/vitest.py"
+kind = "managed"
+sha256 = "c47fbd64b475f7dab51c377a83ed93259c639dea341c2c7e95a7f191a35b08ea"
+
+[[file]]
+path = "tools/devctl/devctl/check/stacks/vitest_tokens.py"
+kind = "managed"
+sha256 = "cea65202aa5b85f48cd1bd1444c8a197adad8a5803158e7d979cf62662ef7ef1"
 
 [[file]]
 path = "tools/devctl/devctl/check/steps.py"
@@ -302,6 +475,26 @@ sha256 = "0c54866ac0bb3f6c984673290056d7cc88c1acbeb131affc76d5b614631d1b18"
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
 sha256 = "759d72b37ff4001f16dd3dda97d3358dfa13c8aa9c8551c522354a8f0fab2f2a"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/__init__.py"
+kind = "managed"
+sha256 = "64b5a187b0037031957c02b5221276a92430c07257c962336a19c468d3274e57"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/_order.py"
+kind = "managed"
+sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/model.py"
+kind = "managed"
+sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/settings.py"
+kind = "managed"
+sha256 = "569279e468307ece0f31c623096cdf330a9585e96f204c28687d2060244f3ad9"
 
 [[file]]
 path = "tools/devctl/devctl/node.py"

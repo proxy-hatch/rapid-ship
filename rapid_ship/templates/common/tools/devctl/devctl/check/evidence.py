@@ -18,7 +18,9 @@ from collections.abc import Sequence
 from devctl.check.markdown import fenced_blocks, section, without_fences
 from devctl.check.steps import CheckContext, StepResult, Tier, failed, not_applicable, passed
 
-_DECLARATION = re.compile(r"^\s*[-*]\s+`?(?P<test>[^\s`]+::[^\s`]+?)`?:\s+(?P<reason>\S.*)$")
+_DECLARATION = re.compile(
+    r"^\s*[-*]\s+(?P<quoted>`)?(?P<test>(?(quoted)[^`\n]+::[^`\n]+|[^\s`]+::[^\s`]+?))(?(quoted)`):\s+(?P<reason>\S.*)$"
+)
 _COMMAND = re.compile(r"^\s*[-*]\s+`[^`]+`:\s*\S")
 _ITEM = re.compile(r"^\s*[-*+]\s")
 
@@ -58,8 +60,8 @@ def _removed_items(lines: Sequence[str]) -> dict[int, str]:
 def removed_test_declarations(body: str) -> tuple[dict[str, str], list[str]]:
     """The removed tests the body declares, as {"path::name": reason}, and the unreadable items.
 
-    Only the Evidence section is read. Each item is `- `<path>::<name>`: <reason>`, with or
-    without the backticks.
+    Only the Evidence section is read. Each item is `- `<path>::<name>`: <reason>`.
+    Backticks are required for spaces; unquoted identities contain no whitespace.
     """
     text = evidence_section(body)
     if text is None:
@@ -130,7 +132,8 @@ class EvidenceStep:
             problems.append(_NO_NOT_COVERED)
         # Whether each removed test is declared is the diff step's check, so it is not repeated.
         problems += [
-            f"Removed tests: cannot read '{item}'; write '- `<path>::<test>`: <reason>'"
+            f"Removed tests: cannot read '{item}'; write '- `<path>::<test>`: <reason>' "
+            "(use backticks for spaces)"
             for item in removed_test_declarations(body)[1]
         ]
         return failed(self.name, *problems) if problems else passed(self.name)

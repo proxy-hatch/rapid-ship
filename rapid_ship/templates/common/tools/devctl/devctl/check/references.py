@@ -1,7 +1,8 @@
 """Resolve references: the names of the checks that enforce a Rule or a Pattern.
 
 A reference is `<kind>:<value>`. `check` and `test` work for every stack. `ruff`, `banned`,
-`contract` and `type` read pyproject.toml and exist only for the Python stack. A file that a
+`contract` and Python `type` read pyproject.toml. TypeScript uses ESLint and tsc;
+`test` selects Python identities, Vitest title chains or word search by file path. A file that a
 reference reads or names counts only when git tracks it.
 """
 
@@ -12,6 +13,7 @@ import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import PurePosixPath
 
+from devctl.check.stacks import typescript_references, vitest
 from devctl.check.stacks.python import test_identities
 from devctl.check.steps import CheckContext
 from devctl.check.tracked import TrackedFiles
@@ -58,10 +60,11 @@ def resolve(
         return _check(reference, value, context, holder)
     if kind == "test":
         return _test(reference, value, context, tracked)
-    if kind not in _PYTHON_KINDS:
+    if kind not in _PYTHON_KINDS | {"eslint"}:
         return f"{reference}: unknown reference kind {kind}"
     owners = context.project.owners(holder)
-    candidates = [stack for stack in (owners or context.project.stacks) if stack.name == "python"]
+    stack_name = _stack_name(kind, value)
+    candidates = [stack for stack in (owners or context.project.stacks) if stack.name == stack_name]
     if not candidates:
         return f"{reference}: unknown reference kind {kind} for {holder}"
     if len(candidates) > 1:
@@ -70,6 +73,13 @@ def resolve(
             f"{reference}: ambiguous for {holder}: {choices}; use test:<path>::<name> or "
             "check:<step> with a directory-qualified name, such as lint (backend)"
         )
+    if stack_name == "typescript":
+        resolver = (
+            typescript_references.resolve_eslint
+            if kind == "eslint"
+            else typescript_references.resolve_type
+        )
+        return resolver(reference, value, tracked, candidates[0])
     path = under(candidates[0].directory, "pyproject.toml")
     try:
         data = _pyproject(tracked, path)
@@ -79,6 +89,15 @@ def resolve(
         return _PYTHON_RESOLVERS[kind](reference, value, tracked, data, path)
     except _Unreadable as error:
         return f"{reference}: {path}: {error}"
+
+
+def _stack_name(kind: str, value: str) -> str:
+    if kind != "type":
+        return "typescript" if kind == "eslint" else "python"
+    suffix = PurePosixPath(value).suffix
+    if suffix in (".ts", ".tsx", ".mts", ".cts"):
+        return "typescript"
+    return "python" if suffix in (".py", ".pyi") else ""
 
 
 def _check(reference: str, step: str, context: CheckContext, holder: str) -> str | None:
@@ -108,13 +127,17 @@ def _test(reference: str, value: str, context: CheckContext, tracked: TrackedFil
         text = (tracked.root / path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         return f"{reference}: cannot read {path}: {error}"
-    if PurePosixPath(path).suffix == ".py":
-        try:
+    try:
+        if PurePosixPath(path).suffix == ".py":
             found = name in test_identities(text)
-        except SyntaxError as error:
-            return f"{reference}: {path} does not parse: {error.msg} (line {error.lineno})"
-    else:
-        found = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+        elif vitest.is_test_file(path):
+            found = name in vitest.test_identities(text)[0]
+        else:
+            found = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+    except SyntaxError as error:
+        return f"{reference}: {path} does not parse: {error.msg} (line {error.lineno})"
+    except ValueError as error:
+        return f"{reference}: {path} does not parse: {error}"
     return None if found else f"{reference}: {path} has no test named {name}"
 
 
