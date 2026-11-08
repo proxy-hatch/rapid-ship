@@ -18,7 +18,6 @@ TEMPLATE_SKILLS = tuple(
 )
 _OPTIONAL = load_manifest().optional_skills - set(read_optional_skills(REPOSITORY))
 KIT_SKILLS = tuple(name for name in TEMPLATE_SKILLS if name not in _OPTIONAL)
-OWN_SKILLS = ("rapid-ship-engineering",)
 
 
 def test_bundled_skill_dependencies_resolve_inside_package() -> None:
@@ -35,35 +34,17 @@ def test_bundled_skill_dependencies_resolve_inside_package() -> None:
             assert dependency.is_relative_to(skill_dir), (document, target)
             assert dependency.is_file(), (document, target)
 
-    package = REPOSITORY / "rapid_ship/skills"
-    for document in sorted(package.rglob("*.md")):
-        for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
-            link = urlparse(target)
-            if link.scheme or not link.path:
-                continue
-            dependency = (document.parent / unquote(link.path)).resolve()
-            assert dependency.is_relative_to(package), (document, target)
-            assert dependency.is_file(), (document, target)
 
-
-@pytest.mark.parametrize("skill", KIT_SKILLS + OWN_SKILLS)
+@pytest.mark.parametrize("skill", KIT_SKILLS)
 def test_checkout_discovery_resolves_to_packaged_skill(skill: str) -> None:
-    if skill in OWN_SKILLS:
-        canonical = REPOSITORY / "rapid_ship/skills" / skill
-        for surface in (".agents", ".claude"):
-            discovered = REPOSITORY / surface / "skills" / skill
-            assert discovered.is_dir()
-            assert discovered.samefile(canonical)
-            assert (discovered / "SKILL.md").is_file()
-    else:
-        discovered = REPOSITORY / ".agents/skills" / skill
-        assert discovered.is_dir()
-        assert not discovered.is_symlink()
-        assert (discovered / "SKILL.md").is_file()
+    discovered = REPOSITORY / ".agents/skills" / skill
+    assert discovered.is_dir()
+    assert not discovered.is_symlink()
+    assert (discovered / "SKILL.md").is_file()
 
-        claude = REPOSITORY / ".claude/skills" / skill
-        assert claude.is_symlink()
-        assert claude.readlink() == Path(f"../../.agents/skills/{skill}")
+    claude = REPOSITORY / ".claude/skills" / skill
+    assert claude.is_symlink()
+    assert claude.readlink() == Path(f"../../.agents/skills/{skill}")
 
 
 @pytest.mark.parametrize("surface", [".agents", ".claude"])
@@ -71,4 +52,4 @@ def test_checkout_discovers_exactly_the_packaged_skills(surface: str) -> None:
     discovered = {
         p.name for p in (REPOSITORY / surface / "skills").iterdir() if not p.name.startswith(".")
     }
-    assert discovered == set(KIT_SKILLS) | set(OWN_SKILLS)
+    assert discovered == set(KIT_SKILLS)

@@ -10,7 +10,6 @@ This root-level directory is the importable `rapid_ship` package behind the `rap
 - [kit](kit/AGENTS.md) holds the Kit commands: templates, lock, `init`, `status`, `sync` and their git calls.
 - [templates](templates/AGENTS.md) holds the Kit's files: the template tree and `kit.toml`. The wheel ships it, and this repository vendors it.
 - [files.py](files.py) writes files for the Kit. `atomic_replace` replaces a file atomically, `create_file` creates one and never overwrites it, and `safe_path` and `relative_parts` refuse a path that leaves the repository or passes through a symlink. Writers validate the path with `safe_path`, create the parent directory and own serialization.
-- [skills](skills/AGENTS.md) holds the engineering skill used while working on this repository.
 - [upstream.lock](upstream.lock) pins upstream repositories and commits for forked Kit skills.
 
 `rapid_ship` cannot import devctl, so `app_keychain.keychain_service` and `app_flow.APP_PERMISSIONS` repeat devctl's; a test in `tests/devctl/test_devctl_github_app.py` keeps them equal. An import-linter contract in `pyproject.toml` keeps the order of imports: `github_app` and `app_import`, which do not import each other, then `app_flow`, then `app_keychain`.

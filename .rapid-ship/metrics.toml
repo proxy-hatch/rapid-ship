@@ -1,0 +1,28 @@
+# Suggested thresholds and project-defined metrics for ./devctl metrics.
+# Changes need the owner: this file is in the Protected set.
+# devctl reports a breach and takes no action. It rejects an unknown key or a value out of range.
+
+window = 30   # integer, at least 1: the last merged PRs counted
+              # (agent PRs with Agent identity, every PR without it)
+
+[thresholds]  # upper limits, numbers of at least 0; delete a line to report that metric without one
+revisions = 1.0        # mean Revisions per merged PR; needs Agent identity
+reverts = 1            # PRs in the window that later commits reverted, in whole or in part
+red_merges = 1         # PRs whose merge commit failed devctl check on the default branch
+closed_unmerged = 3    # PRs closed without merging during the window's span
+# corrections = 10     # Corrections ledger entries dated in the span; agent-reported
+# alarms = 0           # a project-defined metric, by its id
+
+# A project-defined metric. source is "issues" or "deployments".
+# [[metric]]
+# id = "alarms"            # lowercase letters, digits and _; not a basic metric's id
+# title = "Alarms"
+# source = "issues"        # counts issues with this label opened during the span
+# label = "alarm"
+#
+# [[metric]]
+# id = "rollbacks"
+# title = "Deploy rollbacks"
+# source = "deployments"
+# environment = "production"
+# count = "rollbacks"      # "rollbacks" (the default) or "failures"

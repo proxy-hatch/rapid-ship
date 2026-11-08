@@ -618,7 +618,20 @@ Evidence: Not covered: the patched forks, `rs-writing` and `rs-ponytail`, which 
 
 ### 7.1b
 
-Pending.
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
+| `uv run pytest tests/test_kit_upstream.py tests/test_kit_skills.py tests/test_kit_contents.py tests/test_skill_discovery.py tests/devctl/test_devctl_evidence_step.py tests/devctl/test_devctl_doctor_github_limits.py -q` | exit 0: `143 passed in 17.32s` |
+| `uv run --locked mypy` | exit 0: `Success: no issues found in 147 source files` |
+| `uv run --locked vulture --min-confidence 0` | exit 0: no output |
+| `uv run --locked deptry . --no-ansi --json-output .devctl/state/worker-71b/deptry-report.json` | exit 0: `Success! No dependency issues found.` |
+| `uv run rapid-ship sync --in-place` | exit 0: `Kit is current; nothing to sync.` |
+| `uv run rapid-ship status --strict` | exit 0: `75 managed files unchanged.` |
+| `./devctl check --tier fast` | exit 0: format, lint, map, exceptions, file-size, kit and vendored passed |
+| `git diff --check` and `git diff --cached --check` | exit 0: clean whitespace |
+| Full check and website build | Not run locally; hosted CI is the check of record after publication |
+
+Evidence: Not covered: the skills' behaviour in a live Session, which Task 9 exercises.
 
 ### 7.2
 
@@ -641,6 +654,8 @@ Pending.
 | `./devctl check --tier full` and website build | Pending hosted runs after publication; not run locally. |
 
 Pinned-main intermediate integration: `1596780282fb543c7e033dfeafe59b17c98b216a`. Local diagnostics: `uv run --locked mypy` exit 0, 148 source files; `uv run --locked vulture --min-confidence 0` exit 0, no findings; `uv run --locked deptry . --no-ansi --json-output <report-path>` exit 0, no dependency issues; `uv run rapid-ship status --strict` exit 0, 59 managed files unchanged; `./devctl check --tier fast` exit 0, all seven steps passed. The diff against pinned main counts 140 of 1,500 lines. `uv run pytest -q` exit 0, 2,099 passed in 662.56 seconds. Hosted full and site checks remain pending.
+
+Pinned main `4a6387c46c279e7f676dccfcb602b1fbec268998` integration diagnostics: `uv run pytest -q` exit 0, 2,164 passed in 358.46 seconds; `uv run --locked mypy` exit 0, 155 source files; `uv run --locked vulture --min-confidence 0` exit 0, no findings; `uv run --locked deptry . --no-ansi --json-output <report-path>` exit 0, no dependency issues; `uv run rapid-ship status --strict` exit 0, 83 managed files unchanged; `./devctl check --tier fast` exit 0, all seven steps passed; `git diff --check` exit 0. The diff step against pinned main passed with 140 of 1,500 counted lines. Hosted full and site checks remain pending.
 
 The final audit wording waits for the merged golden-path library (PRO-167): reconcile the shared audit and Health reads with that library and remove obsolete feature-map drift without inventing a format, location, command or check. Not covered: `rs-health` in a Session, which Task 9 runs; `rs-contribute`'s push and PR, which would open a real PR on rapid-ship. This intermediate evidence is not independent review or final readiness.
 

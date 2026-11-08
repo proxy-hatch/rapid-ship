@@ -3,6 +3,13 @@
 import re
 from pathlib import Path
 
+import pytest
+
+from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
+from devctl.repo import Repo
+from rapid_ship.cli import main
+from rapid_ship.kit.templates import load_manifest
+
 REPOSITORY = Path(__file__).resolve().parents[1]
 USER_INVOKED = frozenset({"rs-setup", "rs-health", "rs-contribute"})
 
@@ -24,3 +31,26 @@ def test_every_kit_skill_mention_resolves() -> None:
     for path in skills_dir.glob("**/*.md"):
         for name in re.findall(r"\brs-[a-z0-9-]+", path.read_text(encoding="utf-8")):
             assert name in names, f"{path}: {name} is not a Kit skill"
+
+
+def test_the_root_guides_name_the_writing_and_ponytail_skills() -> None:
+    templates = REPOSITORY / "rapid_ship/templates"
+    for guide in (templates / "common/AGENTS.md", templates / "python/AGENTS.md"):
+        for name in ("rs-writing", "rs-ponytail"):
+            assert name in guide.read_text()
+            assert (templates / "common/.agents/skills" / name / "SKILL.md").is_file()
+
+
+def test_every_kit_skill_has_its_named_skill_md_and_claude_link_in_a_new_project(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(git_repo)
+    assert main(["init", "--stack", "agnostic", "--owner", "octo"]) == 0
+    files = Repo.discover(git_repo).tracked_files()
+    assert skill_errors(git_repo, files) == []
+    assert skill_file_errors(git_repo, files) == []
+    assert skill_alias_errors(git_repo, files) == []
+    templates = REPOSITORY / "rapid_ship/templates/common/.agents/skills"
+    optional = load_manifest().optional_skills
+    expected = {p.parent.name for p in templates.glob("*/SKILL.md")} - optional
+    assert {p.name for p in (git_repo / ".claude/skills").iterdir()} == expected
