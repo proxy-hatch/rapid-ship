@@ -9,6 +9,7 @@ in stacks/ are the one definition of suppressions and their rule names.
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from collections import Counter
@@ -19,7 +20,18 @@ from pathlib import Path, PurePosixPath
 from devctl.check.kit import KitLockError, managed_paths
 from devctl.check.stacks.agnostic import text_rules
 from devctl.check.stacks.python import autouse_fixtures, comment_rules, comments, marker_rules
-from devctl.check.stacks.python_dead_code import PYPROJECT, toml_allowlist, tool_line_rules
+from devctl.check.stacks.python_dead_code import (
+    PYPROJECT,
+    AllowlistItem,
+    toml_allowlist,
+    tool_line_rules,
+)
+from devctl.check.stacks.typescript_suppressions import (
+    KNIP_SETTINGS,
+    OTHER_KNIP_SETTINGS,
+    knip_allowlist,
+    line_rules,
+)
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
 from devctl.settings import ExceptionEntry, ProjectSettings, SettingsError, load_exceptions, under
@@ -57,6 +69,7 @@ class ExceptionsStep:
                     root, files, managed, under(stack.directory, PYPROJECT)
                 )
             ]
+            unplaced += _knip_errors(root, files, managed, context.project)
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
         errors = [*exception_errors(lines, entries), *unplaced]
@@ -79,6 +92,7 @@ def scan(
         text = _readable(root, path, managed)
         if text is None:
             continue
+        typescript = any(stack.name == "typescript" for stack in project.owners(path))
         python = any(stack.name == "python" for stack in project.owners(path))
         if python and path.endswith(_PYTHON_SOURCE):
             found += _python_lines(path, text)
@@ -87,9 +101,56 @@ def scan(
             for stack in project.stacks
         ):
             found += _pyproject_lines(path, text)
+        elif typescript:
+            extra = {n: line_rules(path, line) for n, line in enumerate(text.split("\n"), 1)}
+            if any(
+                path == under(stack.directory, KNIP_SETTINGS)
+                for stack in project.stacks
+                if stack.name == "typescript"
+            ):
+                for item in _knip_items(text, path)[0]:
+                    extra.setdefault(item.line, []).append(item.rule)
+            found += _text_lines(path, text, extra)
         else:
             found += _text_lines(path, text)
     return found
+
+
+def _knip_items(text: str, path: str) -> tuple[list[AllowlistItem], list[str]]:
+    try:
+        return knip_allowlist(text, path)
+    except ValueError as error:
+        raise SettingsError(f"{path}: {error}") from error
+
+
+def _knip_errors(
+    root: Path, files: Sequence[str], managed: frozenset[str], project: ProjectSettings
+) -> list[str]:
+    errors: list[str] = []
+    for stack in project.stacks:
+        if stack.name != "typescript":
+            continue
+        for name in (KNIP_SETTINGS, *OTHER_KNIP_SETTINGS, "package.json"):
+            path = under(stack.directory, name)
+            text = _readable(root, path, managed) if path in files else None
+            if text is None:
+                continue
+            if name == KNIP_SETTINGS:
+                errors += _knip_items(text, path)[1]
+                continue
+            if name == "package.json":
+                try:
+                    data = json.loads(text)
+                except ValueError as error:
+                    raise SettingsError(f"{path}: {error}") from error
+                if not isinstance(data, dict):
+                    raise SettingsError(f"{path}: package settings must be an object")
+                if "knip" not in data:
+                    continue
+            errors.append(
+                f"{path}: devctl reads knip's settings only from knip.jsonc; move them there"
+            )
+    return errors
 
 
 def _allowlist_errors(
@@ -170,6 +231,8 @@ def _pyproject_lines(path: str, text: str) -> list[SuppressedLine]:
 
 def normal_rule(rule: str) -> str:
     """'S607, S603' -> 'S603,S607'; 'zizmor:b, a' -> 'zizmor:a,b'."""
+    if rule.strip().startswith("knip."):
+        return rule.strip()
     prefix, colon, names = rule.strip().rpartition(":")
     parts = sorted(part for part in re.split(r"[\s,]+", names) if part)
     return f"{prefix.strip()}{colon}{','.join(parts)}"

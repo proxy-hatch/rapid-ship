@@ -872,3 +872,16 @@ def test_base_policy_does_not_consult_the_head_filesystem(
 
     assert actual == expected
     assert reader.paths[:2] == [PR, SETTINGS]
+
+
+@pytest.mark.parametrize("base", [FLIGHT, IDENTITY])
+def test_flight_leaves_a_declared_spaced_behavioural_removal_to_the_owner(
+    base: str,
+) -> None:
+    line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
+    for path, expected in (
+        ("frontend/a.test.ts", DECLARES.format(REMOVED_BEHAVIOURAL)),
+        ("tests/unit/a.test.ts", None),
+    ):
+        body = evidence("", "Removed tests:", f"- `{path}::a > b`: gone")
+        assert guarded(line, owner(body=body, base=base)) == expected
