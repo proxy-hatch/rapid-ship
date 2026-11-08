@@ -4,11 +4,12 @@ with its base.
 The base is the PR base in CI, or the merge base with the default branch locally. The head is
 the work tree, with untracked files that Git does not ignore.
 
-On the Python stack, a change fails when it removes a test that the PR's Evidence section does
-not declare, adds an assertion that cannot fail, or adds an autouse fixture to a conftest.py
-without an exception marker. A test is removed when it is present at the base and absent
-everywhere at the head. A test's identity is its name within its file (`test_x` or
-`TestA::test_x`), so a test moved to another file is not removed.
+On Python and TypeScript stacks, a change fails when it removes a test that the PR's Evidence
+section does not declare or adds an assertion that cannot fail. Python also rejects a new
+autouse fixture in conftest.py without an exception marker. A test is removed when it is
+present at the base and absent everywhere at the head. Its identity is its name within its
+file (`test_x` or `TestA::test_x` for Python, or a Vitest title chain). Moving a test to another
+file therefore does not remove it.
 
 On every stack, a change fails when it adds and removes more than DIFF_CAP counted lines without
 a declared overage. The step lists the Protected paths the change touches and the Corrections
@@ -27,6 +28,7 @@ from typing import Literal
 from devctl.check.evidence import over_cap_reason, removed_test_declarations
 from devctl.check.exceptions import MARKER
 from devctl.check.kit import LOCK_PATH, KitLockError, managed_paths, managed_paths_in
+from devctl.check.stacks import vitest
 from devctl.check.stacks.python import (
     autouse_fixtures,
     comments,
@@ -221,39 +223,54 @@ def _diff_cap(counted: int, body: str | None) -> tuple[list[str], str]:
     return [_OVER_CAP.format(counted, DIFF_CAP) + (_NO_BODY if body is None else "")], note
 
 
-def _base_tests(repo: Repo, base: str, path: str) -> list[str] | None:
-    """The tests in path at base; None when that text does not parse."""
-    try:
-        return test_identities(repo.git("show", f"{base}:{path}"))
-    except _UNPARSABLE:
-        return None
+def _read_tests(path: str, source: str) -> tuple[list[str], list[int]]:
+    return (
+        vitest.test_identities(source)
+        if vitest.is_test_file(path)
+        else (test_identities(source), [])
+    )
 
 
 def _changed_tests(
     repo: Repo, base: str, changes: Sequence[Change]
-) -> tuple[dict[str, tuple[list[str], list[str]]], list[str]]:
-    """Each changed test file's tests at (base, head), and a problem per file that stops parsing.
+) -> tuple[dict[str, tuple[list[str], list[str]]], list[str], list[str]]:
+    """Changed identities, parse problems and unchecked base titles.
 
-    A head that does not parse counts as holding its base's tests, so its problem is reported
-    once rather than as a removal of each test.
+    An unreadable head retains its base identities to avoid false removals.
     """
     identities: dict[str, tuple[list[str], list[str]]] = {}
     problems: list[str] = []
+    notes: list[str] = []
     for change in changes:
-        if not is_test_file(change.path):
+        path = change.path
+        if not (is_test_file(path) or vitest.is_test_file(path)):
             continue
-        before = None if change.status == "A" else _base_tests(repo, base, change.path)
-        head = repo.root / change.path
+        readable_base = True
+        try:
+            before, unchecked = (
+                ([], [])
+                if change.status == "A"
+                else _read_tests(path, repo.git("show", f"{base}:{path}"))
+            )
+        except _UNPARSABLE:
+            before, unchecked = [], []
+            readable_base = False
+        notes += [
+            f"{path}:{line}: test title is not a plain string; not checked" for line in unchecked
+        ]
         try:
             after = (
-                [] if change.status == "D" else test_identities(head.read_text(encoding="utf-8"))
+                []
+                if change.status == "D"
+                else _read_tests(path, (repo.root / path).read_text(encoding="utf-8"))[0]
             )
-        except _UNPARSABLE as error:
-            if before is not None:
-                problems.append(f"{change.path}: cannot parse the tests at head ({error})")
-            after = before or []
-        identities[change.path] = (before or [], after)
-    return identities, problems
+        except (*_UNPARSABLE, OSError) as error:
+            verb = "read" if vitest.is_test_file(path) else "parse"
+            if readable_base or vitest.is_test_file(path):
+                problems.append(f"{path}: cannot {verb} the tests at head ({error})")
+            after = before
+        identities[path] = (before, after)
+    return identities, problems, notes
 
 
 def is_unit_test(path: str, unit_patterns: Sequence[str]) -> bool:
@@ -313,9 +330,10 @@ def _added_tautologies(path: str, before: str, after: str) -> list[str]:
     Copies are matched by their text. The first copies in the file count as the existing ones,
     so an added copy is reported at its later line.
     """
-    existing = Counter(text for _line, text in _found(tautologies, before))
+    reader = vitest.tautologies if vitest.is_test_file(path) else tautologies
+    existing = Counter(text for _line, text in _found(reader, before))
     problems: list[str] = []
-    for line, text in sorted(_found(tautologies, after)):
+    for line, text in sorted(_found(reader, after)):
         if existing[text] > 0:
             existing[text] -= 1
         else:
@@ -337,17 +355,18 @@ def _new_autouse(path: str, before: str, after: str) -> list[str]:
     ]
 
 
-def _python_rules(
+def _test_rules(
     context: CheckContext, base: str, changes: Sequence[Change]
 ) -> tuple[list[str], list[str]]:
     """Problems, then notes, from the removed-test, tautology and autouse rules."""
     repo = context.repo
-    identities, unparsable = _changed_tests(repo, base, changes)
+    identities, unparsable, unchecked = _changed_tests(repo, base, changes)
     problems, notes = _removals(context, _removed(identities))
     problems += unparsable
+    notes += unchecked
     kept = [change for change in changes if change.status != "D"]
     for change in kept:
-        if is_test_file(change.path):
+        if is_test_file(change.path) or vitest.is_test_file(change.path):
             problems += _added_tautologies(change.path, *_texts(repo, base, change))
     for change in kept:
         if PurePosixPath(change.path).name == "conftest.py":
@@ -369,12 +388,22 @@ class DiffStep:
         notes: list[str] = []
         try:
             changes = changed_files(context.repo, base)
-            python_changes = [
+            test_changes = [
                 change
                 for change in changes
-                if any(stack.name == "python" for stack in context.project.owners(change.path))
+                if any(
+                    (
+                        stack.name == "python"
+                        and (
+                            is_test_file(change.path)
+                            or PurePosixPath(change.path).name == "conftest.py"
+                        )
+                    )
+                    or (stack.name == "typescript" and vitest.is_test_file(change.path))
+                    for stack in context.project.owners(change.path)
+                )
             ]
-            problems, notes = _python_rules(context, base, python_changes)
+            problems, notes = _test_rules(context, base, test_changes)
             notes += _protected(context.repo.root, changes)
             counted = counted_lines(context, base, changes)
         except (RepoError, OSError) as error:
