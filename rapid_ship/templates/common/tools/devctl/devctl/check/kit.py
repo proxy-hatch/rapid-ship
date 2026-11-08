@@ -17,12 +17,12 @@ from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from devctl.check.steps import CheckContext, StepResult, Tier, failed, passed
+from devctl.settings import STACK_NAMES
 
 LOCK_PATH = ".rapid-ship/kit.lock"
 # rapid-ship is fetched from a git tag, so a message that tells the owner to run it names one.
 RAPID_SHIP_SOURCE = "git+https://github.com/proxy-hatch/rapid-ship"
 
-_STACKS = ("python", "agnostic")
 _KINDS = ("managed", "seeded")
 
 
@@ -103,8 +103,18 @@ def _parsed_lock(text: str) -> _Lock:
     kit_version = data.get("kit_version")
     if not isinstance(kit_version, str):
         raise _lock_error("kit_version must be a string")
-    if data.get("stack") not in _STACKS:
-        raise _lock_error("stack must be python or agnostic")
+    stacks = data.get("stack")
+    if not (isinstance(stacks, str) and stacks in STACK_NAMES) and not (
+        isinstance(stacks, list)
+        and stacks
+        and all(
+            isinstance(s, dict)
+            and s.get("name") in STACK_NAMES
+            and isinstance(s.get("directory"), str)
+            for s in stacks
+        )
+    ):
+        raise _lock_error("stack must be [[stack]] tables with name and directory")
     items = data.get("file", [])
     if not isinstance(items, list):
         raise _lock_error("file must be a list of [[file]] entries")

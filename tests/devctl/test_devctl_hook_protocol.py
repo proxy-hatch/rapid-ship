@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from check_workspace import Workspace, new_workspace
+from check_workspace import Workspace, new_workspace, stack_table
 from devctl import cli
 from devctl.hook import run_hook
 from devctl.hook_protocols import WIRED_TOOLS, Decision, ToolCall, answer, read_event
@@ -38,7 +38,7 @@ def with_command(name: str, cwd: Path, command: str) -> bytes:
 
 def project(tmp_path: Path) -> Workspace:
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n')
+    workspace.write(".rapid-ship/project.toml", stack_table("python"))
     return workspace
 
 
@@ -190,7 +190,10 @@ def test_a_harmless_event_gets_no_decision(
 
 def invalid_settings(tmp_path: Path) -> bytes:
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(".rapid-ship/project.toml", 'stack = "python"\n\n[linear]\nteam = "x"\n')
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
+    )
     return recorded(cwd=str(workspace.root))
 
 
@@ -290,7 +293,7 @@ def test_an_exception_inside_the_rules_is_an_internal_error(
 
 def test_run_hook_judges_an_edit_by_its_linked_worktree(tmp_path: Path) -> None:
     main = new_workspace(tmp_path / "main")
-    main.write(".rapid-ship/project.toml", 'stack = "python"\n')
+    main.write(".rapid-ship/project.toml", stack_table("python"))
     main.write(".github/CODEOWNERS", "* @o\n")
     main.commit()
     main.git("worktree", "add", "-q", "-b", "wt", ".worktrees/wt")

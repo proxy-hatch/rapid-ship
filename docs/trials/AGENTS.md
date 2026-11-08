@@ -8,6 +8,8 @@ The controller-era runtime trials and their frozen bundles are at the tag `archi
 
 [2026-10-28-agy-hook-outside-repository.md](2026-10-28-agy-hook-outside-repository.md) records original trust and launch evidence, the shell-free launcher contract, deterministic checks, unchanged tool-cwd limits and blocked live ACP verification.
 
+[2026-11-06-flight-mode.md](2026-11-06-flight-mode.md) records the dog-fooding Flight settings inventory, local validation and remaining live evidence.
+
 Record the tested versions, conditions, commands, results, and limits for each trial.
 Identify deterministic simulations, live provider calls, and later reruns separately.
 Preserve the relationship between each report, its saved artifacts, and the revision actually tested.

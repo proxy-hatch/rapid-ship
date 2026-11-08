@@ -21,7 +21,9 @@
 # /**/AGENTS.md @{{owner}}
 # /**/CLAUDE.md @{{owner}}
 # /.rapid-ship/ @{{owner}}
+{{stack_patterns}}
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}
 # /zizmor.yml @{{owner}}
 # /zizmor.yaml @{{owner}}
+{{stack_protected}}

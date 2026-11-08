@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from devctl.check.kit import KitLockError, managed_paths
+from devctl.check.stacks.python import SOURCE_EXTENSIONS
 from devctl.check.steps import (
     CheckContext,
     StepResult,
@@ -21,12 +22,12 @@ from devctl.check.steps import (
     passed,
 )
 from devctl.repo import RepoError
-from devctl.settings import ExceptionEntry, SettingsError, load_exceptions
+from devctl.settings import ExceptionEntry, ProjectSettings, SettingsError, load_exceptions
 
 LINE_CAP = 500
 
 _RULE = "file-size"
-_PYTHON_SOURCE = (".py", ".pyi")
+_EXTENSIONS = {"python": SOURCE_EXTENSIONS, "typescript": (".ts", ".tsx")}
 
 
 class FileSizeStep:
@@ -42,7 +43,7 @@ class FileSizeStep:
             entries = load_exceptions(root)
             managed = managed_paths(root, project.excluded)
             files = context.repo.files()
-            sizes = line_counts(root, files, project.source_roots, managed, project.stack)
+            sizes = line_counts(root, files, project.source_roots, managed, project)
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
         problems = size_errors(sizes, entries)
@@ -54,7 +55,7 @@ def line_counts(
     files: Sequence[str],
     source_roots: Sequence[str],
     managed: frozenset[str],
-    stack: str,
+    project: ProjectSettings,
 ) -> dict[str, int]:
     """Line count of each source file under a source root.
 
@@ -66,7 +67,11 @@ def line_counts(
     for path in files:
         if path in managed or not any(path.startswith(f"{source}/") for source in source_roots):
             continue
-        if stack == "python" and not path.endswith(_PYTHON_SOURCE):
+        owners = project.owners(path)
+        if owners and not any(
+            stack.name == "agnostic" or Path(path).suffix in _EXTENSIONS[stack.name]
+            for stack in owners
+        ):
             continue
         target = root / path
         if not target.is_file() or target.is_symlink():

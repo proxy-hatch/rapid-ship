@@ -7,6 +7,7 @@ from typing import Any, cast
 from check_workspace import Workspace
 from devctl.check.filesize import LINE_CAP, FileSizeStep
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack
 
 
 def run(workspace: Workspace, exceptions: str = "", **project: object) -> StepResult:
@@ -67,7 +68,7 @@ def test_python_stack_counts_only_python_source(workspace: Workspace) -> None:
 def test_agnostic_stack_counts_every_text_file(workspace: Workspace) -> None:
     workspace.write("src/app/data.json", over_cap())
 
-    assert run(workspace, stack="agnostic").details == (
+    assert run(workspace, stacks=(ProjectStack("agnostic", "."),)).details == (
         "src/app/data.json: 501 lines exceeds the 500-line cap; "
         "split the file or add a file-size exception",
     )

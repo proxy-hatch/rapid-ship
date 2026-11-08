@@ -60,6 +60,9 @@ TESTS = CommandStep(
 PIP_AUDIT = "pip-audit==2.10.1"
 
 
+SOURCE_EXTENSIONS = (".py", ".pyi")
+
+
 class AuditStep:
     """Audit the locked dependencies, all groups and extras, for known vulnerabilities."""
 
@@ -76,7 +79,7 @@ class AuditStep:
                 *("--no-header", "--quiet"),
                 *("--output-file", str(requirements)),
             )
-            exported = run_tool(context.repo.root, export, 300)
+            exported = run_tool(context.directory, export, 300)
             if exported is None or exported.timed_out or exported.returncode != 0:
                 return command_result(self.name, export, exported, frozenset())
             audit = (
@@ -86,7 +89,7 @@ class AuditStep:
                 *("--require-hashes", "--disable-pip", "--strict", "--progress-spinner", "off"),
                 *("--format", "json", "--output", str(report)),
             )
-            audited = run_tool(context.repo.root, audit, 600)
+            audited = run_tool(context.directory, audit, 600)
             if audited is None or audited.timed_out:
                 return command_result(self.name, audit, audited, frozenset())
             vulnerabilities = _vulnerabilities(report)

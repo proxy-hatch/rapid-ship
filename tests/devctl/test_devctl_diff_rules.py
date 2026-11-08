@@ -7,6 +7,7 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.diff import DiffStep
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack
 
 ALWAYS_TRUE = "is always true; assert on the behaviour instead"
 NO_CODEOWNERS = "no CODEOWNERS file; only Corrections ledger entries are listed as Protected"
@@ -120,7 +121,7 @@ def test_agnostic_stack_lists_only_protected_paths(workspace: Workspace) -> None
     base = workspace.commit()
     workspace.write("tests/test_p.py", "def test_a():\n    assert True\n")
 
-    result = DiffStep().run(workspace.context(base=base, stack="agnostic"))
+    result = DiffStep().run(workspace.context(base=base, stacks=(ProjectStack("agnostic", "."),)))
 
     assert result == StepResult(
         "diff",

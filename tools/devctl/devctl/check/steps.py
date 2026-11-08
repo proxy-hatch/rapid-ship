@@ -11,7 +11,7 @@ from typing import Literal, Protocol
 from devctl import process
 from devctl.process import ProcessResult
 from devctl.repo import Repo
-from devctl.settings import ProjectSettings
+from devctl.settings import ProjectSettings, ProjectStack
 
 Tier = Literal["fast", "full"]
 Status = Literal["passed", "failed", "blocked", "not_applicable"]
@@ -46,6 +46,11 @@ class CheckContext:
     project: ProjectSettings
     base: str | None  # base commit for the diff policy; None outside a change
     pr_body: str | None  # from GITHUB_EVENT_PATH or --pr-body; None outside a PR
+    stack: ProjectStack | None = None
+
+    @property
+    def directory(self) -> Path:
+        return self.repo.root / self.stack.directory if self.stack else self.repo.root
 
 
 class Step(Protocol):
@@ -122,5 +127,5 @@ class CommandStep:  # Not frozen: Step's members are settable.
     timeout_seconds: float = 1800.0
 
     def run(self, context: CheckContext) -> StepResult:
-        result = run_tool(context.repo.root, self.argv, self.timeout_seconds)
+        result = run_tool(context.directory, self.argv, self.timeout_seconds)
         return command_result(self.name, self.argv, result, self.failed_codes)

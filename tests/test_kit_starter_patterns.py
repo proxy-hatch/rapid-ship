@@ -8,10 +8,12 @@ from pathlib import Path
 from devctl.check.map import pattern_errors, pattern_lesson_errors
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES
 from devctl.check.steps import CheckContext
+from devctl.check.tracked import TrackedFiles
 from devctl.process import run_process
 from devctl.repo import Repo
 from devctl.settings import load_project
 from rapid_ship.kit.init import init_repository
+from rapid_ship.kit.stacks import ProjectStack
 
 PATTERNS = (
     "python-configuration.md",
@@ -33,15 +35,15 @@ TOOLS = Path(sys.executable).parent
 def test_the_python_starter_patterns_pass_the_pattern_file_checks(
     git_repo: Path, kit_variables: dict[str, str], commit_all: Callable[..., None]
 ) -> None:
-    init_repository(git_repo, stack="python", variables=kit_variables)
+    init_repository(git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables)
     commit_all(git_repo)
     context = CheckContext(Repo.discover(git_repo), load_project(git_repo), None, None)
-    files = context.repo.tracked_files()
+    tracked = TrackedFiles.read(context.repo)
 
-    patterns = [path for path in files if path.startswith("docs/patterns/python-")]
+    patterns = [path for path in tracked.files if path.startswith("docs/patterns/python-")]
     assert sorted(patterns) == [f"docs/patterns/{name}" for name in PATTERNS]
-    assert pattern_errors(context, files) == []
-    assert pattern_lesson_errors(context, files) == []
+    assert pattern_errors(context, tracked) == []
+    assert pattern_lesson_errors(context, tracked) == []
 
 
 def test_the_starter_patterns_are_new_project_seeds_only(
@@ -50,7 +52,7 @@ def test_the_starter_patterns_are_new_project_seeds_only(
     (git_repo / "pyproject.toml").write_text('[project]\nname = "ours"\n')
     commit_all(git_repo)
 
-    init_repository(git_repo, stack=None, variables=kit_variables)
+    init_repository(git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables)
 
     assert [path for path in STARTER_FILES if (git_repo / path).exists()] == []
     assert (git_repo / "docs/patterns/README.md").is_file()
@@ -62,7 +64,7 @@ def test_the_python_skeleton_passes_its_own_checks(
     """devctl's format, lint, types, contracts and tests commands, with the seed's pyproject.toml
     as their settings. This repository's tools stand in for `uv run --locked`, which would sync
     the seed's environment from the network, and PYTHONPATH=src for the install it makes."""
-    init_repository(git_repo, stack="python", variables=kit_variables)
+    init_repository(git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables)
 
     failures: list[str] = []
     for step in (FORMAT, LINT, TYPES, CONTRACTS, TESTS):

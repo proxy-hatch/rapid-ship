@@ -12,6 +12,7 @@ import pytest
 from devctl import process
 from devctl.doctor_wiring import agy_wiring_item, agy_wiring_problems
 from devctl.process import ProcessResult
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import load_manifest, render_files
 from test_devctl_doctor_settings import SHIM
 
@@ -43,7 +44,9 @@ SEED = wired()
 def rendered_seed() -> str:
     """The Kit's .agents/hooks.json as init renders it."""
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    [template] = [t for t in render_files("agnostic", variables, ()) if t.path == WIRING]
+    [template] = [
+        t for t in render_files((ProjectStack("agnostic", "."),), variables, ()) if t.path == WIRING
+    ]
     assert template.content is not None
     return template.content.decode()
 
@@ -371,7 +374,7 @@ def launch_project(tmp_path: Path) -> Path:
     root.mkdir()
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
     executable = load_manifest().executable
-    for template in render_files("agnostic", variables, ()):
+    for template in render_files((ProjectStack("agnostic", "."),), variables, ()):
         if template.path in (WIRING, ".agents/devctl", ".rapid-ship/project.toml"):
             assert template.content is not None
             target = root / template.path

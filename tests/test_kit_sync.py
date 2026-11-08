@@ -10,6 +10,7 @@ from typing import NoReturn
 
 import pytest
 
+from check_workspace import stack_table
 from rapid_ship.kit import git as git_module
 from rapid_ship.kit.lock import LOCK_PATH, LockEntry, file_sha256, read_lock
 from rapid_ship.kit.pull_request import pull_request_body, push_and_open_pull_request
@@ -60,7 +61,7 @@ def test_nothing_to_sync_creates_no_branch(
 
     assert not result.changed
     assert pulls.calls == []
-    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
+    assert run_git(git_repo, "branch", "--show-current").strip() == "rapid-ship/init"
 
 
 def test_an_unchanged_file_is_replaced_on_a_sync_branch_and_keeps_its_mode(
@@ -86,7 +87,7 @@ def test_an_unchanged_file_is_replaced_on_a_sync_branch_and_keeps_its_mode(
     [(branch, base, title, body)] = pulls.calls
     assert (branch, base, title) == (
         "rapid-ship/kit-sync-9.9.9",
-        "main",
+        "rapid-ship/init",
         "Sync rapid-ship Kit to 9.9.9",
     )
     evidence = body.split("\n## Evidence\n", 1)[1]
@@ -224,7 +225,7 @@ def test_a_managed_file_the_kit_now_seeds_is_kept_for_the_project(
 
 def test_opting_in_to_an_optional_skill_adds_it(git_repo: Path, vendored: Path) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
-        'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
+        stack_table("python") + '\n[kit]\noptional = ["rs-extra"]\n'
     )
 
     result = sync(git_repo, vendored, in_place=True)
@@ -246,7 +247,7 @@ def test_a_refused_symlink_leaves_nothing_half_written(
     in_place: bool,
 ) -> None:
     (git_repo / ".rapid-ship/project.toml").write_text(
-        'stack = "python"\n\n[kit]\noptional = ["rs-extra"]\n'
+        stack_table("python") + '\n[kit]\noptional = ["rs-extra"]\n'
     )
     commit_all(git_repo)
     skill = git_repo / ".agents/skills/rs-demo/SKILL.md"
@@ -270,8 +271,8 @@ def test_a_refused_symlink_leaves_nothing_half_written(
     assert not os.path.lexists(git_repo / ".claude/skills/rs-extra")
     assert (git_repo / LOCK_PATH).read_bytes() == lock
     assert run_git(git_repo, "status", "--porcelain") == ""
-    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
-    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""
+    assert run_git(git_repo, "branch", "--show-current").strip() == "rapid-ship/init"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/kit-sync-*") == ""
     assert pulls.calls == []
 
 
@@ -312,15 +313,15 @@ def test_a_failed_commit_restores_the_tree_and_deletes_the_sync_branch(
     message = str(stopped.value)
     assert message.startswith("sync stopped (git ")
     assert expected in message
-    assert message.endswith("back on main, rapid-ship/kit-sync-9.9.9 deleted")
+    assert message.endswith("back on rapid-ship/init, rapid-ship/kit-sync-9.9.9 deleted")
     assert (git_repo / "devctl").read_text() == "#!/bin/sh\necho devctl\n"
     assert stat.S_IMODE((git_repo / "devctl").stat().st_mode) == mode
     assert (git_repo / CLI).read_text() == "one\ntwo\nthree\nfour\nfive\n"
     assert not (git_repo / "tools/devctl/extra").exists()
     assert (git_repo / LOCK_PATH).read_bytes() == lock
     assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
-    assert run_git(git_repo, "branch", "--show-current").strip() == "main"
-    assert run_git(git_repo, "branch", "--list", "rapid-ship/*") == ""
+    assert run_git(git_repo, "branch", "--show-current").strip() == "rapid-ship/init"
+    assert run_git(git_repo, "branch", "--list", "rapid-ship/kit-sync-*") == ""
     assert run_git(git_repo, "rev-parse", "HEAD") == head
     assert pulls.calls == []
 
@@ -341,7 +342,7 @@ def test_a_stop_that_cannot_switch_back_names_the_branch_and_the_way_back(
         allowed: tuple[int, ...] = (0,),
         literal: bool = True,
     ) -> bytes:
-        if args[0] == "commit" or args == ("switch", "--quiet", "main"):
+        if args[0] == "commit" or args == ("switch", "--quiet", "rapid-ship/init"):
             raise KitError(f"git {args[0]} failed: refused")
         return real_git(root, *args, stdin=stdin, allowed=allowed, literal=literal)
 
@@ -356,7 +357,7 @@ def test_a_stop_that_cannot_switch_back_names_the_branch_and_the_way_back(
     assert str(stopped.value) == (
         "sync stopped (git commit failed: refused) and restored the files it had changed, "
         f"but could not go back (git switch failed: refused); you are on {branch}; "
-        f"run git reset, git switch main and git branch -D {branch}"
+        f"run git reset, git switch rapid-ship/init and git branch -D {branch}"
     )
     assert run_git(git_repo, "branch", "--show-current").strip() == branch
     assert run_git(git_repo, "status", "--porcelain", "--untracked-files=all") == ""
@@ -438,7 +439,7 @@ def test_the_branch_is_pushed_before_gh_opens_the_pull_request(
         "chore: sync rapid-ship Kit to 9.9.9"
     )
     assert gh.with_name("gh.args").read_text().splitlines() == [
-        *("pr", "create", "--base", "main", "--head", branch),
+        *("pr", "create", "--base", "rapid-ship/init", "--head", branch),
         *("--title", "Sync rapid-ship Kit to 9.9.9", "--body-file", "-"),
     ]
     assert gh.with_name("gh.body").read_text().endswith("CI runs it on this pull request.\n")
@@ -491,3 +492,61 @@ def test_the_pull_request_body_lists_owned_files_and_the_way_back() -> None:
         "1 updated, 1 owned, 1 seeded changed, 1 conflicts\n\n"
         "Not covered: sync did not run ./devctl check; CI runs it on this pull request.\n"
     )
+
+
+@pytest.mark.parametrize("in_place", [True, False])
+def test_sync_rewrites_an_older_lock(
+    git_repo: Path,
+    vendored: Path,
+    commit_all: Callable[..., None],
+    run_git: Callable[..., str],
+    in_place: bool,
+) -> None:
+    path = git_repo / LOCK_PATH
+    path.write_text(
+        path.read_text().replace('[[stack]]\nname = "python"\ndirectory = "."', 'stack = "python"')
+    )
+    commit_all(git_repo)
+    result = sync_repository(
+        git_repo, in_place=in_place, templates_root=vendored, open_pull_request=PullRequests()
+    )
+    assert result.lock_rewritten
+    assert result.changed
+    assert not result.updated
+    assert not result.added
+    assert not result.deleted
+    assert not read_lock(git_repo).older_form
+    if not in_place:
+        assert run_git(git_repo, "show", "--format=", "--name-only", "HEAD").strip() == LOCK_PATH
+
+
+def test_sync_adds_metrics_toml_and_leaves_gate_toml(
+    git_repo: Path,
+    vendored: Path,
+    make_templates: Callable[..., Path],
+    commit_all: Callable[..., None],
+) -> None:
+    gate = git_repo / ".rapid-ship/gate.toml"
+    gate.write_text('mode = "walk"\n')
+    commit_all(git_repo)
+    manifest = (
+        (vendored / "kit.toml")
+        .read_text()
+        .replace(
+            '".rapid-ship/project.toml"]',
+            '".rapid-ship/metrics.toml", ".rapid-ship/project.toml"]',
+        )
+    )
+    new = make_templates(
+        "new",
+        {
+            "kit.toml": manifest,
+            "common/.rapid-ship/metrics.toml": "window = 30\n",
+        },
+    )
+
+    result = sync(git_repo, new, in_place=True)
+
+    assert result.added == [".rapid-ship/metrics.toml"]
+    assert (git_repo / ".rapid-ship/metrics.toml").read_text() == "window = 30\n"
+    assert gate.read_text() == 'mode = "walk"\n'
