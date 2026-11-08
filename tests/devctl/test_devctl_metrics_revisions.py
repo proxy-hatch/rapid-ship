@@ -16,8 +16,13 @@ def sample_window(count: int = 1) -> Window:
     return Window("main", "tip", 30, "worker", prs, prs, 0)
 
 
-def review(state: str, head: str = "A", time: str = "2026-10-09T00:00:00Z") -> dict[str, object]:
-    return {"state": state, "commit_id": head, "submitted_at": time}
+def review(
+    state: str,
+    head: str = "A",
+    time: str = "2026-10-09T00:00:00Z",
+    review_id: int = 1,
+) -> dict[str, object]:
+    return {"id": review_id, "state": state, "commit_id": head, "submitted_at": time}
 
 
 def test_distinct_heads_count_once() -> None:
@@ -35,15 +40,26 @@ def test_distinct_heads_count_once() -> None:
 def test_a_dismissed_change_request_counts() -> None:
     owner = RecordedOwner(
         {
-            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [review("DISMISSED")],
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", review_id=1),
+                review("DISMISSED", "B", review_id=2),
+            ],
             "repos/o/r/issues/1/events?per_page=64&page=1": [
                 {
                     "event": "review_dismissed",
-                    "dismissed_review": {"state": "Changes_Requested", "commit_id": "A"},
+                    "dismissed_review": {
+                        "state": "Changes_Requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
                 },
                 {
                     "event": "review_dismissed",
-                    "dismissed_review": {"state": "approved", "commit_id": "B"},
+                    "dismissed_review": {
+                        "state": "approved",
+                        "review_id": 2,
+                        "commit_id": "B",
+                    },
                 },
             ],
         }
@@ -95,15 +111,158 @@ def test_the_value_is_the_mean_and_items_list_the_most_revised_first() -> None:
 def test_reviews_and_events_are_paged() -> None:
     owner = RecordedOwner(
         {
-            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [review("DISMISSED")] * 64,
-            "repos/o/r/pulls/1/reviews?per_page=64&page=2": [review("CHANGES_REQUESTED", "B")],
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", review_id=n) for n in range(1, 65)
+            ],
+            "repos/o/r/pulls/1/reviews?per_page=64&page=2": [
+                review("CHANGES_REQUESTED", "B", review_id=65)
+            ],
             "repos/o/r/issues/1/events?per_page=64&page=1": [{"event": "closed"}] * 64,
             "repos/o/r/issues/1/events?per_page=64&page=2": [
                 {
                     "event": "review_dismissed",
-                    "dismissed_review": {"state": "changes_requested", "commit_id": "A"},
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
                 }
             ],
         }
     )
     assert revisions(GitHubReader("o/r", owner), sample_window()).value == 2
+
+
+def test_dismissed_change_request_submitted_after_merge_is_ignored() -> None:
+    owner = RecordedOwner(
+        {
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", time="2026-10-11T00:00:00Z", review_id=1)
+            ],
+            "repos/o/r/issues/1/events?per_page=64&page=1": [
+                {
+                    "event": "review_dismissed",
+                    "created_at": "2026-10-12T00:00:00Z",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
+                }
+            ],
+        }
+    )
+    assert revisions(GitHubReader("o/r", owner), sample_window()).value == 0
+
+
+def test_pre_merge_change_request_dismissed_after_merge_counts() -> None:
+    owner = RecordedOwner(
+        {
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", time="2026-10-09T00:00:00Z", review_id=1)
+            ],
+            "repos/o/r/issues/1/events?per_page=64&page=1": [
+                {
+                    "event": "review_dismissed",
+                    "created_at": "2026-10-12T00:00:00Z",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
+                }
+            ],
+        }
+    )
+    assert revisions(GitHubReader("o/r", owner), sample_window()).value == 1
+
+
+def test_dismissed_change_request_at_exact_merge_time_counts() -> None:
+    owner = RecordedOwner(
+        {
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", time="2026-10-10T00:00:00Z", review_id=1)
+            ],
+            "repos/o/r/issues/1/events?per_page=64&page=1": [
+                {
+                    "event": "review_dismissed",
+                    "created_at": "2026-10-12T00:00:00Z",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
+                }
+            ],
+        }
+    )
+    assert revisions(GitHubReader("o/r", owner), sample_window()).value == 1
+
+
+def test_dismissed_change_requests_on_same_commit_deduplicate() -> None:
+    owner = RecordedOwner(
+        {
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", time="2026-10-08T00:00:00Z", review_id=1),
+                review("DISMISSED", "A", time="2026-10-09T00:00:00Z", review_id=2),
+            ],
+            "repos/o/r/issues/1/events?per_page=64&page=1": [
+                {
+                    "event": "review_dismissed",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
+                },
+                {
+                    "event": "review_dismissed",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 2,
+                        "commit_id": "A",
+                    },
+                },
+            ],
+        }
+    )
+    assert revisions(GitHubReader("o/r", owner), sample_window()).value == 1
+
+
+def test_dismissed_reviews_sharing_a_commit_distinguished_by_identity() -> None:
+    owner = RecordedOwner(
+        {
+            "repos/o/r/pulls/1/reviews?per_page=64&page=1": [
+                review("DISMISSED", "A", time="2026-10-09T00:00:00Z", review_id=1),
+                review("DISMISSED", "A", time="2026-10-11T00:00:00Z", review_id=2),
+                review("DISMISSED", "B", time="2026-10-11T00:00:00Z", review_id=3),
+            ],
+            "repos/o/r/issues/1/events?per_page=64&page=1": [
+                {
+                    "event": "review_dismissed",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 1,
+                        "commit_id": "A",
+                    },
+                },
+                {
+                    "event": "review_dismissed",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 2,
+                        "commit_id": "A",
+                    },
+                },
+                {
+                    "event": "review_dismissed",
+                    "dismissed_review": {
+                        "state": "changes_requested",
+                        "review_id": 3,
+                        "commit_id": "B",
+                    },
+                },
+            ],
+        }
+    )
+    assert revisions(GitHubReader("o/r", owner), sample_window()).value == 1
