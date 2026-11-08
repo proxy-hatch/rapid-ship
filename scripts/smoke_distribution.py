@@ -26,18 +26,18 @@ members = ["tools/*"]
 DEVCTL_EXCLUDE = 'exclude = ["tools/devctl"]\n'
 
 
-def run(cwd: Path, *command: str) -> str:
+def run(cwd: Path, *command: str, expected: int = 0) -> str:
     sys.stdout.write(f"Smoke: {' '.join(command)}\n")
     sys.stdout.flush()
     result = subprocess.run(  # noqa: S603  # rs-exception: EX-8
         command, cwd=cwd, capture_output=True, text=True, check=False
     )
-    if result.returncode != 0:
+    if result.returncode != expected:
         raise SystemExit(
             f"Smoke failed ({result.returncode}): {' '.join(command)}\n"
             f"{result.stdout}{result.stderr}"
         )
-    return result.stdout
+    return result.stdout if expected == 0 else result.stderr
 
 
 def scratch_repository(path: Path) -> None:
@@ -111,7 +111,11 @@ def main() -> int:
         scratch_repository(new)
         default_branch = run(new, "git", "symbolic-ref", "--short", "HEAD").strip()
         run(new, rapid_ship, "init", "--stack", "python", "--owner", "smoke-owner")
-        expect_kit_commit(new, default_branch)  # no commits yet, so the Kit is the first
+        expect_kit_commit(new, "rapid-ship/init")
+        if run(new, "git", "rev-list", "--count", default_branch).strip() != "1":
+            raise SystemExit("init did not create the default branch first commit")
+        if run(new, "git", "ls-tree", "-r", default_branch):
+            raise SystemExit("The default branch first commit is not empty")
         run(new, rapid_ship, "status", "--strict")
         run(new, "uv", "lock", "--check", "--project", "tools/devctl")
         version = run(new, "./devctl", "--version")
@@ -121,7 +125,9 @@ def main() -> int:
         (existing / "pyproject.toml").write_text(WORKSPACE_PYPROJECT)
         run(existing, "git", "add", "pyproject.toml")
         run(existing, "git", "commit", "-q", "-m", "Existing project")
-        run(existing, rapid_ship, "init")
+        if "--stack python" not in run(existing, rapid_ship, "init", expected=2):
+            raise SystemExit("init did not propose the existing Python stack")
+        run(existing, rapid_ship, "init", "--stack", "python")
         expect_kit_commit(existing, "rapid-ship/init")
         if run(existing, "./devctl", "--version") != version:
             raise SystemExit("devctl reported different versions in the two projects")

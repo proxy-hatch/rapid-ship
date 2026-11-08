@@ -7,6 +7,7 @@ import pytest
 from devctl.doctor import Item, local_items
 from devctl.doctor_wiring import wiring_problems
 from github_fakes import MakeContext, RepoFiles
+from rapid_ship.kit.stacks import ProjectStack
 from rapid_ship.kit.templates import render_files
 
 COMMAND = '"$CLAUDE_PROJECT_DIR"/devctl hook claude pre-tool'
@@ -37,7 +38,9 @@ def args_form(command: str, args: list[object]) -> dict[str, object]:
 def rendered_seed() -> str:
     """The Kit's .claude/settings.json as init renders it."""
     variables = {"project_name": "demo", "package": "demo", "owner": "o", "repository": "o/r"}
-    [template] = [t for t in render_files("agnostic", variables, ()) if t.path == WIRING]
+    [template] = [
+        t for t in render_files((ProjectStack("agnostic", "."),), variables, ()) if t.path == WIRING
+    ]
     assert template.content is not None
     return template.content.decode()
 

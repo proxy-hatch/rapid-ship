@@ -34,7 +34,10 @@ ROOT_GUIDE = "AGENTS.md"
 ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
-_RULE_END = re.compile(r"(?:^|\s)(?:enforced by: `?(?P<reference>[^\s`]+)`?|advisory)$")
+_RULE_END = re.compile(
+    r"(?:^|\s)(?:enforced by: (?P<quoted>`)?"
+    r"(?P<reference>(?(quoted)[^`\n]+|[^\s`]+))(?(quoted)`)|advisory)$"
+)
 
 
 class MapStep:
@@ -303,7 +306,15 @@ def _pattern_problems(
     if enforced is None:
         problems.append(f"{path}: enforced_by is missing or empty")
         return problems
-    reasons = (resolve(item, context, tracked) for item in enforced)
+    reasons = (
+        resolve(
+            item,
+            context,
+            tracked,
+            reference if reference and (tracked.root / reference).exists() else path,
+        )
+        for item in enforced
+    )
     return problems + [f"{path}: {reason}" for reason in reasons if reason is not None]
 
 
@@ -354,7 +365,7 @@ def _rule_problem(
     if ending is None:
         return f"{guide}:{item.line}: end the rule with 'enforced by: <reference>' or 'advisory'"
     reference = ending.group("reference")
-    reason = resolve(reference, context, tracked) if reference else None
+    reason = resolve(reference, context, tracked, guide) if reference else None
     return f"{guide}:{item.line}: {reason}" if reason else None
 
 

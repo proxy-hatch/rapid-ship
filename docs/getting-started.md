@@ -222,7 +222,7 @@ We will start the worker ourselves. We do not register these tasks or run `devct
 Run the exact **worker command** from `docs/setup.md` in this project directory. Then paste:
 
 ```text
-Use rapid-ship-engineering to implement the task in docs/plan.md.
+Use rs-tdd to implement the task in docs/plan.md.
 Run its checks. Stop before committing or publishing.
 ```
 
@@ -260,7 +260,7 @@ git rev-parse HEAD
 Run the exact **reviewer command** from `docs/setup.md` in a fresh session. Then paste:
 
 ```text
-Use rapid-ship-engineering to review HEAD against main and docs/plan.md.
+Use your Harness’s review to review HEAD against main and docs/plan.md.
 Do not edit files.
 ```
 

@@ -214,7 +214,7 @@ def ctx(tmp_path: Path, isolated_home: Path, project: ProjectSettings) -> MakeCo
 def repo_files(ctx: MakeContext) -> RepoFiles:
     """Writes into ctx's repository, and git adds what it writes."""
     context = ctx()
-    return RepoFiles(context.root, context.project.stack)
+    return RepoFiles(context.root, context.project.stacks[0].name)
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "github"

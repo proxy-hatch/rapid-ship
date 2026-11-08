@@ -9,6 +9,7 @@ from check_workspace import Workspace
 from devctl.check.exceptions import ExceptionsStep
 from devctl.check.stacks.python_dead_code import AllowlistItem, toml_allowlist
 from devctl.check.steps import StepResult
+from devctl.settings import ProjectStack, StackName
 
 ENTRY = """
 [[exception]]
@@ -27,13 +28,16 @@ NOQA = "# " + "noqa"
 
 
 def setup(
-    workspace: Workspace, pyproject: str, *entries: tuple[str, str, str], stack: str = "python"
+    workspace: Workspace,
+    pyproject: str,
+    *entries: tuple[str, str, str],
+    stack: StackName = "python",
 ) -> StepResult:
     workspace.write(".rapid-ship/kit.lock", f'kit_version = "0.2.0"\nstack = "{stack}"\n')
     workspace.write("pyproject.toml", pyproject)
     text = "".join(ENTRY.format(id=i, path=p, rule=r) for i, p, r in entries)
     workspace.write(".rapid-ship/exceptions.toml", text)
-    return ExceptionsStep().run(workspace.context(stack=stack))
+    return ExceptionsStep().run(workspace.context(stacks=(ProjectStack(stack, "."),)))
 
 
 def test_a_marked_item_with_its_entry_passes(workspace: Workspace) -> None:
@@ -199,3 +203,14 @@ def test_the_dead_code_tools_suppressions_fail_at_once(workspace: Workspace) -> 
         needs_marker("src/app/run.py:3", "assignment"),
         unplaced("deptry.per_rule_ignores.DEP002", "psycopg2", "deptry.per_rule_ignores"),
     )
+
+
+def test_invalid_nested_settings_name_the_parsed_file(workspace: Workspace) -> None:
+    setup(workspace, "[tool.vulture]\n")
+    workspace.write("backend/pyproject.toml", "[tool.vulture\n")
+    context = workspace.context(stacks=(ProjectStack("python", "backend"),))
+
+    result = ExceptionsStep().run(context)
+
+    assert result.status == "blocked"
+    assert result.details[0].startswith("backend/pyproject.toml: ")

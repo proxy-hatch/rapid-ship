@@ -2,13 +2,14 @@
 
 A suppression is a lint, type, coverage, test, dead-code or secret-scan opt-out. It carries
 `# rs-exception: EX-<n>` on its line, and .rapid-ship/exceptions.toml has one entry for that
-ID. On the Python stack, each allowlist item in the root pyproject.toml is one too, and so is a
+ID. On the Python stack, each allowlist item in its stack's pyproject.toml is one too, and so is a
 line that vulture or deptry reads as one, a string included. This module and the stack modules
 in stacks/ are the one definition of suppressions and their rule names.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from collections import Counter
@@ -19,10 +20,21 @@ from pathlib import Path, PurePosixPath
 from devctl.check.kit import KitLockError, managed_paths
 from devctl.check.stacks.agnostic import text_rules
 from devctl.check.stacks.python import autouse_fixtures, comment_rules, comments, marker_rules
-from devctl.check.stacks.python_dead_code import PYPROJECT, toml_allowlist, tool_line_rules
+from devctl.check.stacks.python_dead_code import (
+    PYPROJECT,
+    AllowlistItem,
+    toml_allowlist,
+    tool_line_rules,
+)
+from devctl.check.stacks.typescript_suppressions import (
+    KNIP_SETTINGS,
+    OTHER_KNIP_SETTINGS,
+    knip_allowlist,
+    line_rules,
+)
 from devctl.check.steps import CheckContext, StepResult, Tier, blocked, failed, passed
 from devctl.repo import RepoError
-from devctl.settings import ExceptionEntry, SettingsError, load_exceptions
+from devctl.settings import ExceptionEntry, ProjectSettings, SettingsError, load_exceptions, under
 
 MARKER = re.compile(r"rs-exception:\s*(?P<id>EX-\d+)")
 
@@ -44,15 +56,20 @@ class ExceptionsStep:
 
     def run(self, context: CheckContext) -> StepResult:
         root = context.repo.root
-        stack = context.project.stack
         try:
             entries = load_exceptions(root)
             managed = managed_paths(root, context.project.excluded)
             files = context.repo.files()
-            lines = scan(root, files, managed, stack)
-            unplaced = _allowlist_errors(root, files, managed) if stack == "python" else []
-        except tomllib.TOMLDecodeError as error:
-            return blocked(self.name, f"{PYPROJECT}: {error}")
+            lines = scan(root, files, managed, context.project)
+            unplaced = [
+                error
+                for stack in context.project.stacks
+                if stack.name == "python"
+                for error in _allowlist_errors(
+                    root, files, managed, under(stack.directory, PYPROJECT)
+                )
+            ]
+            unplaced += _knip_errors(root, files, managed, context.project)
         except (SettingsError, KitLockError, RepoError, OSError) as error:
             return blocked(self.name, str(error))
         errors = [*exception_errors(lines, entries), *unplaced]
@@ -60,34 +77,89 @@ class ExceptionsStep:
 
 
 def scan(
-    root: Path, files: Sequence[str], managed: frozenset[str], stack: str
+    root: Path, files: Sequence[str], managed: frozenset[str], project: ProjectSettings
 ) -> list[SuppressedLine]:
     """The lines that carry a suppression or, in Python source, an exception marker.
 
     Paths are relative to `root`. A file is skipped when it is a Kit file the project does not
     own (`managed`), is not a regular file, is a symlink, or is not UTF-8. Lines come in path
-    then line order. On the Python stack, the root pyproject.toml's allowlist items are
-    suppressions on their lines; invalid TOML there raises tomllib.TOMLDecodeError.
+    then line order. Each Python stack's pyproject.toml allowlist items are suppressions on
+    their lines;
+    invalid TOML raises SettingsError naming that file.
     """
     found: list[SuppressedLine] = []
     for path in sorted(files):
         text = _readable(root, path, managed)
         if text is None:
             continue
-        if stack == "python" and path.endswith(_PYTHON_SOURCE):
+        typescript = any(stack.name == "typescript" for stack in project.owners(path))
+        python = any(stack.name == "python" for stack in project.owners(path))
+        if python and path.endswith(_PYTHON_SOURCE):
             found += _python_lines(path, text)
-        elif stack == "python" and path == PYPROJECT:
+        elif any(
+            stack.name == "python" and path == under(stack.directory, PYPROJECT)
+            for stack in project.stacks
+        ):
             found += _pyproject_lines(path, text)
+        elif typescript:
+            extra = {n: line_rules(path, line) for n, line in enumerate(text.split("\n"), 1)}
+            if any(
+                path == under(stack.directory, KNIP_SETTINGS)
+                for stack in project.stacks
+                if stack.name == "typescript"
+            ):
+                for item in _knip_items(text, path)[0]:
+                    extra.setdefault(item.line, []).append(item.rule)
+            found += _text_lines(path, text, extra)
         else:
             found += _text_lines(path, text)
     return found
 
 
-def _allowlist_errors(root: Path, files: Sequence[str], managed: frozenset[str]) -> list[str]:
-    """The root pyproject.toml's items that the scan could not place on a line, and lines that
+def _knip_items(text: str, path: str) -> tuple[list[AllowlistItem], list[str]]:
+    try:
+        return knip_allowlist(text, path)
+    except ValueError as error:
+        raise SettingsError(f"{path}: {error}") from error
+
+
+def _knip_errors(
+    root: Path, files: Sequence[str], managed: frozenset[str], project: ProjectSettings
+) -> list[str]:
+    errors: list[str] = []
+    for stack in project.stacks:
+        if stack.name != "typescript":
+            continue
+        for name in (KNIP_SETTINGS, *OTHER_KNIP_SETTINGS, "package.json"):
+            path = under(stack.directory, name)
+            text = _readable(root, path, managed) if path in files else None
+            if text is None:
+                continue
+            if name == KNIP_SETTINGS:
+                errors += _knip_items(text, path)[1]
+                continue
+            if name == "package.json":
+                try:
+                    data = json.loads(text)
+                except ValueError as error:
+                    raise SettingsError(f"{path}: {error}") from error
+                if not isinstance(data, dict):
+                    raise SettingsError(f"{path}: package settings must be an object")
+                if "knip" not in data:
+                    continue
+            errors.append(
+                f"{path}: devctl reads knip's settings only from knip.jsonc; move them there"
+            )
+    return errors
+
+
+def _allowlist_errors(
+    root: Path, files: Sequence[str], managed: frozenset[str], path: str
+) -> list[str]:
+    """The selected pyproject.toml's items that the scan could not place on a line, and lines that
     hold two items."""
-    text = _readable(root, PYPROJECT, managed) if PYPROJECT in files else None
-    return toml_allowlist(text)[1] if text is not None else []
+    text = _readable(root, path, managed) if path in files else None
+    return toml_allowlist(text, path)[1] if text is not None else []
 
 
 def _readable(root: Path, path: str, managed: frozenset[str]) -> str | None:
@@ -148,13 +220,19 @@ def _text_lines(
 def _pyproject_lines(path: str, text: str) -> list[SuppressedLine]:
     """The text rules, plus each allowlist item as a suppression on its line."""
     items: dict[int, list[str]] = {}
-    for item in toml_allowlist(text)[0]:
+    try:
+        allowlist, _errors = toml_allowlist(text, path)
+    except tomllib.TOMLDecodeError as error:
+        raise SettingsError(f"{path}: {error}") from error
+    for item in allowlist:
         items.setdefault(item.line, []).append(normal_rule(item.rule))
     return _text_lines(path, text, items)
 
 
 def normal_rule(rule: str) -> str:
     """'S607, S603' -> 'S603,S607'; 'zizmor:b, a' -> 'zizmor:a,b'."""
+    if rule.strip().startswith("knip."):
+        return rule.strip()
     prefix, colon, names = rule.strip().rpartition(":")
     parts = sorted(part for part in re.split(r"[\s,]+", names) if part)
     return f"{prefix.strip()}{colon}{','.join(parts)}"

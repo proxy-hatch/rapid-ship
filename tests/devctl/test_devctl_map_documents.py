@@ -349,3 +349,15 @@ def test_feature_map_rule_removed_and_golden_paths_require_no_checks(workspace: 
     result = MapStep().run(workspace.context(source_roots=()))
 
     assert (result.status, result.details) == ("passed", ())
+
+
+@pytest.mark.parametrize("path", ["frontend/src/a.test.ts", "front end/a.test.ts"])
+def test_backticked_rule_references_can_hold_spaces(workspace: Workspace, path: str) -> None:
+    workspace.write(path, 'describe("a", () => { test("b", () => {}); });')
+    workspace.root_guide(
+        f"# Root\n\n## Rules\n\n- Keep behaviour. enforced by: `test:{path}::a > b`\n"
+    )
+    workspace.stage()
+    context = workspace.context()
+    tracked = TrackedFiles.read(context.repo)
+    assert rule_errors(context, tracked, guides(tracked, context.project)) == []
