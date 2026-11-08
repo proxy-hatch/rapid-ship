@@ -1039,7 +1039,21 @@ Pending.
 
 ### 3.3
 
-Pending.
+Observed locally at `fc7f5d9acdbfcb0645a0fda53c1faf8c273bfa07`, after merging final 3.1 train `cbfba2d689454e1acf5817694e6f02c80ab28084` and landed main `4a6387c46c279e7f676dccfcb602b1fbec268998` into reviewed reader/window head `b9974e5fd8121e7b94849773addda3cc3c38ef29`:
+
+- `uv run pytest -q`: exit 0: `2197 passed in 322.16s (0:05:22)`.
+- `uv run pytest tests/devctl/test_devctl_metrics_github.py tests/devctl/test_devctl_metrics_window.py -q`: exit 0: `40 passed in 35.53s`. These reader/window tests use recorded responses and scratch repositories only.
+- `./devctl check --tier fast`: exit 0: format, lint, map, exceptions, file-size, kit and vendored passed.
+- `uv run rapid-ship status --strict`: exit 0: `81 managed files unchanged.`
+- `uv run --locked mypy`: exit 0: `Success: no issues found in 159 source files`.
+- `uv run --locked vulture --min-confidence 0`: exit 0, no findings.
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0: `Scanning 19 files... Success! No dependency issues found.` Inspected JSON: `[]`.
+- `git diff --check` and `git diff --check 4a6387c46c279e7f676dccfcb602b1fbec268998`: exit 0. Diff policy against landed main passed: 886 of 1,500 counted lines. The immutable `acffca7` comparison counts 1,695 lines including incoming work; it is not this change's PR base.
+- Ancestry and blob checks passed: both incoming commits are ancestors; reader/window sources, fakes and tests match the reviewed head; template/generated pairs match. The test guide retains the fakes pointer. CODEOWNERS and Spec 1's status line match assigned main.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>`: pending hosted CI after PR #71 lands, current-main integration and later publication. No local full check was assigned.
+- `npm --prefix website run build`: pending hosted Docs build after that integration and publication. No local site build was assigned.
+- Scoped independent local review and final current-main checks remain pending. This record grants no publication or merge approval.
+- Not covered: the GitHub responses themselves, which Task 14 checks against real repositories.
 
 ### 3.4
 
