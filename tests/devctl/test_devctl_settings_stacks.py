@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from devctl.settings import PROJECT, ProjectSettings, ProjectStack, SettingsError, load_project
+from devctl.settings import (
+    PROJECT,
+    ProjectSettings,
+    ProjectStack,
+    SettingsError,
+    load_project,
+    parse_project,
+)
 
 
 def table(name: str, directory: str = ".") -> str:
@@ -82,3 +89,18 @@ def test_owners_are_the_stacks_of_the_innermost_directory(tmp_path: Path) -> Non
     assert read(tmp_path, table("python") + table("typescript", "frontend")).owners(
         "frontend/src/a.ts"
     ) == (ProjectStack("typescript", "frontend"),)
+
+
+@pytest.mark.parametrize("symlink", [False, True], ids=["absent", "symlink"])
+def test_parsed_stack_paths_do_not_require_local_directories(tmp_path: Path, symlink: bool) -> None:
+    if symlink:
+        (tmp_path / "real").mkdir()
+        (tmp_path / "backend").symlink_to("real", target_is_directory=True)
+    text = table("python", "./backend/")
+    assert parse_project(text).stacks == (ProjectStack("python", "backend"),)
+    with pytest.raises(SettingsError) as error:
+        read(tmp_path, text)
+    assert str(error.value) == (
+        ".rapid-ship/project.toml [[stack]] #1 directory: "
+        "expected a directory inside the repository that is not a symlink"
+    )

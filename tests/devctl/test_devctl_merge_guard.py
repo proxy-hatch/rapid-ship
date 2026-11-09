@@ -3,45 +3,45 @@
 from __future__ import annotations
 
 import base64
+import builtins
+import io
+import os
 from dataclasses import replace
+from itertools import count
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
 from check_workspace import new_workspace, stack_table
 from devctl.codeowners import FileChange
 from devctl.command_line import simple_commands
-from devctl.doctor_items import OwnerGet, OwnerReadError, gh_get
+from devctl.doctor_items import OWNER_GET_TIMEOUT_SECONDS, OwnerGet, OwnerReadError, gh_get
 from devctl.hook import run_hook
 from devctl.hook_protocols import Decision, HookSettings, ToolCall
 from devctl.merge_guard import LocalBranches, Merge, find_merge, guard
 from devctl.merge_guard_github import PullRequest, changed_files
 from devctl.process import ProcessResult
+from devctl.settings import SettingsError, parse_project
 from github_fakes import FakeRun, RecordedOwner
 
 HEAD = "a" * 40
 OTHER = "b" * 40
+BASE = "c" * 40
 PR = "repos/o/r/pulls/7"
-CODEOWNERS = "repos/o/r/contents/.github/CODEOWNERS?ref=main"
+SETTINGS = f"repos/o/r/contents/.rapid-ship/project.toml?ref={BASE}"
+CODEOWNERS = f"repos/o/r/contents/.github/CODEOWNERS?ref={BASE}"
 FILES = "repos/o/r/pulls/7/files?per_page=100&page=1"
 FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
 REVIEWS = "repos/o/r/pulls/7/reviews?per_page=100&page=1"
 RUNS = f"repos/o/r/commits/{HEAD}/check-runs?check_name=devctl%20check&filter=latest&per_page=100"
 BY_BRANCH = "repos/o/r/pulls?head=o:task&state=open&per_page=100"
 # GitHub gives a pull request without a body "body": null.
-PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main"}, "body": None}
-OWNERS = base64.b64encode(b"* @o\n# /.github/ @o\n# /**/AGENTS.md @o\n").decode()
+PULL = {"number": 7, "head": {"sha": HEAD}, "base": {"ref": "main", "sha": BASE}, "body": None}
+OWNERS = "* @o\n# /.github/ @o\n# /**/AGENTS.md @o\n"
 TASK = LocalBranches(frozenset({"main"}), "task")
-OFF = HookSettings(  # Flight, with Agent identity off
-    agent_identity=False,
-    protected=(),
-    repository="o/r",
-    reviewer_app_slug=None,
-    every_pr=False,
-    unit_tests=("tests/unit/**",),
-)
-ON = replace(OFF, agent_identity=True, reviewer_app_slug="o-reviewer")
-WALK = replace(OFF, every_pr=True)
+# The work tree's settings, which give the guard only the repository.
+TREE = HookSettings(agent_identity=False, protected=(), repository="o/r")
 CHECKED = f"merge denied: devctl check on PR #7 at {HEAD} is {{}}; "
 CHECKED += "wait for it to pass or fix what it reports, then merge again"
 UNAPPROVED = f"merge denied: PR #7 has no Reviewer App approval of its head {HEAD}; "
@@ -52,6 +52,7 @@ CANNOT = "merge denied: the merge guard cannot check this merge: {}; fix that, t
 NO_REPOSITORY = "no repository: set [github] repository in .rapid-ship/project.toml "
 NO_REPOSITORY += "or pass -R OWNER/NAME"
 BUDGET = "its GitHub reads would pass the 300-second budget; fix that, then merge again"
+ON_MAIN = "on the base branch main, "
 IN_WALK = "merge denied: in Walk the owner merges every pull request; ask the owner to merge "
 IN_WALK += "PR #7"
 DECLARES = "merge denied: PR #7 declares {}, so the owner merges it"
@@ -61,6 +62,26 @@ APPS = (
     'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
     'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n'
 )
+EVERY_TEST_UNIT = '\n[tests]\nunit = ["tests/**"]\n'
+
+
+def project_toml(github: str = "", mode: str = "every_pr = false", tests: str = "") -> str:
+    """A project.toml for o/r, in Flight with Agent identity off unless told otherwise."""
+    return (
+        stack_table("python")
+        + f'\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}{tests}'
+    )
+
+
+FLIGHT = project_toml()
+IDENTITY = project_toml(APPS)  # Flight, with Agent identity on
+WALK = project_toml(mode="every_pr = true")
+WALK_IDENTITY = project_toml(APPS, "every_pr = true")
+
+
+def contents(text: str) -> object:
+    """A file as GitHub's Contents API answers with it."""
+    return {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
 
 
 def run(status: str = "completed", conclusion: str | None = "success", **fields: object) -> object:
@@ -87,12 +108,18 @@ OVER = evidence("", "Over the diff cap: a generated client, accepted by the owne
 
 
 def owner(
-    files: object = None, runs: object = None, reviews: object = None, body: str | None = None
+    files: object = None,
+    runs: object = None,
+    reviews: object = None,
+    body: str | None = None,
+    base: str = FLIGHT,
 ) -> RecordedOwner:
+    """GitHub with PR #7 on o/r, whose base branch main holds base as project.toml."""
     return RecordedOwner(
         {
             PR: {**PULL, "body": body},
-            CODEOWNERS: {"encoding": "base64", "content": OWNERS},
+            SETTINGS: contents(base),
+            CODEOWNERS: contents(OWNERS),
             FILES: files or [{"filename": "src/app/core.py", "status": "modified"}],
             REVIEWS: [review()] if reviews is None else reviews,
             RUNS: {"check_runs": [run()] if runs is None else runs},
@@ -100,18 +127,18 @@ def owner(
     )
 
 
-def guarded(line: str, reader: RecordedOwner, settings: HookSettings | None = OFF) -> str | None:
+def guarded(line: str, reader: RecordedOwner, settings: HookSettings | None = TREE) -> str | None:
     merge = find_merge(simple_commands(line)[0], lambda: TASK)
     assert merge is not None
     return guard(merge, settings, reader, lambda: TASK, lambda: 0.0)
 
 
-def project(tmp_path: Path, github: str = "", mode: str = "every_pr = false") -> Path:
+def project(
+    tmp_path: Path, github: str = "", mode: str = "every_pr = false", tests: str = ""
+) -> Path:
+    """A work tree whose own project.toml a branch may have changed."""
     workspace = new_workspace(tmp_path / "main")
-    workspace.write(
-        ".rapid-ship/project.toml",
-        stack_table("python") + f'\n[escalation]\n{mode}\n\n[github]\nrepository = "o/r"\n{github}',
-    )
+    workspace.write(".rapid-ship/project.toml", project_toml(github, mode, tests))
     return workspace.root
 
 
@@ -123,15 +150,26 @@ def unread_github(path: str, jq: str | None = None) -> object:
     raise AssertionError(f"GitHub was read: {path}")
 
 
+def load_error(text: str) -> str:
+    """What devctl's settings loader says of a project.toml that does not load."""
+    with pytest.raises(SettingsError) as error:
+        parse_project(text)
+    return str(error.value)
+
+
 @pytest.mark.parametrize(
-    ("settings", "paths"),
-    [(OFF, [PR, CODEOWNERS, FILES, RUNS]), (ON, [PR, CODEOWNERS, FILES, REVIEWS, RUNS])],
+    ("base", "paths"),
+    [
+        (FLIGHT, [PR, SETTINGS, CODEOWNERS, FILES, RUNS]),
+        (IDENTITY, [PR, SETTINGS, CODEOWNERS, FILES, REVIEWS, RUNS]),
+    ],
+    ids=["identity-off", "identity-on"],
 )
 def test_a_passing_unprotected_merge_at_the_checked_head_gets_no_decision(
-    settings: HookSettings, paths: list[str]
+    base: str, paths: list[str]
 ) -> None:
-    reader = owner()
-    assert guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader, settings) is None
+    reader = owner(base=base)
+    assert guarded(f"gh pr merge 7 --squash --match-head-commit {HEAD}", reader) is None
     assert reader.paths == paths
 
 
@@ -215,13 +253,13 @@ def test_with_agent_identity_a_head_without_the_reviewer_apps_approval_is_denied
     reviews: list[object],
 ) -> None:
     line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
-    assert guarded(line, owner(reviews=reviews), ON) == UNAPPROVED
+    assert guarded(line, owner(reviews=reviews, base=IDENTITY)) == UNAPPROVED
 
 
 def test_comments_and_dismissed_reviews_do_not_decide() -> None:
     reviews = [review(), review("COMMENTED", OTHER, id=2), review("DISMISSED", id=3)]
     line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
-    assert guarded(line, owner(reviews=reviews), ON) is None
+    assert guarded(line, owner(reviews=reviews, base=IDENTITY)) is None
 
 
 @pytest.mark.parametrize(
@@ -251,7 +289,7 @@ def test_a_pr_found_by_its_branch_is_checked_by_its_number() -> None:
     reader = owner()
     reader.serve(BY_BRANCH, [PULL])
     assert guarded(f"gh pr merge --match-head-commit {HEAD}", reader) is None
-    assert reader.paths == [BY_BRANCH, CODEOWNERS, FILES, RUNS]
+    assert reader.paths == [BY_BRANCH, SETTINGS, CODEOWNERS, FILES, RUNS]
 
 
 def test_a_pr_the_guard_cannot_identify_or_read_is_denied() -> None:
@@ -260,7 +298,7 @@ def test_a_pr_the_guard_cannot_identify_or_read_is_denied() -> None:
     assert guarded("gh pr merge 7", unreadable) == CANNOT.format("HTTP 404: Not Found")
 
     nowhere = owner()
-    assert guarded("gh pr merge 7", nowhere, replace(OFF, repository=None)) == (
+    assert guarded("gh pr merge 7", nowhere, replace(TREE, repository=None)) == (
         CANNOT.format(NO_REPOSITORY)
     )
     assert nowhere.paths == []
@@ -280,7 +318,7 @@ def test_a_pr_the_guard_cannot_identify_or_read_is_denied() -> None:
     detached = LocalBranches(frozenset({"main"}), None)
     loose = owner()
     merge = Merge("pr-merge", command=("gh", "pr", "merge"))
-    assert guard(merge, OFF, loose, lambda: detached, lambda: 0.0) == (
+    assert guard(merge, TREE, loose, lambda: detached, lambda: 0.0) == (
         CANNOT.format("HEAD is detached and the command names no pull request")
     )
     assert loose.paths == []
@@ -312,7 +350,7 @@ def test_files_are_read_page_by_page() -> None:
     second = "repos/o/r/pulls/7/files?per_page=100&page=2"
     reader.serve(second, [{"filename": ".github/x", "status": "added"}])
     assert guarded("gh pr merge 7", reader) == TOUCHES.format(".github/x")
-    assert reader.paths == [PR, CODEOWNERS, FILES, second]
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, FILES, second]
     assert reader.filters == {FILES: FILE_FIELDS, second: FILE_FIELDS}
 
 
@@ -322,7 +360,7 @@ def test_gh_prints_only_the_fields_of_the_files_that_the_guard_reads(fake_run: F
     fake_run.answer(whole, ProcessResult(whole, 0, "[", "", 0.0, stdout_truncated=True))
     page = '[{"filename": "a.py", "status": "renamed", "previous_filename": "b.py"}]'
     fake_run.answer([*whole, "--jq", FILE_FIELDS], ProcessResult(whole, 0, page, "", 0.0))
-    pull = PullRequest("o/r", 7, HEAD, "main", body="")
+    pull = PullRequest("o/r", 7, HEAD, "main", BASE, body="")
     assert changed_files(gh_get, pull) == [FileChange("a.py", "renamed", "b.py")]
 
 
@@ -338,19 +376,19 @@ def test_a_pr_with_more_files_than_github_lists_is_denied() -> None:
 
 
 def test_codeowners_is_read_where_github_reads_it() -> None:
-    root_file = "repos/o/r/contents/CODEOWNERS?ref=main"
-    docs_file = "repos/o/r/contents/docs/CODEOWNERS?ref=main"
+    root_file = f"repos/o/r/contents/CODEOWNERS?ref={BASE}"
+    docs_file = f"repos/o/r/contents/docs/CODEOWNERS?ref={BASE}"
     guide = [{"filename": "docs/AGENTS.md", "status": "modified"}]
     reader = owner(files=guide)
     reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
-    reader.serve(root_file, {"encoding": "base64", "content": OWNERS})
+    reader.serve(root_file, contents(OWNERS))
     assert guarded("gh pr merge 7", reader) == TOUCHES.format("docs/AGENTS.md")
-    assert reader.paths == [PR, CODEOWNERS, root_file, FILES]
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, root_file, FILES]
 
     unowned = owner(files=guide)
     unowned.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
     assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", unowned) is None
-    assert unowned.paths == [PR, CODEOWNERS, root_file, docs_file, FILES, RUNS]
+    assert unowned.paths == [PR, SETTINGS, CODEOWNERS, root_file, docs_file, FILES, RUNS]
 
 
 def test_codeowners_that_cannot_be_read_denies() -> None:
@@ -359,7 +397,7 @@ def test_codeowners_that_cannot_be_read_denies() -> None:
     assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) == CANNOT.format(
         "Resource not accessible by integration"
     )
-    assert reader.paths == [PR, CODEOWNERS]
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS]
 
 
 def test_each_merge_on_the_line_is_guarded(tmp_path: Path) -> None:
@@ -367,7 +405,7 @@ def test_each_merge_on_the_line_is_guarded(tmp_path: Path) -> None:
     reader = owner()
     line = f"gh pr merge 7 --match-head-commit {HEAD} && gh pr merge 8 --squash"
     assert hooked(root, line, reader) == ("deny", CANNOT.format("Not Found"))
-    assert reader.paths == [PR, CODEOWNERS, FILES, RUNS, "repos/o/r/pulls/8"]
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS, "repos/o/r/pulls/8"]
 
 
 def test_a_merge_on_a_line_that_shell_rules_cannot_split_is_denied(tmp_path: Path) -> None:
@@ -386,25 +424,44 @@ def test_the_guard_denies_before_a_read_could_pass_its_budget() -> None:
     merge = find_merge(simple_commands("gh pr merge 7")[0], lambda: TASK)
     assert merge is not None
     reader = owner()
-    denial = guard(merge, OFF, reader, lambda: TASK, lambda: next(clock))
+    denial = guard(merge, TREE, reader, lambda: TASK, lambda: next(clock))
     assert reader.paths == [PR]
     assert denial is not None
     assert denial.endswith(BUDGET)
 
     edge = owner()  # a read that could end at the budget itself is still made
-    assert guard(merge, OFF, edge, lambda: TASK, lambda: 240.0) is not None
-    assert edge.paths == [PR, CODEOWNERS, FILES, RUNS]
+    assert guard(merge, TREE, edge, lambda: TASK, lambda: 240.0) is not None
+    assert edge.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS]
 
 
 def test_the_merges_on_a_line_share_one_budget(tmp_path: Path) -> None:
     root = project(tmp_path)
     reader = owner()
-    clock = iter([0.0, 0.0, 0.0, 0.0, 0.0, 240.1])  # the run's start, then one tick per read
+    clock = iter([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 240.1])  # the run's start, then one per read
     line = f"gh pr merge 7 --match-head-commit {HEAD}; gh pr merge 7 --match-head-commit {HEAD}"
     decision, reason = run_hook(ToolCall(line, (), root), reader, clock=lambda: next(clock))
     assert decision == "deny"
     assert reason.endswith(BUDGET)
-    assert reader.paths == [PR, CODEOWNERS, FILES, RUNS]
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS]
+
+
+def test_when_each_read_takes_its_longest_the_budget_holds_five_reads() -> None:
+    """A merge with Agent identity on needs six, so it is denied before the sixth."""
+    merge = find_merge(
+        simple_commands(f"gh pr merge 7 --match-head-commit {HEAD}")[0], lambda: TASK
+    )
+    assert merge is not None
+    flight = owner()
+    flight_reads = count(0.0, OWNER_GET_TIMEOUT_SECONDS)  # the elapsed seconds at each read
+    assert guard(merge, TREE, flight, lambda: TASK, lambda: next(flight_reads)) is None
+    assert flight.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS]
+
+    identity = owner(base=IDENTITY)
+    identity_reads = count(0.0, OWNER_GET_TIMEOUT_SECONDS)
+    denial = guard(merge, TREE, identity, lambda: TASK, lambda: next(identity_reads))
+    assert denial is not None
+    assert denial.endswith(BUDGET)
+    assert identity.paths == [PR, SETTINGS, CODEOWNERS, FILES, REVIEWS]
 
 
 def test_only_gh_pr_merge_reads_github(tmp_path: Path) -> None:
@@ -485,11 +542,11 @@ def test_with_agent_identity_a_direct_merge_is_denied_before_the_guard_runs(tmp_
 
 def test_reviews_are_read_page_by_page() -> None:
     crowd = [review(user={"login": "octo"}, id=at) for at in range(1, 101)]
-    reader = owner(reviews=crowd)
+    reader = owner(reviews=crowd, base=IDENTITY)
     second = "repos/o/r/pulls/7/reviews?per_page=100&page=2"
     reader.serve(second, [review(id=101)])
-    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader, ON) is None
-    assert reader.paths == [PR, CODEOWNERS, FILES, REVIEWS, second, RUNS]
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, FILES, REVIEWS, second, RUNS]
 
 
 def test_the_denials_come_in_the_order_protected_check_review_head() -> None:
@@ -498,13 +555,14 @@ def test_the_denials_come_in_the_order_protected_check_review_head() -> None:
         files=[{"filename": ".github/x", "status": "modified"}],
         reviews=[],
         runs=[run(conclusion="failure")],
+        base=IDENTITY,
     )
-    assert guarded(line, protected, ON) == TOUCHES.format(".github/x")
+    assert guarded(line, protected) == TOUCHES.format(".github/x")
 
-    failed = owner(reviews=[], runs=[run(conclusion="failure")])
-    assert guarded(line, failed, ON) == CHECKED.format("failure")
+    failed = owner(reviews=[], runs=[run(conclusion="failure")], base=IDENTITY)
+    assert guarded(line, failed) == CHECKED.format("failure")
 
-    assert guarded("gh pr merge 7 --squash", owner(reviews=[]), ON) == UNAPPROVED
+    assert guarded("gh pr merge 7 --squash", owner(reviews=[], base=IDENTITY)) == UNAPPROVED
 
 
 @pytest.mark.parametrize(
@@ -516,21 +574,21 @@ def test_the_denials_come_in_the_order_protected_check_review_head() -> None:
         ("gh pr merge", BY_BRANCH),
     ],
 )
-@pytest.mark.parametrize("settings", [WALK, replace(ON, every_pr=True)])
-def test_in_walk_every_merge_is_denied_once_the_pull_request_is_read(
-    line: str, read: str, settings: HookSettings
+@pytest.mark.parametrize("base", [WALK, WALK_IDENTITY], ids=["identity-off", "identity-on"])
+def test_in_walk_every_merge_is_denied_once_the_mode_on_the_base_is_read(
+    line: str, read: str, base: str
 ) -> None:
-    reader = owner()
+    reader = owner(base=base)
     reader.serve(BY_BRANCH, [PULL])
-    assert guarded(line, reader, settings) == IN_WALK
-    assert reader.paths == [read]
+    assert guarded(line, reader) == IN_WALK
+    assert reader.paths == [read, SETTINGS]
 
 
 def test_in_walk_with_agent_identity_a_merge_through_devctl_as_is_denied(tmp_path: Path) -> None:
     root = project(tmp_path, APPS, mode="every_pr = true")
-    reader = owner()
+    reader = owner(base=WALK_IDENTITY)
     assert hooked(root, "./devctl as worker gh pr merge 7", reader) == ("deny", IN_WALK)
-    assert reader.paths == [PR]
+    assert reader.paths == [PR, SETTINGS]
 
 
 @pytest.mark.parametrize(
@@ -551,14 +609,14 @@ def test_in_walk_with_agent_identity_a_merge_through_devctl_as_is_denied(tmp_pat
         ),
     ],
 )
-@pytest.mark.parametrize("settings", [OFF, ON])
+@pytest.mark.parametrize("base", [FLIGHT, IDENTITY], ids=["identity-off", "identity-on"])
 def test_in_flight_a_body_that_declares_a_removed_behavioural_test_or_an_overage_is_denied(
-    body: str, what: str, settings: HookSettings
+    body: str, what: str, base: str
 ) -> None:
-    reader = owner(body=body)
+    reader = owner(body=body, base=base)
     line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
-    assert guarded(line, reader, settings) == DECLARES.format(what)
-    assert reader.paths == [PR, CODEOWNERS, FILES]
+    assert guarded(line, reader) == DECLARES.format(what)
+    assert reader.paths == [PR, SETTINGS, CODEOWNERS, FILES]
 
 
 @pytest.mark.parametrize(
@@ -589,10 +647,10 @@ def test_in_flight_a_body_without_either_declaration_passes_to_the_next_rule(
 
 def test_the_unit_patterns_decide_which_declared_removals_stop_the_merge() -> None:
     line = f"gh pr merge 7 --match-head-commit {HEAD}"
-    every_test_unit = replace(OFF, unit_tests=("tests/**",))
-    assert guarded(line, owner(body=REMOVES_BEHAVIOURAL), every_test_unit) is None
-    no_unit_tests = replace(OFF, unit_tests=())
-    assert guarded(line, owner(body=REMOVES_UNIT), no_unit_tests) == (
+    every_test_unit = project_toml(tests=EVERY_TEST_UNIT)
+    assert guarded(line, owner(body=REMOVES_BEHAVIOURAL, base=every_test_unit)) is None
+    no_unit_tests = project_toml(tests="\n[tests]\nunit = []\n")
+    assert guarded(line, owner(body=REMOVES_UNIT, base=no_unit_tests)) == (
         DECLARES.format(REMOVED_BEHAVIOURAL)
     )
 
@@ -602,27 +660,109 @@ def test_walk_comes_first_and_the_declarations_after_the_protected_set() -> None
     protected = [{"filename": ".github/x", "status": "modified"}]
     failing = [run(conclusion="failure")]
 
-    walk = owner(files=protected, reviews=[], runs=failing, body=OVER)
-    assert guarded(line, walk, replace(ON, every_pr=True)) == IN_WALK
-    flight = owner(files=protected, reviews=[], runs=failing, body=OVER)
-    assert guarded(line, flight, ON) == TOUCHES.format(".github/x")
-    declared = owner(reviews=[], runs=failing, body=OVER)
-    assert guarded(line, declared, ON) == DECLARES.format(OVER_CAP)
+    walk = owner(files=protected, reviews=[], runs=failing, body=OVER, base=WALK_IDENTITY)
+    assert guarded(line, walk) == IN_WALK
+    flight = owner(files=protected, reviews=[], runs=failing, body=OVER, base=IDENTITY)
+    assert guarded(line, flight) == TOUCHES.format(".github/x")
+    declared = owner(reviews=[], runs=failing, body=OVER, base=IDENTITY)
+    assert guarded(line, declared) == DECLARES.format(OVER_CAP)
 
 
-def test_the_hook_reads_the_mode_and_the_unit_tests_from_project_toml(tmp_path: Path) -> None:
+def test_a_branch_that_flips_every_pr_does_not_change_the_guards_mode(tmp_path: Path) -> None:
     line = f"gh pr merge 7 --match-head-commit {HEAD}"
-    walk = owner()
-    assert hooked(project(tmp_path / "walk", mode=""), line, walk) == ("deny", IN_WALK)
-    assert walk.paths == [PR]
+    walk = owner(base=WALK)
+    to_flight = project(tmp_path / "to-flight", mode="every_pr = false")
+    assert hooked(to_flight, line, walk) == ("deny", IN_WALK)
+    assert walk.paths == [PR, SETTINGS]
 
-    flight = project(tmp_path / "flight", github='\n[tests]\nunit = ["tests/**"]\n')
-    assert hooked(flight, line, owner(body=REMOVES_BEHAVIOURAL)) == (None, "")
+    flight = owner()
+    to_walk = project(tmp_path / "to-walk", mode="every_pr = true")
+    assert hooked(to_walk, line, flight) == (None, "")
+    assert flight.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS]
+
+
+def test_a_branch_that_turns_agent_identity_off_still_needs_the_reviewer_apps_approval(
+    tmp_path: Path,
+) -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    identity_at_base = owner(reviews=[], base=IDENTITY)
+    turned_off = project(tmp_path / "off")
+    assert hooked(turned_off, line, identity_at_base) == ("deny", UNAPPROVED)
+    assert identity_at_base.paths == [PR, SETTINGS, CODEOWNERS, FILES, REVIEWS, RUNS]
+
+    none_at_base = owner(reviews=[])
+    turned_on = project(tmp_path / "on", APPS)
+    assert hooked(turned_on, f"./devctl as worker {line}", none_at_base) == (None, "")
+    assert REVIEWS not in none_at_base.paths
+
+
+def test_the_unit_patterns_on_the_base_class_the_declared_removed_tests(tmp_path: Path) -> None:
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    widened = project(tmp_path / "widened", tests=EVERY_TEST_UNIT)
+    assert hooked(widened, line, owner(body=REMOVES_BEHAVIOURAL)) == (
+        "deny",
+        DECLARES.format(REMOVED_BEHAVIOURAL),
+    )
+
+    unit_at_base = owner(body=REMOVES_BEHAVIOURAL, base=project_toml(tests=EVERY_TEST_UNIT))
+    assert hooked(project(tmp_path / "default"), line, unit_at_base) == (None, "")
+
+
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        (OwnerReadError(404, "Not Found"), ".rapid-ship/project.toml cannot be read: Not Found"),
+        (
+            OwnerReadError(403, "Resource not accessible by integration"),
+            ".rapid-ship/project.toml cannot be read: Resource not accessible by integration",
+        ),
+    ],
+)
+def test_a_base_project_toml_that_cannot_be_read_denies(error: OwnerReadError, reason: str) -> None:
+    reader = owner()
+    reader.fail(SETTINGS, error)
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    assert guarded(line, reader) == CANNOT.format(ON_MAIN + reason)
+    assert reader.paths == [PR, SETTINGS]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "stack = \n",
+        stack_table("python") + '\n[escalation]\nevery_pr = "no"\n',
+        stack_table("python") + '\n[linear]\nteam = "x"\n',
+        FLIGHT + 'worker_app_id = 1\nworker_app_slug = "o-worker"\n',
+    ],
+    ids=["not-toml", "invalid-mode", "removed-table", "one-app"],
+)
+def test_a_base_project_toml_that_does_not_load_denies_with_the_loaders_error(text: str) -> None:
+    reader = owner(base=text)
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    assert guarded(line, reader) == CANNOT.format(ON_MAIN + load_error(text))
+    assert reader.paths == [PR, SETTINGS]
+
+
+def test_the_settings_are_read_on_the_pull_requests_own_base_branch() -> None:
+    reader = owner()
+    reader.serve(PR, {**PULL, "base": {"ref": "release/1.x", "sha": OTHER}})
+    on_release = f"repos/o/r/contents/.rapid-ship/project.toml?ref={OTHER}"
+    reader.serve(on_release, contents(WALK))
+    assert guarded("gh pr merge 7", reader) == IN_WALK
+    assert reader.paths == [PR, on_release]
+
+
+def test_an_invalid_base_project_toml_is_denied_with_the_branch_the_file_and_the_key() -> None:
+    reader = owner(base=stack_table("python") + '\n[escalation]\nevery_pr = "no"\n')
+    assert guarded("gh pr merge 7", reader) == CANNOT.format(
+        "on the base branch main, .rapid-ship/project.toml [escalation] every_pr: "
+        "expected true or false"
+    )
 
 
 def test_without_agent_identity_the_guard_reads_no_review() -> None:
     reader = owner(reviews=[])
-    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader, OFF) is None
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
     assert REVIEWS not in reader.paths
 
 
@@ -647,9 +787,96 @@ def test_unreadable_settings_deny_every_merge(tmp_path: Path) -> None:
     assert reader.paths == []
 
 
-@pytest.mark.parametrize("settings", [OFF, ON])
+def test_local_flight_cannot_override_walk_on_base(tmp_path: Path) -> None:
+    """Offline GitHub simulation: the branch weakens its own Mode before merging."""
+    reader = owner()
+    text = stack_table("python") + "[escalation]\nevery_pr = true\n"
+    reader.serve(
+        SETTINGS,
+        {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()},
+    )
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+    assert hooked(project(tmp_path), line, reader) == ("deny", IN_WALK)
+
+
+def test_a_branch_cannot_replace_the_base_reviewer_with_its_own_app(tmp_path: Path) -> None:
+    """Offline: local and head settings name an App whose approval must not count."""
+    impostor = APPS.replace("2\n", "4\n").replace("o-reviewer", "branch-reviewer")
+    root = project(tmp_path, impostor)
+    reader = owner(base=IDENTITY, reviews=[review(user={"login": "branch-reviewer[bot]"})])
+    head_settings = f"repos/o/r/contents/.rapid-ship/project.toml?ref={HEAD}"
+    reader.serve(head_settings, contents(project_toml(impostor)))
+    line = f"./devctl as worker gh pr merge 7 --match-head-commit {HEAD}"
+    assert hooked(root, line, reader) == ("deny", UNAPPROVED)
+    assert head_settings not in reader.paths
+
+
+@pytest.mark.parametrize(
+    "found",
+    [
+        {"encoding": "none", "content": ""},
+        {"encoding": "base64", "content": "%%%"},
+        {"encoding": "base64", "content": base64.b64encode(b"\xff").decode()},
+        [],
+    ],
+)
+def test_malformed_base_contents_deny_without_reading_checks(found: object) -> None:
+    """Offline: invalid GitHub Contents responses must never fall back to local settings."""
+    reader = owner()
+    reader.serve(SETTINGS, found)
+    denial = guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader)
+    assert denial is not None
+    assert denial.startswith("merge denied: the merge guard cannot check this merge:")
+    assert ".rapid-ship/project.toml" in denial
+    assert reader.paths == [PR, SETTINGS]
+
+
+@pytest.mark.parametrize("directory", ["absent", "symlink"])
+@pytest.mark.parametrize(
+    ("base", "body", "expected"),
+    [
+        (WALK, None, IN_WALK),
+        (IDENTITY, None, UNAPPROVED),
+        (FLIGHT, REMOVES_BEHAVIOURAL, DECLARES.format(REMOVED_BEHAVIOURAL)),
+        (project_toml(tests=EVERY_TEST_UNIT), REMOVES_BEHAVIOURAL, None),
+    ],
+    ids=["mode", "apps", "behavioural-test", "unit-test"],
+)
+def test_base_policy_does_not_consult_the_head_filesystem(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    directory: str,
+    base: str,
+    body: str | None,
+    expected: str | None,
+) -> None:
+    base += '\n[map]\nsource_roots = ["base-src"]\n'
+    head = project(tmp_path)
+    if directory == "symlink":
+        target = tmp_path / "outside"
+        target.mkdir()
+        (head / "base-src").symlink_to(target, target_is_directory=True)
+    monkeypatch.chdir(head)
+    reader = owner(base=base, body=body, reviews=[])
+    line = f"gh pr merge 7 --match-head-commit {HEAD}"
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        raise AssertionError("base policy consulted the head filesystem")
+
+    with monkeypatch.context() as probe:
+        probe.setattr(builtins, "open", forbidden)
+        probe.setattr(io, "open", forbidden)
+        for name in ("open", "stat", "lstat", "scandir", "listdir", "readlink", "getcwd"):
+            probe.setattr(os, name, forbidden)
+        actual = guarded(line, reader)
+
+    assert actual == expected
+    assert reader.paths[:2] == [PR, SETTINGS]
+
+
+@pytest.mark.parametrize("base", [FLIGHT, IDENTITY])
 def test_flight_leaves_a_declared_spaced_behavioural_removal_to_the_owner(
-    settings: HookSettings,
+    base: str,
 ) -> None:
     line = f"gh pr merge 7 --squash --match-head-commit {HEAD}"
     for path, expected in (
@@ -657,4 +884,4 @@ def test_flight_leaves_a_declared_spaced_behavioural_removal_to_the_owner(
         ("tests/unit/a.test.ts", None),
     ):
         body = evidence("", "Removed tests:", f"- `{path}::a > b`: gone")
-        assert guarded(line, owner(body=body), settings) == expected
+        assert guarded(line, owner(body=body, base=base)) == expected
