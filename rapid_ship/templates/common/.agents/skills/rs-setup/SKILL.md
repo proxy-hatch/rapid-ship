@@ -12,7 +12,7 @@ Read `.rapid-ship/kit.lock` for `kit_version`. Run rapid-ship as `uvx --from git
 
 ## 1. New or existing
 
-A repository with source beyond the Kit is existing. Until multi-stack support ships, read `stack` in `.rapid-ship/project.toml`; its root is the repository root. Once multi-stack support ships, read each `[[stack]]` table's `name` and `directory`; the owner already confirmed these roots. Do not ask again.
+A repository with source beyond the Kit is existing. Read each `[[stack]]` table's `name` and `directory`; the owner already confirmed these roots. Do not ask again.
 
 ## 2. Documents
 
@@ -20,11 +20,13 @@ For a new project, ask what it does, who uses it and how it runs. Fill README.md
 
 ## 3. Patterns
 
-For a new project, walk through each starter Pattern and adapt its reference and Lessons. Agree further Patterns and write each Pattern, minimal reference and enforcing check. If a reference needs product code, offer it as a task. For an existing project offer each starter Pattern as a task, including, once TypeScript support ships, `typescript-error-handling.md`, `typescript-configuration.md`, `typescript-input-validation.md` and `typescript-performance.md` where applicable. Shape proposals using `.agents/skills/rs-health/references/proposed-task.md`. State each write and write the tasks the owner picks to a tracker the Harness can reach; use `./devctl as worker gh` for GitHub issues when Agent identity is on. If no tracker is reachable, leave them in the conversation.
+For a new project, walk through each starter Pattern and adapt its reference and Lessons. Agree further Patterns and write each Pattern, minimal reference and enforcing check. If a reference needs product code, offer it as a task. For an existing project offer each starter Pattern as a task, including, once TypeScript starter Patterns ship, `typescript-error-handling.md`, `typescript-configuration.md`, `typescript-input-validation.md` and `typescript-performance.md` where applicable. Shape proposals using `.agents/skills/rs-health/references/proposed-task.md`. State each write and write the tasks the owner picks to a tracker the Harness can reach; use `./devctl as worker gh` for GitHub issues when Agent identity is on. If no tracker is reachable, leave them in the conversation.
 
 ## 4. Checks
 
-Confirm `gitleaks version` is 8.30.1. Once TypeScript support ships, for TypeScript confirm Node.js 24 and npm, with `engines.node = ">=24.15.0 <25"`; ask the owner to install missing tools. For a new project run `uv sync` in each Python stack and `npm install` in each TypeScript stack, then `./devctl check`.
+Before each `./devctl check`, stage the files Setup has written with `git add`; map checks tracked files.
+
+Confirm `gitleaks version` is 8.30.1. For TypeScript confirm Node.js 24 and npm, with `engines.node = ">=24.15.0 <25"`; ask the owner to install missing tools. For a new project run `uv sync` in each Python stack and `npm install` in each TypeScript stack, then `./devctl check`.
 
 For an existing project, show overlaps in settings, hooks and workflows that init listed. Offer to fold them into `devctl_project`; duplicate checks are harmless, but checks that both write a file can race. Do not block on either. Keep existing tool settings unchanged in the Setup PR and record missing check tools as blocked. Exclude `tools/devctl` from project lint, type, test and dead-code scans. If workspace members cover it, add `exclude = ["tools/devctl"]` under the root `[tool.uv.workspace]`.
 
@@ -32,7 +34,7 @@ For every suppression reported by `exceptions`, add its `rs-exception` marker an
 
 In each Python stack's `pyproject.toml`, add vulture and deptry to the dev group, `[tool.vulture] paths` for source and tests, Ruff `lint.external = ["V"]`, and deptry's exclusion for `tools/devctl` and `known_first_party` for packages below the root. Run `uv lock`. Fix each dead-code finding or mark it with the tool's suppression and an `rs-exception` marker on the reported line, or a marked `per_rule_ignores` item for a dependency. Each entry uses reason `Existed at Setup on <date>` and removal condition `Delete it, or replace this reason with what uses it`. Repeat both dead-code commands until they pass.
 
-Once TypeScript support ships, for each TypeScript knip finding, fix it or mark the reported export with `/** @public */` and its `rs-exception` marker, or add an item under the matching top-level `ignore*` key of `knip.jsonc`, alone on its line with its marker. Use the dead-code reasons above. Mark TypeScript suppressions reported by `exceptions` with the suppression reasons above.
+For each TypeScript knip finding, fix it or mark the reported export with `/** @public */` and its `rs-exception` marker, or add an item under the matching top-level `ignore*` key of `knip.jsonc`, alone on its line with its marker. Use the dead-code reasons above. Mark TypeScript suppressions reported by `exceptions` with the suppression reasons above.
 
 For existing hooks, wait for the owner's decision on combining them before `git config core.hooksPath .githooks`. Run `./devctl check` until it passes; record blocked tools rather than changing their existing settings.
 
@@ -42,11 +44,17 @@ Show the owner the guardrails and merge guard. Claude Code is wired; agy is wire
 
 ## 6. Sandbox
 
-Offer a sandbox; wait for the owner's yes. It confines the owner's Session and inherited subagent Sessions as defense in depth. It needs network access for git, gh, uv, package registries and the tracker. Never commit local settings.
+Explain the boundary and offer a sandbox; wait for the owner's yes. Claude Code confines shell calls and their children, including subagent shell calls; file tools, MCP servers and hooks run outside that boundary. Obtain approval for each domain, write path and command exclusion. Write only uncommitted Harness settings; never commit them.
 
-Claude Code alone uses `.claude/settings.local.json`: `network.allowedDomains` includes `github.com`, `api.github.com`, `codeload.github.com`, `objects.githubusercontent.com`, `pypi.org`, `files.pythonhosted.org`, and for TypeScript `registry.npmjs.org`. `filesystem.allowWrite` includes `~/.cache/uv` and `~/.local/share/uv/tools`; TypeScript may also need `~/.npm`. `excludedCommands` includes `gh *` and, until the sandbox fix is merged and trialed, `./devctl as *`. Run `git check-ignore -q .claude/settings.local.json`; if needed add that path to the file from `git rev-parse --git-path info/exclude`.
+For Claude Code, put settings under `sandbox` with `enabled: true` in `.claude/settings.local.json`. Propose `network.allowedDomains` for `github.com`, `api.github.com`, `codeload.github.com`, `objects.githubusercontent.com`, `pypi.org`, `files.pythonhosted.org`, and exact tracker, mirror and download hosts needed. Propose `filesystem.allowWrite` for the actual cache from `uv cache dir`, including `UV_CACHE_DIR` overrides, and any extra output paths. Leave the uv tools directory read-only: audit and workflows use isolated tools. Run other bootstrap operations that need it in the owner's terminal. For TypeScript, resolve `npm config get cache` and the configured registry's exact hosts; obtain approval for them too.
 
-Codex uses `sandbox_mode` in the owner's uncommitted Codex configuration. agy uses its terminal sandbox setting, with network allowed first. Do not copy Claude's JSON into either. Start a new sandbox Session before running `./devctl --version`, `./devctl check --tier fast` and `gh auth status`; record each actual output and exit code. A blocked command is not a pass. Consult [known failures](references/known-failures.md) without increasing permissions.
+On macOS with the observed gh TLS failure, offer `excludedCommands` for `gh *`, `./devctl as *` and `./devctl doctor *`. Excluded calls have full filesystem and network access and stored credentials. Keep the `devctl as` exclusion pending live proof; the doctor exclusion is inferred and unverified, and `doctor --settings` makes no GitHub request. Keychain access and sandboxed Worker pushes remain unverified. Do not weaken network isolation or enable automatic unsandboxed retries.
+
+An exclusion matches the whole shell call; every command in a compound call must match. Redirection, `cd` and command substitution can prevent matching. Run each excluded command as a separate call without appended commands. Pass long text using `--body-file` in the working directory; sandboxed and excluded temporary directories can differ. Exclusion is not proof of sandboxed execution.
+
+Run `git check-ignore -q .claude/settings.local.json`; if needed add that path to the file from `git rev-parse --git-path info/exclude`. Codex uses `sandbox_mode` in its own uncommitted configuration; agy uses its terminal sandbox setting and needs network access enabled first. Do not copy Claude's JSON into either.
+
+After each settings change, restart in a new sandbox Session. Run `./devctl --version`, `./devctl doctor --settings`, `./devctl check --tier fast` and `gh auth status` as separate calls, and validate the full `./devctl check` and applicable TypeScript tools. Record the Harness version, effective settings, output, exit code and whether each call was sandboxed or excluded. A blocked or excluded call is not a passing sandboxed check. Report failures and request approval before changing access; restart and repeat. Live sandbox, doctor exclusion and Keychain validation remain pending. Consult [known failures](references/known-failures.md).
 
 ## 7. GitHub
 
@@ -82,7 +90,7 @@ This Kit version records no metrics settings; go on to step 11.
 
 ## 11. Optional skills
 
-Until `rs-contribute` ships, there are no optional skills to offer. Once it ships, offer `rs-contribute` once. Add accepted skills to `[kit] optional` and run the versioned `rapid-ship sync --in-place`.
+Offer `rs-contribute` once. Add accepted skills to `[kit] optional` and run the versioned `rapid-ship sync --in-place`.
 
 ## 12. Doctor
 

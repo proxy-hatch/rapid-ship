@@ -33,13 +33,13 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |
-| `Failed to initialize cache at` | uv cannot write its cache. | Allow `~/.cache/uv` in the accepted sandbox settings. |
-| `uv tool run` cannot write under `~/.local/share/uv/tools` | Its tools directory is outside writable paths. | Allow that directory. |
-| `x509: OSStatus -26276` | gh cannot use the sandbox proxy's certificate. | Offer the scoped gh exclusion. |
-| An exclusion matches only the exact command line | A compound or multiline command line does not match the scoped exclusion. | Review the scoped exclusion and actual command. |
+| `Failed to initialize cache at` | uv cannot write its cache. | Resolve `uv cache dir`, including overrides, and ask the owner to approve that path. |
+| `uv tool run` cannot write under `~/.local/share/uv/tools` | Its tools directory is outside writable paths. | Leave the tools directory read-only; run bootstrap operations in the owner's terminal. |
+| `x509: OSStatus -26276` | gh cannot use the sandbox proxy's certificate. | Offer the scoped gh exclusion and explain its full filesystem, network and credential access. |
+| An exclusion matches only the exact command line | A compound or multiline command line does not match the scoped exclusion. | Run each excluded command as a separate whole call; use `--body-file` for long text. |
 | devctl GitHub request fails behind the sandbox proxy | The proxy, network or TLS configuration may be blocking the request. | Inspect the reported error and proxy configuration; use the owner's terminal when appropriate. |
 | Local settings are not ignored | The ignore rule is missing. | Use `git check-ignore -q .claude/settings.local.json` and add it to the file from `git rev-parse --git-path info/exclude` if needed. This works in a linked worktree too. |
-| Old Session does not use the setting | It started before the change. | Start a new sandbox Session and repeat all three checks. |
+| Old Session does not use the setting | It started before the change. | Restart the Session and repeat the version, settings doctor, fast check, gh authentication, full check and applicable TypeScript validation; record the evidence described in step 6. |
 
 ## GitHub
 

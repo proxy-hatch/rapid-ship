@@ -66,8 +66,6 @@ def test_rs_setup_states_each_guard() -> None:
         "objects.githubusercontent.com",
         "pypi.org",
         "files.pythonhosted.org",
-        "~/.cache/uv",
-        "~/.local/share/uv/tools",
     ):
         assert value in text
 
@@ -112,5 +110,46 @@ def test_known_failures_distinguishes_app_refusals() -> None:
 
 def test_setup_conditions_future_stack_settings() -> None:
     text = (SKILL / "SKILL.md").read_text()
-    assert "Until multi-stack support ships" in text
-    assert "Until `rs-contribute` ships" in text
+    assert "Read each `[[stack]]` table" in text
+    assert "Until multi-stack support ships" not in text
+    assert "Once TypeScript support ships, for TypeScript" not in text
+    assert "Once TypeScript support ships, for each TypeScript knip" not in text
+    assert "once TypeScript starter Patterns ship" in text
+    assert "Offer `rs-contribute` once" in text
+    assert "Until `rs-contribute` ships" not in text
+
+
+def test_sandbox_contract_requires_approved_access_and_evidence() -> None:
+    text = (SKILL / "SKILL.md").read_text()
+    sandbox = text.split("## 6. Sandbox", 1)[1].split("## 7. GitHub", 1)[0]
+    for value in (
+        "shell calls and their children",
+        "file tools, MCP servers and hooks",
+        "each domain, write path and command exclusion",
+        "`uv cache dir`",
+        "tools directory read-only",
+        "full filesystem and network access",
+        "stored credentials",
+        "whole shell call",
+        "`--body-file`",
+        "`./devctl doctor --settings`",
+        "`./devctl check`",
+        "Harness version",
+        "effective settings",
+        "sandboxed or excluded",
+        "`npm config get cache`",
+        "restart",
+    ):
+        assert value in sandbox
+    assert "`~/.local/share/uv/tools`;" not in sandbox
+    failures = (SKILL / "references/known-failures.md").read_text()
+    assert "Allow that directory" not in failures
+    assert "repeat all three checks" not in failures
+
+
+def test_setup_stages_written_files_before_each_check() -> None:
+    text = (SKILL / "SKILL.md").read_text()
+    checks = text.split("## 4. Checks", 1)[1].split("## 5. Harness", 1)[0]
+    assert checks.index("Before each `./devctl check`") < checks.index("then `./devctl check`")
+    assert "stage the files" in checks
+    assert "`git add`" in checks
