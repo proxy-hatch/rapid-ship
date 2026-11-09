@@ -55,7 +55,7 @@ def responses(h: MergedHistory) -> dict[str, object]:
     from github_fakes import git
 
     paths = [
-        "repos/o/r/",
+        "repos/o/r",
         "rate_limit",
         "repos/o/r/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=64&page=1",
     ]
@@ -143,7 +143,7 @@ def test_each_failure_exits_2_and_names_its_fix(
     if failure == "settings":
         (h.path / ".rapid-ship/metrics.toml").write_text("window = 0\nwrong = 1\n")
     elif failure == "401":
-        h.owner.serve("repos/o/r/", {"error": "gh: Bad credentials (HTTP 401)"})
+        h.owner.serve("repos/o/r", {"error": "gh: Bad credentials (HTTP 401)"})
     elif failure == "origin":
         from github_fakes import git
 
@@ -177,7 +177,7 @@ def test_allowance_exhaustion(
 ) -> None:
     h = setup(tmp_path)
     if phase == "before":
-        path = "repos/o/r/"
+        path = "repos/o/r"
     elif phase == "walk":
         for _ in range(8):
             h.push({})
