@@ -179,12 +179,24 @@ class _Table:
         return tuple(value)
 
 
-def _read(root: Path, relative: str) -> dict[str, object]:
+def _read_text(root: Path, relative: str) -> str:
     try:
-        return tomllib.loads((root / relative).read_text(encoding="utf-8"))
+        text = (root / relative).read_text(encoding="utf-8")
     except FileNotFoundError:
         raise SettingsError(f"{relative}: missing; rapid-ship init seeds it") from None
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+    except (OSError, UnicodeDecodeError) as error:
+        raise SettingsError(f"{relative}: {error}") from error
+    return text
+
+
+def _read(root: Path, relative: str) -> dict[str, object]:
+    return _parse(_read_text(root, relative), relative)
+
+
+def _parse(text: str, relative: str) -> dict[str, object]:
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{relative}: {error}") from error
 
 
@@ -262,7 +274,7 @@ def _refuse_removed(data: dict[str, object]) -> None:
             raise SettingsError(f"{PROJECT}: [{name}] was removed: {replacement}")
 
 
-def _stacks(root: Path, value: object) -> tuple[ProjectStack, ...]:
+def _stacks(value: object) -> tuple[ProjectStack, ...]:
     if isinstance(value, str):
         raise SettingsError(
             f'{PROJECT}: stack = "{value}" is no longer read; rewrite it as '
@@ -283,16 +295,7 @@ def _stacks(root: Path, value: object) -> tuple[ProjectStack, ...]:
         directory = None
         if isinstance(entry, str):
             directory = "." if entry in (".", "./") else _inside_repository(entry)
-        if directory is None or (
-            directory != "."
-            and (
-                not (root / directory).is_dir()
-                or any(
-                    (root / Path(*PurePosixPath(directory).parts[:n])).is_symlink()
-                    for n in range(1, len(PurePosixPath(directory).parts) + 1)
-                )
-            )
-        ):
+        if directory is None:
             raise row._error("directory", "a directory inside the repository that is not a symlink")
         if name == "agnostic" and directory != ".":
             raise SettingsError(f'{row.where} directory: the agnostic stack\'s directory is "."')
@@ -306,10 +309,33 @@ def _stacks(root: Path, value: object) -> tuple[ProjectStack, ...]:
 
 
 def load_project(root: Path) -> ProjectSettings:
-    data = _read(root, PROJECT)
+    text = _read_text(root, PROJECT)
+    project = parse_project(text)
+    rows = cast(list[object], _parse(text, PROJECT)["stack"])
+    for number, item in enumerate(rows, 1):
+        row = _Table(item, f"{PROJECT} [[stack]] #{number}", PROJECT_KEYS["stack"])
+        entry = cast(str, row.values["directory"])
+        directory = "." if entry in (".", "./") else cast(str, _inside_repository(entry))
+        if directory != "." and (
+            not (root / directory).is_dir()
+            or any(
+                (root / Path(*PurePosixPath(directory).parts[:n])).is_symlink()
+                for n in range(1, len(PurePosixPath(directory).parts) + 1)
+            )
+        ):
+            raise row._error("directory", "a directory inside the repository that is not a symlink")
+    return project
+
+
+def parse_project(text: str) -> ProjectSettings:
+    """Validate project.toml schema and paths without consulting the filesystem."""
+    return _project(_parse(text, PROJECT))
+
+
+def _project(data: dict[str, object]) -> ProjectSettings:
     _refuse_removed(data)
     top = _Table(data, PROJECT, PROJECT_KEYS[""])
-    stacks = _stacks(root, top.values.get("stack"))
+    stacks = _stacks(top.values.get("stack"))
     github = top.table("github")
     kit = top.table("kit")
     source_map = top.table("map")

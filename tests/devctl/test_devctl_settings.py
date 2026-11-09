@@ -1,8 +1,12 @@
 """devctl settings loading, defaults and errors (offline)."""
 
+import builtins
+import io
 import json
+import os
 import re
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -20,6 +24,7 @@ from devctl.settings import (
     SettingsError,
     load_exceptions,
     load_project,
+    parse_project,
 )
 from rapid_ship.kit.init import resolve_variables
 from rapid_ship.kit.stacks import ProjectStack as KitStack
@@ -298,6 +303,79 @@ def test_this_repository_settings_load() -> None:
 def test_a_missing_file_is_a_settings_error(tmp_path: Path) -> None:
     with pytest.raises(SettingsError, match=re.escape(".rapid-ship/project.toml: missing")):
         load_project(tmp_path)
+
+
+def test_project_text_loads_as_the_file_does(tmp_path: Path) -> None:
+    text = (
+        stack_table("python") + '[escalation]\nevery_pr = false\n[tests]\nunit = ["t/**"]\n' + APPS
+    )
+    write(tmp_path, PROJECT, text)
+
+    assert parse_project(text) == load_project(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "stack = \n",
+        stack_table("python") + '[escalation]\nevery_pr = "no"\n',
+        stack_table("python") + '[linear]\nteam = "x"\n',
+        stack_table("python") + "" + APPS.replace('repository = "o/r"\n', ""),
+    ],
+)
+def test_project_text_fails_as_the_file_does(tmp_path: Path, text: str) -> None:
+    write(tmp_path, PROJECT, text)
+    with pytest.raises(SettingsError) as from_file:
+        load_project(tmp_path)
+
+    with pytest.raises(SettingsError) as from_text:
+        parse_project(text)
+
+    assert str(from_text.value) == str(from_file.value)
+
+
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [
+        ("kit", "exclude"),
+        ("map", "source_roots"),
+        ("map", "unguided"),
+        ("map", "exclude"),
+        ("tests", "unit"),
+    ],
+)
+@pytest.mark.parametrize("entry", ["./missing/path/", "../outside", "/absolute", "bad\\path"])
+def test_project_text_checks_paths_without_filesystem_access(
+    monkeypatch: pytest.MonkeyPatch, table: str, key: str, entry: str
+) -> None:
+    text = stack_table("python") + f"[{table}]\n{key} = [{json.dumps(entry)}]\n"
+
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
+        raise AssertionError("parse_project accessed the filesystem")
+
+    with monkeypatch.context() as probe:
+        probe.setattr(builtins, "open", forbidden)
+        probe.setattr(io, "open", forbidden)
+        for name in ("open", "stat", "lstat", "scandir", "listdir", "readlink", "getcwd"):
+            probe.setattr(os, name, forbidden)
+        if entry == "./missing/path/":
+            project = parse_project(text)
+        else:
+            with pytest.raises(SettingsError) as raised:
+                parse_project(text)
+            assert str(raised.value) == (
+                f"{PROJECT} [{table}] {key}: expected paths inside the repository"
+            )
+            return
+
+    paths = {
+        ("kit", "exclude"): project.excluded,
+        ("map", "source_roots"): project.source_roots,
+        ("map", "unguided"): project.unguided,
+        ("map", "exclude"): project.map_exclude,
+        ("tests", "unit"): project.unit_tests,
+    }
+    assert paths[table, key] == ("missing/path",)
 
 
 EXCEPTION = (

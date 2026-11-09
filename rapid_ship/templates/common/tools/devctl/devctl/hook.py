@@ -213,8 +213,8 @@ def work_tree_root(path: Path) -> Path | None:
 
 
 def read_settings(root: Path) -> HookSettings | str:
-    """The settings the Protected-set and Agent identity rules and the merge guard read, or why
-    they cannot be read.
+    """The work tree's settings that the Protected-set and Agent identity rules read, with the
+    repository the merge guard falls back on, or why they cannot be read.
 
     An unreadable project.toml or CODEOWNERS, or an invalid project.toml, switches the
     Protected-set and Agent identity rules off: this writes one stderr line and returns the
@@ -228,14 +228,10 @@ def read_settings(root: Path) -> HookSettings | str:
         reason = " ".join(str(error).splitlines())
         sys.stderr.write(f"devctl hook: {reason}; G5, G7 and G8 give no decision\n")
         return reason
-    reviewer = project.reviewer_app if project.agent_identity else None
     return HookSettings(
         agent_identity=project.agent_identity,
         protected=tuple(patterns or ()),
         repository=project.repository,
-        reviewer_app_slug=reviewer.slug if reviewer else None,
-        every_pr=project.escalation.every_pr,
-        unit_tests=project.unit_tests,
     )
 
 
