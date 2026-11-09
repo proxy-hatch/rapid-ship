@@ -82,6 +82,31 @@ kind = "managed"
 sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
 
 [[file]]
+path = ".agents/skills/rs-setup/SKILL.md"
+kind = "managed"
+sha256 = "0e995cf569e367dec8eac6896f902ea672a3361425a1b25dfdd2383bf823a201"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/agent-identity.md"
+kind = "managed"
+sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/known-failures.md"
+kind = "managed"
+sha256 = "d34576073acbf7c56d2604b5d9c2c6b39259cf51c951d31879ee20c48a050362"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/stylistic-options.md"
+kind = "managed"
+sha256 = "3f230df4158093718c12d3cce5b650ac267a963922a2e899b745b767690c6b75"
+
+[[file]]
+path = ".agents/skills/rs-setup/ruleset.json"
+kind = "managed"
+sha256 = "a96c22d221f1aa38ea617faa4362fcc47e3ad7a435b61dc473c01fc3db711a44"
+
+[[file]]
 path = ".agents/skills/rs-tdd/LICENSE.txt"
 kind = "managed"
 sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
@@ -155,6 +180,11 @@ link = "../../.agents/skills/rs-ponytail"
 path = ".claude/skills/rs-pr"
 kind = "managed"
 link = "../../.agents/skills/rs-pr"
+
+[[file]]
+path = ".claude/skills/rs-setup"
+kind = "managed"
+link = "../../.agents/skills/rs-setup"
 
 [[file]]
 path = ".claude/skills/rs-tdd"
