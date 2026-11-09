@@ -479,7 +479,7 @@ sha256 = "0e67998d89055af7875963c1600f7ecd8781add269b467eb6e6b8338abadcad7"
 [[file]]
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
-sha256 = "1dd7631e0a5ad990440aa98d76bfe8da4519be24ad01e20417df5dfffef66c00"
+sha256 = "ed4c2250625e72f55dc495de05fef4b5257c36ce85184dbffe960782be037a5b"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/__init__.py"

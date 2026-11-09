@@ -20,6 +20,10 @@ The first drafts of plans 4 and 5, GitHub commands and Kit skills, were deleted 
 
 This index fixes the layout and the names, signatures and formats that more than one plan uses. A plan that needs a different one changes this file in the same PR. For what plans 1 to 4 built, the code and [ARCHITECTURE.md](../../../ARCHITECTURE.md) on their branches are canonical; their plan documents keep their task lists and verification records.
 
+## Setup merge fallback integration
+
+When all base CODEOWNERS locations return 404, the merge guard uses the Kit's common Protected paths, four starter Patterns and `protected_settings` for every supported `ProjectStack`. Common paths and starter Patterns stay root-anchored; Python and TypeScript settings match at any depth. All three CODEOWNERS locations are Protected, including a later first CODEOWNERS. The fallback consumes the shared path provider on main; head declarations cannot narrow it.
+
 ## Conventions for every plan
 
 - Every command in both CLIs is one word followed by arguments:
