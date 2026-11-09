@@ -28,6 +28,14 @@ PROJECTION = (
 LIST_PROJECTION = PROJECTION.replace(", body", "")
 
 
+def test_empty_suffix_reads_the_repository_without_a_trailing_slash() -> None:
+    owner = RecordedOwner({"repos/o/r": {"default_branch": "main"}})
+    reader = GitHubReader("o/r", owner)
+
+    assert reader.get("", jq="{default_branch}") == {"default_branch": "main"}
+    assert owner.paths == ["repos/o/r"]
+
+
 def test_pages_reads_until_a_short_page() -> None:
     owner = RecordedOwner(
         {

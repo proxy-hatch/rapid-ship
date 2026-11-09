@@ -78,6 +78,8 @@ class GitHubReader:
         if self._exhausted is not None:
             raise self._exhausted
         full = path.lstrip("/") if path.startswith("/") else f"repos/{self.repository}/{path}"
+        if not path:
+            full = f"repos/{self.repository}"
         self.requests += 1
         try:
             return self._get(full, jq=jq)

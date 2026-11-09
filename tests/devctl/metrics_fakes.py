@@ -17,7 +17,7 @@ class MergedHistory:
         git(path, "init", "-q", "-b", "main")
         git(path, "config", "core.hooksPath", str(path / "empty-hooks"))
         git(path, "config", "commit.gpgsign", "false")
-        self.owner = RecordedOwner({"repos/o/r/": {"default_branch": "main"}})
+        self.owner = RecordedOwner({"repos/o/r": {"default_branch": "main"}})
         self.pulls: list[dict[str, object]] = []
         self.push({"initial": "root"})
 

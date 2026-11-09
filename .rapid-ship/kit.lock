@@ -509,7 +509,7 @@ sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
 [[file]]
 path = "tools/devctl/devctl/metrics/github.py"
 kind = "managed"
-sha256 = "0903a8e16b30d92b63c04a6726b45c1b8c793c3741015ec2ed5610b97cda09e8"
+sha256 = "c273926c3fe4ea4c3d53f76fd524f99e2a1b8354aa741a466d95fc78d50cf3dd"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/model.py"
