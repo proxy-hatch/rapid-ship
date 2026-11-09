@@ -25,6 +25,8 @@ from devctl.merge_guard_github import PullRequest, changed_files
 from devctl.process import ProcessResult
 from devctl.settings import SettingsError, parse_project
 from github_fakes import FakeRun, RecordedOwner
+from rapid_ship.kit.stacks import ProjectStack
+from rapid_ship.kit.templates import render_files
 
 HEAD = "a" * 40
 OTHER = "b" * 40
@@ -987,14 +989,37 @@ def test_existing_base_codeowners_keeps_its_set(text: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "seed",
-    sorted(
-        (Path(__file__).resolve().parents[2] / "rapid_ship/templates").glob("*/.github/CODEOWNERS")
-    ),
-    ids=lambda path: path.parents[1].name,
+    "stacks",
+    [
+        (ProjectStack("python", "."),),
+        (ProjectStack("python", "backend"),),
+        (ProjectStack("python", "apps/services/backend"),),
+        (ProjectStack("python", "backend"), ProjectStack("python", "apps/worker")),
+        (ProjectStack("python", "."), ProjectStack("python", "apps/worker")),
+        (ProjectStack("agnostic", "."),),
+    ],
+    ids=[
+        "python-root",
+        "python-nested",
+        "python-deep",
+        "python-multiple",
+        "python-root-and-nested",
+        "agnostic",
+    ],
 )
-def test_without_base_codeowners_fallback_covers_every_shipped_seed(seed: Path) -> None:
-    patterns = patterns_in(seed.read_text().replace("{{owner}}", "o"))
+def test_without_base_codeowners_fallback_covers_every_shipped_seed(
+    stacks: tuple[ProjectStack, ...], kit_variables: dict[str, str]
+) -> None:
+    seed = next(
+        template
+        for template in render_files(stacks, kit_variables, ())
+        if template.path == ".github/CODEOWNERS"
+    )
+    assert seed.content is not None
+    text = seed.content.decode()
+    assert "{{" not in text
+    # Walk's catch-all is not Protected; its commented Protected entries still count.
+    patterns = patterns_in(text)
     assert patterns
     for pattern in patterns:
         # Exercise both zero and multiple directories for each recursive seed pattern.
@@ -1006,7 +1031,7 @@ def test_without_base_codeowners_fallback_covers_every_shipped_seed(seed: Path) 
             reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
             assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
                 TOUCHES.format(path)
-            ), (seed, pattern, path)
+            ), (stacks, pattern, path)
 
 
 @pytest.mark.parametrize("declared_stack", ["agnostic", "typescript"])
