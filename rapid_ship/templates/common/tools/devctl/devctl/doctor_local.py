@@ -28,6 +28,7 @@ from devctl.check.stacks.python import (
 from devctl.check.stacks.python_dead_code import dead_code_gaps
 from devctl.codeowners import CODEOWNERS_FILES, protected_patterns
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
+from devctl.doctor_typescript import floor_item, node_items
 from devctl.doctor_wiring import agy_wiring_item, wiring_item
 from devctl.repo import Repo
 from devctl.settings import (
@@ -372,6 +373,7 @@ def local_items(ctx: DoctorContext) -> list[Item]:
         _on_path("gh", "install gh; doctor reads GitHub with its login"),
         _gh_sign_in(),
         gitleaks_item(),
+        *node_items(ctx.root, ctx.project.stacks),
         _hooks_item(ctx.root),
         _ci_item(ctx.root, tracked),
         wiring_item(ctx.root, tracked),
@@ -380,6 +382,11 @@ def local_items(ctx: DoctorContext) -> list[Item]:
             _guardrail_item(ctx.root, stack, single_root)
             for stack in ctx.project.stacks
             if stack.name == "python"
+        ],
+        *[
+            floor_item(ctx.root, stack, not single_root)
+            for stack in ctx.project.stacks
+            if stack.name == "typescript"
         ],
         _exclusions_item(ctx, tracked),
         _kit_item(ctx),

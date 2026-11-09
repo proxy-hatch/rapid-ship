@@ -48,6 +48,19 @@ PYTHON_PROTECTED_PATHS = (
     "tox.ini",
     ".importlinter",
 )
+TYPESCRIPT_PROTECTED_PATHS = (
+    "package.json",
+    ".npmrc",
+    "tsconfig*.json",
+    "eslint.config.*",
+    ".prettierrc*",
+    "prettier.config.*",
+    ".prettierignore",
+    "vite.config.*",
+    "vitest.config.*",
+    "knip.*",
+    ".knip.*",
+)
 NO_PULL_REQUEST_RULE = "the ruleset has no pull_request rule"
 NO_RULESET = "no ruleset targets the default branch"
 _COMMENT = re.compile(r"\s+#.*$")
@@ -253,9 +266,13 @@ def _active_lines(text: str) -> list[_Line]:
 def protected_settings(stacks: Sequence[ProjectStack]) -> tuple[str, ...]:
     return tuple(
         under(stack.directory, path)
+        for name, paths in (
+            ("python", PYTHON_PROTECTED_PATHS),
+            ("typescript", TYPESCRIPT_PROTECTED_PATHS),
+        )
         for stack in stacks
-        if stack.name == "python"
-        for path in PYTHON_PROTECTED_PATHS
+        if stack.name == name
+        for path in paths
     )
 
 

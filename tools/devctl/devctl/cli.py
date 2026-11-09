@@ -44,7 +44,7 @@ def check_command(args: argparse.Namespace) -> int:
         repo = Repo.discover(Path.cwd())
         base, pr_body = resolve_change(repo, args.base, args.pr_body, os.environ)
         context = CheckContext(repo, load_project(repo.root), base, pr_body)
-        results = run_check(context, args.tier)
+        results = run_check(context, args.tier, install=args.install)
     except (RepoError, SettingsError, ChangeError, OSError, ValueError) as error:
         sys.stderr.write(f"devctl check: {error}\n")
         return 2
@@ -74,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument(
         "--pr-body", type=Path, metavar="PATH", help="read the pull request body from this file"
+    )
+    check.add_argument(
+        "--install",
+        action="store_true",
+        help="first run npm ci in each TypeScript stack's directory",
     )
     check.set_defaults(handler=check_command)
     doctor.register(commands)

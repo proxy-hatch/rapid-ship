@@ -35,6 +35,11 @@ jobs:
           fetch-depth: 0   # full history: the diff step compares with the base
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       # The secrets step needs gitleaks on PATH.
+      # The TypeScript steps need Node.js; a repository without a package-lock.json skips it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: hashFiles('**/package-lock.json') != ''
+        with:
+          node-version: "24"
       - name: Install gitleaks
         env:
           GITLEAKS_VERSION: "8.30.1"   # keep equal to devctl's GITLEAKS_VERSION
@@ -49,4 +54,4 @@ jobs:
           tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks" gitleaks
           echo "${RUNNER_TEMP}/gitleaks" >> "${GITHUB_PATH}"
       - name: Run devctl check
-        run: ./devctl check --tier full
+        run: ./devctl check --tier full --install

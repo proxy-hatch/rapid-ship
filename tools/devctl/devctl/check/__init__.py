@@ -19,6 +19,7 @@ from devctl.check.exceptions import ExceptionsStep
 from devctl.check.filesize import FileSizeStep
 from devctl.check.kit import KitStep
 from devctl.check.map import MapStep
+from devctl.check.stacks import typescript
 from devctl.check.stacks.agnostic import SecretsStep, WorkflowsStep
 from devctl.check.stacks.python import CONTRACTS, FORMAT, LINT, TESTS, TYPES, AuditStep
 from devctl.check.stacks.python_dead_code import DeadCodeStep
@@ -41,7 +42,12 @@ def stack_steps(name: StackName) -> tuple[list[Step], list[Step]]:
         return [FORMAT, LINT], [TYPES, CONTRACTS, DeadCodeStep(), TESTS, AuditStep()]
     if name == "agnostic":
         return [], []
-    raise ValueError(f"devctl has no check steps for the {name} stack")
+    return [typescript.FORMAT, typescript.LINT], [
+        typescript.TYPES,
+        typescript.DEAD_CODE,
+        typescript.TESTS,
+        typescript.AuditStep(),
+    ]
 
 
 def step_name(step: str, stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
@@ -121,11 +127,25 @@ def _run_step(step: Step, context: CheckContext) -> StepResult:
     return step.run(context)
 
 
-def run_check(context: CheckContext, tier: Tier) -> list[StepResult]:
+def run_check(context: CheckContext, tier: Tier, *, install: bool = False) -> list[StepResult]:
     """Run the steps in the tier. A step list that cannot be built is one blocked result."""
     steps = _blocked_on_error("step list", partial(all_steps, context.project))
     if isinstance(steps, StepResult):
         return [steps]
+    if install:
+        steps = [
+            *[
+                StackStep(
+                    typescript.InstallStep(),
+                    stack,
+                    step_name("install", stack, context.project.stacks),
+                    "fast",
+                )
+                for stack in context.project.stacks
+                if stack.name == "typescript"
+            ],
+            *steps,
+        ]
     return [
         _blocked_on_error(step.name, partial(_run_step, step, context))
         for step in steps
