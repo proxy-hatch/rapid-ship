@@ -1035,7 +1035,29 @@ Observed at commit `f7963b0` (merge of `origin/main` at `1596780282fb543c7e033df
 
 ### 3.2
 
-Pending.
+Local integration verification, 2026-11-09: a fresh branch started at main `92a04ffcd05f12d1d72f6578a34102c32d641e17`. Merge `40d28aaa760e0b88dc1fd11011ca6c349964067b` has that exact first parent and source-approved ledger carry `2a1594a9c12f6a69674b10d5584e3003585150d2` as its second parent. Main's workflow bytes, shared resolver, stack interfaces, settings, skills and Spec 1 remain unchanged. CODEOWNERS retains every main line in order, adding only the ledger README protection. Consolidated seeds retain main's default Mode and include ledger protection after starter Patterns.
+
+EM interpretation of Task 2: a repository path that exists means tracked by git. The fallback uses `path_problem(path, tracked)`, never an on-disk existence fallback. Regressions preserve passing tracked paths and reject untracked files on disk. References retain `entry.file` as holder and main's guided ambiguity diagnostics. The deferred front-matter import and independent public-import regression remain intact.
+
+Observed local commands and results:
+
+- `./devctl doctor --settings`: exit 0; four items ok before integration.
+- `uv run pytest -q`: exit 0; 2985 passed in 930.73 seconds.
+- `uv run pytest tests/devctl/test_devctl_ledger.py tests/devctl/test_devctl_map_ledger.py tests/test_kit_contents.py tests/devctl/test_devctl_codeowners.py tests/devctl/test_devctl_doctor_github.py -q`: exit 0; 151 passed.
+- `uv run --locked mypy`: exit 0; 188 source files, no issues.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <unique-temporary-report>`: exit 0; 20 files scanned, inspected JSON `[]`.
+- `uv run rapid-ship sync --in-place`: exit 0; generated managed copies and lock from canonical templates; final sync reports current. Seeded files remain project-owned.
+- `uv run rapid-ship status --strict`: exit 0; 91 managed files unchanged.
+- `./devctl check --tier fast`: exit 0; format, lint, map, exceptions, file-size, kit and vendored passed before the merge commit; normal hooks also passed.
+- `git diff --check` and main-to-head diff check: exit 0.
+- Repository `counted_lines`: 597 against main, within 1,500. Configured diff and file-size steps passed. Canonical/generated ledger modules and README seed bytes match.
+
+The carried protection test initially used the old string argument to `render_files`. Focused tests reproduced its failure, and mypy reported the interface mismatch. Passing a tuple containing the current `ProjectStack` fixes integration without changing assertions. Main's consolidated root guide supplies the Session Correction Rule; its retired per-Python CODEOWNERS seed stays deleted.
+
+These suites use offline fixtures and simulated services where designed; they do not verify live services. Independent exact-final-head review, canonical final privacy, hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. The worker privacy screen reports one inherited match at `ARCHITECTURE.md:213`, verified equal to main; canonical privacy must disposition it. No local full/site/heavy check, publication or live API operation ran. The owner merges this Protected change. The final reviewed head returns to the EM before a new 3.3 or 3.4 epoch starts.
+
+Not covered: Corrections as a metric, which 3.5 adds; whether agents follow the advisory Rule.
 
 ### 3.3
 
