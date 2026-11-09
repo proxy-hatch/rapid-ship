@@ -1,0 +1,9 @@
+{
+  "version": 1, "repository": "o/r", "generated_at": "2026-10-16T05:41:07Z",
+  "default_branch": {"name": "main", "commit": "tip"}, "agent_identity": true,
+  "window": {"size": 30, "prs": 1, "population": "agent", "since": "2026-10-10T00:00:00Z", "not_fetched": 0},
+  "metrics": [
+    {"id": "revisions", "title": "Revisions", "kind": "count", "population": "agent", "value": 2, "unknown": 0, "reason": null, "items": [], "threshold": 1.0, "status": "breached"},
+    {"id": "red_merges", "title": "Red merges", "kind": "count", "population": "agent", "value": 0, "unknown": 2, "reason": null, "items": [], "threshold": 1, "status": "unknown"}
+  ], "notes": []
+}

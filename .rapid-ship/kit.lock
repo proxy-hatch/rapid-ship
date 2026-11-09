@@ -384,7 +384,7 @@ sha256 = "d19762c6d0036b7144d006586c9f27d358a5da7af31d37b1cea4a3b14f011e2d"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "524b071a16c97b7ee4fdafb02e3cd7775f09dacc130a234e2ba20f7aec0a5351"
+sha256 = "a4b79c4c05dd4b49151728c93ae8f6edeacf824ab7ca8abcb87a77a547c7ba7d"
 
 [[file]]
 path = "tools/devctl/devctl/codeowners.py"
@@ -507,6 +507,11 @@ kind = "managed"
 sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
 
 [[file]]
+path = "tools/devctl/devctl/metrics/command.py"
+kind = "managed"
+sha256 = "3712c4f0114e3b8aaa3d09df472e637614d75dc1a93797a2beda46e98bf7e8e9"
+
+[[file]]
 path = "tools/devctl/devctl/metrics/github.py"
 kind = "managed"
 sha256 = "0903a8e16b30d92b63c04a6726b45c1b8c793c3741015ec2ed5610b97cda09e8"
@@ -515,6 +520,21 @@ sha256 = "0903a8e16b30d92b63c04a6726b45c1b8c793c3741015ec2ed5610b97cda09e8"
 path = "tools/devctl/devctl/metrics/model.py"
 kind = "managed"
 sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/red_merges.py"
+kind = "managed"
+sha256 = "91b4bf7b0cb1fd595c35ed94cfd35ca1072b1b80fe06f27672abce96a82352a5"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/report.py"
+kind = "managed"
+sha256 = "1c2e1c95336d1c9edc2162bbcb530dbce05181d045f99a042c05b5817f203775"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/revisions.py"
+kind = "managed"
+sha256 = "ee031d1bd82dbcf14d2a0a22a4e3e5b187b6a04469e99dcd5b06b6b6aacde58b"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/settings.py"
