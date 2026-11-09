@@ -9,7 +9,7 @@ When this spec is built, an owner has the agent in their Harness Session run `uv
 - the Kit vendored and recorded in its lock, with one or more stacks, each in its own directory: Python, TypeScript for React, or the stack-agnostic one;
 - `devctl check` in the pre-commit hook and in CI as a required status check, and run by each agent before it opens a pull request (section 4, Root AGENTS.md skeleton);
 - the Kit's Harness guardrails, with the merge guard, for Claude Code and agy, and for Codex once a follow-up wires it (section 4);
-- README.md, ARCHITECTURE.md, the AGENTS.md tree, the feature map and the starter Patterns, each verified by `devctl check`;
+- README.md, ARCHITECTURE.md, the AGENTS.md tree and the starter Patterns, each verified by `devctl check`;
 - the ruleset and CODEOWNERS applied for Walk, and `devctl doctor` reporting no gap that the owner has not accepted;
 - optionally, Agent identity: two GitHub Apps that agents act as through `devctl as`;
 - Suggested thresholds recorded and, optionally, the scheduled metrics Action installed, both as [Spec 3](2026-10-16-metrics-and-gardening-design.md) defines them;
@@ -229,7 +229,7 @@ From plan 6 the lock records each stack and its directory as `[[stack]]` tables,
 | `.claude/settings.json` | seeded, plan 5 | Harness guardrail wiring for Claude Code (section 4) |
 | `.agents/hooks.json` | seeded, plan 5's agy follow-up | Harness guardrail wiring for agy (section 4). Codex gets its wiring file in a follow-up |
 | `.github/CODEOWNERS` | seeded | The owner for every path in Walk; below it, commented out, the Protected set |
-| `docs/features/README.md` | seeded | The feature-file format |
+| `docs/golden-paths/README.md` | seeded | The golden-paths library format |
 | `docs/patterns/README.md` | seeded | The Pattern-file format |
 | `.gitignore`, `pyproject.toml`, `src/AGENTS.md`, `src/<package>/__init__.py`, `tests/AGENTS.md`, `tests/test_import.py` | seeded, Python, only when there is no `pyproject.toml` yet | Guardrail settings, dev dependencies and a skeleton that passes `check` |
 | The Python starter Patterns in `docs/patterns/`, with their reference code and tests | seeded, Python, plan 5, with the skeleton above | Error handling, configuration, input validation and performance (Patterns, below) |
