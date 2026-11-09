@@ -140,7 +140,7 @@ def test_in_flight_only_errors_on_protected_lines_count(
     item = codeowners_item(context)
     assert (item.status, item.detail) == (
         "missing",
-        f"GitHub reports Unknown owner on lines 1 and 13 {ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
+        f"GitHub reports Unknown owner on lines 1 and 14 {ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
     )
 
 
@@ -154,7 +154,7 @@ def test_an_error_on_every_protected_line_is_reported_once(
     item = codeowners_item(owned_by(ctx_github, TEAM, every_pr=False))
     assert (item.status, item.detail) == (
         "missing",
-        "GitHub reports Unknown owner on lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 and 13 "
+        "GitHub reports Unknown owner on lines 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 and 14 "
         f"{ON_MAIN}: {UNKNOWN_TEAM_SUGGESTION}",
     )
 

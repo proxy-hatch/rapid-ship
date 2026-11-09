@@ -29,7 +29,7 @@ from devctl.check.stacks.python_dead_code import dead_code_gaps
 from devctl.codeowners import CODEOWNERS_FILES, protected_patterns
 from devctl.doctor_items import DoctorContext, Item, Status, finished, run_installed
 from devctl.doctor_typescript import floor_item, node_items
-from devctl.doctor_wiring import agy_wiring_item, wiring_item
+from devctl.doctor_wiring import agy_wiring_item, codex_wiring_item, wiring_item
 from devctl.repo import Repo
 from devctl.settings import (
     EXCEPTIONS,
@@ -378,6 +378,7 @@ def local_items(ctx: DoctorContext) -> list[Item]:
         _ci_item(ctx.root, tracked),
         wiring_item(ctx.root, tracked),
         agy_wiring_item(ctx.root, tracked),
+        codex_wiring_item(ctx.root, tracked),
         *[
             _guardrail_item(ctx.root, stack, single_root)
             for stack in ctx.project.stacks
