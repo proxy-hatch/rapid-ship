@@ -1,4 +1,4 @@
-"""Offline: feature files, Pattern files and Rules bullets in fixture repositories."""
+"""Offline: Pattern files and Rules bullets in fixture repositories."""
 
 from __future__ import annotations
 
@@ -7,187 +7,36 @@ import pytest
 from check_workspace import Workspace
 from devctl.check.map import (
     MapStep,
-    feature_errors,
     guides,
     pattern_errors,
     pattern_lesson_errors,
-    registered_verbs,
     rule_errors,
 )
 from devctl.check.markdown import rules_items
 from devctl.check.tracked import TrackedFiles
 
-FEATURE = """---
-purpose: Sign users in
-entry_points: [src/app/auth.py]
-data: [src/app/models.py]
-observe: The auth.login log line with the user ID.
-reproduce: ./devctl check --tier fast
----
-# Sign-in
-"""
 
-
-def features(workspace: Workspace) -> list[str]:
+def test_unclosed_or_invalid_pattern_front_matter_fails(workspace: Workspace) -> None:
+    workspace.write("docs/patterns/a.md", "---\ntask: x\n")
+    workspace.write("docs/patterns/b.md", "---\n- a list\n---\n")
     workspace.stage()
-    return tracked_features(workspace)
-
-
-def tracked_features(workspace: Workspace) -> list[str]:
-    """The feature file errors for the files git tracks now, without staging any."""
     context = workspace.context()
-    return feature_errors(context, TrackedFiles.read(context.repo))
 
-
-def test_valid_feature_and_readme_pass(workspace: Workspace) -> None:
-    workspace.write("src/app/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/README.md", "# Feature files\n")
-    workspace.write("docs/features/sign-in.md", FEATURE)
-
-    assert features(workspace) == []
-
-
-def test_feature_without_front_matter_fails(workspace: Workspace) -> None:
-    workspace.write("docs/features/sign-in.md", "# Sign-in\n")
-
-    assert features(workspace) == [
-        "docs/features/sign-in.md: no front matter; start the file with --- and the keys "
-        "purpose, entry_points, data, observe and reproduce"
+    assert pattern_errors(context, TrackedFiles.read(context.repo)) == [
+        "docs/patterns/a.md: front matter is not closed with ---",
+        "docs/patterns/b.md: front matter must be a mapping",
     ]
 
 
-def test_feature_names_missing_path_missing_key_and_unknown_verb(workspace: Workspace) -> None:
-    workspace.write(
-        "docs/features/sign-in.md",
-        "---\npurpose: Sign in\nentry_points: [src/app/gone.py]\ndata: []\n"
-        "reproduce: ./devctl seed-demo\n---\n",
-    )
+def test_invalid_yaml_in_pattern_is_reported_on_one_line(workspace: Workspace) -> None:
+    workspace.write("docs/patterns/a.md", "---\ntask: [unclosed\nreference: x\n---\n")
+    workspace.stage()
+    context = workspace.context()
 
-    assert features(workspace) == [
-        "docs/features/sign-in.md: entry_points names src/app/gone.py, which does not exist",
-        "docs/features/sign-in.md: observe is missing or empty",
-        "docs/features/sign-in.md: reproduce runs ./devctl seed-demo; "
-        "seed-demo is not a devctl verb",
-    ]
+    [error] = pattern_errors(context, TrackedFiles.read(context.repo))
 
-
-def test_feature_needs_at_least_one_entry_point(workspace: Workspace) -> None:
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/sign-in.md", FEATURE.replace("[src/app/auth.py]", "[]"))
-
-    assert features(workspace) == ["docs/features/sign-in.md: entry_points is missing or empty"]
-
-
-def test_unclosed_or_invalid_front_matter_fails(workspace: Workspace) -> None:
-    workspace.write("docs/features/a.md", "---\npurpose: x\n")
-    workspace.write("docs/features/b.md", "---\n- a list\n---\n")
-
-    assert features(workspace) == [
-        "docs/features/a.md: front matter is not closed with ---",
-        "docs/features/b.md: front matter must be a mapping",
-    ]
-
-
-def test_registered_verbs_include_check() -> None:
-    assert "check" in registered_verbs()
-
-
-def test_nested_feature_files_are_checked_too(workspace: Workspace) -> None:
-    workspace.write("docs/features/billing/invoices.md", "# Invoices\n")
-
-    assert features(workspace) == [
-        "docs/features/billing/invoices.md: no front matter; start the file with --- and the "
-        "keys purpose, entry_points, data, observe and reproduce"
-    ]
-
-
-def test_invalid_yaml_is_reported_on_one_line(workspace: Workspace) -> None:
-    workspace.write("docs/features/a.md", "---\npurpose: [unclosed\nobserve: x\n---\n")
-
-    [error] = features(workspace)
-
-    assert error.startswith("docs/features/a.md: ")
+    assert error.startswith("docs/patterns/a.md: ")
     assert "\n" not in error
-
-
-@pytest.mark.parametrize(
-    ("reproduce", "problem"),
-    [
-        ("./devctl", "reproduce names no verb after ./devctl"),
-        ("devctl check", "reproduce must be a ./devctl command"),
-        ("./devctl 'check", "reproduce must be a ./devctl command"),
-        ("''", "reproduce is missing or empty"),
-        ("7", "reproduce is missing or empty"),
-    ],
-)
-def test_feature_reproduce_must_be_a_devctl_verb(
-    workspace: Workspace, reproduce: str, problem: str
-) -> None:
-    workspace.write("src/app/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    text = FEATURE.replace("reproduce: ./devctl check --tier fast", f"reproduce: {reproduce}")
-    workspace.write("docs/features/sign-in.md", text)
-
-    assert features(workspace) == [f"docs/features/sign-in.md: {problem}"]
-
-
-def test_feature_paths_cannot_leave_the_repository(workspace: Workspace) -> None:
-    workspace.write("src/app/models.py", "")
-    text = FEATURE.replace("[src/app/auth.py]", "[../repo/src/app/models.py]")
-    workspace.write("docs/features/sign-in.md", text)
-
-    assert features(workspace) == [
-        "docs/features/sign-in.md: entry_points names ../repo/src/app/models.py, "
-        "which does not exist"
-    ]
-
-
-@pytest.mark.parametrize(
-    ("untracked", "key"), [("src/app/auth.py", "entry_points"), ("src/app/models.py", "data")]
-)
-def test_a_feature_path_that_git_does_not_track_fails(
-    workspace: Workspace, untracked: str, key: str
-) -> None:
-    workspace.write("src/app/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/sign-in.md", FEATURE)
-    workspace.stage()
-    workspace.git("rm", "-q", "--cached", untracked)
-
-    assert tracked_features(workspace) == [
-        f"docs/features/sign-in.md: {key} names {untracked}, which is not tracked; "
-        "stage it with git add"
-    ]
-
-
-def test_a_feature_directory_needs_a_tracked_file(workspace: Workspace) -> None:
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/sign-in.md", FEATURE.replace("src/app/auth.py", "src/app/api/"))
-    workspace.stage()
-    workspace.write("src/app/api/routes.py", "")
-
-    assert tracked_features(workspace) == [
-        "docs/features/sign-in.md: entry_points names src/app/api/, which is not tracked; "
-        "stage it with git add"
-    ]
-
-
-def test_a_feature_path_may_pass_through_a_tracked_symlink(workspace: Workspace) -> None:
-    workspace.write("lib/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    workspace.link("src/app/lib", "../../lib")
-    workspace.write(
-        "docs/features/sign-in.md", FEATURE.replace("src/app/auth.py", "src/app/lib/auth.py")
-    )
-    assert features(workspace) == []
-
-    workspace.git("rm", "-q", "--cached", "lib/auth.py")
-
-    assert tracked_features(workspace) == [
-        "docs/features/sign-in.md: entry_points names src/app/lib/auth.py, which is not "
-        "tracked; stage lib/auth.py with git add"
-    ]
 
 
 def test_a_pattern_reference_and_test_that_git_does_not_track_fail(workspace: Workspace) -> None:
@@ -423,10 +272,9 @@ def test_a_rule_enforced_by_an_untracked_test_fails_the_map_step(workspace: Work
     )
 
 
-def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Workspace) -> None:
+def test_the_map_step_reports_patterns_rules_and_skills(workspace: Workspace) -> None:
     workspace.root_guide("[Docs](docs/)\n\n## Rules\n\n- Forgot the marker.\n")
     workspace.write("docs/AGENTS.md", "# Docs\n")
-    workspace.write("docs/features/sign-in.md", "# Sign-in\n")
     workspace.write("docs/patterns/settings.md", "# Settings\n")
     workspace.write(".agents/skills/notes/SKILL.md", "# Notes\n")
     workspace.link(".claude/skills/notes", "../../.agents/skills/notes")
@@ -436,17 +284,15 @@ def test_the_map_step_reports_features_patterns_rules_and_skills(workspace: Work
 
     assert result.status == "failed"
     assert [detail.split(": ")[0] for detail in result.details] == [
-        "docs/features/sign-in.md",
         "docs/patterns/settings.md",
         "AGENTS.md:5",
         ".agents/skills/notes/SKILL.md",
     ]
 
 
-def test_untracked_feature_and_pattern_files_are_not_checked(workspace: Workspace) -> None:
+def test_untracked_pattern_files_are_not_checked(workspace: Workspace) -> None:
     workspace.root_guide()
     workspace.stage()
-    workspace.write("docs/features/sign-in.md", "# Sign-in\n")
     workspace.write("docs/patterns/settings.md", "# Settings\n")
 
     result = MapStep().run(workspace.context(source_roots=()))
@@ -454,22 +300,19 @@ def test_untracked_feature_and_pattern_files_are_not_checked(workspace: Workspac
     assert (result.status, result.details) == ("passed", ())
 
 
-def test_a_feature_symlink_to_an_untracked_target_fails_explicitly(workspace: Workspace) -> None:
-    workspace.write("src/app/auth.py", "")
-    workspace.write("src/app/models.py", "")
-    workspace.write("docs/features/README.md", "# Feature files\n")
-    workspace.write("untracked.md", FEATURE)
-    workspace.link("docs/features/sign-in.md", "../../untracked.md")
+def test_a_pattern_symlink_to_an_untracked_target_fails_explicitly(workspace: Workspace) -> None:
+    workspace.write("src/app/settings.py", "")
+    workspace.write("untracked.md", PATTERN)
+    workspace.link("docs/patterns/settings.md", "../../untracked.md")
     workspace.git(
         "add",
-        "src/app/auth.py",
-        "src/app/models.py",
-        "docs/features/README.md",
-        "docs/features/sign-in.md",
+        "src/app/settings.py",
+        "docs/patterns/settings.md",
     )
+    context = workspace.context()
 
-    assert tracked_features(workspace) == [
-        "docs/features/sign-in.md: not tracked; stage untracked.md with git add"
+    assert pattern_errors(context, TrackedFiles.read(context.repo)) == [
+        "docs/patterns/settings.md: not tracked; stage untracked.md with git add"
     ]
 
 
@@ -494,6 +337,18 @@ def test_a_fully_tracked_pattern_symlink_passes(workspace: Workspace) -> None:
     context = workspace.context()
 
     assert pattern_errors(context, TrackedFiles.read(context.repo)) == []
+
+
+def test_feature_map_rule_removed_and_golden_paths_require_no_checks(workspace: Workspace) -> None:
+    workspace.root_guide("[Docs](docs/AGENTS.md)\n")
+    workspace.write("docs/AGENTS.md", "# Docs\n")
+    workspace.write("docs/features/sign-in.md", "# Sign-in without front matter\n")
+    workspace.write("docs/golden-paths/api.md", "# Golden path without front matter\n")
+    workspace.stage()
+
+    result = MapStep().run(workspace.context(source_roots=()))
+
+    assert (result.status, result.details) == ("passed", ())
 
 
 @pytest.mark.parametrize("path", ["frontend/src/a.test.ts", "front end/a.test.ts"])

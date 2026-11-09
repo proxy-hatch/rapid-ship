@@ -209,7 +209,7 @@ template_sha256 = "548c372e33ef0c0cd48b9501116d2607e000349485842f7354b2ce5e1209c
 [[file]]
 path = "AGENTS.md"
 kind = "seeded"
-template_sha256 = "ad3f2dee3b419d9fbca78d6bcaf831a46d4f9daa85d49e4c7b69110311343cbe"
+template_sha256 = "64925fa6a3f2bb2e2506884c82f148664238a3769e709e54e184e22bd8d7e950"
 
 [[file]]
 path = "ARCHITECTURE.md"
@@ -234,12 +234,17 @@ sha256 = "d7c661c1e05f49d537c37ced9a500a4945e69fcc426746026c979613446b89eb"
 [[file]]
 path = "docs/AGENTS.md"
 kind = "seeded"
-template_sha256 = "cc763e5f352e3220543f9b599c2e72d60af1981123b984347bd9f42bf18bac20"
+template_sha256 = "818c7b8e5d83575bd3287b049369775924b448fc8d7de5b23d2de614124f81fa"
 
 [[file]]
 path = "docs/features/README.md"
 kind = "seeded"
 template_sha256 = "f8f1cccc549128e32b8297c09b9e0d00f231b1df5a4c9f2b7cb17486eab75f78"
+
+[[file]]
+path = "docs/golden-paths/README.md"
+kind = "seeded"
+template_sha256 = "19366be081c1011d0681530575666c173a36ffaa3d2afb4d92d6b5aa7f7b74f6"
 
 [[file]]
 path = "docs/patterns/README.md"
@@ -294,7 +299,7 @@ sha256 = "761f21dabe9a04537f41b0471c44578f14949dd3ede7e04a940ac145f9c7dbe2"
 [[file]]
 path = "tools/devctl/devctl/check/map.py"
 kind = "managed"
-sha256 = "c1b8d54dc998187673088b7a3d3c2c4f668630d2a669cfee9c6ae521672c1dd2"
+sha256 = "e0a00862be93cff2fbbb8b3ed551f1ac1d4c951c8ebe8dbae2e06af2a98ee746"
 
 [[file]]
 path = "tools/devctl/devctl/check/map_skills.py"

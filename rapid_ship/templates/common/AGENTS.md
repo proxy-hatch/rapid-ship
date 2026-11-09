@@ -15,9 +15,9 @@
 | --- | --- |
 | What the project does, and how to run and check it | [README](README.md) |
 | The system's parts and how data moves between them | [Architecture](ARCHITECTURE.md) |
-| What a feature does, where it starts and how to reproduce it | [Feature map](docs/features/README.md) |
+| Worked examples of similar, bigger features | [Golden paths](docs/golden-paths/README.md) |
 | The one supported way to do a recurring task | [Patterns](docs/patterns/README.md) |
-| Where feature and Pattern files live | [Documentation](docs/AGENTS.md) |
+| Where golden paths and Patterns live | [Documentation](docs/AGENTS.md) |
 | This project's devctl verbs and check steps | [Tools](tools/AGENTS.md) |
 {{stack_rows}}
 

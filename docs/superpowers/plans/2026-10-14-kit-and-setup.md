@@ -142,7 +142,7 @@ The code on `codex/devctl-check` is canonical; this list names what later plans 
 ```toml
 seeded = [".claude/settings.json", ".github/CODEOWNERS", ".rapid-ship/exceptions.toml",
   ".rapid-ship/project.toml", "AGENTS.md", "ARCHITECTURE.md", "CLAUDE.md", "README.md",
-  "docs/AGENTS.md", "docs/features/README.md", "docs/patterns/README.md", "tools/AGENTS.md",
+  "docs/AGENTS.md", "docs/golden-paths/README.md", "docs/patterns/README.md", "tools/AGENTS.md",
   "tools/devctl/devctl_project/__init__.py"]
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
 optional_skills = ["rs-contribute"]

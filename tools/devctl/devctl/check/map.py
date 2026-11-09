@@ -1,17 +1,15 @@
-"""The map step: checks the guides, feature files, Patterns, Rules, skills and root documents.
+"""The map step: checks the guides, Patterns, Rules, skills and root documents.
 
 Every rule reads only the files that git tracks, staged ones included (`TrackedFiles`), and
-reads their text from the work tree. A path that a guide, feature file, Pattern or reference
+reads their text from the work tree. A path that a guide, Pattern or reference
 names resolves only when git tracks it.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
 import posixpath
 import re
-import shlex
 from collections import deque
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
@@ -34,7 +32,6 @@ from devctl.settings import ProjectSettings
 
 ROOT_GUIDE = "AGENTS.md"
 ROOT_DOCUMENTS = ("README.md", "ARCHITECTURE.md")
-FEATURES = "docs/features"
 PATTERNS = "docs/patterns"
 # The reference may be wrapped in backticks, as in "enforced by: `check:map`".
 _RULE_END = re.compile(
@@ -57,7 +54,6 @@ class MapStep:
             *link_errors(tracked, found),
             *coverage_errors(tracked, context.project),
             *reachability_errors(tracked, found),
-            *feature_errors(context, tracked),
             *pattern_errors(context, tracked),
             *pattern_lesson_errors(context, tracked),
             *rule_errors(context, tracked, found),
@@ -230,16 +226,6 @@ def _guide_targets(root: Path, guide: str) -> list[str]:
     return [_from_root(guide, path) for path in paths if path]
 
 
-def registered_verbs() -> frozenset[str]:
-    """The devctl verbs, including the project's own from devctl_project.register."""
-    from devctl.cli import build_parser  # Imported late: devctl.cli imports devctl.check.
-
-    for action in build_parser()._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            return frozenset(action.choices)
-    return frozenset()
-
-
 def _string_list(data: dict[str, object], key: str, *, allow_empty: bool) -> list[str] | None:
     """The list under `key`, or None when it is missing, not a list of text or not allowed empty."""
     value = data.get(key)
@@ -294,56 +280,6 @@ def _document_errors(
         elif keys is not None:
             errors.append(data)
     return errors
-
-
-def feature_errors(context: CheckContext, tracked: TrackedFiles) -> list[str]:
-    """Each feature file has front matter, and git tracks what it names."""
-    keys = "purpose, entry_points, data, observe and reproduce"
-    return _document_errors(context, tracked, FEATURES, keys, _feature_problems)
-
-
-def _feature_problems(
-    _context: CheckContext,
-    tracked: TrackedFiles,
-    path: str,
-    data: dict[str, object],
-    _text: str,
-) -> list[str]:
-    problems: list[str] = []
-    if text_value(data, "purpose") is None:
-        problems.append(f"{path}: purpose is missing or empty")
-    for key, allow_empty in (("entry_points", False), ("data", True)):
-        items = _string_list(data, key, allow_empty=allow_empty)
-        if items is None:
-            problems.append(f"{path}: {key} is missing or empty")
-            continue
-        problems += [
-            f"{path}: {key} names {item}, which {problem}"
-            for item in items
-            if (problem := path_problem(item, tracked))
-        ]
-    if text_value(data, "observe") is None:
-        problems.append(f"{path}: observe is missing or empty")
-    if problem := _reproduce_problem(path, data):
-        problems.append(problem)
-    return problems
-
-
-def _reproduce_problem(path: str, data: dict[str, object]) -> str | None:
-    command = text_value(data, "reproduce")
-    if command is None:
-        return f"{path}: reproduce is missing or empty"
-    try:
-        words = shlex.split(command)
-    except ValueError:
-        words = []
-    if words[:1] != ["./devctl"]:
-        return f"{path}: reproduce must be a ./devctl command"
-    if len(words) < 2:
-        return f"{path}: reproduce names no verb after ./devctl"
-    if words[1] not in registered_verbs():
-        return f"{path}: reproduce runs {command}; {words[1]} is not a devctl verb"
-    return None
 
 
 def pattern_errors(context: CheckContext, tracked: TrackedFiles) -> list[str]:
