@@ -955,3 +955,95 @@ Task 1 Step 9 of plan 5 compares the record with what Tasks 3 to 8 assume:
 - The documented behaviour in Setup holds for the pages as read on 2026-10-21. Where a page documents nothing, such as agy's exit codes or Codex's exit 1, only the runs answer the question.
 - agy's wiring matches every tool, so its headless `deny` run also saved events for a listing and for reads.
 - Desktop apps and IDE extensions are out of scope.
+
+## Recovered Codex events (added 2026-10-28)
+
+These events come from the kept files of the Codex CLI 0.163.0 spike recorded on 2026-10-21 and 2026-10-22. They were recovered on 2026-10-28; no live trial was repeated. Source paths below are relative to the spike’s `.spike/kept/` directory.
+
+Scrubbing replaces `session_id`, `turn_id`, `transcript_path`, `tool_use_id` and `agent_id` with `<redacted>`, `cwd` with `/repo`, and embedded original working-directory paths with `/repo`. Other fields, key order and commands are preserved. JSON uses two-space indentation and a final newline. The four Codex test fixtures equal these blocks byte for byte. No subagent `apply_patch` event was recorded; mutated patch tests are offline simulations.
+
+### `codex/bash.json`
+
+Source: `codex-lead-none/1792670302688-codex-40648.txt`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
+
+### `codex/bash-subagent.json`
+
+Source: `_stray-195944/1792670362103-codex-42488.txt`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "agent_id": "<redacted>",
+  "agent_type": "worker",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
+
+### `codex/bash-headless.json`
+
+Source: `codex-headless-none/1792670394393-codex-43037.txt`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6-luna",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status --short --branch && rg --files -g 'spike.ipynb' -g 'spike.txt' -g 'AGENTS.md'"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
+
+### `codex/apply-patch.json`
+
+Source: `codex-lead-none/1792670315793-codex-40776.txt`.
+
+```json
+{
+  "session_id": "<redacted>",
+  "turn_id": "<redacted>",
+  "transcript_path": "<redacted>",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "default",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Update File: /repo/spike.ipynb\n@@\n-   \"source\": [\"print(0)\"]\n+   \"source\": [\"print(1)\"]\n*** End Patch"
+  },
+  "tool_use_id": "<redacted>"
+}
+```
