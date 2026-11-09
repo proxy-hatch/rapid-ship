@@ -3,6 +3,7 @@
 `rapid-ship init` and `sync` render these files into projects. [kit.toml](kit.toml) lists the seeded paths, the new-project seeds, the executable files, the optional skills and the template variables; every other file is managed.
 
 - `common/.agents/skills/` holds `rs-setup` and Kit skill templates forked from canonical upstream skills in `mattpocock/skills`, pinned in [upstream.lock](../upstream.lock). Sync renders them into `.agents/skills/`. Keep maintainer guidance outside the verbatim bundles.
+- A vendored path maps back to its template by these layer rules, which `rs-contribute` follows.
 - `common/` holds repository files, including the root guide, settings and CODEOWNERS. `python/` holds files rendered under each Python stack directory and a stack guide. `agnostic` uses only common templates.
 - `python/__root__/` holds starter Patterns rendered at the repository root once per stack name. Their references use the first new project's directory. `kit.toml` lists new-project paths by stack name, relative to that stack layer, including `__root__/`.
 - Derived variables supply stack tables, source roots, unit-test globs, CODEOWNERS paths, guide rows, Rules and lint markers. Root stacks add their rows to the common guide. Non-root stacks and their maintained ancestors get create-only navigation guides, coalesced when a parent also holds a stack.

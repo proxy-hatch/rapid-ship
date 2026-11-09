@@ -34,6 +34,14 @@ def test_each_skill_the_rapid_ship_cli_names_ships_in_the_kit() -> None:
             assert (skills / name / "SKILL.md").is_file(), f"{path}: {name}"
 
 
+def test_every_kit_skill_mention_resolves() -> None:
+    skills_dir = REPOSITORY / "rapid_ship/templates/common/.agents/skills"
+    names = {path.parent.name for path in skills_dir.glob("*/SKILL.md")} | {"rs-exception"}
+    for path in skills_dir.glob("**/*.md"):
+        for name in re.findall(r"\brs-[a-z0-9-]+", path.read_text(encoding="utf-8")):
+            assert name in names, f"{path}: {name} is not a Kit skill"
+
+
 def test_the_root_guides_name_the_writing_and_ponytail_skills() -> None:
     templates = REPOSITORY / "rapid_ship/templates"
     for guide in (templates / "common/AGENTS.md", templates / "python/AGENTS.md"):
