@@ -11,7 +11,7 @@ from devctl.metrics.window import Window
 REVIEWS = "[.[] | {id, state, commit_id, submitted_at}]"
 EVENTS = (
     "[.[] | {event, created_at, dismissed_review: {state: .dismissed_review.state, "
-    "review_id: (.dismissed_review.review_id // .dismissed_review.id)}}]"
+    "review_id: .dismissed_review.review_id}}]"
 )
 
 

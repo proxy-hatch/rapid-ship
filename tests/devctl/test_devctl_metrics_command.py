@@ -31,7 +31,7 @@ def setup(tmp_path: Path, *, identity: bool = True, count: int = 1) -> MergedHis
         else ""
     )
     (settings / "project.toml").write_text(
-        'stack = "python"\n[github]\nrepository = "o/r"\n' + apps
+        '[[stack]]\nname = "python"\ndirectory = "."\n[github]\nrepository = "o/r"\n' + apps
     )
     (settings / "metrics.toml").write_text(
         "window = 30\n[thresholds]\nrevisions = 1.0\nred_merges = 0\n"
@@ -149,7 +149,9 @@ def test_each_failure_exits_2_and_names_its_fix(
 
         git(h.path, "update-ref", "-d", "refs/remotes/origin/main")
     elif failure == "repository":
-        (h.path / ".rapid-ship/project.toml").write_text('stack = "python"\n')
+        (h.path / ".rapid-ship/project.toml").write_text(
+            '[[stack]]\nname = "python"\ndirectory = "."\n'
+        )
     if failure == "missing_gh":
         bin_path = h.path.parent / "bin"
         bin_path.mkdir()

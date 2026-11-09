@@ -652,11 +652,11 @@ Tasks 9 and 10 are Owner steps. Early Task 10 application was approved on 2026-1
 
 ## Spec 3: Metrics and gardening
 
-Tasks 5 and 6 implement the read-only Revisions and Red merges command locally, including text, JSON and exit codes. Final integration and independent review remain pending. Later metrics, project-defined sources, posting and gardening remain deferred.
+Tasks 5 and 6 implement the read-only Revisions and Red merges command locally, including text, JSON and exit codes. They are integrated with the reviewed lower layers; final acceptance and independent review remain pending. Later metrics, project-defined sources, posting and gardening remain deferred.
 
 Its plan document, [Metrics and gardening](2026-10-26-metrics-and-gardening.md), lands as its own document-only PR before the nine implementation PRs below. PR 3.1 branches from merged `main`. Its "Order and parallel work" section recommends Spec 3-only waves, states the plan 6/7 prerequisites per wave, and lists shared files. The owner confirms the waves on the planning PR; plans 6 and 7 keep their own order.
 
-**State:** Tasks 5 and 6 partially implemented locally; final integration and acceptance remain pending.
+**State:** Tasks 5 and 6 built and integrated locally; final acceptance remains pending.
 
 **Goal:** `./devctl metrics` with `.rapid-ship/metrics.toml`, the basic metrics and their Suggested thresholds, project-defined metrics and the scheduled metrics Action; the Corrections ledger with map rule 9, its seeded README and the Rule for Corrections given in a Session; `rs-garden`, `rs-preflight` and `rs-setup`'s metrics step; then the live trials, this repository's dog-food and the site's Spec 3 pages.
 
