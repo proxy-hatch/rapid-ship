@@ -267,3 +267,5 @@ npm --prefix website run build
 The site pins four patched transitive dependencies while upstream catches up. As of 2026-10-11, the remaining [braces advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) has no published fix; it concerns deeply nested build patterns. Pages serves static output, without a Node server. Recheck `npm audit` when updating the lockfile.
 
 The docs workflow builds PRs and deploys successful `main` builds to GitHub Pages. Repository Pages settings must use GitHub Actions.
+
+Map rule 9 checks the tracked Corrections ledger in the work tree. `ledger.py` returns frozen entries or all guided field problems; `check/map_ledger.py` resolves prevention references with the entry as holder and accepts only tracked repository paths. `docs/corrections/README.md` seeds the format and is Protected; existing-entry changes retain the shared ledger protection. The Session Correction Rule is advisory. Corrections metrics and gardening are not implemented here.

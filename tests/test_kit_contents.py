@@ -183,6 +183,7 @@ PROTECTED = (
     "/**/AGENTS.md",
     "/**/CLAUDE.md",
     "/.rapid-ship/",
+    "/docs/corrections/README.md",
     # A settings file can switch its check off, so the secrets and workflows tools' are listed.
     "/.gitleaks.toml",
     "/.gitleaksignore",
@@ -441,6 +442,7 @@ def test_root_guide_skeleton_has_its_headings_rules_links_and_pointers(
     rules = guide.split("## Rules")[1].split("##")[0]
     bullets = [line for line in rules.splitlines() if line.startswith("- ")]
     assert bullets
+    assert bullets[-1] == SESSION_RULE
     assert all(re.search(r"(enforced by: \S+|advisory)$", line) for line in bullets)
     statements = [re.sub(r" (enforced by: \S+|advisory)$", "", line[2:]) for line in bullets]
     assert [s for s in statements if s in COMMENT_RULES] == list(COMMENT_RULES)
@@ -642,6 +644,20 @@ def test_agy_forwarder_uses_its_location_and_preserves_shell_arguments(
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == [args, payload]
     assert not (tmp_path / "never").exists()
+
+
+SESSION_RULE = (
+    "- When the owner corrects you in a Session, add an open entry to the Corrections ledger "
+    "with `source: session`. advisory"
+)
+
+
+def test_the_ledger_readme_names_every_field_and_status() -> None:
+    from devctl.ledger import OPTIONAL_FIELDS, REQUIRED_FIELDS, STATUSES, WRITERS
+
+    readme = text("agnostic", "docs/corrections/README.md")
+    for name in (*REQUIRED_FIELDS, *OPTIONAL_FIELDS, *STATUSES, *WRITERS, "source: session"):
+        assert name in readme
 
 
 @pytest.mark.parametrize("stack", STACKS)

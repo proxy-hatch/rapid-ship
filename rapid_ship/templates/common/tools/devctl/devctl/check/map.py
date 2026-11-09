@@ -15,6 +15,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+from devctl.check.map_ledger import ledger_errors
 from devctl.check.map_skills import skill_alias_errors, skill_errors, skill_file_errors
 from devctl.check.markdown import (
     ListItem,
@@ -62,6 +63,7 @@ class MapStep:
             *skill_file_errors(tracked),
             *root_document_errors(tracked),
             *root_link_errors(tracked),
+            *ledger_errors(context, tracked.files),
         ]
         return failed(self.name, *errors) if errors else passed(self.name)
 
