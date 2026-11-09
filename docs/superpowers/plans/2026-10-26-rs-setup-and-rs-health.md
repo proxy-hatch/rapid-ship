@@ -644,7 +644,7 @@ The shared audit reads the landed golden-path library and identifies paths that 
 | Check | Result |
 | --- | --- |
 | `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
-| `uv run pytest -q` | Pending. |
+| `uv run pytest -q` | exit 0: `2955 passed in 913.34s`. |
 | `uv run --locked mypy` | exit 0: `Success: no issues found in 185 source files` |
 | `uv run --locked vulture --min-confidence 0` | exit 0, no findings. |
 | `uv run --locked deptry . --no-ansi --json-output <report-path>` | exit 0: `Success! No dependency issues found.` |
