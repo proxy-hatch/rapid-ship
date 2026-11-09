@@ -639,7 +639,21 @@ Pending.
 
 ### 7.3
 
-Pending.
+The shared audit reads the landed golden-path library and identifies paths that no longer match merged code. It retains the base rule, Patterns and their Lessons, settings drift and dead-code audit.
+
+| Check | Result |
+| --- | --- |
+| `./devctl doctor --settings` | exit 0: `doctor: 4 ok, 0 missing, 0 unknown` |
+| `uv run pytest -q` | Pending. |
+| `uv run --locked mypy` | exit 0: `Success: no issues found in 185 source files` |
+| `uv run --locked vulture --min-confidence 0` | exit 0, no findings. |
+| `uv run --locked deptry . --no-ansi --json-output <report-path>` | exit 0: `Success! No dependency issues found.` |
+| `uv run rapid-ship status --strict` | exit 0: `93 managed files unchanged.` |
+| `./devctl check --tier fast` | exit 0, all seven steps passed. |
+| Diff step against `92a04ffcd05f12d1d72f6578a34102c32d641e17` | passed: `diff cap: 148 of 1,500 counted lines`. |
+| Full check and website build | Pending hosted runs. |
+
+Not covered: `rs-health` in a Session, which Task 9 runs; `rs-contribute`'s push and PR, which would open a real PR on rapid-ship.
 
 ### 7.4
 
