@@ -79,6 +79,44 @@ def test_declarations_are_read_from_the_evidence_section() -> None:
     )
 
 
+@pytest.mark.parametrize("gap", ["", "\n", "\n\n", " \t\n"])
+def test_declarations_allow_blank_lines_before_first_item(gap: str) -> None:
+    body = (
+        f"## Evidence\nRemoved tests:\n{gap}"
+        "- `tests/test_a.py::test_a`: replaced\n"
+        "* tests/test_b.py::test_b: obsolete\n"
+    )
+    assert removed_test_declarations(body) == (
+        {"tests/test_a.py::test_a": "replaced", "tests/test_b.py::test_b": "obsolete"},
+        [],
+    )
+
+
+@pytest.mark.parametrize("boundary", ["\n", " \t\n", "Unrelated prose\n", "### Notes\n"])
+@pytest.mark.parametrize("first", ["", "- tests/test_a.py::test_a: replaced\n"])
+def test_declarations_stop_at_non_items(boundary: str, first: str) -> None:
+    # A blank before the first item is allowed; prose still ends an empty section.
+    if not first and not boundary.strip():
+        boundary += "Unrelated prose\n"
+    body = (
+        f"## Evidence\nRemoved tests:\n\n{first}{boundary}"
+        "- tests/test_unrelated.py::test_other: unrelated list\n"
+    )
+    expected = {"tests/test_a.py::test_a": "replaced"} if first else {}
+    assert removed_test_declarations(body) == (expected, [])
+
+
+@pytest.mark.parametrize("gap", ["\n", "\n\n", " \t\n"])
+def test_removed_items_after_blanks_do_not_count_as_commands(
+    workspace: Workspace, gap: str
+) -> None:
+    body = (
+        f"## Evidence\nRemoved tests:\n{gap}- `tests/test_a.py::test_a`: obsolete\n"
+        "\nNot covered: live tools\n"
+    )
+    assert EvidenceStep().run(workspace.context(pr_body=body)).details == (NO_COMMAND,)
+
+
 def test_only_the_evidence_section_counts(workspace: Workspace) -> None:
     body = (
         "## Evidence\n\n- `make test`: ok\n\n## Notes\n\nNot covered: x\n\n"
