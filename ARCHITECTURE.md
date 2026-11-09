@@ -83,7 +83,7 @@ Evidence and Rule references preserve backticked identities with spaces; Flight 
 
 This devctl subset does not complete plan 6. Directory rendering, TypeScript execution, installation and doctor floors are implemented locally; final verification and the TypeScript templates remain pending.
 devctl temporarily reads both lock forms; 6.3 removes the older form after 6.1b changes the writer.
-The CLI and template layers described here still use their existing single-stack interfaces.
+The CLI accepts multiple stacks, and the template layer renders each stack in its directory.
 
 ## The lock
 
