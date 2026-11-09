@@ -1061,7 +1061,13 @@ Not covered: Corrections as a metric, which 3.5 adds; whether agents follow the 
 
 ### 3.3
 
-Pending.
+The reader/window carry is integrated above the reviewed ledger layer with an ordinary two-parent merge. The first parent is `2cf528a4640fb0d35fb03f6c025e11608286e30d`; the second is `c9b04057b733a70d312d9ab1b1d078e9499480bd`.
+
+Settings doctor passed locally. The only merge conflict was the Kit lock; sync regenerated it from the lower-layer lock and the carried templates. All seven reader/window source and test blobs remain unchanged from the approved carry. Current local validation is pending.
+
+Independent exact-final-head review, canonical final privacy, hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. Publication is open under lead control after these gates; the former PR #71 hold is superseded. No local full/site/heavy check or live API operation is assigned. Recorded responses and scratch repositories provide simulated evidence only.
+
+Not covered: the GitHub responses themselves, which Task 14 checks against real repositories.
 
 ### 3.4
 
