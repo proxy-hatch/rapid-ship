@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from devctl.check.kit import KitLockError, managed_paths
-from devctl.check.stacks.python import SOURCE_EXTENSIONS
+from devctl.check.stacks import python, typescript
 from devctl.check.steps import (
     CheckContext,
     StepResult,
@@ -27,7 +27,7 @@ from devctl.settings import ExceptionEntry, ProjectSettings, SettingsError, load
 LINE_CAP = 500
 
 _RULE = "file-size"
-_EXTENSIONS = {"python": SOURCE_EXTENSIONS, "typescript": (".ts", ".tsx")}
+_EXTENSIONS = {"python": python.SOURCE_EXTENSIONS, "typescript": typescript.SOURCE_EXTENSIONS}
 
 
 class FileSizeStep:

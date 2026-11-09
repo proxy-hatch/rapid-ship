@@ -184,7 +184,7 @@ template_sha256 = "78d5915fd4a80074a4f94da4dd3124e2e12e0518ef92ff29efd32f679f221
 [[file]]
 path = ".github/workflows/devctl-check.yml"
 kind = "managed"
-sha256 = "02181d8df89e9d8a8384e66ecc76a76e1c97206df97fb6cf842bff1ff841c3ee"
+sha256 = "27875f67f533e9825c7b0e90643e485a802971db0cde161823362f2a3da6bcd7"
 
 [[file]]
 path = ".rapid-ship/exceptions.toml"
@@ -269,7 +269,7 @@ sha256 = "1d92b98236b910d30f536179149df2bfa8fd5170beedbdeb5f1915216223d1a7"
 [[file]]
 path = "tools/devctl/devctl/check/__init__.py"
 kind = "managed"
-sha256 = "03212e6ac44d9bf953cf032aced0149718bda1d934fa4372be30e1e38ae096d8"
+sha256 = "18dd6d2597d5702c0ede74a53b5d83a7760f440da11018dab93c575fdab3a55a"
 
 [[file]]
 path = "tools/devctl/devctl/check/diff.py"
@@ -289,7 +289,7 @@ sha256 = "c669a0bb9083f920735543b9087e87842512e83421bae1d92304f048ef6546df"
 [[file]]
 path = "tools/devctl/devctl/check/filesize.py"
 kind = "managed"
-sha256 = "72d0d5608270a27ba2c66c0c09056895d6e71449cd361bcc39e310546148dae8"
+sha256 = "56ed23004d75097905fb2d50d9f4e275c367c895cc769841c16d69e0d83b605a"
 
 [[file]]
 path = "tools/devctl/devctl/check/kit.py"
@@ -337,6 +337,11 @@ kind = "managed"
 sha256 = "d32b198aa22ee42f7bc6ab664d28157fa282d4eb8955ccee227c56f49cbac9a9"
 
 [[file]]
+path = "tools/devctl/devctl/check/stacks/typescript.py"
+kind = "managed"
+sha256 = "7cb85e888efbbf37901d47a7e1af00651d733b0f92ba840c7b0add88de5dd6bd"
+
+[[file]]
 path = "tools/devctl/devctl/check/stacks/typescript_references.py"
 kind = "managed"
 sha256 = "1c1ba9a32b0fa2b7bd01e2352e96dffc8a421c942d9fe81c93a7b3ee427d6cc4"
@@ -369,7 +374,7 @@ sha256 = "d19762c6d0036b7144d006586c9f27d358a5da7af31d37b1cea4a3b14f011e2d"
 [[file]]
 path = "tools/devctl/devctl/cli.py"
 kind = "managed"
-sha256 = "2f51240bc366faab64721376cb38a310e6551f086f474d74d8df796286bfbac9"
+sha256 = "524b071a16c97b7ee4fdafb02e3cd7775f09dacc130a234e2ba20f7aec0a5351"
 
 [[file]]
 path = "tools/devctl/devctl/codeowners.py"
@@ -399,17 +404,22 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "6eb9333b1583cd9dea7587dcf16c7bcc41c01e5143bf1ee1d440d7b624a48504"
+sha256 = "ea5e3ab1c112fac17e2b8d1277fe9767a40a6b3e1b8586d892cd340cc5f694ec"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
 kind = "managed"
-sha256 = "cd79802e94a60a0b29228abc531390130374cad9875e9604faad9a309f3594f7"
+sha256 = "66c238a294db4515ceb2b08d07a83ead0e6f37474dc2cc8519e18f27b2c6b93d"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_skills.py"
 kind = "managed"
 sha256 = "27e508d3763bbdcd3e6ab8084ddd994c0a35209fd8a9aa89421c25cd941d4b3e"
+
+[[file]]
+path = "tools/devctl/devctl/doctor_typescript.py"
+kind = "managed"
+sha256 = "6ce52665b7088fe5088db06648af1cf2deac75b689e814ec77d9d6647f1ec843"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_wiring.py"

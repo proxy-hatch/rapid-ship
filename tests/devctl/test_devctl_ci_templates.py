@@ -53,7 +53,7 @@ def test_job_checks_out_full_history_without_credentials_and_runs_the_full_tier(
     assert job["name"] == "devctl check"
     assert steps[0] == {"uses": CHECKOUT, "with": {"persist-credentials": False, "fetch-depth": 0}}
     assert steps[1] == {"uses": SETUP_UV}
-    assert steps[-1] == {"name": "Run devctl check", "run": "./devctl check --tier full"}
+    assert steps[-1] == {"name": "Run devctl check", "run": "./devctl check --tier full --install"}
     assert all("${{" not in step.get("run", "") for step in steps)
 
 
@@ -65,7 +65,7 @@ def test_actions_are_pinned_by_sha_with_a_version_comment() -> None:
 
 
 def test_gitleaks_is_pinned_and_verified() -> None:
-    install = workflow()["jobs"]["check"]["steps"][2]
+    install = next(s for s in workflow()["jobs"]["check"]["steps"] if "env" in s)
 
     assert install["env"] == {
         "GITLEAKS_VERSION": GITLEAKS_VERSION,
@@ -99,3 +99,13 @@ def test_hook_runs_the_fast_tier_and_blocks_a_failing_commit(workspace: Workspac
     assert rejected.returncode != 0
     assert accepted.returncode == 0
     assert (workspace.root / "devctl.log").read_text() == "check --tier fast"
+
+
+def test_node_is_set_up_only_where_a_package_lock_exists() -> None:
+    steps = workflow()["jobs"]["check"]["steps"]
+    assert steps[2] == {
+        "uses": "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+        "if": "hashFiles('**/package-lock.json') != ''",
+        "with": {"node-version": "24"},
+    }
+    assert "949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0" in WORKFLOW.read_text()

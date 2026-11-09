@@ -568,7 +568,9 @@ If review finds a PR too large, it splits at a task boundary.
 
 **Plan:** [TypeScript Stack and Several Stacks](2026-10-26-typescript-and-stacks.md), revised for approval in its own documentation PR, PRO-169. The 6.1a devctl subset is implemented; the remaining code is unbuilt. The plan requires Shawn’s approval before code starts; its six owner confirmations remain pending on that PR.
 
-**State:** TypeScript exception scanning, tracked ESLint/tsc references, Vitest diff/reference wiring and spaced declarations are implemented in split checkpoints. Final dependency integration and exact-head review remain pending. devctl accepts several stacks and runs Python steps under their directories. Init still writes one root stack pending 6.1b; TypeScript blocks the step list pending 6.2a. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
+**State:** devctl accepts several stacks and runs Python steps under their directories. TypeScript check steps, installation, CI Node setup and doctor floors are implemented (Units 6, 12a and 9). Init/rendering remains in 6.1b, suppression/reference and Vitest rules in 6.2b, and templates, integration and the live trial in 6.3. The [detailed plan](2026-10-26-typescript-and-stacks.md) defines the split and verification limits.
+
+Directory rendering and TypeScript suppression/reference and Vitest wiring from main are also integrated locally. Final dependency integration and exact-head review remain pending.
 
 **Goal:** Let several stacks share a repository and add TypeScript, so a Python backend and React TypeScript frontend pass `./devctl check` from day one.
 
