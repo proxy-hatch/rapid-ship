@@ -19,7 +19,7 @@ The diff and reference steps select the Vitest readers by test-file path. Eviden
 
 `devctl/devctl/ledger.py` parses frozen Correction entries and last-pass records. Map rule 9 lives in `check/map_ledger.py`; it checks tracked ledger files and resolves prevention references through `references.py`, with tracked-only path fallback. It validates cursor commits locally.
 
-`devctl/metrics/` is built in part: `settings.py` loads and validates `.rapid-ship/metrics.toml`, `model.py` defines the evaluation models and status logic, and `devctl metrics` CLI arrives in PR 3.4.
+`devctl/devctl/metrics/` has Tasks 5 and 6 built locally, with final acceptance pending: `settings.py` validates `.rapid-ship/metrics.toml`, `model.py` evaluates Suggested thresholds, and `github.py` and `window.py` read GitHub and local history. `revisions.py` counts distinct reviewed heads; `red_merges.py` reads each merge's earliest push run and its first attempt. `command.py` registers read-only `devctl metrics [--window <n>] [--json]`; `report.py` renders text and version-1 JSON. Exit 0 means no breach, 1 means a breach, and 2 means a guided error. API allowance exhaustion produces unknown values. Reverts, Closed unmerged, Corrections, project-defined metrics and posting remain deferred.
 
 `devctl/devctl/check/stacks/typescript.py` runs each TypeScript tool from its stack directory. `check --install` prepends npm installation steps. `devctl/devctl/doctor_typescript.py` checks Node/npm and each TypeScript guardrail floor; `doctor_rules.py` places TypeScript Protected settings under each stack directory. Common Protected paths stay rooted at the repository.
 

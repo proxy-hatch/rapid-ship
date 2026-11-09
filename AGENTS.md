@@ -18,6 +18,7 @@ The settings hold the code owner, the Mode (`[escalation] every_pr`) and each Ap
 - Install TypeScript dependencies before checks: `./devctl check --install` runs `npm ci --no-audit --no-fund` in each TypeScript stack first; each needs a committed `package-lock.json`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
 - Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code and agy wiring.
+- Metrics: `./devctl metrics [--window <n>] [--json]` reports Revisions and Red merges, read-only. Tasks 5 and 6 are built locally; final acceptance is pending. Later metrics and posting remain deferred.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.

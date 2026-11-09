@@ -1084,7 +1084,35 @@ Not covered: the GitHub responses themselves, which Task 14 checks against real 
 
 ### 3.4
 
-Pending.
+Tasks 5 and 6 are built and integrated locally above the reviewed ledger and reader/window layers. Merge `f3bac3735756159c18e4e2b015c131a844579acb` has exact first parent `49cfc399e9cd6964782bf40a9c7fa793fc6995e5` and second parent `0badb6f33eaf9907d7abc45244dd668748c5cad9`. Both histories remain ancestors. Final acceptance is pending.
+
+The three conflicts were the Kit lock, the architecture status paragraph and tools navigation. Sync regenerated the lock from the lower-layer lock and carried templates. Documentation retains current stack and ledger guidance and adds the command. Lower sources, settings, ledger, reader/window interfaces and coverage remain unchanged. Both workflow trees and the complete Spec 1, including its frozen status line, match main92. Verification 3.1, 3.2, 3.3 and the later verification tail are preserved.
+
+R2-1 is corrected: dismissal projection reads `dismissed_review.review_id` directly, without an unverified `id` fallback. Original review identity and submission time still control eligibility, including equality, pre-merge requests dismissed later, same-commit deduplication and pagination. RecordedOwner tests exercise these behaviors but do not execute jq projections. Two separate real-jq offline probes verify direct review_id authority and null identity for id-only input; they establish no live GitHub payload result.
+
+The first integrated focused run reproduced a carried fixture mismatch: 19 failed and 125 passed because settings reject `stack = "python"`. The owned command fixture now writes a current `[[stack]]` table; assertions and production settings interfaces are unchanged. No other compatibility repair was needed.
+
+Observed current local checks (recorded responses and simulated services where designed):
+
+- `./devctl doctor --settings`: exit 0; four items passed.
+- `uv run pytest tests/devctl/test_devctl_metrics_*.py tests/devctl/test_devctl_cli.py -q`: exit 0; 144 passed in 25.18 seconds after formatting.
+- `uv run pytest -q`: exit 0; 3,071 passed in 362.72 seconds.
+- `uv run --locked mypy`: exit 0; 201 source files, no issues.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <unique-report>`: exit 0; 20 files scanned, inspected JSON `[]`.
+
+- `uv run --locked lint-imports`: exit 0; three contracts kept, none broken.
+- `uv run rapid-ship sync --in-place` and `uv run rapid-ship status --strict`: exit 0; Kit current, 97 managed files unchanged.
+- `./devctl check --tier fast`: exit 0; all seven steps passed after mechanical formatting of the fixture repair.
+- `git diff --check` and the Start-to-tree diff check: exit 0.
+- Preservation, exact-parent, ancestry, five template/generated pairs and lock-hash probes: passed. The bounded changed-tree and own-message privacy screen found only unchanged inherited lines; canonical privacy remains pending.
+
+R2-2 replaces the earlier verification scope claim with current measurements. The full own layer, Start `49cfc399` to the integrated corrected tree, has 1,157 of 1,500 counted lines. Its largest changed Python file is the command test, 326 lines; the largest changed file subject to the configured production cap is the report template, 139 of 500 lines. The correction-only delta from merge `f3bac373` has 8 counted lines. Its largest changed Python file is also the command test, 326 lines; its largest capped production file is the revisions template, 58 of 500 lines. Test files are outside this configured production cap. Configured DiffStep and FileSizeStep pass for both ranges; no cap breach was found.
+
+Independent exact-final-head review, canonical final privacy, the lead's live GET-only `./devctl metrics` acceptance and PR-body evidence, hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. The former PR #71 hold is superseded. The lead publishes this layer stacked on the reviewed 3.3 branch after the gates; the owner merges this Protected change. No local full/site/heavy check, live API, publication or main integration ran here.
+
+Not covered: Reverts, Closed unmerged and Corrections, which 3.5 adds; project-defined metrics, posting, the scheduled Action and gardening remain deferred.
+
 
 ### 3.5
 
