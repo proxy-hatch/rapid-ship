@@ -1,4 +1,5 @@
-"""Offline: devctl hook's rules on normalised tool calls, with simulated settings and branches."""
+"""Offline: devctl hook's rules on normalised tool calls, with simulated settings and branches,
+and the installed git's reading of the long-option prefixes that the rules read."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from check_workspace import new_workspace, stack_table
-from devctl.command_line import simple_commands
+from devctl.command_line import GIT_ABBREVIATIONS, simple_commands
 from devctl.hook import decide, read_settings, work_tree_root
 from devctl.hook_protocols import Decision, HookSettings, ToolCall
 from devctl.merge_guard import LocalBranches, read_branches
@@ -49,6 +50,12 @@ SHELL = [  # command line, the rule that denies it with Agent identity off (None
     ("git -C sub commit -n -m x", "G1"),
     ("/usr/bin/git commit --no-verify -m x", "G1"),
     ("git push --no-verify origin task", "G1"),
+    # A -- that is an option's value ends no options; a path after -- named so counts too.
+    ("git commit -m -- --no-verify", "G1"),
+    ("git commit -m -- -n", "G1"),
+    ("git push -o -- --no-verify origin task", "G1"),
+    ("git merge -m -- --no-verify task", "G1"),
+    ("git commit -m x -- --no-verify", "G1"),
     ("git push --force origin task", "G2"),
     ("git push -uf origin task", "G2"),
     ("git push --force-with-lease=task origin task", "G2"),
@@ -77,6 +84,8 @@ SHELL = [  # command line, the rule that denies it with Agent identity off (None
     ("gh api repos/o/r/git/refs/heads/task -X PATCH -f sha=a", None),
     ("gh api repos/o/r/pulls/7/merge", None),
     ("gh pr merge 7 --squash", None),
+    ("gh pr merge 7 --help --admin", None),
+    ("gh pr merge 7 --admin -t --help", "G3"),
     ("echo ok; git push -f origin task", "G2"),
     ("make && git commit -n -m x", "G1"),
     ("false || git push origin main", "G3"),
@@ -100,6 +109,107 @@ SHELL = [  # command line, the rule that denies it with Agent identity off (None
     ("git push origin $(git rev-parse HEAD):main", "G3"),
     ("cat <<'EOF' > notes.md\ngit push --force origin task\nEOF", None),
     ("git commit -n -F - <<EOF\nIt's done\nEOF", "G1"),
+    # git's global options that take the next word as their value.
+    ("git --shallow-file x push -f origin task", "G2"),
+    ("git --super-prefix x/ commit -n -m x", "G1"),
+    ("git --attr-source HEAD push origin main", "G3"),
+]
+# git reads an unambiguous prefix of a long option as that option; gh reads no prefix.
+ABBREVIATED = [
+    ("git commit --no-veri -m x", "G1"),
+    ("git commit -m x --no-verif", "G1"),
+    ("git push --no-veri origin task", "G1"),
+    ("git rebase --no-veri main", "G1"),
+    ("git push --force-w origin task", "G2"),
+    ("git push --force-with-l=task origin task", "G2"),
+    ("git push --force-i origin task", "G2"),
+    ("git push --al origin", "G3"),
+    ("git push --m origin", "G3"),
+    ("git push --b origin", "G3"),
+    ("git push origin --de main", "G3"),
+    # --rep is --repo, which takes origin as its value; git then reads main as the remote.
+    ("git push --rep origin main", None),
+    # git rejects these as ambiguous: --no-ver could be --no-verbose, and --forc either force
+    # option with a suffix. gh rejects --admi as an unknown flag.
+    ("git commit --no-ver -m x", None),
+    ("git push --forc origin task", None),
+    ("gh pr merge 7 --admi", None),
+]
+# A core.hooksPath set for one git command skips the pre-commit hook, as --no-verify does.
+HOOKS_PATH = [
+    ("git -c core.hooksPath=/dev/null commit -m x", "G1"),
+    ("git -c Core.HooksPath=/dev/null commit -m x", "G1"),
+    ("git -C sub -c core.hooksPath push origin task", "G1"),
+    ("git --config-env=core.hooksPath=HOOKS commit -m x", "G1"),
+    ("git --config-env core.hooksPath=HOOKS commit -m x", "G1"),
+    (
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null "
+        "git commit -m x",
+        "G1",
+    ),
+    ("env GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git commit -m x", "G1"),
+    ("git -c core.editor=vi commit -m x", None),
+    ("git -c user.name=core.hooksPath status", None),
+    # An alias set for one git command hides the command it runs from every rule.
+    ("git -c alias.ci='commit --no-verify' ci -m x", "G1"),
+    ("git -c alias.p='push --force' p origin task", "G1"),
+    ("git -c Alias.P='push origin main' P", "G1"),
+    ("git --config-env=alias.p=PUSH p origin main", "G1"),
+    ("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.p GIT_CONFIG_VALUE_0=push git p origin main", "G1"),
+]
+# A wrapper runs the command written after its own options, so the rules read that command.
+WRAPPED = [
+    ("env git push -f origin task", "G2"),
+    ("/usr/bin/env -i PATH=/bin git commit -n -m x", "G1"),
+    ("env -u HOME -C sub GIT_TRACE=1 git push -f origin task", "G2"),
+    ("env --unset HOME git push origin main", "G3"),
+    ("env --unset=HOME -- git push origin main", "G3"),
+    ("env -a x git push -f origin task", "G2"),
+    ("env --argv0 x git commit -n -m x", "G1"),
+    ("exec -a name git push -f origin task", "G2"),
+    ("command -p git commit --no-verify -m x", "G1"),
+    ("nohup git push -f origin task &", "G2"),
+    ("time -p git push -f origin task", "G2"),
+    ("time -- git push -f origin task", "G2"),
+    ("time -p -- gh pr merge 7 --admin", "G3"),
+    ("/usr/bin/time -o log git push -f origin task", "G2"),
+    ("time { git push -f origin task; }", "G2"),
+    ("nice -n 5 git push -f origin task", "G2"),
+    ("nice -10 git push -f origin task", "G2"),
+    ("timeout -s KILL -k 5 30s git push -f origin task", "G2"),
+    ("timeout --signal KILL 30 git push origin main", "G3"),
+    ("echo task | xargs git push -f origin", "G2"),
+    ("xargs -n 1 -I {} git push origin {} --force", "G2"),
+    ("xargs --max-a 1 git commit --no-verify -m", "G1"),
+    ("nohup env command git push origin main", "G3"),
+    # zsh's precommand modifiers, the shell's builtin, and Homebrew's names for GNU's tools.
+    ("noglob git push -f origin task", "G2"),
+    ("nocorrect noglob gh pr merge 7 --admin", "G3"),
+    ("builtin command git push origin main", "G3"),
+    ("builtin exec git commit -n -m x", "G1"),
+    ("gtimeout -s KILL 30 git push -f origin task", "G2"),
+    ("gxargs -n 1 git push -f origin", "G2"),
+    ("genv -u HOME git push -f origin task", "G2"),
+    ("gnohup gnice -n 5 gtime -o log git push -f origin task", "G2"),
+    ("stdbuf -oL -e 0 git push -f origin task", "G2"),
+    ("stdbuf --output L git commit -n -m x", "G1"),
+    ("setsid -w git push origin main", "G3"),
+    ("caffeinate -i -t 600 git push -f origin task", "G2"),
+    ("env gh pr merge 7 --admin", "G3"),
+    ("xargs gh api -X PUT repos/o/r/pulls/7/merge", "G3"),
+    # env -S splits its string into more of env's own arguments.
+    ("env -S 'git push -f origin task'", "G2"),
+    ("env -S git push -f origin task", "G2"),
+    ("env -S'git push -f' origin task", "G2"),
+    ("env -iS 'git push' origin main", "G3"),
+    ("env --split-string='-u HOME GIT_TRACE=1 git commit -n' -m x", "G1"),
+    ("env --sp 'gh pr merge 7 --admin'", "G3"),
+    ("env -S \"-S 'git push -f origin task'\"", "G2"),
+    # env rejects a string it cannot split and runs nothing.
+    ('env -S "git push \'origin" main', None),
+    # Out of reach: the words xargs reads on stdin, other wrappers.
+    ("echo main | xargs git push origin", None),
+    ("sudo git push -f origin task", None),
 ]
 IDENTITY = [  # the rule that denies it with Agent identity on; with it off, no decision
     ("git push origin task", "G7"),
@@ -110,6 +220,24 @@ IDENTITY = [  # the rule that denies it with Agent identity on; with it off, no 
     ("gh pr -R o/r comment 7 -b hi", "G8"),
     ("gh pr view 7", None),
     ("gh pr checkout 7", None),
+    ("gh pr ls", None),
+    ("gh pr co 7", None),
+    ("gh issue ls --state open", None),
+    ("gh pr new --fill", "G8"),
+    ("gh issue new -t x", "G8"),
+    ("env git push origin task", "G7"),
+    ("nohup gh pr comment 7 -b hi", "G8"),
+    ("env GH_DEBUG=1 ./devctl as worker gh pr create --fill", None),
+    # gh prints help for -h or --help and runs nothing else.
+    ("gh pr create --help", None),
+    ("gh pr merge -h", None),
+    ("gh issue comment 3 --title=x --help", None),
+    ("gh api -X POST repos/o/r/issues --help", None),
+    # -b takes --help as its value; after "--" it is a word. The hook cannot tell that --fill
+    # takes no value, so it reads --help after it as --fill's value.
+    ("gh pr comment 7 -b --help", "G8"),
+    ("gh issue comment 3 -- --help", "G8"),
+    ("gh pr create --fill --help", "G8"),
     ("gh issue comment 3 -b hi", "G8"),
     ("gh issue list", None),
     ("gh api repos/o/r/issues -X POST -f title=x", "G8"),
@@ -187,8 +315,9 @@ MESSAGES = [  # command line, Agent identity on, the whole message
     (
         "git commit -n -m x",
         False,
-        "G1: --no-verify and git commit -n skip the pre-commit hook; run the command without "
-        "them, and fix what the hook reports",
+        "G1: --no-verify, git commit -n and a core.hooksPath set on the command line skip the "
+        "pre-commit hook, and an alias set there hides its command from devctl hook; run the "
+        "command without them, and fix what the pre-commit hook reports",
     ),
     (
         "git push -f origin task",
@@ -241,6 +370,31 @@ def test_each_shell_rule_denies_its_forms(line: str, rule: str | None) -> None:
     assert reason.startswith(f"{rule}: ") if rule else reason == ""
 
 
+@pytest.mark.parametrize(("line", "rule"), [*ABBREVIATED, *HOOKS_PATH, *WRAPPED])
+def test_the_rules_read_abbreviated_options_config_and_wrapped_commands(
+    line: str, rule: str | None
+) -> None:
+    decision, reason = decided(line)
+    assert decision == ("deny" if rule else None)
+    assert reason.startswith(f"{rule}: ") if rule else reason == ""
+
+
+def test_git_reads_no_shorter_prefix_than_the_rules_do(tmp_path: Path) -> None:
+    """The installed git rejects, as ambiguous or unknown, each prefix shorter than the one the
+    rules read, so no shorter prefix runs as the option. Of the commands with --no-verify, git
+    2.39's merge and pull read it only in full. --force, a prefix of two force options, is an
+    option of its own, which the force-push rule reads too."""
+    workspace = new_workspace(tmp_path / "main")
+    for option, shortest in GIT_ABBREVIATIONS.items():
+        no_verify = ("commit", "push", "rebase", "merge", "pull")
+        shorter = {option[:length] for length in range(3, len(shortest))} - {"--force"}
+        for command in no_verify if option == "--no-verify" else ("push",):
+            for prefix in sorted(shorter):
+                result = workspace.try_git(command, prefix)
+                assert result.returncode == 129, (command, prefix, result.stderr)
+                assert "ambiguous option" in result.stderr or "unknown option" in result.stderr
+
+
 @pytest.mark.parametrize(("line", "rule"), IDENTITY)
 def test_pushes_and_gh_writes_go_through_the_apps_only_with_agent_identity(
     line: str, rule: str | None
@@ -250,6 +404,26 @@ def test_pushes_and_gh_writes_go_through_the_apps_only_with_agent_identity(
     assert reason.startswith(f"{rule}: ") if rule else reason == ""
     assert decided(line, OFF) == (None, "")
     assert decided(line, None) == (None, "")
+
+
+@pytest.mark.parametrize("prefix", ["", "env ", "./devctl as worker ", "env ./devctl as worker "])
+@pytest.mark.parametrize(
+    "expansion", ["$(printf %s <option>)", "`printf %s <option>`", "$GH_OPTION", "${GH_OPTION}"]
+)
+@pytest.mark.parametrize("identity", [False, True])
+def test_a_help_word_after_an_expansion_keeps_write_guardrails(
+    prefix: str, expansion: str, identity: bool
+) -> None:
+    settings = ON if identity else OFF
+    subject = expansion.replace("<option>", "--subject")
+    decision, reason = decided(f"{prefix}gh pr merge 7 --admin {subject} --help", settings)
+    assert decision == "deny"
+    assert reason.startswith("G3: ")
+    body = expansion.replace("<option>", "--body")
+    decision, reason = decided(f"{prefix}gh pr comment 7 {body} --help", settings)
+    app = "devctl" in prefix
+    assert decision == ("deny" if identity and not app else None)
+    assert reason.startswith("G8: ") if identity and not app else reason == ""
 
 
 @pytest.mark.parametrize(("path", "decision", "rule"), EDITS)
