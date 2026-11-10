@@ -43,15 +43,20 @@ def evidence_section(body: str) -> str | None:
 def _removed_items(lines: Sequence[str]) -> dict[int, str]:
     """The list items right under each `Removed tests:` line, by line index.
 
-    A list ends at the first blank line or line that is not an item.
+    Blank lines before the first item are allowed. Once items start, any non-item ends the list.
     """
     items: dict[int, str] = {}
     listing = False
+    awaiting_first = False
     for index, line in enumerate(lines):
         if line.strip() == _REMOVED_TESTS:
             listing = True
+            awaiting_first = True
         elif listing and _ITEM.match(line):
             items[index] = line.strip()
+            awaiting_first = False
+        elif listing and awaiting_first and not line.strip():
+            continue
         else:
             listing = False
     return items

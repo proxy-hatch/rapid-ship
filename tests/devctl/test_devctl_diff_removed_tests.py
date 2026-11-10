@@ -83,6 +83,21 @@ def test_test_moved_to_an_untracked_file_is_not_removed(workspace: Workspace) ->
     assert run(workspace, base, EVIDENCE).status == "passed"
 
 
+@pytest.mark.parametrize("gap", ["\n", "\n\n", " \t\n"])
+def test_declared_removal_after_blank_lines_passes(workspace: Workspace, gap: str) -> None:
+    workspace.write("tests/test_api.py", "def test_delete(): pass\n")
+    base = workspace.commit()
+    workspace.write("tests/test_api.py", "\n")
+    body = EVIDENCE + f"Removed tests:\n{gap}- `tests/test_api.py::test_delete`: endpoint removed\n"
+
+    result = run(workspace, base, body)
+
+    assert result.status == "passed"
+    assert result.details[0] == (
+        "removed behavioural test tests/test_api.py::test_delete: declared (endpoint removed)"
+    )
+
+
 def test_removal_without_a_pr_body_explains_how_to_check_locally(workspace: Workspace) -> None:
     workspace.write("tests/test_api.py", "def test_delete(): pass\n")
     base = workspace.commit()
