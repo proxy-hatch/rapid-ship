@@ -26,6 +26,14 @@ def test_only_the_user_invoked_kit_skills_disable_model_invocation() -> None:
         assert has_disable == (name in USER_INVOKED), f"{name}: disable-model-invocation mismatch"
 
 
+def test_each_skill_the_rapid_ship_cli_names_ships_in_the_kit() -> None:
+    package = REPOSITORY / "rapid_ship"
+    skills = package / "templates/common/.agents/skills"
+    for path in [*package.glob("*.py"), *(package / "kit").glob("*.py")]:
+        for name in set(re.findall(r"\brs-[a-z0-9-]+", path.read_text())) - {"rs-exception"}:
+            assert (skills / name / "SKILL.md").is_file(), f"{path}: {name}"
+
+
 def test_every_kit_skill_mention_resolves() -> None:
     skills_dir = REPOSITORY / "rapid_ship/templates/common/.agents/skills"
     names = {path.parent.name for path in skills_dir.glob("*/SKILL.md")} | {"rs-exception"}
