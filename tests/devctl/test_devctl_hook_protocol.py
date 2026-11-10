@@ -309,3 +309,37 @@ def test_run_hook_judges_an_edit_by_its_linked_worktree(tmp_path: Path) -> None:
     assert (lock_decision, lock_reason[:4]) == ("deny", "G4: ")
     assert (guide_decision, guide_reason[:4]) == ("ask", "G5: ")
     assert edit(main.root / "AGENTS.md") == (None, "")
+
+
+def test_a_cross_repository_gh_write_uses_session_identity_without_reading_target_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = project(tmp_path)
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[github]\nrepository = "o/session"\n'
+        'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
+        'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n',
+    )
+    workspace.write(".github/CODEOWNERS", "* @o\n")
+    reads: list[Path] = []
+    read_text = Path.read_text
+
+    def record_read(path: Path, encoding: str | None = None, errors: str | None = None) -> str:
+        reads.append(path)
+        return read_text(path, encoding=encoding, errors=errors)
+
+    call = read_event(
+        "claude",
+        with_command("bash.json", workspace.root, "gh pr -R o/target comment 7 -b hello"),
+    )
+    monkeypatch.setattr(Path, "read_text", record_read)
+
+    decision, reason = run_hook(call, unread_github)
+
+    assert decision == "deny"
+    assert reason.startswith("G8: ")
+    assert reads == [
+        workspace.root / ".rapid-ship/project.toml",
+        workspace.root / ".github/CODEOWNERS",
+    ]
