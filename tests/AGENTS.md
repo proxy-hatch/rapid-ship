@@ -49,3 +49,5 @@ Run affected files with `uv run pytest tests/test_<area>.py` from the repository
 `devctl/test_devctl_typescript_wiring.py` covers Vitest removals, moves, unreadable heads, dynamic-title notes, tautologies and path-selected references offline. Evidence, map and merge-guard tests cover spaced identities and Flight behavioural-removal ownership.
 
 `test_devctl_typescript_steps.py` uses fake local tools to check argv, working directories, timeouts, exit classifications, install ordering and TypeScript file sizes. `test_devctl_typescript_doctor.py` checks the floor, Node engine requirements and Protected settings offline. `test_devctl_typescript_knip_include.py` installs only pinned knip 6.43.0 and TypeScript 6.0.3 in a scratch project and observes which settings can hide unused exports.
+
+`devctl/test_devctl_ledger.py` tests field validation with literal texts; `devctl/test_devctl_map_ledger.py` tests map rule 9 in offline repositories, including nested entries, cursor commits, stack ambiguity and tracked-only prevention paths.

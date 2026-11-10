@@ -22,6 +22,7 @@
 # /**/CLAUDE.md @{{owner}}
 # /.rapid-ship/ @{{owner}}
 {{stack_patterns}}
+# /docs/corrections/README.md @{{owner}}
 # /.gitleaks.toml @{{owner}}
 # /.gitleaksignore @{{owner}}
 # /zizmor.yml @{{owner}}

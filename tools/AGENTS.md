@@ -17,6 +17,8 @@ The `dead-code` step for Python, its floor settings (`dead_code_gaps`) and the r
 The diff and reference steps select the Vitest readers by test-file path. Evidence declarations and Rule references accept spaced identities inside backticks. The diff step notes dynamic base titles and retains base identities when head parsing fails.
 
 
+`devctl/devctl/ledger.py` parses frozen Correction entries and last-pass records. Map rule 9 lives in `check/map_ledger.py`; it checks tracked ledger files and resolves prevention references through `references.py`, with tracked-only path fallback. It validates cursor commits locally.
+
 `devctl/metrics/` is built in part: `settings.py` loads and validates `.rapid-ship/metrics.toml`, `model.py` defines the evaluation models and status logic, and `devctl metrics` CLI arrives in PR 3.4.
 
 `devctl/devctl/check/stacks/typescript.py` runs each TypeScript tool from its stack directory. `check --install` prepends npm installation steps. `devctl/devctl/doctor_typescript.py` checks Node/npm and each TypeScript guardrail floor; `doctor_rules.py` places TypeScript Protected settings under each stack directory. Common Protected paths stay rooted at the repository.
