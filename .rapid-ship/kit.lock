@@ -299,7 +299,7 @@ sha256 = "0ed56ffbcd045c3f89db38bfef1abd79bfc266b77aaaafa915896be059eaed28"
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
 kind = "managed"
-sha256 = "c477b466507b70e0ec896d778f61e50bf8d5dc1da0bb91a5ab65b24701802b79"
+sha256 = "e2c0e4626d3f091ccb94672b1baa7dcd535f3daf8c830969326547369c4aa496"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
