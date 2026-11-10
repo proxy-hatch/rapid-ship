@@ -1084,7 +1084,35 @@ Not covered: the GitHub responses themselves, which Task 14 checks against real 
 
 ### 3.4
 
-Pending.
+Tasks 5 and 6 are integrated locally above the corrected reader/window layer; final acceptance remains pending. Merge `e417485a8412e0d1c67095614798d1a675624c2c` has exact first parent `78cabc73c0ba38fa3a7565f279d097ec8aa48ffe` and second parent `6919dab2f710bdb323e54256b1f1bd766a732e19`. Both histories remain ancestors. The ordinary merge had no conflicts; Git automatically reconciled the Kit lock. Its remerge diff is empty. The first-parent comparison adds the approved Tasks 5/6 carry; the second-parent comparison retains the lower reader correction, shared fake endpoint and exact-path regression.
+
+The integrated focused baseline reproduced stale owned command fixtures: 15 failed and 130 passed. Only three root-endpoint literals changed from `repos/o/r/` to `repos/o/r`: response selection, authentication failure and allowance exhaustion before branch discovery. Every assertion remains unchanged. Production source, reader paths and guided errors are unchanged. No other compatibility repair was needed.
+
+Revisions retains direct `dismissed_review.review_id` correlation, original submission-time cutoff including equality, deduplication and pagination. Red merges retains earliest-push-run selection, first-attempt semantics and workflow-list-only 404 handling. The command registers only Revisions and Red merges; allowance exhaustion preserves finished metrics and known branch/tip without later API requests. Reports retain version-1 JSON nulls, UTC timestamps, extras, text layout and exits 0/1/2. Two real-jq offline probes confirm review_id authority and null identity for id-only input; they establish no live payload result.
+
+Observed local checks on this integration (recorded GitHub responses and simulated services where designed):
+
+- `./devctl doctor --settings`: exit 0; four items passed.
+- `uv run pytest tests/devctl/test_devctl_metrics_*.py tests/devctl/test_devctl_cli.py -q`: exit 0; 145 passed in 29.09 seconds.
+- `uv run pytest -q`: exit 0; 3,072 passed in 408.89 seconds, terminal completion without partitions.
+- `uv run --locked mypy`: exit 0; 201 source files, no issues.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <unique-report>`: exit 0; 20 files scanned, JSON inspected as `[]`.
+- `uv run --locked lint-imports`: exit 0; three contracts kept, none broken.
+- `uv run rapid-ship sync --in-place`: exit 0; nothing to sync. `uv run rapid-ship status --strict`: exit 0; 97 managed files unchanged.
+- `./devctl check --tier fast`: exit 0; all seven steps passed.
+- `git diff --check` and the corrected-Start-to-tree diff check: exit 0.
+
+Preservation and configured-cap probes pass. Five canonical/generated module and CLI pairs and their lock hashes match. Unrelated lock entries remain unchanged. Lower sources, settings, protections, ledger, reader/window tests and the exact corrected reader/shared-fake/regression blobs match Start. Both workflow trees and complete Spec 1, including frozen line 3, match the retained integration baseline. Verification 3.1, 3.2, 3.3 and the later tail remain unchanged. Current stack and ledger guidance survives in the carried Task 6 documents.
+
+The full layer from corrected Start has 1,157 of 1,500 counted lines. Its largest changed Python file is the command test, 326 lines; its largest changed file subject to the configured production cap is the report template, 139 of 500 lines. The fixture-only correction from the merge has 6 counted lines and no changed capped production file. Tests are outside this configured production cap. DiffStep and FileSizeStep pass both scopes. The earlier 3,071 whole-suite and 144 focused passes describe the old head, not this integration.
+
+The bounded changed-tree and own-message privacy screen found only unchanged inherited lines; canonical privacy remains pending. Independent exact-final-head review of corrected Start through the result, a new lead live GET-only `./devctl metrics` run and PR-body evidence, hosted exact-head full and Docs checks, EM or Reviewer App approval and owner merge remain pending. The earlier live command exited 2 on a root-endpoint 404 and was not a pass. Offline regression results do not replace the lead's new live acceptance on the final reviewed integration.
+
+The lead owns publication above the reviewed 3.3 layer. The owner merges this Protected change. No live API, publication, local full/site/heavy build or main integration ran here.
+
+Not covered: Reverts, Closed unmerged and Corrections, which 3.5 adds; project-defined metrics, posting, the scheduled Action and gardening remain deferred.
+
 
 ### 3.5
 
