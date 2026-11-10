@@ -57,6 +57,21 @@ kind = "managed"
 sha256 = "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
 
 [[file]]
+path = ".agents/skills/rs-health/SKILL.md"
+kind = "managed"
+sha256 = "3adeadcdeb4be4a6a0101ed483d8d8406baa7593514d9301834493dc8a5b8fc1"
+
+[[file]]
+path = ".agents/skills/rs-health/references/audit.md"
+kind = "managed"
+sha256 = "ac4bbe120269331156dc7a4e3b4ae64d46466bc7acccbe989813bb6a6acdc870"
+
+[[file]]
+path = ".agents/skills/rs-health/references/proposed-task.md"
+kind = "managed"
+sha256 = "ce18c35b1b4954f04ef6d15bb642320cdcfd555b8afc80ff37e19930bb611a42"
+
+[[file]]
 path = ".agents/skills/rs-ponytail/PONYTAIL-LICENSE.txt"
 kind = "managed"
 sha256 = "01a6c8b63df20dd3f6cd59474385aaf17cb32e4c1c16e11e34173171735e2fc6"
@@ -80,6 +95,31 @@ sha256 = "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
 path = ".agents/skills/rs-pr/SKILL.md"
 kind = "managed"
 sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
+
+[[file]]
+path = ".agents/skills/rs-setup/SKILL.md"
+kind = "managed"
+sha256 = "e85dabc1ed6bf9b6ea6b49b009faa93c6cf7f23e43b1be92f41f3dd4118ad5cd"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/agent-identity.md"
+kind = "managed"
+sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/known-failures.md"
+kind = "managed"
+sha256 = "583b8390714c16ea24b8feaac0c6ffb423de3f513cd2521baae0a32e032b4a52"
+
+[[file]]
+path = ".agents/skills/rs-setup/references/stylistic-options.md"
+kind = "managed"
+sha256 = "3f230df4158093718c12d3cce5b650ac267a963922a2e899b745b767690c6b75"
+
+[[file]]
+path = ".agents/skills/rs-setup/ruleset.json"
+kind = "managed"
+sha256 = "a96c22d221f1aa38ea617faa4362fcc47e3ad7a435b61dc473c01fc3db711a44"
 
 [[file]]
 path = ".agents/skills/rs-tdd/LICENSE.txt"
@@ -147,6 +187,11 @@ kind = "managed"
 link = "../../.agents/skills/rs-diagnosing-bugs"
 
 [[file]]
+path = ".claude/skills/rs-health"
+kind = "managed"
+link = "../../.agents/skills/rs-health"
+
+[[file]]
 path = ".claude/skills/rs-ponytail"
 kind = "managed"
 link = "../../.agents/skills/rs-ponytail"
@@ -155,6 +200,11 @@ link = "../../.agents/skills/rs-ponytail"
 path = ".claude/skills/rs-pr"
 kind = "managed"
 link = "../../.agents/skills/rs-pr"
+
+[[file]]
+path = ".claude/skills/rs-setup"
+kind = "managed"
+link = "../../.agents/skills/rs-setup"
 
 [[file]]
 path = ".claude/skills/rs-tdd"
@@ -204,7 +254,7 @@ template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b37
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "548c372e33ef0c0cd48b9501116d2607e000349485842f7354b2ce5e1209c398"
+template_sha256 = "17d034ef3958036976c272593d90200c2d48011fa90e226c5b268fabee1e9648"
 
 [[file]]
 path = "AGENTS.md"
@@ -284,7 +334,7 @@ sha256 = "0ed56ffbcd045c3f89db38bfef1abd79bfc266b77aaaafa915896be059eaed28"
 [[file]]
 path = "tools/devctl/devctl/check/evidence.py"
 kind = "managed"
-sha256 = "c477b466507b70e0ec896d778f61e50bf8d5dc1da0bb91a5ab65b24701802b79"
+sha256 = "e2c0e4626d3f091ccb94672b1baa7dcd535f3daf8c830969326547369c4aa496"
 
 [[file]]
 path = "tools/devctl/devctl/check/exceptions.py"
@@ -494,7 +544,7 @@ sha256 = "0e67998d89055af7875963c1600f7ecd8781add269b467eb6e6b8338abadcad7"
 [[file]]
 path = "tools/devctl/devctl/merge_guard_github.py"
 kind = "managed"
-sha256 = "1dd7631e0a5ad990440aa98d76bfe8da4519be24ad01e20417df5dfffef66c00"
+sha256 = "ed4c2250625e72f55dc495de05fef4b5257c36ce85184dbffe960782be037a5b"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/__init__.py"
@@ -549,7 +599,7 @@ sha256 = "d8e4eadbbb3067d847c662eec85c7b2eb61fc028d14e392e82b0eb76e0ae90b6"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "dadf63dd2c8175e69e649b1182a99c02b5177f686fb4971434cfcfe38702799e"
+sha256 = "016be4226d5f9d915914e7ad6e847d5f1efcc8c704973d6dbd16aec05ff872f4"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"
