@@ -31,6 +31,7 @@ Keep tests flat, except devctl's tests, which go in `devctl/` as `test_devctl_*.
 | Health audit references, commands and optional contribution skill | [test_kit_health_and_contribute.py](test_kit_health_and_contribute.py) |
 | Skill links and discovery aliases | [test_skill_discovery.py](test_skill_discovery.py) |
 | This repository's `.gitleaks.toml`: gitleaks's default rules still apply, and only the placeholder key a plan quotes is allowed | [test_gitleaks_settings.py](test_gitleaks_settings.py) |
+| Offline GitHub paging, measurement admission and the local PR window | [devctl/metrics_fakes.py](devctl/metrics_fakes.py), [devctl/test_devctl_metrics_github.py](devctl/test_devctl_metrics_github.py), [devctl/test_devctl_metrics_window.py](devctl/test_devctl_metrics_window.py); recorded responses and scratch repositories only |
 | devctl metrics settings loader and status evaluation | [devctl/test_devctl_metrics_settings.py](devctl/test_devctl_metrics_settings.py), [devctl/test_devctl_metrics_settings_order.py](devctl/test_devctl_metrics_settings_order.py), [devctl/test_devctl_metrics_model.py](devctl/test_devctl_metrics_model.py) |
 
 Annotate every test, fixture and helper: mypy strict and Ruff's rules cover `tests/`, with only `S101` (assert) ignored. Start a process through `devctl.process.run_process`, as `conftest.py` and `check_workspace.py` do, so a test needs no `rs-exception`.

@@ -1061,7 +1061,26 @@ Not covered: Corrections as a metric, which 3.5 adds; whether agents follow the 
 
 ### 3.3
 
-Pending.
+The reader/window carry is integrated above the reviewed ledger layer with an ordinary two-parent merge. The first parent is `2cf528a4640fb0d35fb03f6c025e11608286e30d`; the second is `c9b04057b733a70d312d9ab1b1d078e9499480bd`.
+
+Observed locally at clean merge head `1a2df6d9e4193a6bd929eb0c6d5ab4b8f64f622c`:
+
+- `./devctl doctor --settings`: exit 0; four items passed.
+- `uv run pytest -q`: exit 0; `3025 passed in 426.36s (0:07:06)`.
+- `uv run pytest tests/devctl/test_devctl_metrics_github.py tests/devctl/test_devctl_metrics_window.py -q`: exit 0; `40 passed in 12.28s`.
+- `uv run --locked mypy`: exit 0; 193 source files checked.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0; 20 files scanned; inspected JSON `[]`.
+- `uv run rapid-ship sync --in-place` and `uv run rapid-ship status --strict`: exit 0; 93 managed files unchanged after sync.
+- `./devctl check --tier fast`: exit 0; all seven steps passed, including configured file-size checks.
+- `git diff --check` against the assigned base and the configured diff step: exit 0; 886 of 1,500 counted lines.
+- Preservation checks passed: exact merge parents, both histories retained, all seven carried source/test blobs unchanged, template/generated parity and no changes outside owned paths. Workflow and complete Spec 1 match main92. Lower-layer CODEOWNERS and every plan section outside Verification 3.3 remain unchanged.
+
+The only merge conflict was the Kit lock; sync regenerated it from the lower-layer lock and carried templates. No compatibility repair was needed. The remerge diff contains only that resolution and this verification record. The changed-tree and own-message privacy screen found no private identifiers.
+
+Independent exact-final-head review, canonical final privacy, hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. Publication is open under lead control after these gates; the former PR #71 hold is superseded. No local full/site/heavy check or live API operation is assigned. Recorded responses and scratch repositories provide simulated evidence only.
+
+Not covered: the GitHub responses themselves, which Task 14 checks against real repositories.
 
 ### 3.4
 

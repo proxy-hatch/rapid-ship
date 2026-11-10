@@ -557,6 +557,11 @@ kind = "managed"
 sha256 = "f450ebb9cef4003696ea182f1fa0eea2c7c654ea6104910385a57cf4f61479fe"
 
 [[file]]
+path = "tools/devctl/devctl/metrics/github.py"
+kind = "managed"
+sha256 = "c273926c3fe4ea4c3d53f76fd524f99e2a1b8354aa741a466d95fc78d50cf3dd"
+
+[[file]]
 path = "tools/devctl/devctl/metrics/model.py"
 kind = "managed"
 sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
@@ -565,6 +570,11 @@ sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
 path = "tools/devctl/devctl/metrics/settings.py"
 kind = "managed"
 sha256 = "569279e468307ece0f31c623096cdf330a9585e96f204c28687d2060244f3ad9"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/window.py"
+kind = "managed"
+sha256 = "f509b5381f94fe5432c28d7018bf30d0d311529879338705bb44d71c388aefd6"
 
 [[file]]
 path = "tools/devctl/devctl/node.py"
