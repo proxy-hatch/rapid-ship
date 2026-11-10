@@ -10,6 +10,7 @@
 /**/AGENTS.md @proxy-hatch
 /**/CLAUDE.md @proxy-hatch
 /.rapid-ship/ @proxy-hatch
+/docs/corrections/README.md @proxy-hatch
 # Patterns, guardrail templates, access, public CLI and Kit data models.
 /docs/patterns/ @proxy-hatch
 /rapid_ship/templates/ @proxy-hatch

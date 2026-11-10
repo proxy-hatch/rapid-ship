@@ -43,7 +43,7 @@ module.exports = {
         docs: {
           path: '..',
           include: ['README.md', 'ARCHITECTURE.md', 'docs/**/*.md'],
-          exclude: ['**/AGENTS.md'],
+          exclude: ['**/AGENTS.md', 'docs/corrections/**'],
           routeBasePath: '/',
           sidebarPath: './sidebars.js',
           editUrl: ({docPath}) =>

@@ -54,6 +54,7 @@ Prefer clear names, types, and simple control flow. Add comments only when they 
 
 ## Development
 
+- When the owner corrects you in a Session, add an open entry to the Corrections ledger with `source: session`.
 - Before coding or review, read `.agents/skills/rs-ponytail/SKILL.md`. Use `rs-tdd` for tests, `rs-diagnosing-bugs` for debugging, `rs-codebase-design` for architecture and `rs-pr` for pull requests. Reviews follow the Pull requests section, `rs-ponytail` and the Harness’s own review.
 - Build what the current plan names. Write the test first, and keep each task small enough to check on its own.
 - A comment does not make a workaround acceptable. Fix the root cause within scope, or explicitly report the limitation. A necessary workaround must have a verified reason, appropriate validation, and a tracked removal condition when temporary.
