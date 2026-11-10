@@ -14,7 +14,8 @@ from typing import NoReturn
 import pytest
 
 from check_workspace import new_workspace, stack_table
-from devctl.codeowners import FileChange
+from devctl import doctor_rules
+from devctl.codeowners import FileChange, patterns_in
 from devctl.command_line import simple_commands
 from devctl.doctor_items import OWNER_GET_TIMEOUT_SECONDS, OwnerGet, OwnerReadError, gh_get
 from devctl.hook import run_hook
@@ -24,6 +25,8 @@ from devctl.merge_guard_github import PullRequest, changed_files
 from devctl.process import ProcessResult
 from devctl.settings import SettingsError, parse_project
 from github_fakes import FakeRun, RecordedOwner
+from rapid_ship.kit.stacks import ProjectStack
+from rapid_ship.kit.templates import render_files
 
 HEAD = "a" * 40
 OTHER = "b" * 40
@@ -387,8 +390,10 @@ def test_codeowners_is_read_where_github_reads_it() -> None:
 
     unowned = owner(files=guide)
     unowned.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
-    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", unowned) is None
-    assert unowned.paths == [PR, SETTINGS, CODEOWNERS, root_file, docs_file, FILES, RUNS]
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", unowned) == (
+        TOUCHES.format("docs/AGENTS.md")
+    )
+    assert unowned.paths == [PR, SETTINGS, CODEOWNERS, root_file, docs_file, FILES]
 
 
 def test_codeowners_that_cannot_be_read_denies() -> None:
@@ -885,3 +890,218 @@ def test_flight_leaves_a_declared_spaced_behavioural_removal_to_the_owner(
     ):
         body = evidence("", "Removed tests:", f"- `{path}::a > b`: gone")
         assert guarded(line, owner(body=body, base=base)) == expected
+
+
+@pytest.mark.parametrize("base", [FLIGHT, IDENTITY])
+@pytest.mark.parametrize("first_owners", [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"])
+def test_setup_and_later_first_codeowners_require_owner_merge(
+    tmp_path: Path, base: str, first_owners: str
+) -> None:
+    # Simulated GitHub: even a head file that exempts the Kit cannot judge its own merge.
+    root = project(tmp_path, APPS if base == IDENTITY else "")
+    (root / ".github").mkdir()
+    (root / ".github/CODEOWNERS").write_text("/unrelated @o\n")
+    reader = owner(files=[{"filename": first_owners, "status": "added"}], base=base)
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    reader.serve(
+        f"repos/o/r/contents/{first_owners}?ref={HEAD}",
+        {"encoding": "base64", "content": base64.b64encode(b"/unrelated @o\n").decode()},
+    )
+    command = "./devctl as worker gh" if base == IDENTITY else "gh"
+    assert hooked(root, f"{command} pr merge 7 --match-head-commit {HEAD}", reader) == (
+        "deny",
+        TOUCHES.format(first_owners),
+    )
+    assert reader.paths == [
+        PR,
+        SETTINGS,
+        CODEOWNERS,
+        f"repos/o/r/contents/CODEOWNERS?ref={BASE}",
+        f"repos/o/r/contents/docs/CODEOWNERS?ref={BASE}",
+        FILES,
+    ]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".github/workflows/check.yml",
+        ".githooks/pre-commit",
+        "devctl",
+        "tools/devctl/devctl/hook.py",
+        ".agents/hooks.json",
+        ".claude/settings.json",
+        "nested/AGENTS.md",
+        "nested/CLAUDE.md",
+        ".rapid-ship/project.toml",
+        ".gitleaks.toml",
+        ".gitleaksignore",
+        "zizmor.yml",
+        "zizmor.yaml",
+        "docs/patterns/python-error-handling.md",
+        "docs/patterns/python-configuration.md",
+        "docs/patterns/python-input-validation.md",
+        "docs/patterns/python-performance.md",
+        "pyproject.toml",
+        "backend/pyproject.toml",
+        "backend/deep/mypy.ini",
+        "backend/.mypy.ini",
+        "backend/pytest.ini",
+        "backend/.pytest.ini",
+        "backend/pytest.toml",
+        "backend/.pytest.toml",
+        "backend/setup.cfg",
+        "backend/tox.ini",
+        "backend/.importlinter",
+        "backend/deep/ruff.toml",
+        "backend/deep/.ruff.toml",
+    ],
+)
+def test_without_base_codeowners_kit_paths_require_owner_merge(path: str) -> None:
+    reader = owner(files=[{"filename": path, "status": "added"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded("gh pr merge 7", reader) == TOUCHES.format(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/app/core.py",
+        "nested/devctl",
+        "nested/.github/x.yml",
+        "nested/docs/patterns/python-error-handling.md",
+        "docs/patterns/custom.md",
+    ],
+)
+def test_without_base_codeowners_unprotected_paths_still_pass(path: str) -> None:
+    reader = owner(files=[{"filename": path, "status": "modified"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
+
+
+@pytest.mark.parametrize("text", ["", "* @o\n", "/custom @o\n"])
+def test_existing_base_codeowners_keeps_its_set(text: str) -> None:
+    reader = owner(files=[{"filename": "pyproject.toml", "status": "modified"}])
+    reader.serve(
+        CODEOWNERS, {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
+    )
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None
+
+
+@pytest.mark.parametrize(
+    "stacks",
+    [
+        (ProjectStack("python", "."),),
+        (ProjectStack("python", "backend"),),
+        (ProjectStack("python", "apps/services/backend"),),
+        (ProjectStack("python", "backend"), ProjectStack("python", "apps/worker")),
+        (ProjectStack("python", "."), ProjectStack("python", "apps/worker")),
+        (ProjectStack("agnostic", "."),),
+    ],
+    ids=[
+        "python-root",
+        "python-nested",
+        "python-deep",
+        "python-multiple",
+        "python-root-and-nested",
+        "agnostic",
+    ],
+)
+def test_without_base_codeowners_fallback_covers_every_shipped_seed(
+    stacks: tuple[ProjectStack, ...], kit_variables: dict[str, str]
+) -> None:
+    seed = next(
+        template
+        for template in render_files(stacks, kit_variables, ())
+        if template.path == ".github/CODEOWNERS"
+    )
+    assert seed.content is not None
+    text = seed.content.decode()
+    assert "{{" not in text
+    # Walk's catch-all is not Protected; its commented Protected entries still count.
+    patterns = patterns_in(text)
+    assert patterns
+    for pattern in patterns:
+        # Exercise both zero and multiple directories for each recursive seed pattern.
+        for directory in ("", "nested/deep/"):
+            path = pattern.removeprefix("/").replace("**/", directory)
+            if path.endswith("/"):
+                path += "guard-probe"
+            reader = owner(files=[{"filename": path, "status": "modified"}])
+            reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+            assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
+                TOUCHES.format(path)
+            ), (stacks, pattern, path)
+
+
+@pytest.mark.parametrize("declared_stack", ["agnostic", "typescript"])
+@pytest.mark.parametrize("directory", ["", "backend/", "backend/deep/"])
+def test_without_base_codeowners_tracks_shared_stack_settings_despite_head_declarations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, declared_stack: str, directory: str
+) -> None:
+    # Simulate a shipped path-set extension, using the real ProjectStack path-set provider.
+    monkeypatch.setattr(
+        doctor_rules,
+        "PYTHON_PROTECTED_PATHS",
+        (*doctor_rules.PYTHON_PROTECTED_PATHS, "guardrail-settings.toml"),
+    )
+    root = project(tmp_path)
+    (root / ".rapid-ship/project.toml").write_text(
+        stack_table(declared_stack)
+        + '\n[escalation]\nevery_pr = false\n[github]\nrepository = "o/r"\n'
+    )
+    path = directory + "guardrail-settings.toml"
+    reader = owner(files=[{"filename": path, "status": "modified"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert hooked(root, f"gh pr merge 7 --match-head-commit {HEAD}", reader) == (
+        "deny",
+        TOUCHES.format(path),
+    )
+    assert not any(f"ref={HEAD}" in path for path in reader.paths)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "package.json",
+        ".npmrc",
+        "tsconfig.json",
+        "tsconfig.app.json",
+        "eslint.config.mjs",
+        ".prettierrc",
+        ".prettierrc.json",
+        "prettier.config.js",
+        ".prettierignore",
+        "vite.config.ts",
+        "vitest.config.ts",
+        "knip.json",
+        ".knip.jsonc",
+    ],
+)
+@pytest.mark.parametrize("directory", ["", "frontend/", "apps/frontend/deep/"])
+@pytest.mark.parametrize("change", ["modified", "removed", "renamed-from", "renamed-to"])
+def test_without_base_codeowners_typescript_settings_protect_both_rename_paths(
+    name: str, directory: str, change: str
+) -> None:
+    path = directory + name
+    file = {"filename": path, "status": change}
+    if change == "renamed-from":
+        file = {"filename": "src/ordinary.txt", "status": "renamed", "previous_filename": path}
+    elif change == "renamed-to":
+        file = {"filename": path, "status": "renamed", "previous_filename": "src/ordinary.txt"}
+    reader = owner(files=[file])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded("gh pr merge 7", reader) == TOUCHES.format(path)
+    assert not any(f"ref={HEAD}" in request or "ref=main" in request for request in reader.paths)
+
+
+@pytest.mark.parametrize(
+    "name", ["package-lock.json", "tsconfig.txt", "eslint.config", "knip", "vite.ts"]
+)
+@pytest.mark.parametrize("directory", ["", "apps/frontend/deep/"])
+def test_without_base_codeowners_typescript_nonmembers_remain_unprotected(
+    name: str, directory: str
+) -> None:
+    reader = owner(files=[{"filename": directory + name, "status": "modified"}])
+    reader.fail(CODEOWNERS, OwnerReadError(404, "Not Found"))
+    assert guarded(f"gh pr merge 7 --match-head-commit {HEAD}", reader) is None

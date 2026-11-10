@@ -230,8 +230,7 @@ def _dirty(paths: Sequence[str]) -> str:
         [
             "the work tree has changes, so init wrote nothing. Uncommitted and untracked paths:",
             *listed,
-            "The rs-setup skill in your coding agent can help commit or stash them; "
-            "then run rapid-ship init again.",
+            "Your coding agent can help commit or stash them; then run rapid-ship init again.",
         ]
     )
 

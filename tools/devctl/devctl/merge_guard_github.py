@@ -18,15 +18,28 @@ from devctl.codeowners import CODEOWNERS_FILES, FileChange, FileStatus, patterns
 from devctl.doctor_github import decoded_contents
 from devctl.doctor_items import OwnerGet, OwnerReadError
 from devctl.doctor_local import CI_JOB_NAME
-from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID
+from devctl.doctor_rules import GITHUB_ACTIONS_APP_ID, PROTECTED_PATHS, protected_settings
 from devctl.github.api import GitHubError, json_list, json_object
-from devctl.settings import PROJECT, ProjectSettings, SettingsError, parse_project
+from devctl.settings import (
+    PROJECT,
+    STACK_NAMES,
+    ProjectSettings,
+    ProjectStack,
+    SettingsError,
+    parse_project,
+)
 
 _PAGE = 100  # GitHub's largest page
 _FILE_PAGES = 30  # GitHub lists at most 3,000 files of a pull request
 # The fields of a changed file that the guard reads. A page of 100 files with their patches can
 # pass gh_get's output cap, so gh prints only these.
 _FILE_FIELDS = "[.[] | {filename, status, previous_filename}]"
+_STARTER_PATTERNS = (
+    "/docs/patterns/python-error-handling.md",
+    "/docs/patterns/python-configuration.md",
+    "/docs/patterns/python-input-validation.md",
+    "/docs/patterns/python-performance.md",
+)
 _VERDICTS = frozenset({"APPROVED", "CHANGES_REQUESTED"})  # the reviews that decide
 # A pull request's URL as gh reads one, whose repository wins over -R.
 _PR_URL = re.compile(
@@ -144,7 +157,7 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
     """The Protected-set patterns of CODEOWNERS at the same base commit as the settings.
 
     GitHub reads the first of CODEOWNERS_FILES that exists, so a 404 moves to the next name, and
-    none at all is an empty Protected set.
+    none at all uses the Kit's seeded Protected set. The head is never read.
     """
     ref = pull.base_sha
     for name in CODEOWNERS_FILES:
@@ -155,7 +168,14 @@ def base_patterns(read: OwnerGet, pull: PullRequest) -> list[str]:
                 continue
             raise
         return patterns_in(decoded_contents(json_object(found, f"the {name} contents"), name))
-    return []
+    # No base file means no trusted stack declarations. Cover every shipped stack at any
+    # depth, while keeping common paths and starter Patterns rooted. Preserve **/ prefixes.
+    settings = protected_settings(tuple(ProjectStack(name, ".") for name in STACK_NAMES))
+    return [
+        *(f"/{path}" for path in (*PROTECTED_PATHS, *CODEOWNERS_FILES)),
+        *_STARTER_PATTERNS,
+        *(f"/{path}" if path.startswith("**/") else f"/**/{path}" for path in settings),
+    ]
 
 
 def changed_files(read: OwnerGet, pull: PullRequest) -> list[FileChange]:
