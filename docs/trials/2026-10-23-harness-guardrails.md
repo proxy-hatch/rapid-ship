@@ -516,7 +516,7 @@ The run departed from the procedure in how it ran:
 
 ## Limits
 
-- The trial covers Claude Code alone, because plan 5 wires no other Harness. The follow-ups that wire Codex (PRO-142) and agy (PRO-143) repeat it there.
+- The trial covers Claude Code alone, because plan 5 wires no other Harness. The follow-ups that wire Codex and agy (PRO-143) repeat it there.
 - Every Session was headless; no interactive Session ran. This trial therefore observed no ask prompt: G5's ask came back as a denial. The hook spike observed the interactive prompt with a stand-in hook, and no run has observed the owner declining it.
 - One run: each case ran once, on one machine, with one version of Claude Code, 2.1.304, and one model, `claude-sonnet-5-5`.
 - Some results rest on the run's summary alone; [The run's files](#the-runs-files) lists them.

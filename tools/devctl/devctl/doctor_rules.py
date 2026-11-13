@@ -24,6 +24,7 @@ PROTECTED_PATHS = (
     "tools/devctl/",
     ".agents/",
     ".claude/",
+    ".codex/",
     "**/AGENTS.md",
     "**/CLAUDE.md",
     ".rapid-ship/",
