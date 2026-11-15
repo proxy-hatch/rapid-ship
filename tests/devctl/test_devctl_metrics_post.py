@@ -26,14 +26,16 @@ from devctl.metrics.post import (
     prepare_post,
     status_changes,
 )
-from devctl.metrics.report import Report, render_json, render_markdown
+from devctl.metrics.report import Report, render_markdown
 from github_fakes import RecordedOwner
 from metrics_fakes import fake_gh, gh_argv, gh_bodies
 from test_devctl_metrics_command import responses
 from test_devctl_metrics_command import setup as merged_project
+from test_devctl_metrics_report import revert
 from test_devctl_metrics_revisions import sample_window
 
 NOW = datetime(2026, 10, 16, 5, 41, 7, tzinfo=UTC)
+LIMIT = 65_536  # the size that GitHub is believed to refuse above, for an issue body and a comment
 ISSUES = "repos/o/r/issues"
 LIST = f"{ISSUES}?state=open&creator=github-actions%5Bbot%5D&per_page=64&page=1"
 CREATED = {"number": 7, "html_url": "https://github.com/o/r/issues/7"}
@@ -43,6 +45,15 @@ REFUSAL = (
 )
 RESET = {"resources": {"core": {"reset": 1791007920}}}  # 06:12 UTC
 HOSTILE_STATUS = "ok\n- closed_unmerged: ok -> breached @octocat"  # a person edited the issue body
+SIZE_REFUSAL = {"error": "gh: Validation Failed (HTTP 422)"}
+SIZE_TAIL = (
+    "; GitHub may have found the body too large, and the job summary holds this run's report\n"
+)
+COMMENT_SIZE_TAIL = (
+    "; GitHub may have found the body too large. The issue already holds this run's report, but "
+    "its status-change comment was not posted, and a rerun does not post it again. "
+    "The job summary holds this run's report too\n"
+)
 
 
 @pytest.fixture
@@ -73,6 +84,62 @@ UNKNOWN = metric("red_merges", 0, 1, unknown=2)
 
 def sample(*metrics: MetricReport) -> Report:
     return Report("o/r", NOW, "main", "tip", sample_window(), True, metrics, ())
+
+
+def counted_issues(count: int) -> Report:
+    """A report whose project-defined metric counts issues, each an item with a URL."""
+    found = tuple(
+        {
+            "label": f"#{n}",
+            "url": f"https://github.com/o/r/issues/{n}",
+            "time": "2026-10-15T06:12:00Z",
+            "state": "counted",
+        }
+        for n in range(1, count + 1)
+    )
+    bugs = judge("bugs", "Bugs", "count", "repository", Measured(count, items=found), 5)
+    return sample(OK, BREACHED, bugs)
+
+
+def partly_reverted(files: int, sections: int) -> Report:
+    """A report whose one counted revert restored many files and undid many sections."""
+    item = revert(
+        4,
+        files=[f"src/pkg/module_{n}.py" for n in range(files)],
+        sections=[f"src/pkg/module_{n}.py:{n + 1}-{n + 4}" for n in range(sections)],
+    )
+    reverts = judge("reverts", "Reverts", "count", "agent", Measured(1, items=(item,)), 0)
+    return sample(reverts, BREACHED)
+
+
+def unexplained(reason: str) -> Report:
+    """A report whose project-defined metric is unknown for a reason that its own code wrote."""
+    bugs = judge("bugs", "Bugs", "count", "repository", Measured(None, reason), 5)
+    return sample(OK, BREACHED, bugs)
+
+
+def with_unknown_items() -> Report:
+    """A report whose items are not all counted: --json lists an unknown revert and rollback too."""
+    revert = {"pr": 9, "state": "unknown", "detail": "its merge commit has no parent in this clone"}
+    absent = "commit 0123456 is not in the local history: run git fetch origin"
+    when = "2026-10-15T06:12:00Z"
+    rollbacks = (
+        {"label": "deployment 11", "url": None, "time": when, "state": "counted"},
+        {"label": "deployment 12", "url": None, "time": when, "state": "counted"},
+        {"label": "deployment 13", "url": None, "time": when, "state": "unknown", "detail": absent},
+    )
+    return sample(
+        judge("reverts", "Reverts", "count", "agent", Measured(0, unknown=1, items=(revert,)), 1),
+        BREACHED,
+        judge(
+            "rollbacks",
+            "Rollbacks",
+            "count",
+            "repository",
+            Measured(2, unknown=1, items=rollbacks),
+            5,
+        ),
+    )
 
 
 def detail(number: int) -> str:
@@ -409,8 +476,17 @@ def test_exhaustion_after_target_lookup_posts_unknown_without_another_get(
     assert methods[first_write:] == ["PATCH", "POST"]  # nothing is read after the first write
     assert gh_argv(bin_dir)[first_write - 1][3] == "rate_limit"  # the single reset-time lookup
     body, comment = (str(sent["body"]) for sent in gh_bodies(bin_dir))
-    metrics = json.loads(embedded(body))["metrics"]
-    assert all(m["value"] is None and "it resets at 06:12 UTC" in m["reason"] for m in metrics)
+    rows = [line for line in body.splitlines() if line.startswith("| ")][2:]  # past the header
+    reason = "unknown: GitHub API allowance used up; it resets at 06:12 UTC"
+    assert len(rows) == 5
+    assert all(reason in row for row in rows)
+    assert json.loads(embedded(body))["metrics"] == [
+        {"id": "revisions", "status": "unknown"},
+        {"id": "reverts", "status": None},
+        {"id": "red_merges", "status": "unknown"},
+        {"id": "closed_unmerged", "status": None},
+        {"id": "corrections", "status": None},
+    ]
     assert "revisions: ok -> unknown (unknown: GitHub API allowance used up" in comment
     assert capsys.readouterr().out.splitlines()[0] == "https://github.com/o/r/issues/5"
 
@@ -464,6 +540,108 @@ def test_a_breach_exits_0_once_posted_and_a_failed_post_exits_2(
     assert len(writes) == 1  # a refused write is never retried, and no comment follows it
 
 
+@pytest.mark.parametrize(
+    ("report", "statuses"),
+    [
+        pytest.param(
+            counted_issues(1_000),
+            {"reverts": "ok", "closed_unmerged": "breached", "bugs": "breached"},
+            id="1,000 counted issues",
+        ),
+        pytest.param(
+            partly_reverted(1_500, 1_500),
+            {"reverts": "breached", "closed_unmerged": "breached"},
+            id="one revert of 1,500 files and 1,500 sections",
+        ),
+        pytest.param(
+            unexplained("x" * 200_000),
+            {"reverts": "ok", "closed_unmerged": "breached", "bugs": "unknown"},
+            id="a reason of 200,000 characters",
+        ),
+    ],
+)
+def test_a_large_report_posts_a_body_and_a_comment_under_the_limit(
+    report: Report, statuses: dict[str, str]
+) -> None:
+    writes = Writes()
+
+    post(report, PostTarget("o/r", None, {}), writes, None)
+
+    assert writes.requests == [("POST", ISSUES), ("POST", f"{ISSUES}/7/comments")]
+    assert len(writes.body(0)) < LIMIT
+    assert len(writes.body(1)) < LIMIT
+    comment = json.loads(embedded(writes.body(0)))
+    assert [entry["id"] for entry in comment["metrics"]] == list(statuses)
+    target = prepare_post(reader_for({LIST: [projected(7)], detail(7): {"body": writes.body(0)}}))
+    assert target.previous == statuses
+
+
+def test_a_later_run_reads_the_statuses_from_a_large_body_and_comments_on_a_change() -> None:
+    first = Writes(number=5)
+    post(counted_issues(1_000), PostTarget("o/r", None, {}), first, None)
+    assert len(first.body(0)) < LIMIT
+    target = prepare_post(reader_for({LIST: [projected(5)], detail(5): {"body": first.body(0)}}))
+    assert target.previous == {"reverts": "ok", "closed_unmerged": "breached", "bugs": "breached"}
+
+    same = Writes()
+    post(counted_issues(1_000), target, same, None)
+    assert same.requests == [("PATCH", detail(5))]
+
+    bugs = judge("bugs", "Bugs", "count", "repository", Measured(3), 5)
+    changed = Writes()
+    post(sample(OK, BREACHED, bugs), target, changed, None)
+    assert changed.requests == [("PATCH", detail(5)), ("POST", f"{detail(5)}/comments")]
+    assert changed.body(1) == (
+        "Suggested threshold status changed:\n\n- bugs: breached -> ok (3, at most 5)"
+    )
+
+
+@pytest.mark.parametrize(
+    ("report", "held"),
+    [
+        pytest.param(counted_issues(1_000), "1000 items", id="1,000 counted issues"),
+        pytest.param(counted_issues(1), "1 item", id="1 counted issue"),
+        pytest.param(with_unknown_items(), "4 items", id="2 counted and 2 unknown items"),
+    ],
+)
+def test_the_body_says_how_many_items_it_leaves_out_and_where_the_report_is(
+    tmp_path: Path, report: Report, held: str
+) -> None:
+    note = (
+        f"The report holds {held} that this issue does not list; "
+        "./devctl metrics --json prints the whole report."
+    )
+    summary = tmp_path / "summary.md"
+    writes = Writes()
+
+    post(report, PostTarget("o/r", None, {}), writes, summary)
+
+    markdown = writes.body(0).partition("\n<!-- rapid-ship-metrics-json\n")[0]
+    assert markdown.endswith(f"\n\n{note}\n")
+    assert summary.read_text() == render_markdown(report)  # the summary lists no item either
+
+
+def test_a_small_reports_body_is_the_marker_the_markdown_and_each_metrics_id_and_status() -> None:
+    corrections = judge("corrections", "Corrections", "count", "ledger", Measured(9), None)
+    report = sample(OK, BREACHED, UNKNOWN, corrections)  # none of them has an item
+    writes = Writes()
+
+    post(report, PostTarget("o/r", None, {}), writes, None)
+
+    body = writes.body(0)
+    opener = "<!-- rapid-ship-metrics-json"
+    assert body == f"{MARKER}\n{render_markdown(report)}\n{opener}\n{embedded(body)}-->\n"
+    assert json.loads(embedded(body)) == {
+        "version": 1,
+        "metrics": [
+            {"id": "reverts", "status": "ok"},
+            {"id": "closed_unmerged", "status": "breached"},
+            {"id": "red_merges", "status": "unknown"},
+            {"id": "corrections", "status": None},
+        ],
+    }
+
+
 def test_the_json_comment_cannot_end_early() -> None:
     nasty = "--> <!-- rapid-ship-metrics-json\n--!> end"
     report = sample(
@@ -476,6 +654,7 @@ def test_the_json_comment_cannot_end_early() -> None:
             1,
         ),
         metric("reverts", None, 1, reason="boom --> <b>x</b>"),
+        metric("a-->b", 0, 1),  # no loader accepts this id, but post takes any report
     )
     writes = Writes()
 
@@ -486,10 +665,10 @@ def test_the_json_comment_cannot_end_early() -> None:
     assert "\\u003e" in raw
     assert "-->" not in raw
     assert body.count("-->") == 2  # the marker's and the JSON comment's own
-    assert json.loads(raw) == json.loads(render_json(report))
-    assert json.loads(raw)["metrics"][0]["items"][0]["detail"] == nasty
+    assert json.loads(raw)["metrics"][2] == {"id": "a-->b", "status": "ok"}
+    assert nasty not in body
     again = prepare_post(reader_for({LIST: [projected(5)], detail(5): {"body": body}}))
-    assert again.previous == {"red_merges": "ok", "reverts": "unknown"}
+    assert again.previous == {"red_merges": "ok", "reverts": "unknown", "a-->b": "ok"}
 
 
 def test_status_changes_name_each_difference_and_skip_unchanged_and_unthresholded() -> None:
@@ -520,14 +699,70 @@ def test_gh_write_sends_the_json_body_on_stdin_with_only_the_github_token(
     assert "UNRELATED_SECRET" not in env
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("POST", ISSUES), ("PATCH", detail(5)), ("POST", f"{detail(5)}/comments")],
+    ids=["create", "update", "comment"],
+)
 def test_a_refused_write_raises_with_the_status_and_the_fix(
-    tmp_path: Path, laptop: pytest.MonkeyPatch
+    tmp_path: Path, laptop: pytest.MonkeyPatch, method: str, path: str
 ) -> None:
-    refusal = {"error": "gh: Validation Failed (HTTP 422)"}
-    install_gh(tmp_path / "bin", laptop, {f"PATCH {detail(5)}": refusal})
+    refusal = {"error": "gh: Resource not accessible by integration (HTTP 403)"}
+    install_gh(tmp_path / "bin", laptop, {f"{method} {path}": refusal})
 
-    with pytest.raises(GitHubError, match=r"GitHub refused PATCH repos/o/r/issues/5.*HTTP 422"):
-        gh_write("PATCH", detail(5), {"body": "b"})
+    with pytest.raises(GitHubError) as raised:
+        gh_write(method, path, {"body": "b"})
+
+    assert str(raised.value) == (
+        f"GitHub refused {method} {path}: gh: Resource not accessible by integration (HTTP 403); "
+        "check that the workflow grants issues: write, then rerun it"
+    )
+
+
+@pytest.mark.parametrize(
+    ("write", "method", "path", "tail", "sent"),
+    [
+        pytest.param("create", "POST", ISSUES, SIZE_TAIL, [ISSUES], id="create"),
+        pytest.param("update", "PATCH", detail(5), SIZE_TAIL, [detail(5)], id="update"),
+        pytest.param(
+            "comment",
+            "POST",
+            f"{detail(5)}/comments",
+            COMMENT_SIZE_TAIL,
+            [detail(5), f"{detail(5)}/comments"],
+            id="comment",
+        ),
+    ],
+)
+def test_a_422_on_a_write_says_the_body_may_be_too_large_and_exits_2(
+    tmp_path: Path,
+    laptop: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    write: str,
+    method: str,
+    path: str,
+    tail: str,
+    sent: list[str],
+) -> None:
+    summary = tmp_path / "summary.md"
+    laptop.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    h = merged_project(tmp_path / "project")
+    existing = {"number": 5, "user": {"login": ACTIONS_LOGIN}, "body": previous_body({})}
+    served: dict[str, object] = {**responses(h), LIST: [] if write == "create" else [existing]}
+    if write != "create":
+        served[detail(5)] = {"body": previous_body({})}
+    if write == "comment":
+        served[f"PATCH {detail(5)}"] = {"number": 5, "html_url": "https://github.com/o/r/issues/5"}
+    served[f"{method} {path}"] = SIZE_REFUSAL
+
+    assert post_main(h.path, laptop, served) == 2
+
+    assert capsys.readouterr().err == (
+        f"devctl metrics: GitHub refused {method} {path}: gh: Validation Failed (HTTP 422){tail}"
+    )
+    assert summary.read_text().startswith("## rapid-ship metrics for o/r\n")
+    writes = [call for call in gh_argv(h.path.parent / "bin") if call[2] != "GET"]
+    assert [call[3] for call in writes] == sent  # a refused write is never retried
 
 
 def test_a_rate_limited_patch_exits_2_and_the_job_summary_keeps_the_report(
