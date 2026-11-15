@@ -449,7 +449,7 @@ sha256 = "06c088bb217f42507af93c9d67b66b7e8143af61ff7360d09a50c3f99ab9d029"
 [[file]]
 path = "tools/devctl/devctl/command_line.py"
 kind = "managed"
-sha256 = "8600d25afe7e6251a55102656a180d5e52a942f3bc516a4dae2dbc6d87592165"
+sha256 = "1786c41309e52ceaeed11610b8abcffa90b149fab773a59e09566337bf2e57d4"
 
 [[file]]
 path = "tools/devctl/devctl/doctor.py"
@@ -519,7 +519,7 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "bf4c3cf8dd1241f031832d6ec373efc8fa6a554110c9512410b3f670fb21fd60"
+sha256 = "02b0748823b29f1a933022ca6d87406abcdbe0d354b7cd8debb01f4821fe31e6"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
@@ -599,7 +599,7 @@ sha256 = "86456a51ece0a0cd1089720ccc223d0fbb21ba68dd5f1e3a4ae6fdfd755de6c2"
 [[file]]
 path = "tools/devctl/devctl/metrics/post.py"
 kind = "managed"
-sha256 = "fb981d20e699a968314dc26cb2ecaa91e10376d305d95b3d47e0bee55eeef6be"
+sha256 = "6140c56b537a496f4da789c9a4491f161b282fd0139b4d42b3471189222b8543"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/project.py"
@@ -614,7 +614,7 @@ sha256 = "91b4bf7b0cb1fd595c35ed94cfd35ca1072b1b80fe06f27672abce96a82352a5"
 [[file]]
 path = "tools/devctl/devctl/metrics/report.py"
 kind = "managed"
-sha256 = "f0d7b9402a8c7b6dda1cf756c3a44b76b1fec08356b0a1f2a7774d08b3e08700"
+sha256 = "0685ca5c646a6d9b5ad6a154b7111931ebe24789da39437e23c1f7beca63281c"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/reverts.py"

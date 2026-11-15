@@ -239,7 +239,7 @@ IDENTITY = [  # the rule that denies it with Agent identity on; with it off, no 
     ("gh issue comment 3 -b hi", "G8"),
     ("gh issue list", None),
     ("gh api repos/o/r/issues -X POST -f title=x", "G8"),
-    ("gh api repos/o/r/issues -X GET -f state=open", "G8"),
+    ("gh api repos/o/r/issues -X GET -f state=open", None),
     ("gh api repos/o/r/pulls/7", None),
     ("./devctl as worker gh pr create --fill", None),
     ("gh release create v1", None),

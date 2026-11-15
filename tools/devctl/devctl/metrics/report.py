@@ -12,6 +12,12 @@ from devctl.metrics.window import Window
 
 CORRECTIONS_NOTE = "Corrections are agent-reported: agents write the ledger entries they count."
 
+# value_text cuts an unknown value's reason to this many characters wherever it shows one: the
+# terminal text, the Markdown (the issue body and the job summary), the status-change comment and
+# the job log's change lines. Project code can return a reason of any length, which would make a
+# posted report too large for an issue; the JSON keeps the whole reason.
+_REASON_LIMIT = 500
+
 
 @dataclass(frozen=True)
 class Report:
@@ -118,10 +124,17 @@ def _ledger(measured: Measured) -> str:
     return text
 
 
+def _shortened(reason: str | None) -> str | None:
+    """reason cut after _REASON_LIMIT characters; the JSON keeps all of it."""
+    if reason is None or len(reason) <= _REASON_LIMIT:
+        return reason
+    return f"{reason[:_REASON_LIMIT]}..."
+
+
 def value_text(metric: MetricReport) -> str:
     measured = metric.measured
     if measured.value is None:
-        return f"unknown: {measured.reason}"
+        return f"unknown: {_shortened(measured.reason)}"
     value = f"{measured.value:g}"
     if metric.metric_id == "revisions":
         value += " per PR"
