@@ -16,7 +16,7 @@ from rapid_ship.kit.templates import (
     installed_version,
     is_excluded,
     read_excluded,
-    read_optional_skills,
+    read_optional,
     render_files,
 )
 
@@ -91,7 +91,7 @@ def classify(root: Path, *, templates_root: Path | None = None) -> StatusReport:
         for t in render_files(
             lock.stacks,
             lock.variables,
-            read_optional_skills(root),
+            read_optional(root),
             new_projects=new_projects_from_lock(lock),
             root=templates_root,
         )

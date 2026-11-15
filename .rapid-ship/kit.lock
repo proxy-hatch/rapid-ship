@@ -259,7 +259,7 @@ template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b37
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "61d2be4d6324ef7a1375640072b7a137cd18c8ed74e755a301a042abbb16178e"
+template_sha256 = "43d7aa2e1d7efd4b8a66cbb74af7ff6d84283ab611407716f8a8d5801a33d8be"
 
 [[file]]
 path = "AGENTS.md"
@@ -569,7 +569,7 @@ sha256 = "6e93b0a9f999ef6e2058678459e077c4fa92ef3d3d2f39d8783607c192e59bc1"
 [[file]]
 path = "tools/devctl/devctl/metrics/command.py"
 kind = "managed"
-sha256 = "514eab362e630b4a61da541a70e8214826345ca391af63cd3b7c0527de69d5f7"
+sha256 = "f9f4336c024127b6b79a1b21d13291391cc82f3ed9e911c3af866cadf0a37f97"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/github.py"
@@ -587,6 +587,11 @@ kind = "managed"
 sha256 = "8d4436bf6b02a6573b6baac9cb2c0e4f3969fee94f852f69fe8e93b4ede0865f"
 
 [[file]]
+path = "tools/devctl/devctl/metrics/post.py"
+kind = "managed"
+sha256 = "fb981d20e699a968314dc26cb2ecaa91e10376d305d95b3d47e0bee55eeef6be"
+
+[[file]]
 path = "tools/devctl/devctl/metrics/project.py"
 kind = "managed"
 sha256 = "e69ce7f0cb10dac4b05311a5a877ece66c44accbcdbfb7f088ded8c607a46580"
@@ -599,7 +604,7 @@ sha256 = "91b4bf7b0cb1fd595c35ed94cfd35ca1072b1b80fe06f27672abce96a82352a5"
 [[file]]
 path = "tools/devctl/devctl/metrics/report.py"
 kind = "managed"
-sha256 = "9349aa4e515a7f03f99e7302aeb037217c357854b8e61366f9906f6f2397a9c5"
+sha256 = "452c265a99c7bc038c3f25a3521fc29fc9d002df3a6c5b4a0eda13314b58e1ac"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/reverts.py"
@@ -649,7 +654,7 @@ sha256 = "d8e4eadbbb3067d847c662eec85c7b2eb61fc028d14e392e82b0eb76e0ae90b6"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "3f80276f606e9e0852575ab84c22096b29e3282d4d1971ebdde649c24118cd3a"
+sha256 = "d30db24fccb96592a99cab7328a5b787fc9d9c6c1606d131010e160250fc1d57"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

@@ -261,6 +261,13 @@ def test_window_below_1_is_a_usage_error(value: str) -> None:
     assert caught.value.code == 2
 
 
+def test_post_and_json_exclude_each_other(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["metrics", "--post", "--json"])
+    assert caught.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
+
+
 def test_the_gate_note_and_the_not_fetched_note_are_printed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

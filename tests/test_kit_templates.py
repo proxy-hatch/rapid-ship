@@ -17,7 +17,7 @@ from rapid_ship.kit.templates import (
     load_manifest,
     packaged_templates,
     read_excluded,
-    read_optional_skills,
+    read_optional,
     render_files,
     render_path,
 )
@@ -76,8 +76,30 @@ def test_skill_links_follow_installed_skills_and_optional_skills_need_opt_in(
     assert ".agents/skills/rs-extra/SKILL.md" not in default
     assert ".claude/skills/rs-extra" not in default
     assert opted[".claude/skills/rs-extra"].link == "../../.agents/skills/rs-extra"
-    with pytest.raises(KitError, match="unknown optional Kit skill 'rs-unknown'"):
+    with pytest.raises(KitError, match="unknown optional Kit skill or file 'rs-unknown'"):
         render_files((ProjectStack("agnostic", "."),), kit_variables, ("rs-unknown",), root=root)
+
+
+def test_an_optional_kit_file_needs_opt_in(
+    make_templates: Callable[..., Path], kit_variables: dict[str, str]
+) -> None:
+    path = ".github/workflows/extra.yml"
+    manifest = (
+        (make_templates() / "kit.toml")
+        .read_text()
+        .replace('["rs-extra"]', f'["rs-extra", "{path}"]')
+    )
+    root = make_templates("with-file", {"kit.toml": manifest, f"common/{path}": "name: extra\n"})
+    stacks = (ProjectStack("agnostic", "."),)
+
+    default = by_path(render_files(stacks, kit_variables, (), root=root))
+    opted = by_path(render_files(stacks, kit_variables, (path,), root=root))
+
+    assert path not in default
+    assert opted[path] == Template(path, "managed", b"name: extra\n", None)
+    assert ".agents/skills/rs-extra/SKILL.md" not in opted  # a name opts in to itself only
+    with pytest.raises(KitError, match=r"unknown optional Kit skill or file 'extra\.yml'"):
+        render_files(stacks, kit_variables, ("extra.yml",), root=root)
 
 
 def test_an_empty_owner_comments_out_its_line(
@@ -213,7 +235,7 @@ def test_the_manifest_reads_every_list(make_templates: Callable[..., Path]) -> N
     manifest = load_manifest(make_templates())
 
     assert manifest.executable == frozenset({"devctl"})
-    assert manifest.optional_skills == frozenset({"rs-extra"})
+    assert manifest.optional == frozenset({"rs-extra"})
     assert "src/__package__/__init__.py" in manifest.new_project["python"]
 
 
@@ -259,13 +281,13 @@ def test_an_excluded_directory_covers_its_files_and_a_skill_directory_its_link()
 
 
 def test_kit_optional_is_read(tmp_path: Path, write_kit_settings: Callable[..., None]) -> None:
-    assert read_optional_skills(tmp_path) == ()  # no project.toml yet
+    assert read_optional(tmp_path) == ()  # no project.toml yet
 
     write_kit_settings(tmp_path, optional=["rs-extra"])
-    assert read_optional_skills(tmp_path) == ("rs-extra",)
+    assert read_optional(tmp_path) == ("rs-extra",)
 
     (tmp_path / ".rapid-ship/project.toml").write_text(stack_table("python"))
-    assert read_optional_skills(tmp_path) == ()
+    assert read_optional(tmp_path) == ()
 
 
 @pytest.mark.parametrize("value", ['"rs-extra"', "[1]"])
@@ -275,9 +297,11 @@ def test_an_invalid_kit_optional_is_an_error(tmp_path: Path, value: str) -> None
         stack_table("python") + f"\n[kit]\noptional = {value}\n"
     )
 
-    message = ".rapid-ship/project.toml [kit] optional: expected a list of skill names"
+    message = (
+        ".rapid-ship/project.toml [kit] optional: expected a list of optional Kit skills or files"
+    )
     with pytest.raises(KitError, match=re.escape(message)):
-        read_optional_skills(tmp_path)
+        read_optional(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -291,7 +315,7 @@ def test_unreadable_project_settings_are_an_error(tmp_path: Path, text: str, mes
     (tmp_path / ".rapid-ship").mkdir()
     (tmp_path / ".rapid-ship/project.toml").write_text(text)
 
-    for read in (read_excluded, read_optional_skills):
+    for read in (read_excluded, read_optional):
         with pytest.raises(KitError, match=re.escape(message)):
             read(tmp_path)
 

@@ -50,9 +50,9 @@ PROJECT_KEYS: dict[str, frozenset[str]] = {
     "map": frozenset({"source_roots", "unguided", "exclude"}),
     "tests": frozenset({"unit"}),
 }
-# The Kit's optional skills, which [kit] optional may name: kit.toml's optional_skills, which a
+# The Kit's optional skills and files, which [kit] optional may name: kit.toml's optional, which a
 # test holds equal, because devctl runs in projects without rapid-ship.
-OPTIONAL_SKILLS: frozenset[str] = frozenset({"rs-contribute"})
+OPTIONAL: frozenset[str] = frozenset({".github/workflows/rapid-ship-metrics.yml", "rs-contribute"})
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _APP_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")  # the slugs GitHub gives Apps
 # A code owner as CODEOWNERS writes it: "@login" or "@organisation/team".
@@ -95,7 +95,7 @@ class ProjectSettings:
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
-    optional_skills: tuple[str, ...]  # [kit] optional
+    optional: tuple[str, ...]  # [kit] optional
     # [kit] exclude: Kit paths the project owns; a skill directory also covers its link.
     excluded: tuple[str, ...]
     source_roots: tuple[str, ...]  # [map] source_roots
@@ -265,11 +265,13 @@ def _paths(table: _Table, key: str, default: tuple[str, ...] = ()) -> tuple[str,
     return tuple(path for path in paths if path is not None)
 
 
-def _optional_skills(kit: _Table) -> tuple[str, ...]:
+def _optional(kit: _Table) -> tuple[str, ...]:
     names = kit.texts("optional")
-    if not set(names) <= OPTIONAL_SKILLS:
-        offered = ", ".join(sorted(OPTIONAL_SKILLS)) or "none in this Kit version"
-        raise kit._error("optional", f"names of the Kit's optional skills: {offered}")
+    if not set(names) <= OPTIONAL:
+        raise kit._error(
+            "optional",
+            f"names of the Kit's optional skills and files: {', '.join(sorted(OPTIONAL))}",
+        )
     return names
 
 
@@ -357,7 +359,7 @@ def _project(data: dict[str, object]) -> ProjectSettings:
         worker_app=worker_app,
         reviewer_app=reviewer_app,
         escalation=_escalation(top),
-        optional_skills=_optional_skills(kit),
+        optional=_optional(kit),
         excluded=_paths(kit, "exclude"),
         source_roots=_paths(source_map, "source_roots"),
         unguided=_paths(source_map, "unguided"),

@@ -1,5 +1,6 @@
 """Render measured values without changing their threshold decisions."""
 
+import html
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -8,6 +9,8 @@ from typing import cast
 
 from devctl.metrics.model import MetricReport
 from devctl.metrics.window import Window
+
+CORRECTIONS_NOTE = "Corrections are agent-reported: agents write the ledger entries they count."
 
 
 @dataclass(frozen=True)
@@ -98,7 +101,7 @@ def _reverted(item: Mapping[str, object]) -> str:
     return f"{text} in part: {' and '.join(parts)}"
 
 
-def _value(metric: MetricReport) -> str:
+def value_text(metric: MetricReport) -> str:
     measured = metric.measured
     if measured.value is None:
         return f"unknown: {measured.reason}"
@@ -114,8 +117,8 @@ def _value(metric: MetricReport) -> str:
     return value
 
 
-def render_text(report: Report) -> str:
-    rows = [("metric", "population", "value", "suggested", "status")]
+def _table(report: Report) -> list[tuple[str, ...]]:
+    rows: list[tuple[str, ...]] = [("metric", "population", "value", "suggested", "status")]
     populations = {
         "agent": "agent PRs",
         "all": "all PRs",
@@ -127,32 +130,71 @@ def render_text(report: Report) -> str:
             (
                 metric.metric_id,
                 populations[metric.population],
-                _value(metric),
+                value_text(metric),
                 "-" if metric.threshold is None else f"<= {metric.threshold}",
                 metric.status or "-",
             )
         )
+    return rows
+
+
+def _when(report: Report) -> str:
+    return f"{report.generated_at.astimezone(UTC):%Y-%m-%d %H:%M UTC}"
+
+
+def _context(report: Report) -> str:
+    return f"Agent identity: {'on' if report.agent_identity else 'off'}. {_window(report)}"
+
+
+def _totals(report: Report) -> str:
+    breached = sum(m.status == "breached" for m in report.metrics)
+    unknown = sum(m.status == "unknown" for m in report.metrics)
+    return (
+        f"{breached} Suggested threshold breached and {unknown} unknown. "
+        "rapid-ship takes no action."
+    )
+
+
+def render_text(report: Report) -> str:
+    rows = _table(report)
     widths = [max(len(row[i]) for row in rows) for i in range(5)]
-    lines = [
-        f"rapid-ship metrics for {report.repository} at "
-        f"{report.generated_at.astimezone(UTC):%Y-%m-%d %H:%M UTC}",
-        f"Agent identity: {'on' if report.agent_identity else 'off'}. {_window(report)}",
-        "",
-    ]
+    lines = [f"rapid-ship metrics for {report.repository} at {_when(report)}", _context(report), ""]
     lines.extend(
         "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)).rstrip()
         for row in rows
     )
-    lines.extend(
-        ["", "Corrections are agent-reported: agents write the ledger entries they count."]
-    )
+    lines.extend(["", CORRECTIONS_NOTE])
     lines.extend(report.notes)
-    breached = sum(m.status == "breached" for m in report.metrics)
-    unknown = sum(m.status == "unknown" for m in report.metrics)
-    lines.append(
-        f"{breached} Suggested threshold breached and {unknown} unknown. "
-        "rapid-ship takes no action."
-    )
+    lines.append(_totals(report))
+    return "\n".join(lines) + "\n"
+
+
+def _escape(text: str) -> str:
+    return html.escape(text, quote=False)
+
+
+def _cell(text: str) -> str:
+    return _escape(text).replace("|", "\\|").replace("\n", " ")
+
+
+def render_markdown(report: Report) -> str:
+    """The report for a job summary or an issue. Values are escaped, so none can start a tag."""
+    header, *rows = _table(report)
+    lines = [
+        f"## rapid-ship metrics for {_escape(report.repository)}",
+        "",
+        _escape(f"Generated {_when(report)}. {_context(report)}"),
+        "",
+        *(
+            f"| {' | '.join(_cell(cell) for cell in row)} |"
+            for row in (header, ("---",) * len(header), *rows)
+        ),
+        "",
+        CORRECTIONS_NOTE,
+    ]
+    if report.notes:
+        lines.extend(["", *(f"- {_escape(note)}" for note in report.notes)])
+    lines.extend(["", _totals(report)])
     return "\n".join(lines) + "\n"
 
 

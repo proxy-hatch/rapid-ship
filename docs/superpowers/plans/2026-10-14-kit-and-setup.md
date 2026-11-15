@@ -131,7 +131,7 @@ The code on `codex/devctl-check` is canonical; this list names what later plans 
 
 - `rapid_ship/cli.py`: `build_parser`, and `main(argv: Sequence[str] | None = None)`.
 - `rapid_ship/files.py`: `atomic_replace`, `UnsafePath`, `relative_parts`, `safe_path` (refuses every symlink below the root), `create_file` (never overwrites).
-- `rapid_ship/kit/`: `templates.py` (`Stack = Literal["python", "agnostic"]`, `Kind`, `Template`, `KitManifest`, `KitError`, `KitRefusal`, `load_manifest`, `render_files`, `read_optional_skills`, `read_excluded`, `is_excluded`, `installed_version`); `lock.py` (`Lock`, `LockEntry`, `LOCK_PATH`, `read_lock`, `write_lock`, `file_sha256`, `template_hash`, `entry_for`, `seeded_entry`); `git.py` (`git`, which runs no hook and passes `--literal-pathspecs` except with `literal=False` for `check-ignore`, `hooks_setup`, `work_tree_root`, `changed_paths`, `is_clean`, `head_branch`, `head_commit`, `commit_paths`, `leave_branch`); `init.py` (`INIT_BRANCH`, `init_repository`, `resolve_variables`, `InitResult`); `existing_checks.py` (`find_existing_checks`); `status.py` (`classify`, `StatusReport`, `FileStatus`, `locate`, `fingerprint`); `sync.py` (`sync_repository`, `SyncResult`, `Conflict`, `OpenPullRequest`); `pull_request.py` (`REVERT`, `push_and_open_pull_request`, `pull_request_body`); `writes.py` (`Undo`, `write_template`, `delete_file`).
+- `rapid_ship/kit/`: `templates.py` (`Stack = Literal["python", "agnostic"]`, `Kind`, `Template`, `KitManifest`, `KitError`, `KitRefusal`, `load_manifest`, `render_files`, `read_optional`, `read_excluded`, `is_excluded`, `installed_version`); `lock.py` (`Lock`, `LockEntry`, `LOCK_PATH`, `read_lock`, `write_lock`, `file_sha256`, `template_hash`, `entry_for`, `seeded_entry`); `git.py` (`git`, which runs no hook and passes `--literal-pathspecs` except with `literal=False` for `check-ignore`, `hooks_setup`, `work_tree_root`, `changed_paths`, `is_clean`, `head_branch`, `head_commit`, `commit_paths`, `leave_branch`); `init.py` (`INIT_BRANCH`, `init_repository`, `resolve_variables`, `InitResult`); `existing_checks.py` (`find_existing_checks`); `status.py` (`classify`, `StatusReport`, `FileStatus`, `locate`, `fingerprint`); `sync.py` (`sync_repository`, `SyncResult`, `Conflict`, `OpenPullRequest`); `pull_request.py` (`REVERT`, `push_and_open_pull_request`, `pull_request_body`); `writes.py` (`Undo`, `write_template`, `delete_file`).
 - `devctl/repo.py`: `Repo` with `root`, `git_common_dir`, `discover`, `tracked_files`, `merge_base`, `files`, `git`; `RepoError`.
 - `devctl/process.py`: `ProcessResult`, `safe_environment`, `run_process(argv, cwd, timeout_seconds, env=None, input_text=None)`, `MAX_OUTPUT_BYTES`. The child gets only `safe_environment(env)`: the caller's `PATH` and `HOME`, with `LANG` and `LC_ALL` set to `C.UTF-8`, then `env`. `run_process` has no cancellation, and it reports truncation in flags, never inside the output.
 - `devctl/check/steps.py`: `Tier`, `Status`, `StepResult`, `CheckContext`, `Step`, `CommandStep`, `passed`, `failed`, `blocked`, `not_applicable`, `run_tool`, `command_result`. `devctl/check/__init__.py`: `core_steps`, `all_steps`, `run_check`, `exit_code`, `resolve_change`, `ChangeError`.
@@ -149,7 +149,7 @@ seeded = [".claude/settings.json", ".github/CODEOWNERS", ".rapid-ship/exceptions
   "docs/AGENTS.md", "docs/golden-paths/README.md", "docs/patterns/README.md", "tools/AGENTS.md",
   "tools/devctl/devctl_project/__init__.py"]
 executable = ["devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
-optional_skills = ["rs-contribute"]
+optional = [".github/workflows/rapid-ship-metrics.yml", "rs-contribute"]
 variables = ["owner", "package", "project_name", "repository", "code_owner",
   "directory", "guide_rows", "lint_marker", "source_roots", "stack_patterns",
   "stack_protected", "stack_rows", "stack_rules", "stack_tables", "stack_title", "unit_tests"]
@@ -158,7 +158,7 @@ python = [".gitignore", "pyproject.toml", "src/AGENTS.md", "src/__package__/__in
   "tests/AGENTS.md", "tests/test_import.py"]
 ```
 
-Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds three seeds, `.claude/settings.json`, `ARCHITECTURE.md` and `README.md`, and adds the Python starter Patterns, with their reference code and tests, to `new_project`. Plan 6 makes `new_project` a table of path lists by stack name. Paths are layer-relative; `__root__/` paths render at the repository root once per name. TypeScript joins in 6.3. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only part of the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. It also renames the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` can name an optional Kit file, such as its metrics Action, as well as a skill.
+Plan 4 added `askpass.py` to `executable` and dropped the `.rapid-ship/gate.toml` seed. Plan 5 adds three seeds, `.claude/settings.json`, `ARCHITECTURE.md` and `README.md`, and adds the Python starter Patterns, with their reference code and tests, to `new_project`. Plan 6 makes `new_project` a table of path lists by stack name. Paths are layer-relative; `__root__/` paths render at the repository root once per name. TypeScript joins in 6.3. Plan 7 adds `rs-contribute`. The block above leaves out the starter Patterns and shows only part of the Python stack's `new_project` list. Spec 3's plan adds a `.rapid-ship/metrics.toml` seed. Its PR 3.7a renamed the manifest key `optional_skills` to `optional`, with `read_optional_skills` and `ProjectSettings.optional_skills` to match, so that `optional` names an optional Kit file, here the metrics Action `.github/workflows/rapid-ship-metrics.yml`, as well as a skill. A template whose path or skill `optional` lists renders only when the project's `[kit] optional` names it, and `sync` deletes an unchanged copy after the project drops the name.
 
 Template rules, as plan 2 built them:
 
@@ -205,7 +205,7 @@ class ProjectSettings:
     worker_app: App | None  # both Apps recorded, or neither; recorded Apps need repository
     reviewer_app: App | None
     escalation: Escalation
-    optional_skills: tuple[str, ...]  # [kit] optional
+    optional: tuple[str, ...]  # [kit] optional
     excluded: tuple[str, ...]  # [kit] exclude
     source_roots: tuple[str, ...]  # [map] source_roots
     unguided: tuple[str, ...]  # [map] unguided

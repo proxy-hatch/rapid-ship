@@ -132,7 +132,11 @@ class MergedHistory:
 
 
 def fake_gh(directory: Path, served: Mapping[str, object]) -> Path:
-    """Project the approved recorded filters before printing, as gh --jq does."""
+    """Project the approved recorded filters before printing, as gh --jq does.
+
+    A GET is served under its path. A POST or PATCH must pass --input -: its stdin body, which must
+    be JSON, is appended to stdin.log, and the answer is served under "<METHOD> <path>".
+    """
     data = directory / "served.json"
     directory.mkdir(parents=True, exist_ok=True)
     data.write_text(json.dumps(served))
@@ -142,8 +146,14 @@ def fake_gh(directory: Path, served: Mapping[str, object]) -> Path:
         """
 import re
 served = json.loads(here.with_name('served.json').read_text())
-assert sys.argv[1:4] == ['api', '--method', 'GET']
-value = served[sys.argv[4]]
+method, key = sys.argv[3], sys.argv[4]
+assert sys.argv[1:3] == ['api', '--method'] and method in ('GET', 'POST', 'PATCH')
+if method != 'GET':
+    assert sys.argv[5:] == ['--input', '-']
+    with open(here.with_name('stdin.log'), 'a') as stdin_log:
+        stdin_log.write(json.dumps(json.loads(sys.stdin.read())) + '\\n')
+    key = method + ' ' + key
+value = served[key]
 if isinstance(value, dict) and 'error' in value:
     sys.stderr.write(value['error'])
     sys.exit(1)
@@ -152,13 +162,16 @@ if '--jq' in sys.argv:
     if projection.startswith('['):
         rows = value['workflow_runs'] if '.workflow_runs[]' in projection else value
         fields = re.findall(r'\\b([a-z_]+)\\b', projection)
+        # A body is output only where the filter names it outside its marker test.
+        named = projection.replace('(.body // "")', '')
+        selects_body = 'body' in re.findall(r'\\b([a-z_]+)\\b', named)
         projected = []
         for row in rows:
             item = {key: row.get(key) for key in fields if key in row}
             if 'has_marker' in fields:
                 marker = '<!-- rapid-ship-metrics -->'
                 item['has_marker'] = (row.get('body') or '').startswith(marker)
-            if 'body' not in projection.split('has_marker')[0]:
+            if not selects_body:
                 item.pop('body', None)
             projected.append(item)
         value = projected
@@ -260,3 +273,15 @@ class GatedOwner(RecordedOwner):
             gate.entered.set()
             assert gate.release.wait(WAIT)
         return super().__call__(path, jq)
+
+
+def gh_argv(directory: Path) -> list[list[str]]:
+    """The arguments of every call the fake gh in directory received, in order."""
+    lines = (directory / "gh.log").read_text().splitlines()
+    return [json.loads(line)["argv"] for line in lines]
+
+
+def gh_bodies(directory: Path) -> list[dict[str, object]]:
+    """The JSON body of every write the fake gh in directory received, in order."""
+    log = directory / "stdin.log"
+    return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []

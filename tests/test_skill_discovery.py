@@ -6,7 +6,7 @@ from urllib.parse import unquote, urlparse
 
 import pytest
 
-from rapid_ship.kit.templates import load_manifest, read_optional_skills
+from rapid_ship.kit.templates import load_manifest, read_optional
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 
@@ -16,7 +16,7 @@ TEMPLATE_SKILLS = tuple(
         for p in (REPOSITORY / "rapid_ship/templates/common/.agents/skills").glob("*/SKILL.md")
     )
 )
-_OPTIONAL = load_manifest().optional_skills - set(read_optional_skills(REPOSITORY))
+_OPTIONAL = load_manifest().optional - set(read_optional(REPOSITORY))
 KIT_SKILLS = tuple(name for name in TEMPLATE_SKILLS if name not in _OPTIONAL)
 
 

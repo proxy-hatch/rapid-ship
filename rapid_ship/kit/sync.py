@@ -35,7 +35,7 @@ from rapid_ship.kit.templates import (
     is_excluded,
     load_manifest,
     read_excluded,
-    read_optional_skills,
+    read_optional,
     render_files,
 )
 from rapid_ship.kit.writes import Undo, delete_file, write_template
@@ -107,7 +107,7 @@ def sync_repository(
     if not in_place and not is_clean(root):
         raise KitRefusal("the work tree has changes; commit them first, or use --in-place")
     version = kit_version or installed_version()
-    optional = read_optional_skills(root)
+    optional = read_optional(root)
     excluded = read_excluded(root)
     manifest = load_manifest(templates_root)
     rendered = render_files(
