@@ -7,6 +7,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
@@ -26,6 +27,23 @@ NOW = datetime(2026, 10, 16, tzinfo=UTC)
 PROJECT = '[[stack]]\nname = "python"\ndirectory = "."\n[github]\nrepository = "o/r"\n'
 RESET = {"resources": {"core": {"reset": 1791007920}}}  # 2026-10-03 06:12 UTC
 ALLOWANCE = "GitHub API allowance used up; it resets at 06:12 UTC"
+WHEELS = ("cp312-macosx", "cp312-manylinux", "cp313-macosx", "cp313-manylinux")
+
+
+def lock(version: int, packages: int) -> str:
+    """A lock file whose packages each list four wheels, all of which every version rewrites."""
+
+    def wheel(name: int, tag: str) -> str:
+        digest = sha256(f"{name}{tag}{version}".encode()).hexdigest()
+        url = f"https://files.example/pkg{name}-1.{version}-{tag}.whl"
+        return f'    {{ url = "{url}", hash = "sha256:{digest}" }},\n'
+
+    return "".join(
+        f'[[package]]\nname = "pkg{name}"\nwheels = [\n'
+        + "".join(wheel(name, tag) for tag in WHEELS)
+        + "]\n\n"
+        for name in range(packages)
+    )
 
 
 class MergedHistory:
@@ -39,16 +57,32 @@ class MergedHistory:
         self.pulls: list[dict[str, object]] = []
         self.push({"initial": "root"})
 
-    def push(self, files: Mapping[str, str]) -> str:
-        for name, text in files.items():
+    def push(
+        self, files: Mapping[str, str | bytes | None], message: str = "recorded change"
+    ) -> str:
+        """Commit files directly; None deletes one. No PR merges the commit."""
+        for name, content in files.items():
             target = self.path / name
+            if content is None:
+                target.unlink()
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text)
+            if isinstance(content, bytes):
+                target.write_bytes(content)
+            else:
+                target.write_text(content)
         git(self.path, "add", ".")
-        git(self.path, "commit", "-q", "--allow-empty", "-m", "recorded change")
+        git(self.path, "commit", "-q", "--allow-empty", "-m", message)
         sha = git(self.path, "rev-parse", "HEAD")
         self.owner.serve(f"repos/o/r/commits/{sha}/pulls?per_page=64&page=1", [])
         return sha
+
+    def revert(self, sha: str, *, merge: bool = False) -> str:
+        """Undo sha with git revert, as a commit that no PR merges."""
+        git(self.path, "revert", "--no-edit", *(["-m", "1"] if merge else []), sha)
+        revert = git(self.path, "rev-parse", "HEAD")
+        self.owner.serve(f"repos/o/r/commits/{revert}/pulls?per_page=64&page=1", [])
+        return revert
 
     def merge(
         self,
