@@ -10,7 +10,7 @@ from rapid_ship.kit.templates import KitError
 def leave_out(stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
     """The way out for a stack whose directory holds no product code. With no other stack to
     keep, leaving its option out would make init print its proposal again."""
-    where, option = "the root", "the --stack option that names the root"
+    where, option = "the root", f"--stack {stack.name}"
     if stack.directory != ".":
         where, option = stack.directory, f"--stack {stack.name}={stack.directory}"
     if len(stacks) > 1:
@@ -52,7 +52,7 @@ def no_source_root(
         if stack.directory == ".":
             steps += (
                 " If the product code is already in a package directory with another name, "
-                "pass --package naming that directory."
+                "pass --package with that directory's name, not its path."
             )
     return KitError(
         f"init wrote nothing: the {stack.name} stack in {stack.directory} has no {noun}: init "

@@ -331,17 +331,15 @@ ROOT_OK = {**ACME, "src/acme/__init__.py": ""}
 X_Y = '[project]\nname = "x-y"\n'
 # The way out for a directory that holds no product code. While another --stack option remains,
 # leaving this one out works. For the only stack it would make init print its proposal again.
-ROOT_LEAVE_OUT = (
-    "If the root holds no product code, run init without the --stack option that names the root."
-)
+ROOT_LEAVE_OUT = "If the root holds no product code, run init without --stack python."
 ROOT_REPLACE = (
-    "If the root holds no product code, replace the --stack option that names the root with a "
-    "--stack option for each stack that has product code, or with --stack agnostic when none has."
+    "If the root holds no product code, replace --stack python with a --stack option for each "
+    "stack that has product code, or with --stack agnostic when none has."
 )
 MEMBER_FIX = "Fix tools/x/pyproject.toml and commit the fix, then run init again. "
 ROOT_FIX = (
-    "Fix pyproject.toml and commit the fix, then run init again, or pass --package naming the "
-    "package directory, so that init does not read the file."
+    "Fix pyproject.toml and commit the fix, then run init again, or pass --package with the "
+    "package directory's name, not its path, so that init does not read the file."
 )
 MEMBER_NO_NAME = (
     "init wrote nothing: the python stack in tools/x has no package directory: "
@@ -370,7 +368,7 @@ def root_error(package: str, way_out: str = ROOT_REPLACE) -> str:
         f"src/{package} or {package} and found no tracked file. Create src/{package}/__init__.py, "
         f"move the product code into src/{package}/ and commit them, then run init again. If the "
         "product code is already in a package directory with another name, pass --package "
-        f"naming that directory. {way_out}"
+        f"with that directory's name, not its path. {way_out}"
     )
 
 
@@ -416,6 +414,13 @@ def member_error(directory: str, package: str, way_out: str) -> str:
             None,
             root_error("acme"),
             id="root: a directory that differs in case",
+        ),
+        pytest.param(
+            {**ACME, "src/acme_extra/__init__.py": ""},
+            [ROOT],
+            None,
+            root_error("acme"),
+            id="root: a sibling directory that shares the prefix",
         ),
         pytest.param(
             {**ACME, "tools/x/pyproject.toml": X_Y, "tools/x/src/x_y/__init__.py": ""},
@@ -575,6 +580,12 @@ def test_the_package_option_is_the_next_step_for_a_root_package_the_name_does_no
     commit_all(git_repo)
 
     assert init_cli("--stack", "python") == (2, f"rapid-ship: {root_error('acme_api')}\n")
+    # A path is not the directory's name, and the error that says so leads on to the name.
+    assert init_cli("--stack", "python", "--package", "src/acme_core") == (
+        2,
+        "rapid-ship: package 'src/acme_core' is not a Python package name; --package takes the "
+        "package directory's name, not a path.\n",
+    )
     assert init_cli("--stack", "python", "--package", "acme_core") == (0, "")
 
     assert source_roots(git_repo) == ["src/acme_core"]
@@ -802,7 +813,9 @@ def test_an_existing_stack_of_another_kind_follows_the_way_out_the_error_names(
         2,
         "rapid-ship: init wrote nothing: the agnostic stack in . has no source root: init looked "
         "in src and found no tracked file. Move the product code into src/ and commit it, then "
-        f"run init again. {ROOT_REPLACE}\n",
+        "run init again. If the root holds no product code, replace --stack agnostic with a "
+        "--stack option for each stack that has product code, or with --stack agnostic when none "
+        "has.\n",
     )
 
     (git_repo / "src").mkdir()

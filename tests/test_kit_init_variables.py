@@ -272,8 +272,8 @@ def test_an_unreadable_root_pyproject_names_the_file_and_the_way_out(
     with pytest.raises(
         KitError,
         match=r"^init wrote nothing: cannot read pyproject\.toml \(.+\)\. Fix pyproject\.toml and "
-        r"commit the fix, then run init again, or pass --package naming the package directory, "
-        r"so that init does not read the file\.$",
+        r"commit the fix, then run init again, or pass --package with the package directory's "
+        r"name, not its path, so that init does not read the file\.$",
     ):
         resolve_variables(root)
 
@@ -321,8 +321,16 @@ def test_a_root_project_name_that_is_no_package_name_needs_the_package_option(
         pytest.param(
             '[project]\nname = "acme"\n',
             {"package": "3d_engine"},
-            "package '3d_engine' is not a Python package name; check --package",
+            "package '3d_engine' is not a Python package name; --package takes the package "
+            "directory's name, not a path.",
             id="the package option",
+        ),
+        pytest.param(
+            '[project]\nname = "acme"\n',
+            {"package": "src/engine"},
+            "package 'src/engine' is not a Python package name; --package takes the package "
+            "directory's name, not a path.",
+            id="the package option names a path",
         ),
     ],
 )

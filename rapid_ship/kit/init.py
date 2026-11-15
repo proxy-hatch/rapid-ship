@@ -48,8 +48,8 @@ _SEPARATORS = re.compile(r"[-_.]+")
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _MAX_LOGIN = 39
 _UNREADABLE_ROOT = (
-    "Fix pyproject.toml and commit the fix, then run init again, or pass --package naming the "
-    "package directory, so that init does not read the file."
+    "Fix pyproject.toml and commit the fix, then run init again, or pass --package with the "
+    "package directory's name, not its path, so that init does not read the file."
 )
 # A github.com remote: https://, http:// or ssh:// with an optional user (or user:token), or the
 # scp form git@github.com:owner/name. The path is checked against _REPOSITORY afterwards.
@@ -96,7 +96,7 @@ def resolve_variables(
     project_name = _default_project_name(root, repository) if name is None else name
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
-    hint = "; check --package"
+    hint = "; --package takes the package directory's name, not a path."
     if package is None:
         declared = _project_name(root, ".", _UNREADABLE_ROOT)
         origin = (
