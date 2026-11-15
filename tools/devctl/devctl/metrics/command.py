@@ -6,7 +6,6 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from functools import partial
 from pathlib import Path
 
 from devctl.doctor_items import gh_get
@@ -16,6 +15,7 @@ from devctl.metrics.model import NEEDS_IDENTITY, Kind, Measured, MetricReport, P
 from devctl.metrics.project import measure, project_metrics
 from devctl.metrics.red_merges import red_merges
 from devctl.metrics.report import Report, exit_code, render_json, render_text
+from devctl.metrics.reverts import reverts
 from devctl.metrics.revisions import revisions
 from devctl.metrics.settings import (
     IssuesSource,
@@ -85,6 +85,12 @@ def _project_reports(
     return reports
 
 
+def _known(window: Window | None) -> Window:
+    if window is None:
+        raise MetricsError("window unavailable; rerun devctl metrics")
+    return window
+
+
 def build_report(
     root: Path,
     project: ProjectSettings,
@@ -96,6 +102,7 @@ def build_report(
         raise MetricsError(
             '[github] repository is not set in .rapid-ship/project.toml; set it to "owner/name"'
         )
+    repository = project.repository  # a local keeps its narrowed type inside the rows' lambdas
     code_metrics = project_metrics()
     settings = load_metrics(root, [metric.id for metric in code_metrics])
     repo = Repo.discover(root)
@@ -113,18 +120,18 @@ def build_report(
         unavailable = "no merged agent PRs yet" if project.agent_identity else "no merged PRs yet"
     population: Population = "agent" if project.agent_identity else "all"
     metrics = []
-    for metric_id, title, function in (
-        ("revisions", "Revisions", revisions),
-        ("red_merges", "Red merges", red_merges),
-    ):
+    rows: tuple[tuple[str, str, Callable[[], Measured]], ...] = (
+        ("revisions", "Revisions", lambda: revisions(reader, _known(window))),
+        ("reverts", "Reverts", lambda: reverts(repo, _known(window), repository)),
+        ("red_merges", "Red merges", lambda: red_merges(reader, _known(window))),
+    )
+    for metric_id, title, measure_row in rows:
         if unavailable is not None:
             measured = Measured(None, unavailable)
         elif metric_id == "revisions" and not project.agent_identity:
             measured = Measured(None, NEEDS_IDENTITY)
-        elif window is not None:
-            measured = _measure(partial(function, reader, window))
         else:
-            raise MetricsError("window unavailable; rerun devctl metrics")
+            measured = _measure(measure_row)
         metrics.append(
             judge(
                 metric_id, title, "count", population, measured, settings.thresholds.get(metric_id)

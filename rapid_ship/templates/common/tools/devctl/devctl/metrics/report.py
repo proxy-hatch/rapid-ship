@@ -1,8 +1,10 @@
 """Render measured values without changing their threshold decisions."""
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 
 from devctl.metrics.model import MetricReport
 from devctl.metrics.window import Window
@@ -81,6 +83,21 @@ def _window(report: Report) -> str:
     )
 
 
+def _reverted(item: Mapping[str, object]) -> str:
+    text = f"#{item['pr']}"
+    if item["revert"] == "whole":
+        return text
+    parts = [
+        f"{len(names)} {noun}{'' if len(names) == 1 else 's'}"
+        for names, noun in (
+            (cast("list[str]", item["files"]), "file"),
+            (cast("list[str]", item["sections"]), "section"),
+        )
+        if names
+    ]
+    return f"{text} in part: {' and '.join(parts)}"
+
+
 def _value(metric: MetricReport) -> str:
     measured = metric.measured
     if measured.value is None:
@@ -90,6 +107,10 @@ def _value(metric: MetricReport) -> str:
         value += " per PR"
     if measured.unknown:
         value += f", {measured.unknown} unknown"
+    if metric.metric_id == "reverts":
+        named = [_reverted(item) for item in measured.items if item["state"] == "counted"]
+        if named:
+            value += f" ({', '.join(named)})"
     return value
 
 

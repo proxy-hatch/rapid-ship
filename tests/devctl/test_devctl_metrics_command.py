@@ -105,7 +105,7 @@ def test_no_breach_exits_0_and_a_breach_exits_1(
     h = setup(tmp_path)
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
-    assert [m["value"] for m in result["metrics"]] == [0, 0]
+    assert [m["value"] for m in result["metrics"]] == [0, 0, 0]
     h.owner.serve(
         "repos/o/r/pulls/1/reviews?per_page=64&page=1",
         [
@@ -131,7 +131,7 @@ def test_an_unknown_status_never_changes_the_exit_code(
     h = setup(tmp_path)
     h.owner.serve(next(p for p in responses(h) if "/runs?" in p), {"workflow_runs": []})
     assert cli(h, monkeypatch, "--json") == 0
-    assert json.loads(capsys.readouterr().out)["metrics"][1]["status"] == "unknown"
+    assert json.loads(capsys.readouterr().out)["metrics"][2]["status"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -202,7 +202,7 @@ def test_allowance_exhaustion(
     h.owner.serve("rate_limit", {"resources": {"core": {"reset": 1791007920}}})
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
-    affected = result["metrics"] if phase != "metric" else result["metrics"][1:]
+    affected = result["metrics"] if phase != "metric" else result["metrics"][2:]
     assert all(m["value"] is None and "it resets at 06:12 UTC" in m["reason"] for m in affected)
     if phase != "metric":
         assert result["window"] is None
@@ -210,6 +210,7 @@ def test_allowance_exhaustion(
         assert (result["default_branch"]["commit"] is None) == (phase == "before")
     else:
         assert result["metrics"][0]["value"] == 0
+        assert result["metrics"][1]["value"] == 0
     log = [
         json.loads(line)["argv"][3]
         for line in (h.path.parent / "bin/gh.log").read_text().splitlines()
@@ -333,9 +334,9 @@ def test_a_partial_red_count_is_unknown_and_a_finished_breach_still_exits_1(
     result = json.loads(capsys.readouterr().out)
     assert result["metrics"][0]["value"] == 1.5
     assert result["metrics"][0]["status"] == "breached"
-    assert result["metrics"][1]["value"] is None
-    assert result["metrics"][1]["items"] == []
-    assert result["metrics"][1]["status"] == "unknown"
+    assert result["metrics"][2]["value"] is None
+    assert result["metrics"][2]["items"] == []
+    assert result["metrics"][2]["status"] == "unknown"
 
 
 ALARMS = (
@@ -359,12 +360,12 @@ def test_project_defined_metrics_follow_the_basic_ones_settings_first(
     use_metrics(monkeypatch, Probe(lambda _: MetricResult(2)))
     metrics = report_json(h)["metrics"]
     assert [
-        (m["id"], m["kind"], m["population"], m["value"], m["status"]) for m in metrics[2:]
+        (m["id"], m["kind"], m["population"], m["value"], m["status"]) for m in metrics[3:]
     ] == [
         ("alarms", "count", "repository", 1, "breached"),
         ("probes", "count", "repository", 2, "ok"),
     ]
-    assert metrics[2]["items"] == [
+    assert metrics[3]["items"] == [
         {
             "label": "#4",
             "url": "https://example.invalid/issues/4",
@@ -425,7 +426,7 @@ def test_an_empty_window_makes_project_metrics_unknown(
     probe = Probe(lambda _: MetricResult(1))
     use_metrics(monkeypatch, probe)
     metrics = report_json(h)["metrics"]
-    assert [(m["id"], m["value"], m["reason"]) for m in metrics[2:]] == [
+    assert [(m["id"], m["value"], m["reason"]) for m in metrics[3:]] == [
         ("alarms", None, "no merged PRs yet"),
         ("probes", None, "no merged PRs yet"),
     ]
@@ -447,3 +448,51 @@ def test_a_code_metric_gets_the_repository_the_span_and_the_window(
     assert [(c.repository, c.since, c.until, c.prs) for c in seen] == [
         ("o/r", datetime(2026, 10, 1, 6, 12, tzinfo=UTC), NOW, (2, 1))
     ]
+
+
+def back_out_the_first_pr(h: MergedHistory) -> str:
+    """Add a commit that names the first PR's merge commit as git revert does, and publish it."""
+    first = str(h.pulls[-1]["merge_commit_sha"])
+    undo = h.push({"note.txt": "x\n"}, f"Back out PR 1\n\nThis reverts commit {first}.\n")
+    h.publish()
+    return undo
+
+
+def test_reverts_run_between_revisions_and_red_merges_and_count_a_reverted_pr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, count=2)
+    undo = back_out_the_first_pr(h)
+    assert cli(h, monkeypatch, "--json") == 0
+    result = json.loads(capsys.readouterr().out)
+    assert [m["id"] for m in result["metrics"]] == ["revisions", "reverts", "red_merges"]
+    reverts = result["metrics"][1]
+    assert (reverts["title"], reverts["population"], reverts["kind"]) == (
+        "Reverts",
+        "agent",
+        "count",
+    )
+    assert reverts["value"] == 1
+    assert reverts["items"] == [{"pr": 1, "state": "counted", "revert": "whole", "commit": undo}]
+
+
+def test_a_reverted_pr_can_breach_its_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, count=2)
+    (h.path / ".rapid-ship/metrics.toml").write_text("window = 30\n[thresholds]\nreverts = 0\n")
+    back_out_the_first_pr(h)
+    assert cli(h, monkeypatch) == 1
+    lines = capsys.readouterr().out.splitlines()
+    row = next(line for line in lines if line.startswith("reverts"))
+    assert row.split() == ["reverts", "agent", "PRs", "1", "(#1)", "<=", "0", "breached"]
+
+
+def test_without_agent_identity_reverts_count_every_pr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, identity=False, count=2)
+    back_out_the_first_pr(h)
+    assert cli(h, monkeypatch, "--json") == 0
+    reverts = json.loads(capsys.readouterr().out)["metrics"][1]
+    assert (reverts["population"], reverts["reason"], reverts["value"]) == ("all", None, 1)
