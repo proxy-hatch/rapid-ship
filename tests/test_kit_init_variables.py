@@ -269,7 +269,12 @@ def test_an_unreadable_root_pyproject_names_the_file_and_the_way_out(
 ) -> None:
     root = project_with(tmp_path, content)
 
-    with pytest.raises(KitError, match=r"cannot read pyproject\.toml \(.+\)\. .*pass --package"):
+    with pytest.raises(
+        KitError,
+        match=r"^init wrote nothing: cannot read pyproject\.toml \(.+\)\. Fix pyproject\.toml and "
+        r"commit the fix, then run init again, or pass --package naming the package directory, "
+        r"so that init does not read the file\.$",
+    ):
         resolve_variables(root)
 
     assert resolve_variables(root, package="my_pkg")["package"] == "my_pkg"
@@ -293,9 +298,41 @@ def test_a_root_project_name_that_is_no_package_name_needs_the_package_option(
 ) -> None:
     root = project_with(tmp_path, '[project]\nname = "3d-engine"\n')
 
-    with pytest.raises(
-        KitError, match="package '3d_engine' is not a Python package name; check --package"
-    ):
+    with pytest.raises(KitError) as caught:
         resolve_variables(root)
 
+    assert str(caught.value) == (
+        "package '3d_engine' is not a Python package name. It comes from the [project] name "
+        "'3d-engine' in pyproject.toml; pass --package to override it."
+    )
     assert resolve_variables(root, package="engine3d")["package"] == "engine3d"
+
+
+@pytest.mark.parametrize(
+    ("text", "options", "message"),
+    [
+        pytest.param(
+            "[tool.ruff]\n",
+            {"name": "3d-engine"},
+            "package '3d_engine' is not a Python package name. It comes from the project name "
+            "'3d-engine'; pass --package to override it.",
+            id="the project name",
+        ),
+        pytest.param(
+            '[project]\nname = "acme"\n',
+            {"package": "3d_engine"},
+            "package '3d_engine' is not a Python package name; check --package",
+            id="the package option",
+        ),
+    ],
+)
+def test_a_package_from_the_project_name_or_the_option_that_is_no_package_name_says_so(
+    tmp_path: Path, text: str, options: dict[str, str], message: str
+) -> None:
+    root = project_with(tmp_path, text)
+
+    with pytest.raises(KitError) as caught:
+        resolve_variables(root, **options)
+
+    assert str(caught.value) == message
+    assert resolve_variables(root, **{**options, "package": "engine3d"})["package"] == "engine3d"

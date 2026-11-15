@@ -35,6 +35,7 @@ from rapid_ship.kit.templates import (
     load_manifest,
     render_files,
 )
+from rapid_ship.kit.way_out import leave_out, no_project_name, no_source_root
 from rapid_ship.kit.writes import Undo
 
 INIT_BRANCH = "rapid-ship/init"
@@ -46,6 +47,10 @@ _SEPARATORS = re.compile(r"[-_.]+")
 # devctl's settings.py keeps a copy of this pattern; tests/devctl checks that the two agree.
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _MAX_LOGIN = 39
+_UNREADABLE_ROOT = (
+    "Fix pyproject.toml and commit the fix, then run init again, or pass --package naming the "
+    "package directory, so that init does not read the file."
+)
 # A github.com remote: https://, http:// or ssh:// with an optional user (or user:token), or the
 # scp form git@github.com:owner/name. The path is checked against _REPOSITORY afterwards.
 _GITHUB_REMOTE = re.compile(
@@ -82,7 +87,7 @@ def resolve_variables(
     Rendering derives the fifth, code_owner, from the owner.
 
     Without package, it is the root pyproject.toml's [project] name as an import name, else
-    it comes from the project name.
+    it comes from the project name, whatever the stacks are.
     """
     if repository is not None and not _REPOSITORY.fullmatch(repository):
         raise KitError(f"repository {repository!r} is not owner/name; check --repository")
@@ -91,17 +96,22 @@ def resolve_variables(
     project_name = _default_project_name(root, repository) if name is None else name
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
+    hint = "; check --package"
     if package is None:
-        declared = _project_name(
-            root, ".", "Fix it, or pass --package to name the package without it."
+        declared = _project_name(root, ".", _UNREADABLE_ROOT)
+        origin = (
+            f"the [project] name {declared!r} in pyproject.toml"
+            if declared
+            else f"the project name {project_name!r}"
         )
+        hint = f". It comes from {origin}; pass --package to override it."
         package = (
             _import_name(declared)
             if declared
             else re.sub(r"[^a-z0-9]+", "_", project_name.lower()).strip("_")
         )
     if not package.isidentifier() or keyword.iskeyword(package):
-        raise KitError(f"package {package!r} is not a Python package name; check --package")
+        raise KitError(f"package {package!r} is not a Python package name{hint}")
     if owner is not None and (len(owner) > _MAX_LOGIN or not _LOGIN.fullmatch(owner)):
         raise KitError(f"owner {owner!r} is not a GitHub login; check --owner")
     return {
@@ -174,43 +184,28 @@ def _project_name(root: Path, directory: str, fix: str) -> str | None:
     return name if isinstance(name, str) and name else None
 
 
-def _fix(stack: ProjectStack) -> str:
-    """The next step when an existing Python stack's package directory cannot be found."""
-    if stack.directory == ".":
-        return (
-            "Pass --package naming the package directory, then run init again. If the repository "
-            "root holds no package, run init without the --stack option that names the root."
-        )
-    return (
-        f"Fix {under(stack.directory, 'pyproject.toml')} so that it has a [project] name whose "
-        f"package directory exists, or run init without --stack python={stack.directory}."
-    )
-
-
-def _own_package(root: Path, stack: ProjectStack) -> str:
+def _own_package(root: Path, stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
     """The import name of the [project] name in a stack's own pyproject.toml."""
-    declared = _project_name(root, stack.directory, _fix(stack))
+    settings = under(stack.directory, "pyproject.toml")
+    fix = f"Fix {settings} and commit the fix, then run init again. {leave_out(stack, stacks)}"
+    declared = _project_name(root, stack.directory, fix)
     if not declared:
-        raise KitError(
-            f"init wrote nothing: the python stack in {stack.directory} has no package directory: "
-            f"{under(stack.directory, 'pyproject.toml')} has no [project] name, so init could "
-            f"not tell where to look. {_fix(stack)}"
-        )
+        raise no_project_name(stack, stacks)
     return _import_name(declared)
 
 
-def _package_root(tracked: Sequence[str], stack: ProjectStack, package: str) -> str:
-    """src/<package>, else <package> for a flat layout: the first that holds a tracked file,
-    relative to the stack's directory."""
-    candidates = [f"src/{package}", package]
-    for candidate in candidates:
-        if any(path.startswith(f"{under(stack.directory, candidate)}/") for path in tracked):
+def _find_root(
+    tracked: Sequence[str],
+    stack: ProjectStack,
+    stacks: Sequence[ProjectStack],
+    candidates: Sequence[str],
+) -> str:
+    """The first candidate, relative to the stack's directory, that holds a tracked file."""
+    directories = [under(stack.directory, candidate) for candidate in candidates]
+    for candidate, directory in zip(candidates, directories, strict=True):
+        if any(path.startswith(f"{directory}/") for path in tracked):
             return candidate
-    looked = " or ".join(under(stack.directory, candidate) for candidate in candidates)
-    raise KitError(
-        f"init wrote nothing: the python stack in {stack.directory} has no package directory: "
-        f"init looked in {looked} and found no tracked file. {_fix(stack)}"
-    )
+    raise no_source_root(stack, stacks, directories)
 
 
 def _existing_source_roots(
@@ -223,21 +218,26 @@ def _existing_source_roots(
     records it. A new stack's seeds create its own, src/<package>.
 
     The root stack's package is the project's, so an explicit --package wins. Another stack's is
-    its own [project] name. A stack without a package directory raises a KitError, which stops
-    init before it writes anything.
+    its own [project] name. A Python stack looks in src/<package>, then <package> for a flat
+    layout. Any other existing stack keeps its kit's source root. A stack with no tracked file
+    in its source root raises a KitError, which stops init before it writes anything.
     """
-    existing = [s for s in stacks if s.name == "python" and s not in new_projects]
+    existing = [s for s in stacks if s not in new_projects and KITS[s.name].source_root]
     if not existing:
         return {}
     tracked = [os.fsdecode(path) for path in git(root, "ls-files", "-z", "--cached").split(b"\0")]
-    return {
-        f"source_root:{stack.directory}": _package_root(
-            tracked,
-            stack,
-            variables["package"] if stack.directory == "." else _own_package(root, stack),
+    recorded: dict[str, str] = {}
+    for stack in existing:
+        if stack.name != "python":
+            _find_root(tracked, stack, stacks, [KITS[stack.name].source_root.format(**variables)])
+            continue
+        package = (
+            variables["package"] if stack.directory == "." else _own_package(root, stack, stacks)
         )
-        for stack in existing
-    }
+        recorded[f"source_root:{stack.directory}"] = _find_root(
+            tracked, stack, stacks, [f"src/{package}", package]
+        )
+    return recorded
 
 
 def init_repository(

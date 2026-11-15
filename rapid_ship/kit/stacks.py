@@ -236,8 +236,8 @@ def stack_variables(stacks: Sequence[ProjectStack]) -> dict[str, str]:
 def _source_root(stack: ProjectStack, variables: Mapping[str, str]) -> str:
     """The stack's source root below its directory.
 
-    The lock records one as `source_root:<directory>` for an existing Python stack, whose package
-    directory is the project's own. Another stack kind in that directory keeps its kit's.
+    The lock records one as `source_root:<directory>` for each existing Python stack, found from
+    that stack's own package. Another stack kind in that directory keeps its kit's.
     """
     recorded = variables.get(f"source_root:{stack.directory}") if stack.name == "python" else None
     return recorded or KITS[stack.name].source_root.format(**variables)
