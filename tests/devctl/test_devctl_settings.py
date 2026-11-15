@@ -14,7 +14,7 @@ from check_workspace import stack_table
 from devctl import settings
 from devctl.settings import (
     EXCEPTIONS,
-    OPTIONAL_SKILLS,
+    OPTIONAL,
     PROJECT,
     REMOVED_TABLES,
     App,
@@ -61,7 +61,7 @@ def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
         worker_app=None,
         reviewer_app=None,
         escalation=Escalation(every_pr=True, protected_edits=True),
-        optional_skills=(),
+        optional=(),
         excluded=(),
         source_roots=("src/demo_app",),
         unguided=(),
@@ -294,20 +294,20 @@ def test_map_and_test_paths_are_normalised(tmp_path: Path) -> None:
 
 def test_devctl_offers_the_optional_skills_of_its_kit() -> None:
     # devctl is vendored into projects without rapid-ship, so it keeps its own copy of the list.
-    assert load_manifest().optional_skills == OPTIONAL_SKILLS
+    assert load_manifest().optional == OPTIONAL
 
 
 def test_kit_optional_names_only_the_kits_optional_skills(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Supply two names to check the loader independently of the manifest.
-    monkeypatch.setattr(settings, "OPTIONAL_SKILLS", frozenset({"rs-b", "rs-a"}))
+    monkeypatch.setattr(settings, "OPTIONAL", frozenset({"rs-b", "rs-a"}))
     write(
         tmp_path,
         PROJECT,
         stack_table("python") + '[kit]\noptional = ["rs-a"]\n',
     )
-    assert load_project(tmp_path).optional_skills == ("rs-a",)
+    assert load_project(tmp_path).optional == ("rs-a",)
 
     write(
         tmp_path,
@@ -318,7 +318,8 @@ def test_kit_optional_names_only_the_kits_optional_skills(
         load_project(tmp_path)
 
     assert str(raised.value) == (
-        f"{PROJECT} [kit] optional: expected names of the Kit's optional skills: rs-a, rs-b"
+        f"{PROJECT} [kit] optional: "
+        "expected names of the Kit's optional skills and files: rs-a, rs-b"
     )
 
 
@@ -457,8 +458,8 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
         (
             PROJECT,
             stack_table("python") + '[kit]\noptional = ["rs-unknown"]\n',
-            ".rapid-ship/project.toml [kit] optional: expected names of the Kit's optional skills: "
-            "rs-contribute",
+            ".rapid-ship/project.toml [kit] optional: expected names of the Kit's optional "
+            "skills and files: .github/workflows/rapid-ship-metrics.yml, rs-contribute",
         ),
         (
             PROJECT,

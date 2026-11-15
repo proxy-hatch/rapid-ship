@@ -236,6 +236,57 @@ def test_opting_in_to_an_optional_skill_adds_it(git_repo: Path, vendored: Path) 
     )
 
 
+OPTIONAL_FILE = ".github/workflows/extra.yml"
+
+
+def with_optional_file(vendored: Path, make_templates: Callable[..., Path]) -> Path:
+    """New templates whose manifest also offers OPTIONAL_FILE."""
+    manifest = (
+        (vendored / "kit.toml")
+        .read_text()
+        .replace('optional = ["rs-extra"]', f'optional = ["rs-extra", "{OPTIONAL_FILE}"]')
+    )
+    return make_templates("new", {"kit.toml": manifest, f"common/{OPTIONAL_FILE}": "name: extra\n"})
+
+
+def opt_in(git_repo: Path, names: str) -> None:
+    (git_repo / ".rapid-ship/project.toml").write_text(
+        stack_table("python") + f"\n[kit]\noptional = [{names}]\n"
+    )
+
+
+def test_opting_out_of_an_optional_file_deletes_an_unchanged_copy(
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path]
+) -> None:
+    new = with_optional_file(vendored, make_templates)
+    opt_in(git_repo, f'"{OPTIONAL_FILE}"')
+
+    assert sync(git_repo, new, in_place=True).added == [OPTIONAL_FILE]
+    assert entry(git_repo, OPTIONAL_FILE).kind == "managed"
+    opt_in(git_repo, "")
+    result = sync(git_repo, new, in_place=True)
+
+    assert (result.deleted, result.owned) == ([OPTIONAL_FILE], [])
+    assert not (git_repo / OPTIONAL_FILE).exists()
+    assert OPTIONAL_FILE not in {item.path for item in read_lock(git_repo).entries}
+
+
+def test_opting_out_of_an_optional_file_keeps_an_edited_copy(
+    git_repo: Path, vendored: Path, make_templates: Callable[..., Path]
+) -> None:
+    new = with_optional_file(vendored, make_templates)
+    opt_in(git_repo, f'"{OPTIONAL_FILE}"')
+    sync(git_repo, new, in_place=True)
+    (git_repo / OPTIONAL_FILE).write_text("name: ours\n")
+    opt_in(git_repo, "")
+
+    result = sync(git_repo, new, in_place=True)
+
+    assert (result.deleted, result.owned) == ([], [OPTIONAL_FILE])
+    assert (git_repo / OPTIONAL_FILE).read_text() == "name: ours\n"
+    assert entry(git_repo, OPTIONAL_FILE).kind == "seeded"
+
+
 @pytest.mark.parametrize("in_place", [True, False])
 def test_a_refused_symlink_leaves_nothing_half_written(
     git_repo: Path,

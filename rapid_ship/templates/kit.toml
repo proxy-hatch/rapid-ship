@@ -21,7 +21,8 @@ seeded = [
 ]
 
 executable = ["devctl", ".agents/devctl", ".githooks/pre-commit", "tools/devctl/devctl/github/askpass.py"]
-optional_skills = ["rs-contribute"]
+# Skill names and common/ file paths that install only when [kit] optional names them.
+optional = [".github/workflows/rapid-ship-metrics.yml", "rs-contribute"]
 variables = ["code_owner", "owner", "package", "project_name", "repository", "directory", "guide_rows", "lint_marker", "source_roots", "stack_patterns", "stack_protected", "stack_rows", "stack_rules", "stack_tables", "stack_title", "unit_tests"]
 
 [new_project]

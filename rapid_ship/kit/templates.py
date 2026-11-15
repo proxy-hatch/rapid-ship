@@ -32,7 +32,7 @@ _VARIABLE = re.compile(r"\{\{([a-z_]+)\}\}")
 _GENERATED = frozenset(
     {".venv", "__pycache__", ".DS_Store"}
 )  # names skipped in every template tree
-_MANIFEST_KEYS = ("seeded", "new_project", "executable", "optional_skills", "variables")
+_MANIFEST_KEYS = ("seeded", "new_project", "executable", "optional", "variables")
 # Not one of the lock's variables: rendering always derives it from owner, its one source.
 # project.toml reads code_owner = "" as unset, so an empty one stays "" instead of a commented
 # placeholder.
@@ -61,7 +61,7 @@ class KitManifest:
     seeded: frozenset[str]
     new_project: Mapping[StackName, frozenset[str]]
     executable: frozenset[str]
-    optional_skills: frozenset[str]
+    optional: frozenset[str]  # skill names and template paths, installed only when opted in
     variables: frozenset[str]
 
 
@@ -126,9 +126,9 @@ def render_files(
         _CODE_OWNER: f"@{owner}" if owner else "",
         **derived_variables(stacks, variables),
     }
-    unknown = sorted(set(optional) - manifest.optional_skills)
+    unknown = sorted(set(optional) - manifest.optional)
     if unknown:
-        raise KitError(f"unknown optional Kit skill {unknown[0]!r}")
+        raise KitError(f"unknown optional Kit skill or file {unknown[0]!r}")
     kept = _kept_by_git(root)
     selected = set(stacks if new_projects is None else new_projects)
     output = {}
@@ -161,11 +161,7 @@ def render_files(
         if stack in selected:
             root_names.add(stack.name)
     output.update(_guides(root, ordered, variables, manifest, kept))
-    templates = [
-        t
-        for t in output.values()
-        if not ((skill := _skill(t.path)) in manifest.optional_skills and skill not in optional)
-    ]
+    templates = [t for t in output.values() if not _opted_out(t.path, manifest.optional, optional)]
     skills = sorted({name for template in templates if (name := _skill(template.path)) is not None})
     templates += [
         Template(f".claude/skills/{name}", "managed", None, f"../../.agents/skills/{name}")
@@ -223,11 +219,13 @@ def _guides(
     return result
 
 
-def read_optional_skills(root: Path) -> tuple[str, ...]:
-    """[kit] optional: the optional skill directories the project opted into."""
+def read_optional(root: Path) -> tuple[str, ...]:
+    """[kit] optional: the optional skills and Kit files the project opted into."""
     items = _kit_table(root).get("optional", [])
     if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
-        raise KitError(f"{PROJECT_SETTINGS} [kit] optional: expected a list of skill names")
+        raise KitError(
+            f"{PROJECT_SETTINGS} [kit] optional: expected a list of optional Kit skills or files"
+        )
     return tuple(items)
 
 
@@ -277,6 +275,12 @@ def _skill(path: str) -> str | None:
     """The skill directory name of a path under .agents/skills/<name>/, else None."""
     parts = PurePosixPath(path).parts
     return parts[2] if len(parts) >= 4 and parts[:2] == (".agents", "skills") else None
+
+
+def _opted_out(path: str, offered: frozenset[str], optional: Sequence[str]) -> bool:
+    """True for an optional skill's file or an optional Kit file that optional does not name."""
+    name = _skill(path) or path
+    return name in offered and name not in optional
 
 
 def _render_text(

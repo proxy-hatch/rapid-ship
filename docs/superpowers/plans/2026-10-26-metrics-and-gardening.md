@@ -12,7 +12,7 @@
 
 **Status:** planned on 2026-10-27; revised on 2026-10-28 after merging `main` at `3a4fc85`. This document lands in its own document-only PR before implementation. PR 3.1 starts from merged `main`.
 
-**Owner steps:** the decisions below; Task 14, the live trials and this repository's dog-food runs; and pushing PR 3.7's commit that adds this repository's `.github/workflows/rapid-ship-metrics.yml`, which the Worker App cannot push. The agent writes each procedure, the scripts the owner runs and the empty record. No implementer runs an Owner step.
+**Owner steps:** the decisions below; Task 14, the live trials and this repository's dog-food runs; and pushing PR 3.7b, which adds this repository's `.github/workflows/rapid-ship-metrics.yml` and which the Worker App cannot push. The agent writes each procedure, the scripts the owner runs and the empty record. No implementer runs an Owner step.
 
 ## Order and parallel work
 
@@ -25,7 +25,8 @@
 | 3.5a | `spec3-reverts` | `main` | 7 | Reverts, whole and partial | about 900 |
 | 3.5b | `spec3-closed-corrections` | `main` after 3.5a | 8 | Closed unmerged; Corrections | about 450 |
 | 3.6 | `spec3-project-metrics` | `main` | 9 | project-defined metrics: settings sources and code metrics | about 800 |
-| 3.7 | `spec3-action` | `main` | 10, 11 | `[kit] optional` for Kit files, `--post` and the Action | about 750 |
+| 3.7a | `spec3-action` | `main` | 10, 11 (to the `feat:` commit) | `[kit] optional` for Kit files, `--post` and the Action template, with no opt-in here | about 750 |
+| 3.7b | `spec3-optin` | `main` after 3.7a | 11 (the opt-in commit) | this repository's opt-in: `.rapid-ship/project.toml`, the vendored workflow and the lock; the owner pushes it | about 5 |
 | 3.8 | `spec3-skills` | `main` | 12, 13 | `rs-garden`, `rs-preflight`, `rs-setup`'s metrics step | about 200 |
 | 3.9 | `spec3-pages` | `main` | 15, 16, and Task 14's records | the integration tests, the trial records and the site's Spec 3 pages | about 150 |
 
@@ -40,14 +41,14 @@ PR 3.5 is built as two PRs, split at the task boundary: 3.5a is Task 7 and 3.5b 
 | 1 | 3.1; 3.2 when its dependency lands | The document-only planning PR and the Mode/Pull requests implementation (PRO-166). 3.1 has no plan 6/7 prerequisite; 3.2 waits for plan 6's 6.1a reference resolver. Adapt seed locations if 6.1b has landed |
 | 2 | 3.3 | 3.1; no plan 6/7 prerequisite |
 | 3 | 3.4 | 3.1, 3.3; no plan 6/7 prerequisite |
-| 4 | 3.5, 3.6, 3.7 | 3.2, 3.4; no plan 6/7 prerequisite. Reconcile shared files after each merge |
-| 5 | 3.8 | 3.5, 3.6, 3.7; plan 7's 7.1a, 7.2, 7.3; merged Harness wiring: PRO-155 and PRO-142 |
+| 4 | 3.5, 3.6, 3.7a; 3.7b after 3.7a | 3.2, 3.4; no plan 6/7 prerequisite. Reconcile shared files after each merge |
+| 5 | 3.8 | 3.5, 3.6, 3.7a; plan 7's 7.1a, 7.2, 7.3; merged Harness wiring: PRO-155 and PRO-142 |
 | Owner | Task 14 | 3.5 to 3.8; plan 6's 6.3 for the finished stacks; plan 7's merged document and setup references; approved sandbox fixes PRO-156/PRO-157 |
 | 6 | 3.9 | Task 14; plan 6's 6.3; plan 7's merged document and the index's shared documentation interfaces |
 
 3.2 consumes plan 6's `resolve(reference, context, tracked, holder)` and waits for its 6.1a implementation. Use the plan index's Shared interfaces as plan 6 defines them, including `ProjectSettings.owners`, `codeowners_problems(..., stacks)`, the typed `KitManifest.new_project` and per-directory `stack_variables`; this plan redefines none of them.
 
-3.8 consumes 3.5's Corrections JSON, 3.6's incident API and 3.7's optional Action. It also consumes plan 7's skill tests, `rs-setup`, and `rs-health`'s `references/audit.md` and `references/proposed-task.md`. None of those dependencies may be replaced with placeholders.
+3.8 consumes 3.5's Corrections JSON, 3.6's incident API and 3.7a's optional Action. It also consumes plan 7's skill tests, `rs-setup`, and `rs-health`'s `references/audit.md` and `references/proposed-task.md`. None of those dependencies may be replaced with placeholders.
 
 **GA.** Plan 7's PR 7.4, the documentation release, is GA. It lands after 3.9, plan 7's Owner steps and plan 6. It checks and links Spec 3's pages, then the owner tags the release.
 
@@ -83,7 +84,7 @@ PR 3.5 is built as two PRs, split at the task boundary: 3.5a is Task 7 and 3.5b 
 2. **Spec 3's open questions (section 17).** Recommended: no `--strict` option or lower limits before GA; keep similarity `0.8`. Task 14 measures misses and invented reverts. A change returns to the owner; the trial never changes the threshold silently.
 3. **The trials' scope.** Recommended: one public scratch repository, `proxy-hatch/rs-metrics-trial`, for metrics, the Action, gardening and deployments. Run gardening in Claude Code and Codex. Codex wiring is required before GA; agy wiring (PRO-155) has landed. GA waits for the recorded trials.
 4. **Both skills remain user-invoked:** `disable-model-invocation: true` on `rs-garden` and `rs-preflight`. An unattended trial invokes the skill explicitly. If a Harness cannot do that, record the limitation and return to the owner; never remove the key automatically.
-5. **Dog-fooding in this repository.** Recommended: opt into the metrics Action in 3.7; the owner pushes its workflow commit. Run `rs-garden` **manually weekly**, with proposals to Linear. A successful unattended trial does not authorize scheduling dog-food.
+5. **Dog-fooding in this repository.** Recommended: opt into the metrics Action in 3.7b, after 3.7a merges; the owner pushes its workflow commit. Run `rs-garden` **manually weekly**, with proposals to Linear. A successful unattended trial does not authorize scheduling dog-food.
 6. **Walk-to-root cost.** Spec 3 requires an uncapped first-parent walk. Newly enabled Agent identity or a long history without population PRs can consume the Action's 1,000 requests/hour and take minutes locally. Keep that behaviour and test honest unknown results on exhaustion. The lead carries the cap trade-off into the PR body for the owner; a cap needs a separate spec decision, outside this document revision.
 
 ## Deviations from Spec 3's slices
@@ -131,7 +132,7 @@ PR 3.5 is built as two PRs, split at the task boundary: 3.5a is Task 7 and 3.5b 
 4. **A project's code metric misbehaves.** Inputs: `measure` raises, sleeps past 60 seconds, returns `None`, returns a negative or NaN value, or returns plain items from an `IncidentMetric`; `metrics()` raises or returns a duplicate ID. Expected: each misbehaving metric is unknown with a reason and the rest of the report is unaffected; a broken `metrics()` exits 2 naming `devctl_project`. Task 9's tests pin it.
 5. **Front matter that YAML reads unexpectedly.** Inputs: `rungs: [1, 1]`, `rungs: 2`, `rungs: [true]`, `date: 2026-10-16T05:00:00`, `pr: "42"`, `status: Open`, `source: http://...`, and a field outside the table. Expected: each fails the map rule with the file, the field and the allowed values, and Corrections counts the entry as unknown. Task 2's `test_each_invalid_field_names_what_it_accepts` pins it.
 6. **The issue the Action keeps.** Inputs: a person edited the body and removed its JSON; two open issues carry the marker; an issue with the marker opened by another account. Expected: devctl takes the lowest-numbered open issue that `github-actions[bot]` opened; a body without readable JSON counts as no previous statuses. Task 11's `test_the_issue_is_github_actions_lowest_open_one` and `test_a_body_without_json_has_no_previous_statuses` pin it.
-7. **First guardrail/workflow implementation and review require the challenging software-engineering tier.** This document revision is medium; it does not lower that later floor. The first implementation and review of measurement-scope admission, closure and in-flight request handling also use the challenging tier for concurrency invariants. Preserve the existing shared ledger matcher. Review workflow permissions, triggers, issue ownership, JSON comment escaping, the same-issue update, the two coherent lock states and owner-only workflow pushes. No permission widening or automatic approval is authorized.
+7. **First guardrail/workflow implementation and review require the challenging software-engineering tier.** This document revision is medium; it does not lower that later floor. The first implementation and review of measurement-scope admission, closure and in-flight request handling also use the challenging tier for concurrency invariants. Preserve the existing shared ledger matcher. Review workflow permissions, triggers, issue ownership, JSON comment escaping, the same-issue update, the coherent lock state of each head and the owner-only workflow push. No permission widening or automatic approval is authorized.
 8. **A long history with no population PRs.** Walk to the root, one commit-pulls read per first-parent commit, with no invented cap. Task 4 pins the full walk; Task 6 exhausts the allowance inside it and before branch discovery. Both return honest unknowns, retain only known branch/tip fields and start no later API read, including from code metrics. Decision 6 carries the latency/allowance cost to the owner.
 
 ## File Structure
@@ -154,7 +155,7 @@ PR 3.5 is built as two PRs, split at the task boundary: 3.5a is Task 7 and 3.5b 
 | `devctl/metrics/closed_unmerged.py`, `corrections.py` | 3.5b | Two basic metrics |
 | `devctl/metrics/api.py` | 3.6 | What `devctl_project` imports: `Metric`, `IncidentMetric`, `MetricContext`, `MetricResult`, `Item`, `Incident` |
 | `devctl/metrics/project.py`, `sources.py` | 3.6 | Running code metrics; the `issues` and `deployments` sources |
-| `devctl/metrics/post.py`, `common/.github/workflows/rapid-ship-metrics.yml` | 3.7 | The post and the Action |
+| `devctl/metrics/post.py`, `common/.github/workflows/rapid-ship-metrics.yml` | 3.7a | The post and the Action template |
 | `skills/rs-garden/SKILL.md` | 3.8 | Gardening passes |
 | `skills/rs-preflight/SKILL.md`, `skills/rs-preflight/references/project-metrics.md` | 3.8 | The Pre-flight review, and how to add a project-defined metric |
 | `tests/devctl/metrics_fakes.py` | 3.3 | A merged history in a local repository with its recorded GitHub responses, and a fake `gh` on `PATH` |
@@ -787,12 +788,14 @@ def count_deployments(
 - [ ] **Step 4: run** `uv run pytest tests/devctl/test_devctl_metrics_project.py tests/devctl/test_devctl_metrics_sources.py tests/devctl/test_devctl_metrics_command.py tests/test_kit_contents.py -q`; expected PASS. Run `uv run rapid-ship status --strict` and `./devctl check --tier fast`; both exit 0. Commit `feat: add project-defined metrics`.
 - [ ] **Step 5: documents and verification.** Run the five checks with `--base origin/main` and record them. Evidence: `Not covered: a real incident tool, which a project's own metric reads`. Commit `docs: record PR 3.6's verification`.
 
-## PR 3.7: the scheduled Action (`spec3-action`, on `main` after 3.4)
+## PR 3.7a and PR 3.7b: the scheduled Action (`spec3-action`, then `spec3-optin`, on `main` after 3.4)
+
+PR 3.7a is Tasks 10 and 11 to the `feat:` commit: `[kit] optional` for Kit files, `--post` and the Action template. It installs the workflow nowhere in this repository. PR 3.7b opts this repository in with one small commit that the owner pushes, because the Worker App cannot push a commit that edits `.github/workflows/`. Every head then has a coherent lock: 3.7a's has no workflow lock entry and no vendored workflow, and 3.7b's has both.
 
 ### Task 10: `[kit] optional` names Kit files too
 
 **Files:**
-- Modify: `rapid_ship/templates/kit.toml` (`optional_skills` becomes `optional`), `rapid_ship/kit/templates.py`, `sync.py`, `status.py`; `devctl/settings.py` (`OPTIONAL_SKILLS` becomes `OPTIONAL`, `ProjectSettings.optional_skills` becomes `optional`); the `[kit] optional` comment in each `project.toml` seed and in this repository's; `tests/test_kit_templates.py`, `tests/test_kit_sync.py`, `tests/test_kit_dogfood.py`, `tests/devctl/test_devctl_settings.py`, `tests/devctl/check_workspace.py`, `tests/conftest.py` (fixture `optional = ["rs-extra"]`), `tests/test_skill_discovery.py` (manifest and reader callers); the index's Kit manifest paragraph at implementation time
+- Modify: `rapid_ship/templates/kit.toml` (`optional_skills` becomes `optional`), `rapid_ship/kit/templates.py`, `sync.py`, `status.py`; `devctl/settings.py` (`OPTIONAL_SKILLS` becomes `OPTIONAL`, `ProjectSettings.optional_skills` becomes `optional`); the `[kit] optional` comment in each `project.toml` seed and in this repository's; `tests/test_kit_templates.py`, `tests/test_kit_sync.py`, `tests/test_kit_dogfood.py`, `tests/devctl/test_devctl_settings.py`, `tests/devctl/check_workspace.py`, `tests/conftest.py` (fixture `optional = ["rs-extra"]`), `tests/test_skill_discovery.py`, `tests/test_kit_skills.py` and `tests/test_kit_health_and_contribute.py` (manifest, reader and settings callers); the index's Kit manifest paragraph at implementation time
 
 **Interfaces:**
 - 3.7 alone performs this rename, including every optional entry present when it lands, such as `rs-contribute`. Plan 7 uses current names until then; whichever lands second updates shared callers and fixtures. No compatibility alias is kept before GA.
@@ -805,11 +808,11 @@ def count_deployments(
 - [ ] **Step 3: implement** the rename; sync.
 - [ ] **Step 4: run** `uv run pytest tests/test_kit_*.py tests/test_skill_discovery.py tests/devctl/test_devctl_settings.py -q`; expected PASS. Run `uv run rapid-ship status --strict` and `./devctl check --tier fast`; both exit 0. Commit `refactor: let [kit] optional name Kit files as well as skills`.
 
-### Task 11: `--post`, the Action, this repository's opt-in, and PR 3.7's verification
+### Task 11: `--post`, the Action, this repository's opt-in (PR 3.7b), and PR 3.7a's verification
 
 **Files:**
 - Create: `devctl/metrics/post.py`, `rapid_ship/templates/common/.github/workflows/rapid-ship-metrics.yml`, `tests/devctl/test_devctl_metrics_post.py`, `tests/devctl/test_devctl_metrics_workflow.py`
-- Modify: `devctl/metrics/command.py` and `report.py` (`render_markdown`); `tests/devctl/metrics_fakes.py` (`fake_gh` also answers `--method POST` and `PATCH` with `--input -`, and logs each body it read on stdin); `kit.toml` and devctl's `OPTIONAL` (add `.github/workflows/rapid-ship-metrics.yml`); this repository's `.rapid-ship/project.toml` (`optional` names it; decision 5), then `sync` writes `.github/workflows/rapid-ship-metrics.yml`; the lock. Documents: `.github/AGENTS.md`, `tools/AGENTS.md`, `ARCHITECTURE.md`, `rapid_ship/templates/AGENTS.md`, this plan's Verification record
+- Modify: `devctl/metrics/command.py` and `report.py` (`render_markdown`); `tests/devctl/metrics_fakes.py` (`fake_gh` also answers `--method POST` and `PATCH` with `--input -`, and logs each body it read on stdin); `kit.toml` and devctl's `OPTIONAL` (add `.github/workflows/rapid-ship-metrics.yml`); the lock, through `sync`. Only PR 3.7b changes the `optional` value in this repository's `.rapid-ship/project.toml` (it names the workflow; decision 5), after which `sync` writes `.github/workflows/rapid-ship-metrics.yml` and the lock. Documents in 3.7a: `.github/AGENTS.md`, `tools/AGENTS.md`, `tests/AGENTS.md`, `ARCHITECTURE.md`, `rapid_ship/templates/AGENTS.md`, this plan's Verification record
 
 **Interfaces:**
 - Produces:
@@ -899,11 +902,11 @@ jobs:
 
   `test_devctl_metrics_workflow.py`, docstring `Offline: the metrics workflow template.`: `test_triggers_permissions_and_concurrency`; `test_checkout_has_full_history_without_credentials`; `test_actions_are_pinned_like_the_ci_workflow`; `test_it_runs_post_with_the_github_token_only`; `test_the_vendored_copy_matches_its_template`.
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_metrics_post.py tests/devctl/test_devctl_metrics_workflow.py -q`; expected FAIL with `ModuleNotFoundError`.
-- [ ] **Step 3: implement without opt-in.** Add `post.py`, `render_markdown`, the option, workflow template, manifest/`OPTIONAL` entry and tests. Sync devctl and the lock without this repository's opt-in. The `feat:` commit holds all of those together; it contains no vendored metrics workflow or opt-in. Test template parity by rendering an opted-in scratch project, not by requiring a dog-food copy that is not installed yet.
-- [ ] **Step 4: verify and commit the two states.** Run `uv run pytest tests/devctl tests/test_kit_*.py -q -k "metrics or settings or kit"`, `uv run rapid-ship status --strict` and `./devctl check --tier fast`; expected PASS. Commit `feat: post the metrics report from a scheduled Action`. The Worker App may push up to this commit. Next opt this repository in and sync; commit `.rapid-ship/project.toml`, `.github/workflows/rapid-ship-metrics.yml` and the regenerated lock together as `chore: run the metrics Action in this repository`. No intermediate head may contain a workflow lock entry without the file. Run `uv run pytest tests/devctl/test_devctl_metrics_workflow.py tests/test_kit_dogfood.py -q`, `uv run rapid-ship status --strict` and `./devctl check --tier fast` on this state; expected PASS. The full verification below must include `workflows` passed. The owner pushes this workflow commit and every later commit on the branch, including verification documents; never retry it through the Worker App.
-- [ ] **Step 5: documents and verification.** Run the five checks with `--base origin/main` and record them. Evidence: `Not covered: a real run of the Action, which Task 14 makes; its first scheduled run here after the merge`. Commit `docs: record PR 3.7's verification`.
+- [ ] **Step 3 (3.7a): implement without opt-in.** Add `post.py`, `render_markdown`, the option, workflow template, manifest/`OPTIONAL` entry and tests. Sync devctl and the lock without this repository's opt-in. The `feat:` commit holds all of those together; it contains no vendored metrics workflow, no workflow lock entry and no opt-in. Test template parity by rendering an opted-in scratch project, not by requiring a dog-food copy that is not installed yet.
+- [ ] **Step 4: verify and commit.** For 3.7a, run `uv run pytest tests/devctl tests/test_kit_*.py -q -k "metrics or settings or kit"`, `uv run rapid-ship status --strict` and `./devctl check --tier fast`; expected PASS. Commit `feat: post the metrics report from a scheduled Action`. The Worker App may push 3.7a, because its commits edit only the template under `rapid_ship/templates/`. For 3.7b, branch `spec3-optin` from `main` after 3.7a merges. Name the workflow in this repository's `[kit] optional`, run `uv run rapid-ship sync --in-place`, and commit `.rapid-ship/project.toml`, `.github/workflows/rapid-ship-metrics.yml` and the regenerated lock together as `chore: run the metrics Action in this repository`, with the statements in `.github/AGENTS.md` and `ARCHITECTURE.md` that this repository has not opted in. No head may contain a workflow lock entry without the file. Run `uv run pytest tests/devctl/test_devctl_metrics_workflow.py tests/test_kit_dogfood.py -q`, `uv run rapid-ship status --strict` and `./devctl check --tier fast`; expected PASS. The full verification below must include `workflows` passed. The owner pushes 3.7b and every later commit on its branch, including its verification document; never retry it through the Worker App.
+- [ ] **Step 5: documents and verification (each PR).** Run the five checks with `--base origin/main` and record them in the PR's own subsection of the Verification record, 3.7a or 3.7b. Evidence: `Not covered: a real run of the Action, which Task 14 makes; its first scheduled run here after 3.7b merges`. Commit `docs: record PR 3.7a's verification` and `docs: record PR 3.7b's verification`.
 
-## PR 3.8: the skills (`spec3-skills`, on `main` after 3.5, 3.6, 3.7, 7.1a, 7.2, 7.3 and the Harness wiring)
+## PR 3.8: the skills (`spec3-skills`, on `main` after 3.5, 3.6, 3.7a, 7.1a, 7.2, 7.3 and the Harness wiring)
 
 ### Task 12: `rs-garden`
 
@@ -1277,7 +1280,70 @@ The worker privacy screen of the changed files and both commit messages found no
 
 Not covered: a `BaseException` that is not an `Exception`, raised in the main thread, still ends the report, because catching it would also catch `KeyboardInterrupt` and `SystemExit`; a conversion that takes long, because it runs after the join and the 60-second limit does not bound it; and a real incident tool, which a project's own metric reads.
 
-### 3.7
+### 3.7a
+
+Observed locally at commit `97a76af` (branch start `066023b`). This head has no vendored metrics workflow, no workflow lock entry and no `optional` value that names the workflow; PR 3.7b adds all three. Tasks 10 and 11 are one commit, because each Protected file was written once with its final content.
+
+Test-first evidence, in a scratch copy of `066023b` (no `.git`; its `uv run rapid-ship sync --in-place` stopped at "not inside a git work tree", so the scratch ran the CLI's own `_sync`):
+
+- `uv run pytest tests/test_kit_templates.py tests/test_kit_sync.py -q` before the rename: `tests/test_kit_templates.py` failed to import `read_optional`, and `tests/test_kit_sync.py`, run alone, ended with 22 errors, each `KitError: kit.toml: unknown key 'optional'`, including `test_opting_out_of_an_optional_file_deletes_an_unchanged_copy`.
+- `uv run pytest tests/devctl/test_devctl_metrics_post.py tests/devctl/test_devctl_metrics_workflow.py tests/devctl/test_devctl_metrics_report.py tests/devctl/test_devctl_metrics_command.py -q` before the implementation: collection stopped on `ModuleNotFoundError: No module named 'devctl.metrics.post'` and an `ImportError` for `render_markdown`; run on their own, the workflow tests failed on the missing template and `test_post_and_json_exclude_each_other` on `unrecognized arguments: --post`.
+- Mutation check of `post.py` and `command.py` (13 offline mutants): no login check, no pull request rejection, no marker check, no `>` escape, the first issue instead of the lowest, previous statuses ignored, a swallowed lookup failure, a swallowed allowance error, a comment on every new issue, the first page only, a body in the list projection, the `--post` refusal after the repository lookup, and a breach exiting 1. The post tests killed all 13.
+
+Observed in the worktree at `97a76af`:
+
+- `./devctl doctor --settings`: exit 0; `doctor: 4 ok, 0 missing, 0 unknown`.
+- `uv run pytest tests/devctl/test_devctl_metrics_post.py tests/devctl/test_devctl_metrics_workflow.py tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_metrics_report.py tests/devctl/test_devctl_settings.py tests/test_kit_templates.py tests/test_kit_sync.py tests/test_kit_dogfood.py tests/test_kit_contents.py tests/test_skill_discovery.py -q`: exit 0; `289 passed in 119.38s`.
+- `uv run pytest -q`: exit 0; `3377 passed in 1000.28s (0:16:40)`, run to completion without partitions on CPython 3.13.12, the version `.python-version` pins.
+- `uv run --locked mypy`: exit 0; `Success: no issues found in 206 source files`.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <unique report>`: exit 0; JSON inspected as `[]`.
+- `uv run --locked lint-imports`: exit 0; `Contracts: 3 kept, 0 broken.`
+- `uv run rapid-ship sync --in-place`: exit 0; replaced `command.py`, `report.py` and `settings.py` under `tools/devctl/devctl/`, added `metrics/post.py`, and recorded the seed's new template hash. `uv run rapid-ship status --strict`: exit 0; `108 managed files unchanged.`
+- `./devctl check --tier fast`: exit 0; format, lint, map, exceptions, file-size, kit and vendored passed, and the pre-commit hook passed the same seven steps on the commit.
+- `git diff --check`: exit 0.
+- Counted lines against `066023b` by the `diff` step's `counted_lines`: 1,230 of 1,500. The largest changed file under the 500-line source cap is `rapid_ship/kit/sync.py`, at 393 lines with two lines changed; the new `post.py` has 207. `tests/test_kit_sync.py` has 603 lines, outside the cap because `[map] source_roots` is `rapid_ship`.
+- `zizmor 1.30.1 --offline` on the template, run with the `workflows` step's options: no findings in the regular persona and none in the pedantic one.
+- Privacy screen of the added lines and the commit message: no matches.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: not run locally. Hosted checks on the exact PR head pending.
+
+Not covered: a real run of the Action, which Task 14 makes; its first scheduled run here after 3.7b merges. Also unverified against GitHub itself: the lookup's jq filter, which only jq 1.7.1 and the recorded fake ran, and GitHub's answers to the three write calls. No test calls GitHub or runs a real `gh`.
+
+Corrections round 1, observed locally at commit `4e3ac95` (on `4ee1956`). The review of record found one important and four minor problems. This commit fixes them and changes no other behaviour.
+
+- FR-1: `test_a_timed_out_write_is_reported_as_uncertain_and_not_retried` gave the stand-in `gh` 0.3 s to log its call, less than a newly written executable can need to start. It then allowed 2 s and kept its count of one call; the integration paragraph below replaces that count with one at the `process.run_process` seam.
+- FR-2: a job summary that cannot be opened ended the run with a traceback and exit 1. `post` now raises `MetricsError`, so the command exits 2 before any GitHub write.
+- FR-3: `gh_write` gave the permissions advice for every refusal. A rate limit now says the allowance is used up. An HTTP 5xx answer that gh prints as `<message> (HTTP 5xx)` is reported as a write that may have been applied; the carry onto `main` below extends this to the bare `HTTP 5xx` form.
+- FR-4: `_statuses` accepted any string as a previous status and caught only `ValueError`. It now keeps `ok`, `breached`, `unknown` and `needs Agent identity`, and reads JSON nested too deeply as unreadable.
+- FR-5: `ARCHITECTURE.md` and `rapid_ship/templates/AGENTS.md` now say the concurrency group never cancels a run in progress.
+
+With only the new tests added at `4ee1956`, 6 of the 16 selected tests failed for the findings' reasons and 10 passed. Eight mutants of the corrected `post.py`, in a scratch copy, each failed a post test, including a write retried once.
+
+Observed at `4e3ac95`; every command that ran exited 0:
+
+- `./devctl doctor --settings`: `doctor: 4 ok, 0 missing, 0 unknown`.
+- The ten files of the focused set above: `296 passed in 48.74s`, from 289. `tests/devctl/test_devctl_metrics_post.py` alone: `38 passed`, from 31. The timed-out write test alone 8 times and that module 3 times: all passed.
+- `uv run pytest -q`: `3384 passed in 590.66s (0:09:50)`, from 3377, run to completion without partitions on CPython 3.13.12.
+- `uv run --locked mypy`: `Success: no issues found in 206 source files`. `uv run --locked vulture --min-confidence 0`: no findings. `uv run --locked deptry . --no-ansi --json-output <unique report>`: 20 files scanned, JSON inspected as `[]`. `uv run --locked lint-imports`: `Contracts: 3 kept, 0 broken.`
+- `uv run rapid-ship sync --in-place`: replaced `tools/devctl/devctl/metrics/post.py`. `uv run rapid-ship status --strict`: `108 managed files unchanged.` `./devctl check --tier fast`: all seven steps passed, as in the pre-commit hook on the commit. `git diff --check`: no output.
+- Counted lines against `066023b` by the `diff` step's `counted_lines`: 1,340 of 1,500, from 1,230. The largest changed file under the 500-line source cap is `rapid_ship/kit/sync.py`, at 393 lines and unchanged in this round; `post.py` has 233. The post test module has 590 lines, outside the cap.
+- Privacy screen of the lines this round adds and its commit messages: no matches.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: not run locally. Hosted checks on the exact PR head and an independent review of this round are pending.
+
+FR-1 reproduced in part. At `4ee1956` the test passed 8 of 8 alone here, but its module failed 2 of 3 runs with a `FileNotFoundError` for the stand-in's log, the failure the review describes. A probe in a fresh process showed the stand-in unlogged after 0.3 s and 0.5 s and logged after 1.0 s. Start time is the cause, and it varies by machine and moment.
+
+Not covered: GitHub's real answers to a rate-limited or failed write, which the tests simulate with hand-written `gh` answers. That a write after the lookup meets the same allowance as the reads is an inference from GitHub's documented limit for `GITHUB_TOKEN`. How GitHub treats a pending run in a concurrency group was not checked offline. Spec 3 section 8 still says a run never cancels another; it is outside this round's paths.
+
+Carry onto `main` at `ab5e1a9`, observed locally: the reviewed head `5a0cf6f`, the fixes of its scoped re-review and what `sync` wrote are one commit on `ab5e1a9`. The re-review found two minor problems; this commit changes no other behaviour.
+
+- R2-1: `gh_write` took only `(HTTP 5` as an uncertain write, so a bare `gh: HTTP 502` got the permissions advice without the warning that the write may have been applied, and a bare `gh: HTTP 429` got it too. The branch now matches `\bHTTP 5\d\d\b`, and a bare `HTTP 429` is a rate limit.
+- R2-2: the rate-limit text said that the issue keeps the previous report. That is false for a refused comment, because the issue already holds this run's report, and for a refused create, because no issue exists yet. The text for the issue writes now says that the job summary holds this run's report and that the workflow needs a rerun after the allowance resets. A refused comment has its own text: the issue holds this run's report, its status-change comment was not posted, a rerun does not post it again, and the job summary holds the report.
+
+With only the new tests added in a scratch copy of the carry, 4 of the 41 post tests failed for those reasons and 37 passed. The post module has 41 tests, from 38, and `pytest` collects 3,594, from 3,591 before these fixes. `mypy` finds no issues in 209 source files, `vulture` reports nothing, `deptry` scans 20 files and reports `[]`, and `lint-imports` keeps 3 contracts. A transport error and an empty stderr line are unchanged: they still read as a refusal that names `issues: write`, although GitHub may have applied the write. That gh prints a bare `HTTP <status>` line is the review's inference from gh's source; the tests simulate it. `./devctl check --tier full` and the site build were not run locally; hosted checks on the exact PR head and an independent review of this commit are pending.
+
+Integration onto `main` at `c8f2b93`, observed locally: the carried head `bc724f6`, the fix F1 below and what `sync` wrote are one commit on `c8f2b93`. Since `ab5e1a9`, `main` added project-defined metrics and the `protected_edits` setting, and nine files conflicted. The lock and the vendored `metrics/command.py` took `main`'s copy, and `sync` rewrote both. The other seven keep both sides' lines. The template `command.py` keeps `main`'s `model` and `project` imports and adds the `post` import. `check_workspace.py` and `test_devctl_settings.py` keep `Escalation(every_pr=True, protected_edits=True)` with `optional=()`. `metrics_fakes.py` keeps `main`'s helpers, then `gh_argv` and `gh_bodies`. `tests/AGENTS.md` keeps both table rows. `ARCHITECTURE.md` (its `devctl metrics` row and Spec 3 bullet) and `tools/AGENTS.md` keep `main`'s project-metrics text and take the `--post` text, so they no longer say `read-only` or list posting as deferred. F1, the minor finding of the review of record: the timed-out write test counted calls from the stand-in's own log after a 2 s budget, so a stand-in that took longer to start failed it with `FileNotFoundError`, and a write retried after a slow first start could pass it. The test keeps its name and its sleeping stand-in, and now counts calls at the `process.run_process` seam with the typed `recorded_argv` fixture and a 0.3 s budget. In a scratch copy, a `post.py` that retries once after a timeout fails it with `2 == 1`, and it passed 8 of 8 alone and 3 of 3 with its module. With the stand-in's start delayed by 2.5 s, the old test failed and the new one passed; with only the first start delayed, the old test passed the retrying `post.py` and the new one failed it. No test name of either side is lost: the carried head's `test_escalation_accepts_only_every_pr` is `main`'s `test_escalation_accepts_only_every_pr_and_protected_edits` after `main`'s rename. `pytest` collects 4,146 tests, from 4,094 on `main`, and the post module has 41. `mypy` checks 214 source files, from 211; `vulture` reports nothing; `deptry` scans 20 files and reports `[]`; `lint-imports` keeps 3 contracts; `rapid-ship status --strict` reports 111 managed files unchanged.
+
+### 3.7b
 
 Pending.
 

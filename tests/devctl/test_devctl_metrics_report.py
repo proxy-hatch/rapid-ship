@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 from devctl.metrics.model import Measured, judge
-from devctl.metrics.report import Report, exit_code, render_json, render_text
+from devctl.metrics.report import Report, exit_code, render_json, render_markdown, render_text
 from test_devctl_metrics_revisions import sample_window
 
 COMMIT = "c" * 40
@@ -58,6 +58,46 @@ def test_the_text_follows_its_layout() -> None:
         "1 Suggested threshold breached and 1 unknown. rapid-ship takes no action.",
     ]
     assert exit_code(report()) == 1
+
+
+def test_the_markdown_follows_its_layout() -> None:
+    assert render_markdown(report()).splitlines() == [
+        "## rapid-ship metrics for o/r",
+        "",
+        "Generated 2026-10-16 05:41 UTC. Agent identity: on. "
+        "Window: 1 of 30 merged agent PRs, #1 to #1, merged since 2026-10-10.",
+        "",
+        "| metric | population | value | suggested | status |",
+        "| --- | --- | --- | --- | --- |",
+        "| revisions | agent PRs | 2 per PR | &lt;= 1.0 | breached |",
+        "| reverts | agent PRs | 1 (#1) | &lt;= 1 | ok |",
+        "| red_merges | agent PRs | 0, 2 unknown | &lt;= 1 | unknown |",
+        "",
+        "Corrections are agent-reported: agents write the ledger entries they count.",
+        "",
+        "1 Suggested threshold breached and 1 unknown. rapid-ship takes no action.",
+    ]
+
+
+def test_markdown_escapes_html_table_pipes_and_newlines() -> None:
+    metric = judge(
+        "corrections",
+        "Corrections",
+        "count",
+        "ledger",
+        Measured(None, "bad | <b>x</b>\nnext --> y"),
+        None,
+    )
+    value = replace(report(), metrics=(metric,), notes=("see <origin/main> & fetch",))
+
+    lines = render_markdown(value).splitlines()
+
+    assert (
+        "| corrections | ledger | unknown: bad \\| &lt;b&gt;x&lt;/b&gt; next --&gt; y | - | - |"
+        in lines
+    )
+    assert "- see &lt;origin/main&gt; &amp; fetch" in lines
+    assert not any("<" in line or "-->" in line for line in lines)
 
 
 def test_a_window_that_is_not_full_or_empty_says_so() -> None:
