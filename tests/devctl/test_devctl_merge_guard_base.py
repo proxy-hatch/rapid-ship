@@ -8,6 +8,7 @@ import pytest
 
 from devctl.doctor_items import OwnerReadError
 from test_devctl_merge_guard import (
+    APPS,
     FLIGHT,
     HEAD,
     IDENTITY,
@@ -104,6 +105,15 @@ def test_in_flight_protected_edits_changes_no_merge_outside_the_protected_set(qu
     reader = owner(base=base_with("every_pr = false", quiet))
 
     assert guarded(LINE, reader) is None
+
+
+@WITH_OR_WITHOUT_THE_KEY
+def test_with_agent_identity_protected_edits_still_needs_the_reviewer_apps_approval(
+    quiet: bool,
+) -> None:
+    base = project_toml(APPS, "every_pr = false" + ("\nprotected_edits = false" if quiet else ""))
+
+    assert guarded(LINE, owner(reviews=[], base=base)) == UNAPPROVED
 
 
 @pytest.mark.parametrize("symlink", [False, True], ids=["absent", "symlink"])
