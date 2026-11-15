@@ -30,6 +30,15 @@ ALLOWANCE = "GitHub API allowance used up; it resets at 06:12 UTC"
 WHEELS = ("cp312-macosx", "cp312-manylinux", "cp313-macosx", "cp313-manylinux")
 
 
+def entry_text(date: str, category: str = "env-read", rungs: str = "[1]") -> str:
+    """A valid Corrections ledger entry, dated date and naming the rungs in rungs."""
+    return (
+        f"---\ndate: {date}\nby: reviewer\nsource: session\ncategory: {category}\n"
+        f"rungs: {rungs}\nprevention: Read configuration through settings.\nstatus: open\n---\n"
+        "The review required settings.\n"
+    )
+
+
 def lock(version: int, packages: int) -> str:
     """A lock file whose packages each list four wheels, all of which every version rewrites."""
 
@@ -55,6 +64,7 @@ class MergedHistory:
         git(path, "config", "commit.gpgsign", "false")
         self.owner = RecordedOwner({"repos/o/r": {"default_branch": "main"}})
         self.pulls: list[dict[str, object]] = []
+        self.unmerged: list[dict[str, object]] = []
         self.push({"initial": "root"})
 
     def push(
@@ -116,12 +126,42 @@ class MergedHistory:
         self.closed_pages()
         return sha
 
+    def close(self, number: int, closer: str = "person", author: str = "o-worker[bot]") -> None:
+        """Record a PR that closer closed without merging, on the day of October 2026 it names."""
+        stamp = f"2026-10-{number:02d}T06:12:00Z"
+        self.unmerged.insert(
+            0,
+            {
+                "number": number,
+                "user": {"login": author},
+                "body": "",
+                "merged_at": None,
+                "closed_at": stamp,
+                "updated_at": stamp,
+                "merge_commit_sha": None,
+                "html_url": f"https://example.invalid/pull/{number}",
+            },
+        )
+        self.owner.serve(
+            f"repos/o/r/issues/{number}/events?per_page=64&page=1",
+            [{"event": "closed", "actor": {"login": closer}}],
+        )
+        self.closed_pages()
+
     def closed_pages(self) -> None:
         for offset in range(0, len(self.pulls) + 1, 64):
             self.owner.serve(
                 "repos/o/r/pulls?state=closed&base=main&sort=updated&direction=desc"
                 f"&per_page=64&page={offset // 64 + 1}",
                 self.pulls[offset : offset + 64],
+            )
+        closed = sorted([*self.pulls, *self.unmerged], key=lambda pr: str(pr["updated_at"]))
+        closed.reverse()
+        for offset in range(0, len(closed) + 1, 64):
+            self.owner.serve(
+                "repos/o/r/pulls?state=closed&sort=updated&direction=desc"
+                f"&per_page=64&page={offset // 64 + 1}",
+                closed[offset : offset + 64],
             )
 
     def publish(self) -> str:

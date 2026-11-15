@@ -2,12 +2,12 @@
 
 import html
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
 
-from devctl.metrics.model import MetricReport
+from devctl.metrics.model import Measured, MetricReport
 from devctl.metrics.window import Window
 
 CORRECTIONS_NOTE = "Corrections are agent-reported: agents write the ledger entries they count."
@@ -101,6 +101,23 @@ def _reverted(item: Mapping[str, object]) -> str:
     return f"{text} in part: {' and '.join(parts)}"
 
 
+def _closed(measured: Measured) -> str:
+    named = [f"#{item['pr']}" for item in measured.items if item["state"] == "counted"]
+    return f" ({', '.join(named)})" if named else ""
+
+
+def _ledger(measured: Measured) -> str:
+    """The rungs of the counted entries, then the repeats and the PRs not gardened yet."""
+    rungs = cast("Mapping[str, int]", measured.extra.get("by_rung", {}))
+    named = [f"rung {rung}: {count}" for rung, count in rungs.items() if count]
+    text = f" ({', '.join(named)})" if named else ""
+    for key, noun, rest in (("repeats", "repeat", ""), ("not_gardened", "PR", " not gardened")):
+        count = len(cast("Sequence[object]", measured.extra.get(key, ())))
+        if count:
+            text += f", {count} {noun}{'' if count == 1 else 's'}{rest}"
+    return text
+
+
 def value_text(metric: MetricReport) -> str:
     measured = metric.measured
     if measured.value is None:
@@ -114,6 +131,10 @@ def value_text(metric: MetricReport) -> str:
         named = [_reverted(item) for item in measured.items if item["state"] == "counted"]
         if named:
             value += f" ({', '.join(named)})"
+    if metric.metric_id == "closed_unmerged":
+        value += _closed(measured)
+    if metric.metric_id == "corrections":
+        value += _ledger(measured)
     return value
 
 

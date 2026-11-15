@@ -11,6 +11,7 @@ import pytest
 
 from devctl.cli import main
 from devctl.doctor_items import OwnerReadError
+from devctl.ledger import LAST_PASS
 from devctl.metrics.api import MetricContext, MetricResult
 from devctl.metrics.command import build_report
 from devctl.metrics.github import GitHubReader
@@ -21,6 +22,7 @@ from metrics_fakes import (
     MergedHistory,
     Probe,
     block_gh,
+    entry_text,
     fake_gh,
     report_json,
     served_project,
@@ -70,11 +72,13 @@ def responses(h: MergedHistory) -> dict[str, object]:
         "repos/o/r",
         "rate_limit",
         "repos/o/r/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=64&page=1",
+        "repos/o/r/pulls?state=closed&sort=updated&direction=desc&per_page=64&page=1",
     ]
     paths.extend(
         f"repos/o/r/commits/{sha}/pulls?per_page=64&page=1"
         for sha in git(h.path, "rev-list", "HEAD").splitlines()
     )
+    paths.extend(f"repos/o/r/issues/{pr['number']}/events?per_page=64&page=1" for pr in h.unmerged)
     for pr in h.pulls:
         paths.extend(
             [
@@ -105,7 +109,7 @@ def test_no_breach_exits_0_and_a_breach_exits_1(
     h = setup(tmp_path)
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
-    assert [m["value"] for m in result["metrics"]] == [0, 0, 0]
+    assert [m["value"] for m in result["metrics"]] == [0, 0, 0, 0, 0]
     h.owner.serve(
         "repos/o/r/pulls/1/reviews?per_page=64&page=1",
         [
@@ -202,7 +206,7 @@ def test_allowance_exhaustion(
     h.owner.serve("rate_limit", {"resources": {"core": {"reset": 1791007920}}})
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
-    affected = result["metrics"] if phase != "metric" else result["metrics"][2:]
+    affected = result["metrics"] if phase != "metric" else result["metrics"][2:4]
     assert all(m["value"] is None and "it resets at 06:12 UTC" in m["reason"] for m in affected)
     if phase != "metric":
         assert result["window"] is None
@@ -211,6 +215,9 @@ def test_allowance_exhaustion(
     else:
         assert result["metrics"][0]["value"] == 0
         assert result["metrics"][1]["value"] == 0
+        assert [m["id"] for m in affected] == ["red_merges", "closed_unmerged"]
+        assert result["metrics"][4]["id"] == "corrections"
+        assert result["metrics"][4]["value"] == 0
     log = [
         json.loads(line)["argv"][3]
         for line in (h.path.parent / "bin/gh.log").read_text().splitlines()
@@ -367,12 +374,12 @@ def test_project_defined_metrics_follow_the_basic_ones_settings_first(
     use_metrics(monkeypatch, Probe(lambda _: MetricResult(2)))
     metrics = report_json(h)["metrics"]
     assert [
-        (m["id"], m["kind"], m["population"], m["value"], m["status"]) for m in metrics[3:]
+        (m["id"], m["kind"], m["population"], m["value"], m["status"]) for m in metrics[5:]
     ] == [
         ("alarms", "count", "repository", 1, "breached"),
         ("probes", "count", "repository", 2, "ok"),
     ]
-    assert metrics[3]["items"] == [
+    assert metrics[5]["items"] == [
         {
             "label": "#4",
             "url": "https://example.invalid/issues/4",
@@ -433,7 +440,7 @@ def test_an_empty_window_makes_project_metrics_unknown(
     probe = Probe(lambda _: MetricResult(1))
     use_metrics(monkeypatch, probe)
     metrics = report_json(h)["metrics"]
-    assert [(m["id"], m["value"], m["reason"]) for m in metrics[3:]] == [
+    assert [(m["id"], m["value"], m["reason"]) for m in metrics[5:]] == [
         ("alarms", None, "no merged PRs yet"),
         ("probes", None, "no merged PRs yet"),
     ]
@@ -472,7 +479,13 @@ def test_reverts_run_between_revisions_and_red_merges_and_count_a_reverted_pr(
     undo = back_out_the_first_pr(h)
     assert cli(h, monkeypatch, "--json") == 0
     result = json.loads(capsys.readouterr().out)
-    assert [m["id"] for m in result["metrics"]] == ["revisions", "reverts", "red_merges"]
+    assert [m["id"] for m in result["metrics"]] == [
+        "revisions",
+        "reverts",
+        "red_merges",
+        "closed_unmerged",
+        "corrections",
+    ]
     reverts = result["metrics"][1]
     assert (reverts["title"], reverts["population"], reverts["kind"]) == (
         "Reverts",
@@ -503,3 +516,116 @@ def test_without_agent_identity_reverts_count_every_pr(
     assert cli(h, monkeypatch, "--json") == 0
     reverts = json.loads(capsys.readouterr().out)["metrics"][1]
     assert (reverts["population"], reverts["reason"], reverts["value"]) == ("all", None, 1)
+
+
+def test_closed_unmerged_and_corrections_follow_red_merges_and_precede_project_metrics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path)
+    assert cli(h, monkeypatch, "--json") == 0
+    metrics = json.loads(capsys.readouterr().out)["metrics"]
+    assert [(m["id"], m["title"], m["kind"], m["population"]) for m in metrics] == [
+        ("revisions", "Revisions", "count", "agent"),
+        ("reverts", "Reverts", "count", "agent"),
+        ("red_merges", "Red merges", "count", "agent"),
+        ("closed_unmerged", "Closed unmerged", "count", "agent"),
+        ("corrections", "Corrections", "count", "ledger"),
+    ]
+    assert cli(h, monkeypatch) == 0
+    rows = capsys.readouterr().out.splitlines()[4:9]
+    assert [row.split()[0] for row in rows] == [
+        "revisions",
+        "reverts",
+        "red_merges",
+        "closed_unmerged",
+        "corrections",
+    ]
+
+
+def test_a_pr_a_person_closed_counts_and_one_an_app_closed_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, count=2)
+    (h.path / ".rapid-ship/metrics.toml").write_text(
+        "window = 30\n[thresholds]\nclosed_unmerged = 0\n"
+    )
+    h.close(7, closer="person")
+    h.close(8, closer="o-reviewer[bot]")
+    h.close(9, closer="o-worker[bot]")
+    assert cli(h, monkeypatch, "--json") == 1
+    closed = json.loads(capsys.readouterr().out)["metrics"][3]
+    assert closed["value"] == 1
+    assert closed["items"] == [{"pr": 7, "state": "counted"}]
+    assert (closed["threshold"], closed["status"]) == (0, "breached")
+    assert cli(h, monkeypatch) == 1
+    row = next(line for line in capsys.readouterr().out.splitlines() if line.startswith("closed_"))
+    assert row.split() == ["closed_unmerged", "agent", "PRs", "1", "(#7)", "<=", "0", "breached"]
+
+
+def test_without_agent_identity_closed_unmerged_counts_every_closed_pr_and_reads_no_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, identity=False, count=2)
+    h.close(7, closer="person", author="someone")
+    h.close(8, closer="o-worker[bot]")
+    assert cli(h, monkeypatch, "--json") == 0
+    closed = json.loads(capsys.readouterr().out)["metrics"][3]
+    assert (closed["population"], closed["reason"], closed["value"]) == ("all", None, 2)
+    log = [
+        json.loads(line)["argv"][3]
+        for line in (h.path.parent / "bin/gh.log").read_text().splitlines()
+    ]
+    assert not any("/events" in path for path in log)
+
+
+def test_corrections_counts_the_ledger_at_the_tip_and_reads_no_github_endpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path, count=2)
+    h.push(
+        {
+            "docs/corrections/2026-10-05-env-read-1.md": entry_text("2026-10-05", rungs="[1, 2]"),
+            "docs/corrections/2026-10-06-env-read-2.md": entry_text("2026-10-06", rungs="[2]"),
+        }
+    )
+    h.publish()
+    assert cli(h, monkeypatch, "--json") == 0
+    corrections = json.loads(capsys.readouterr().out)["metrics"][4]
+    assert corrections["value"] == 2
+    assert corrections["by_rung"] == {"1": 1, "2": 2, "3": 0, "4": 0}
+    assert corrections["repeats"] == ["docs/corrections/2026-10-06-env-read-2.md"]
+    assert corrections["not_gardened"] == [2, 1]
+    log = [
+        json.loads(line)["argv"][3]
+        for line in (h.path.parent / "bin/gh.log").read_text().splitlines()
+    ]
+    assert not any("corrections" in path for path in log)
+    assert cli(h, monkeypatch) == 0
+    row = next(line for line in capsys.readouterr().out.splitlines() if line.startswith("corr"))
+    assert "2 (rung 1: 1, rung 2: 2), 1 repeat, 2 PRs not gardened" in row
+
+
+@pytest.mark.parametrize(
+    ("entries", "gardened", "status"),
+    [(2, True, "ok"), (2, False, "unknown"), (3, False, "breached"), (3, True, "breached")],
+)
+def test_corrections_status_follows_the_ledger_rule(
+    tmp_path: Path, entries: int, gardened: bool, status: str
+) -> None:
+    h = served_project(tmp_path, "[thresholds]\ncorrections = 2\n", prs=2)
+    through = h.push(
+        {
+            f"docs/corrections/2026-10-05-cause-{n}-1.md": entry_text("2026-10-05", f"cause-{n}")
+            for n in range(1, entries + 1)
+        }
+    )
+    if gardened:
+        h.push({LAST_PASS: f'through = "{through}"\ndate = 2026-10-16\n'})
+    h.publish()
+    corrections = {m["id"]: m for m in report_json(h)["metrics"]}["corrections"]
+    assert (corrections["value"], corrections["threshold"], corrections["status"]) == (
+        entries,
+        2,
+        status,
+    )
+    assert (corrections["not_gardened"] == []) == gardened
