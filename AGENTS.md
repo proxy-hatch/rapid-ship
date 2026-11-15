@@ -14,11 +14,11 @@ The settings hold the code owner, the Mode (`[escalation] every_pr`), whether `d
 
 - Run `./devctl doctor --settings` first in each Session, unless the Session runs the full `./devctl doctor`; it checks the settings files and asks GitHub nothing.
 - Setup: `uv sync --locked`, then `git config core.hooksPath .githooks`.
-- Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access, gitleaks 8.30.1 on `PATH`, and Node.js 24.15.0 or later in major 24 with npm.
+- Full check, the same tier CI runs: `./devctl check`. It and `uv run pytest` need network access, gitleaks 8.30.1, `ssh-keygen` and git 2.34 or later on `PATH`, and Node.js 24.15.0 or later in major 24 with npm.
 - Install TypeScript dependencies before checks: `./devctl check --install` runs `npm ci --no-audit --no-fund` in each TypeScript stack first; each needs a committed `package-lock.json`.
 - Fast check, which the pre-commit hook runs: `./devctl check --tier fast`.
 - Doctor: `./devctl doctor` reports what this machine, this repository and its GitHub settings lack; `--skills` also starts one headless Claude Code Session when `claude` is on `PATH`, and `--settings` checks only git, the settings files and the Claude Code, agy and Codex wiring.
-- Metrics: `./devctl metrics [--window <n>] [--json]` reports Revisions and Red merges, read-only. Tasks 5 and 6 are built locally; final acceptance is pending. Later metrics and posting remain deferred.
+- Metrics: `./devctl metrics [--window <n>] [--json | --post]` reports the basic metrics of Spec 3 and the project-defined ones, read-only except for `--post`, which writes the report to the job summary and one metrics issue and runs only inside GitHub Actions; this repository has not opted in to the scheduled metrics Action.
 - Tests: `uv run pytest`; devctl's tests only: `uv run pytest tests/devctl`.
 - After changing a Kit template: `uv run rapid-ship sync --in-place`, then `uv run rapid-ship status --strict`.
 - Documentation site: `npm --prefix website ci --no-audit --no-fund` once, then `npm --prefix website run build`.
