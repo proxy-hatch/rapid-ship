@@ -9,7 +9,14 @@ from pathlib import Path
 import pytest
 
 from devctl.metrics.model import Measured, MetricReport, judge
-from devctl.metrics.report import Report, exit_code, render_json, render_markdown, render_text
+from devctl.metrics.report import (
+    Report,
+    exit_code,
+    render_json,
+    render_markdown,
+    render_text,
+    value_text,
+)
 from test_devctl_metrics_revisions import sample_window
 
 COMMIT = "c" * 40
@@ -200,6 +207,28 @@ def test_a_partial_revert_keeps_its_commit_files_and_sections_in_the_json() -> N
             "sections": ["f.txt:5-8"],
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("length", "shown"),
+    [
+        pytest.param(500, "x" * 500, id="500 characters, shown whole"),
+        pytest.param(501, "x" * 500 + "...", id="501 characters, cut"),
+        pytest.param(200_000, "x" * 500 + "...", id="200,000 characters, cut"),
+    ],
+)
+def test_a_reason_over_500_characters_is_cut_in_the_text_and_kept_in_the_json(
+    length: int, shown: str
+) -> None:
+    metric = judge("incidents", "Incidents", "count", "repository", Measured(None, "x" * length), 1)
+    value = replace(report(), metrics=(metric,))
+
+    assert value_text(metric) == f"unknown: {shown}"
+    assert f"| incidents | repository | unknown: {shown} | &lt;= 1 | unknown |" in (
+        render_markdown(value).splitlines()
+    )
+    assert f"unknown: {shown}" in render_text(value)
+    assert json.loads(render_json(value))["metrics"][0]["reason"] == "x" * length
 
 
 def test_unknown_reason_extra_fields_and_utc_are_preserved() -> None:

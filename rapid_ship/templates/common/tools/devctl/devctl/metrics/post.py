@@ -15,7 +15,7 @@ from devctl import process
 from devctl.doctor_items import owner_environment
 from devctl.metrics.github import AllowanceUsedUp, GitHubError, GitHubReader
 from devctl.metrics.model import NEEDS_IDENTITY, ThresholdStatus
-from devctl.metrics.report import Report, render_json, render_markdown, value_text
+from devctl.metrics.report import Report, render_markdown, value_text
 from devctl.metrics.window import MetricsError
 
 ISSUE_TITLE = "rapid-ship metrics"
@@ -33,6 +33,10 @@ _LOOKUP = (
 )
 _NOTABLE = ("breached", "unknown")
 _STATUSES = (*get_args(ThresholdStatus), NEEDS_IDENTITY)
+_COMMENT_NOT_POSTED = (
+    ". The issue already holds this run's report, but its status-change comment was not posted, "
+    "and a rerun does not post it again. The job summary holds this run's report too"
+)
 
 
 @dataclass(frozen=True)
@@ -77,17 +81,20 @@ def _refusal(method: str, path: str, line: str) -> str:
     if "rate limit" in line.lower() or re.search(r"\bHTTP 429\b", line):
         refused = f"GitHub refused {method} {path}: {line}; the API allowance is used up"
         if path.endswith("/comments"):
-            return (
-                f"{refused}. The issue already holds this run's report, but its status-change "
-                "comment was not posted, and a rerun does not post it again. "
-                "The job summary holds this run's report too"
-            )
+            return refused + _COMMENT_NOT_POSTED
         return (
             f"{refused}, and the job summary holds this run's report: "
             "rerun the workflow after the allowance resets"
         )
     if re.search(r"\bHTTP 5\d\d\b", line):
         return _uncertain(method, path, line)
+    if re.search(r"\bHTTP 422\b", line):
+        refused = (
+            f"GitHub refused {method} {path}: {line}; GitHub may have found the body too large"
+        )
+        if path.endswith("/comments"):
+            return refused + _COMMENT_NOT_POSTED
+        return f"{refused}, and the job summary holds this run's report"
     return (
         f"GitHub refused {method} {path}: {line}; "
         "check that the workflow grants issues: write, then rerun it"
@@ -222,9 +229,22 @@ def post(report: Report, target: PostTarget, write: GitHubWrite, summary: Path |
 
 
 def _body(report: Report) -> str:
-    # Every > in the JSON becomes its unicode escape, so --> can appear only where the comment ends.
-    data = render_json(report).replace(">", "\\u003e")
-    return f"{MARKER}\n{render_markdown(report)}\n{_JSON_OPENER}\n{data}-->\n"
+    """The marker, the Markdown report and a comment with each metric's id and status.
+
+    The next run reads only the statuses, so the body lists no item; a line counts them.
+    """
+    markdown = render_markdown(report)
+    items = sum(len(metric.measured.items) for metric in report.metrics)
+    if items:
+        noun = "item" if items == 1 else "items"
+        markdown += (
+            f"\nThe report holds {items} {noun} that this issue does not list; "
+            "./devctl metrics --json prints the whole report.\n"
+        )
+    metrics = [{"id": metric.metric_id, "status": metric.status} for metric in report.metrics]
+    # Every > becomes its unicode escape, so --> can appear only where the comment ends.
+    data = json.dumps({"version": 1, "metrics": metrics}, indent=2).replace(">", "\\u003e")
+    return f"{MARKER}\n{markdown}\n{_JSON_OPENER}\n{data}\n-->\n"
 
 
 def _issue(answer: object) -> tuple[int, str]:
