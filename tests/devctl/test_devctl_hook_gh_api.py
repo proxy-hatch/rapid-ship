@@ -1,7 +1,7 @@
 """Offline: which gh api calls the hook denies as writes while Agent identity is on, judged on
 normalised tool calls with simulated settings. A call to a GraphQL endpoint reads only when it
-sends one inline document that holds queries alone; a call to any other endpoint reads exactly
-when its method is GET."""
+sends one inline document that holds queries alone and no placeholder that gh fills; a call to
+any other endpoint reads exactly when its method is GET."""
 
 from __future__ import annotations
 
@@ -16,9 +16,10 @@ from test_devctl_hook_rules import OFF, ON, decided
 MUTATION = "mutation { addComment(input: {}) { clientMutationId } }"
 
 
-def graphql(document: str, *options: str, endpoint: str = "graphql") -> str:
-    """The gh api command line that sends the document inline, in a raw field."""
-    return shlex.join(["gh", "api", *options, endpoint, "-f", f"query={document}"])
+def graphql(document: str, *options: str, endpoint: str = "graphql", field: str = "-f") -> str:
+    """The gh api command line that sends the document inline, in a raw field unless field says
+    otherwise."""
+    return shlex.join(["gh", "api", *options, endpoint, field, f"query={document}"])
 
 
 def denial(line: str, settings: HookSettings | None = ON) -> str | None:
@@ -67,6 +68,10 @@ QUERIES = {  # documents that hold queries alone, whatever else they hold
     "an object value that holds a variable": "query($id: ID!) { node(input: {id: $id}) { id } }",
     "a list value that holds a variable": "query($a: ID!) { nodes(ids: [$a]) { id } }",
     "commas, a leading byte order mark and CRLF": "\ufeffquery,A\r\n{\r\n  a,\r\n  b\r\n}\r\n",
+    "names that only start like a placeholder": (
+        '{ a(x: ":repository", y: ":branches", z: "{ownership}") { b } }'
+    ),
+    "placeholder names with a capital or spaces": '{ a(x: ":Owner", y: "{ repo }") { owner } }',
 }
 OTHER_DOCUMENTS = {  # documents that hold more than queries, or that the hook cannot read
     "a mutation": MUTATION,
@@ -116,6 +121,24 @@ OTHER_DOCUMENTS = {  # documents that hold more than queries, or that the hook c
     "a name with an accent": "{ vi\xe9wer { login } }",
     "a byte order mark after the start": "{ a }\ufeff{ b }",
 }
+# What gh's -F fills in a value, from the repository, GH_REPO or the current branch.
+PLACEHOLDERS = ["{owner}", "{repo}", "{branch}", ":owner", ":repo", ":branch"]
+PLACES = {  # a document of queries alone, with <name> where a placeholder can stand
+    "a string": '{ repository(name: "<name>") { id } }',
+    "a block string": '{ repository(name: """<name>""") { id } }',
+    "a comment": "# <name>\n{ viewer { login } }",
+    "a selection set": "{ viewer { login } } { a(x: <name>) { b } }",
+}
+# GH_REPO names a repository whose name closes the block string that the hook reads in the document
+# below. What gh sends once it has put that name in place of {repo} holds a mutation beside queries.
+CLOSING_REPOSITORY = 'x/"""){__typename}}'
+FILLED_DOCUMENT = (
+    'query Q { node(id: """{repo} mutation M { addComment(input: {subjectId: "S", body: "B"}) '
+    '{ clientMutationId } } query R { node(id: {repo}""") { __typename } }'
+)
+FILLED_LINE = (
+    f"GH_REPO='{CLOSING_REPOSITORY}' gh api graphql -F 'query={FILLED_DOCUMENT}' -f operationName=M"
+)
 REST_READS = [
     "gh api repos/o/r/issues -X GET -f state=open",
     "gh api repos/o/r/issues -X GET -F per_page=50",
@@ -136,6 +159,10 @@ REST_READS = [
     "gh api repos/o/r/issues -f q=x --method=get",
     "gh api repos/o/r/issues -X GET",
     "gh api repos/o/r/issues",
+    # A placeholder in the path or in a field changes no method.
+    "gh api -X GET repos/{owner}/{repo}/issues -f state=open",
+    "gh api -X GET repos/:owner/:repo/issues -F ref=:branch",
+    "gh api repos/{owner}/{repo}/pulls/1",
 ]
 REST_WRITES = [
     # Fields or --input without a method send a POST.
@@ -175,6 +202,17 @@ GRAPHQL_READS = [
         "{ repository(owner: $owner, name: $repo) { pullRequest(number: $pr) "
         "{ reviewThreads(first: 50) { nodes { isResolved } } } } }' "
         "-F owner=o -F repo=r -F pr=7"
+    ),
+    # Placeholders in the variable fields: the document holds none, so gh sends it as written.
+    (
+        "gh api graphql -F owner='{owner}' -F name='{repo}' -f query='query($name: String!, "
+        "$owner: String!) { repository(owner: $owner, name: $name) { releases(last: 3) "
+        "{ nodes { tagName } } } }'"
+    ),
+    (
+        "gh api graphql -F owner=:owner -F name=:repo -F ref=:branch -f query='query($owner: "
+        "String!, $name: String!, $ref: String!) { repository(owner: $owner, name: $name) "
+        "{ ref(qualifiedName: $ref) { name } } }'"
     ),
 ]
 GRAPHQL_WRITES = [
@@ -224,6 +262,13 @@ GRAPHQL_WRITES = [
         "fragment F on MergePullRequestPayload'; "
         'gh api graphql -f query="# $X\n{ clientMutationId }"'
     ),
+    # gh fills a placeholder in a -F value, so the document that it sends can differ from the one
+    # that the hook reads. The hook keeps no record of which option gave a field, so a -f
+    # document that holds a placeholder counts too.
+    FILLED_LINE,
+    graphql('{ repository(name: "{branch}") { id } }', field="-F"),
+    graphql('{ repository(name: ":repo") { id } }', field="-F"),
+    graphql('{ repository(name: "{owner}") { id } }'),
 ]
 LINES = [
     *REST_READS,
@@ -287,6 +332,26 @@ def test_a_document_of_queries_alone_is_a_read(document: str) -> None:
 @pytest.mark.parametrize("document", OTHER_DOCUMENTS.values(), ids=list(OTHER_DOCUMENTS))
 def test_a_document_with_anything_else_is_a_write(document: str) -> None:
     reason = denial(graphql(document))
+    assert reason is not None
+    assert reason.startswith("G8: ")
+
+
+@pytest.mark.parametrize("field", ["-F", "-f"])
+@pytest.mark.parametrize("name", PLACEHOLDERS)
+@pytest.mark.parametrize("place", PLACES.values(), ids=list(PLACES))
+def test_a_document_that_holds_a_placeholder_that_gh_fills_is_a_write(
+    place: str, name: str, field: str
+) -> None:
+    reason = denial(graphql(place.replace("<name>", name), field=field))
+    assert reason is not None
+    assert reason.startswith("G8: ")
+
+
+def test_filling_a_placeholder_can_turn_a_document_of_queries_into_a_write() -> None:
+    plain = FILLED_DOCUMENT.replace("{repo}", "r")
+    sent = FILLED_DOCUMENT.replace("{repo}", CLOSING_REPOSITORY.partition("/")[2])
+    assert decided(graphql(plain), ON) == (None, "")
+    reason = denial(graphql(sent))
     assert reason is not None
     assert reason.startswith("G8: ")
 

@@ -68,6 +68,8 @@ _MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
 # A GraphQL endpoint that parse_api leaves as a URL: a host's /graphql or, on GitHub Enterprise
 # Server, its /api/graphql, in any case.
 _GRAPHQL_URL = re.compile(r"[a-z][a-z0-9+.-]*://[^/]+/(?:api/)?graphql", re.IGNORECASE)
+# What gh's -F fills in a value from the repository, GH_REPO or the current branch.
+_GH_PLACEHOLDER = re.compile(r":(?:owner|repo|branch)\b|\{(?:owner|repo|branch)\}")
 # One GraphQL token, or one run of what GraphQL ignores. A block string comes before a string,
 # which never starts at a triple quote, and each alternative inside a string takes a character in
 # one way only, so that backtracking cannot end a string early.
@@ -379,13 +381,11 @@ def _gh_writes(args: tuple[str, ...]) -> bool:
 
 
 def _api_writes(api: ApiCall) -> bool:
-    """Whether a gh api call is not a read.
-
-    A call to graphql, or to a URL that _GRAPHQL_URL matches, reads only when it has no --input and
-    exactly one query field, whose inline document defines queries alone, whatever its method. A
-    document from a file or stdin, a placeholder for a substitution, a mutation or a subscription
-    in the document, or text that _graphql_operations cannot read makes it a write. A call to any
-    other endpoint reads exactly when its method is GET, which sends the fields as query parameters.
+    """Whether a gh api call is not a read. A GraphQL call reads, whatever its method, only when it
+    has no --input and exactly one query field, whose inline document defines queries alone. A
+    document from a file or stdin, a placeholder for a substitution or one that gh fills, a
+    mutation, a subscription or text that _graphql_operations cannot read makes it a write. Any
+    other call reads exactly when its method is GET, which sends its fields as query parameters.
     """
     if api.endpoint != "graphql" and _GRAPHQL_URL.fullmatch(api.endpoint) is None:
         return api.method != "GET"
@@ -398,6 +398,7 @@ def _api_writes(api: ApiCall) -> bool:
     return (
         document.startswith("@")
         or SUBSTITUTED in document
+        or _GH_PLACEHOLDER.search(document) is not None
         or _graphql_operations(document) != {"query"}
     )
 
