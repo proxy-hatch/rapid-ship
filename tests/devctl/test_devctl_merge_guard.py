@@ -686,6 +686,24 @@ def test_a_branch_that_flips_every_pr_does_not_change_the_guards_mode(tmp_path: 
     assert flight.paths == [PR, SETTINGS, CODEOWNERS, FILES, RUNS]
 
 
+@pytest.mark.parametrize(
+    ("github", "base", "reviews", "prefix", "reason"),
+    [
+        ("", WALK, None, "", IN_WALK),
+        (APPS, IDENTITY, [], "./devctl as worker ", UNAPPROVED),
+    ],
+    ids=["walk", "identity-on"],
+)
+def test_a_work_tree_without_the_protected_edits_ask_still_reaches_the_merge_guard(
+    tmp_path: Path, github: str, base: str, reviews: object, prefix: str, reason: str
+) -> None:
+    without_ask = "every_pr = false\nprotected_edits = false"
+    work_tree = project(tmp_path, github, without_ask)
+    line = f"{prefix}gh pr merge 7 --match-head-commit {HEAD}"
+
+    assert hooked(work_tree, line, owner(reviews=reviews, base=base)) == ("deny", reason)
+
+
 def test_a_branch_that_turns_agent_identity_off_still_needs_the_reviewer_apps_approval(
     tmp_path: Path,
 ) -> None:

@@ -27,8 +27,8 @@ SHIM = (
 INVALID_KEY = stack_table("python") + '[escalation]\nevery_pr = "no"\n'
 INVALID_PROTECTED_EDITS = stack_table("python") + '[escalation]\nprotected_edits = "no"\n'
 ASKS = (
-    "devctl hook asks the owner before an agent edits a Protected path "
-    "([escalation] protected_edits = true)"
+    "devctl hook asks the owner before an agent edits a Protected path, in each Harness whose "
+    "wiring has that ask ([escalation] protected_edits = true)"
 )
 DOES_NOT_ASK = (
     "devctl hook does not ask the owner before an agent edits a Protected path "

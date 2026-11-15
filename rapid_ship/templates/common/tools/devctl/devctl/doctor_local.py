@@ -117,9 +117,10 @@ def settings_item(root: Path) -> Item:
         )
         return Item("guardrails", "settings", "missing", detail)
     verb = "asks" if asks else "does not ask"
+    scope = ", in each Harness whose wiring has that ask" if asks else ""
     detail = (
         f"{PROJECT} and {EXCEPTIONS} are valid; CODEOWNERS lists {len(patterns)} Protected paths; "
-        f"devctl hook {verb} the owner before an agent edits a Protected path "
+        f"devctl hook {verb} the owner before an agent edits a Protected path{scope} "
         f"([escalation] protected_edits = {str(asks).lower()})"
     )
     return Item("guardrails", "settings", "ok", detail)
