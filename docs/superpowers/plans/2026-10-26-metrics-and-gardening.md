@@ -1240,6 +1240,43 @@ Observed locally at `9da522a472732e0e4b6ac417a47b1bba8b0e31d7`; the commit that 
 
 Counts at this commit: the focused command reports `190 passed`, against 188 on `main` with the reviewed head merged, and the suite holds 3,610 tests, two more than the merged head. `uv run --locked mypy` checks 211 source files with no issues; vulture finds nothing; deptry's report is `[]`; `lint-imports` keeps 3 contracts; `rapid-ship status --strict` reports `110 managed files unchanged.` Counted lines against `ab5e1a9`: 1,467 by the repository's `counted_lines`, of 1,500. The largest changed source file under the 500-line cap is the template `project.py`, with 208 lines.
 
+The limit that remained after this carry is closed by 3.6b: a time that UTC cannot hold, an incident cause of more than 4,300 digits and an error whose message is such an integer each still ended `devctl metrics` with a traceback.
+
+### 3.6b
+
+3.6b closes that limit and the cases beside it. Inputs passed validation and then raised where `project.py` turns a metric's result into report data, describes its error or checks a registered metric. That code ran in the main thread, outside the one guarded helper, so `devctl metrics` ended with a traceback and exit 1 and printed no report. Recorded responses, scratch repositories and local git give simulated evidence only. No live API operation ran.
+
+- A time that UTC cannot hold, such as `datetime.min` with a +08:00 offset, in an `Item` or an `Incident` raised `OverflowError` in text and in `--json`. The metric is now unknown, with `an item with a time that UTC cannot hold` or the same for an incident.
+- An `Incident` cause that is an integer of more than 4,300 digits raised `ValueError` in `--json` only. A cause that is a number must now be a PR number, above 0 and below 10**15. A cause of `0`, a negative number or a number of 16 digits or more, valid before, is unknown with the existing reason `an incident with a cause that is not a PR number or a commit`.
+- An error whose message is such an integer, or whose `__str__` raises, made `_described` raise. It now names such an error by its type alone. `metrics()` shares it, so an error that `metrics()` raises exits 2 naming `devctl_project`.
+- A reason, label, url or cause that UTF-8 cannot write, such as a string with a lone surrogate, ended the text report with `UnicodeEncodeError` where `command.py` writes it, and would fail the write of a file. The metric is now unknown, with the field named, for example `a reason that is not text that can be written`. A title of that kind is a guided exit 2. An error's message keeps its text with each such character escaped.
+- A metric whose `id` or `title` raises ended the report in `project_metrics()` before any metric ran. Each metric is now checked under `_call`, and one that cannot be checked is a problem line in the guided exit 2 that names `devctl_project`.
+- Any other failure while `measure` converts a result, such as an `astimezone` that raises, is unknown with `measure returned a result that cannot be reported: <type>: <message>`. The conversion runs under `_call`, which holds the one blind catch, so the exceptions ledger is unchanged.
+
+Test first: against the code of `c8f2b93`, 23 of the new cases failed and the 45 old cases passed. The time, description and `astimezone` cases raised in the main thread. The three cause cases and the cases of an unwritable label, url, reason, cause and title were accepted or passed through, and the end-to-end cause case raised `ValueError` at `json.dumps`. The end-to-end cases of an unwritable reason and error message raised `UnicodeEncodeError` where the text is written. The two cases of an `id` or a `title` that raises raised in `project_metrics()`. The join test and the cause `10**15 - 1`, the largest valid one, pass on the old code.
+
+Observed locally on a branch that starts at `main` `c8f2b9361fd1937145582e85e5ce762f5e613079`, at implementation commit `eab1d93a1aef6072fda50e1f957738c0b7a110b1`; the commit that holds this record changes only this document:
+
+- `./devctl doctor --settings`: exit 0; `doctor: 5 ok, 0 missing, 0 unknown`.
+- `uv run pytest tests/devctl/test_devctl_metrics_project.py tests/devctl/test_devctl_metrics_sources.py tests/devctl/test_devctl_metrics_github.py tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_metrics_report.py tests/devctl/test_devctl_cli.py tests/test_kit_contents.py -q`: exit 0; `217 passed in 53.61s`.
+- `uv run pytest -q`: exit 0; `4117 passed in 527.31s (0:08:47)`, to terminal completion without partitions, 23 more than at `c8f2b93`.
+- `uv run --locked mypy`: exit 0; `Success: no issues found in 211 source files`.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0; `Success! No dependency issues found.`; inspected report `[]`.
+- `uv run --locked lint-imports`: exit 0; `Contracts: 3 kept, 0 broken.`
+- `uv run rapid-ship sync --in-place`: exit 0; replaced `tools/devctl/devctl/metrics/project.py`, and the lock changed one hash. `uv run rapid-ship status --strict`: exit 0; `110 managed files unchanged.`
+- `./devctl check --tier fast`: exit 0; `format`, `lint`, `map`, `exceptions`, `file-size`, `kit` and `vendored` passed. `git diff --check`: exit 0.
+- Counted lines against `c8f2b93`: 292 by the repository's `counted_lines`, of 1,500, from the `diff` step run alone. The largest changed source file under the 500-line cap is the template `project.py`, with 255 lines; the test file has 617 lines, outside that cap.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: not run locally. The hosted check and Docs build on the pull request head remain pending.
+
+Mutations of the template each failed the cases of their own part and no others. Without the UTC range check, three cases failed. Without the PR number bounds, four failed. With `_described` unguarded, four failed. With the conversion unguarded, the `astimezone` case failed. Without the writable check in `_text`, seven failed. Without it in one field alone, only that field's cases failed: the label, the item url, the incident url, the cause string, the reason with its end-to-end case, or the title. With the message unescaped, two failed, and with the check of each metric unguarded, the two cases of a raising `id` and `title` failed. With `thread.join(timeout)`, `test_a_stall_before_the_join_shortens_the_wait` failed with `value: 1 != None`. That test now uses a timeout of 2.0, clock readings 100.0 then 101.9 and a 1.0 second metric wait. It leaves a 0.9 second pass margin, not 0.3, and 1.0 second to catch the old join, and it passed 10 of 10 runs in a row.
+
+A scratch probe sent 40 hostile results through `devctl metrics` in both formats, 80 runs. On the code of `c8f2b93`, 31 runs ended in a traceback. Now 8 do, for four inputs: a `BaseException` that is not an `Exception`, raised by project code in the main thread, from `metrics()`, from a metric's `id` read at registration, from a conversion and from an error's `__str__`. The same exception raised in a metric's own thread leaves that metric unknown with `measure returned NoneType, not a MetricResult`, and the report prints.
+
+The worker privacy screen of the changed files and both commit messages found no private identifier. Independent exact-final-head review, canonical final privacy, the hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. The owner merges this Protected change. No live API, publication or main integration ran here.
+
+Not covered: a `BaseException` that is not an `Exception`, raised in the main thread, still ends the report, because catching it would also catch `KeyboardInterrupt` and `SystemExit`; a conversion that takes long, because it runs after the join and the 60-second limit does not bound it; and a real incident tool, which a project's own metric reads.
+
 ### 3.7
 
 Pending.

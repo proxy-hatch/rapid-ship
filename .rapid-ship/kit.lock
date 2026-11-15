@@ -589,7 +589,7 @@ sha256 = "8d4436bf6b02a6573b6baac9cb2c0e4f3969fee94f852f69fe8e93b4ede0865f"
 [[file]]
 path = "tools/devctl/devctl/metrics/project.py"
 kind = "managed"
-sha256 = "cde3ffe953d461c86b33d7d7e67284669a5bade03e369078a58681373a7caad1"
+sha256 = "e69ce7f0cb10dac4b05311a5a877ece66c44accbcdbfb7f088ded8c607a46580"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/red_merges.py"
