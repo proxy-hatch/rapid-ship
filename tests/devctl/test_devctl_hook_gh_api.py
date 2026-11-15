@@ -1,6 +1,7 @@
 """Offline: which gh api calls the hook denies as writes while Agent identity is on, judged on
-normalised tool calls with simulated settings. A REST call reads exactly when its method is GET.
-A GraphQL call reads only when it sends one inline document that holds queries alone."""
+normalised tool calls with simulated settings. A call to a GraphQL endpoint reads only when it
+sends one inline document that holds queries alone; a call to any other endpoint reads exactly
+when its method is GET."""
 
 from __future__ import annotations
 
@@ -61,6 +62,10 @@ QUERIES = {  # documents that hold queries alone, whatever else they hold
         "query { search(first: 10, ratio: -1.5e3, ids: [1, 2], f: {on: true, n: null}) { a } }"
     ),
     "underscore names": "{ __typename _x { __schema } }",
+    "a $ in a string inside parentheses": '{ search(query: "cost:$5") { issueCount } }',
+    "a $ in a comment inside parentheses": "query($a: Int # $a counts\n) { x(a: $a) }",
+    "an object value that holds a variable": "query($id: ID!) { node(input: {id: $id}) { id } }",
+    "a list value that holds a variable": "query($a: ID!) { nodes(ids: [$a]) { id } }",
     "commas, a leading byte order mark and CRLF": "\ufeffquery,A\r\n{\r\n  a,\r\n  b\r\n}\r\n",
 }
 OTHER_DOCUMENTS = {  # documents that hold more than queries, or that the hook cannot read
@@ -75,6 +80,12 @@ OTHER_DOCUMENTS = {  # documents that hold more than queries, or that the hook c
     "a subscription beside a query": "{ a } subscription S { x }",
     "a variable outside every pair of parentheses": "{ viewer { login $x } }",
     "a variable after the last definition": "{ a } $x",
+    "a variable after the parentheses close": "query($a: Int) { x(a: $a) y $b }",
+    "a variable in a comment after a query": "{ a } # $X",
+    "a variable in a comment before a query": "# $X\n{ a }",
+    "a variable in a comment after the parentheses close": "query($a: Int) { x(a: $a) } # $a",
+    "a variable in a string in a selection set": '{ a "$X" }',
+    "a variable in a block string in a selection set": '{ a """$X""" }',
     "an unclosed brace": "{ viewer { login }",
     "an extra closing brace": "{ viewer { login } } }",
     "pairs that do not match": "{ viewer ( login } )",
@@ -116,6 +127,9 @@ REST_READS = [
     "gh api repos/o/r/issues -X GET --input=q.json -f q=x",
     "gh api -X GET advisories -f ecosystem=npm -f affects=minimatch",
     "gh api -X GET /search/issues -f 'q=repo:o/r is:open' --paginate -H 'Accept: x' --jq .items",
+    # A REST path that ends in graphql is no GraphQL endpoint.
+    "gh api -X GET repos/o/r/contents/graphql -f ref=main",
+    "gh api -X GET https://ghe.example.com/api/v3/repos/o/r/contents/graphql -f ref=main",
     "env GH_DEBUG=1 gh api -X GET repos/o/r/issues -f state=open",
     # The last method given decides, as gh reads it.
     "gh api repos/o/r/issues -X POST -X GET -f q=x",
@@ -149,7 +163,7 @@ GRAPHQL_READS = [
     "gh api -X POST graphql -f query='{ viewer { login } }'",
     "gh api graphql --method=DELETE -f query='{ viewer { login } }'",
     "env GH_DEBUG=1 gh api graphql -f query='{ viewer { login } }'",
-    # Other fields are variables, and the other options change nothing.
+    # Other fields, such as variables and operationName, and the other options change nothing.
     "gh api graphql -f query='{ viewer { login } }' -F owner=o -f operationName=x",
     "gh api graphql --paginate -H 'Accept: x' -f query='{ a }' --cache 1h -q .data",
     # An escaped \$ in double quotes reaches gh as a variable of the document.
@@ -175,6 +189,8 @@ GRAPHQL_WRITES = [
     "gh api graphql --input -",
     "gh api graphql -f query='{ viewer { login } }' --input req.json",
     "gh api graphql -X GET -f query='{ viewer { login } }' --input=req.json",
+    "gh api https://ghe.example.com/api/graphql --input mutation.json",
+    "gh api -X GET https://ghe.example.com/api/graphql --input mutation.json",
     # No query field, or more than one.
     "gh api graphql",
     "gh api graphql -F owner=o -F repo=r",
@@ -195,8 +211,19 @@ GRAPHQL_WRITES = [
     # A method that sends fields as parameters does not make a mutation a read.
     f"gh api -X GET graphql -f query='{MUTATION}'",
     f"env GH_DEBUG=1 gh api graphql -f query='{MUTATION}'",
-    # A $ outside every pair of parentheses in a double-quoted document.
+    # A $ outside every pair of parentheses in a double-quoted document, as a token, in a
+    # comment or in a string.
     'gh api graphql -f query="{ viewer { login $x } }"',
+    'gh api graphql -f query="{ a } # $X"',
+    'gh api graphql -f query="# $X\n{ a }"',
+    'gh api graphql -f query="{ a \\"$X\\" }"',
+    # A newline in $X ends the comment, so the mutation that $X holds and the visible selection set
+    # make one mutation that gh sends, though the visible text alone is a query.
+    (
+        'X=$\'\\nmutation { mergePullRequest(input: {pullRequestId: "P"}) { ...F } } '
+        "fragment F on MergePullRequestPayload'; "
+        'gh api graphql -f query="# $X\n{ clientMutationId }"'
+    ),
 ]
 LINES = [
     *REST_READS,
@@ -215,6 +242,9 @@ ENDPOINTS = [
     "graphql?x=1",
     "https://api.github.com/graphql?x=1",
     "/graphql/",
+    "https://ghe.example.com/api/graphql",
+    "https://ghe.example.com/graphql",
+    "HTTPS://API.GITHUB.COM/graphql",
 ]
 MUTATIONS = [
     "mergePullRequest",

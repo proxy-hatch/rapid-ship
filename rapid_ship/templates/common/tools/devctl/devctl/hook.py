@@ -65,6 +65,9 @@ _ALIAS = "alias."
 _COMMIT_VALUED = frozenset("mFCctSu")
 # A command line that may hold gh pr merge, read as plain text when shell rules cannot split it.
 _MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
+# A GraphQL endpoint that parse_api leaves as a URL: a host's /graphql or, on GitHub Enterprise
+# Server, its /api/graphql, in any case.
+_GRAPHQL_URL = re.compile(r"[a-z][a-z0-9+.-]*://[^/]+/(?:api/)?graphql", re.IGNORECASE)
 # One GraphQL token, or one run of what GraphQL ignores. A block string comes before a string,
 # which never starts at a triple quote, and each alternative inside a string takes a character in
 # one way only, so that backtracking cannot end a string early.
@@ -378,13 +381,13 @@ def _gh_writes(args: tuple[str, ...]) -> bool:
 def _api_writes(api: ApiCall) -> bool:
     """Whether a gh api call is not a read.
 
-    A REST call reads exactly when its method is GET, which sends each field as a query
-    parameter. A GraphQL call reads only when it has no --input and exactly one query field, whose
-    inline document defines queries alone, whatever its method. Each of these makes the call a
-    write: a document from a file or stdin, a placeholder for a substitution in the document, a
-    mutation or a subscription in it, or text that _graphql_operations cannot read.
+    A call to graphql, or to a URL that _GRAPHQL_URL matches, reads only when it has no --input and
+    exactly one query field, whose inline document defines queries alone, whatever its method. A
+    document from a file or stdin, a placeholder for a substitution, a mutation or a subscription
+    in the document, or text that _graphql_operations cannot read makes it a write. A call to any
+    other endpoint reads exactly when its method is GET, which sends the fields as query parameters.
     """
-    if api.endpoint != "graphql":
+    if api.endpoint != "graphql" and _GRAPHQL_URL.fullmatch(api.endpoint) is None:
         return api.method != "GET"
     documents = [
         value for key, _, value in (field.partition("=") for field in api.fields) if key == "query"
@@ -404,9 +407,9 @@ def _graphql_operations(document: str) -> set[str] | None:
 
     A kind is query, mutation or subscription, and a selection set alone is a query. The document
     is unreadable when it holds text that is no token or ignored run of GraphQL, an unterminated
-    string, delimiters that do not nest and match, a $ outside every pair of parentheses, a
-    top-level definition of another shape, or no operation. Inside a selection set only the
-    tokens and their nesting count.
+    string, delimiters that do not nest and match, a $ outside every pair of parentheses, as a
+    token or inside a string or comment, a top-level definition of another shape, or no operation.
+    Inside a selection set only the tokens and their nesting count.
     """
     tokens = _graphql_tokens(document.removeprefix("\ufeff"))
     outer = None if tokens is None else _outer_tokens(tokens)
@@ -427,7 +430,9 @@ def _graphql_operations(document: str) -> set[str] | None:
 
 
 def _graphql_tokens(text: str) -> list[str] | None:
-    """The tokens of a GraphQL text, or None where no token or ignored run starts."""
+    """The tokens of a GraphQL text, or None where no token or ignored run starts. A comment that
+    holds a $ stays a token, so that its $ makes the document unreadable outside parentheses.
+    """
     tokens: list[str] = []
     at = 0
     while at < len(text):
@@ -435,7 +440,7 @@ def _graphql_tokens(text: str) -> list[str] | None:
         if found is None:
             return None
         at = found.end()
-        if found["ignored"] is None:
+        if found["ignored"] is None or "$" in found.group():
             tokens.append(found.group())
     return tokens
 
@@ -444,20 +449,24 @@ def _outer_tokens(tokens: Sequence[str]) -> list[str] | None:
     """The tokens outside every pair of delimiters, each pair as its opening delimiter.
 
     None when the delimiters do not nest and match, or a $ stands outside every pair of
-    parentheses, where GraphQL has no variable and a shell expansion could stand.
+    parentheses, as a token or inside a string or comment, where GraphQL has no variable and a
+    shell expansion could stand.
     """
     outer: list[str] = []
     open_pairs: list[str] = []
+    parentheses = 0  # how many ( are open
     for item in tokens:
-        if item == "$" and "(" not in open_pairs:
+        if "$" in item and not parentheses:
             return None
         if item in _GRAPHQL_PAIRS:
             if not open_pairs or open_pairs.pop() != _GRAPHQL_PAIRS[item]:
                 return None
+            parentheses -= item == ")"
         elif not open_pairs:
             outer.append(item)
         if item in _GRAPHQL_PAIRS.values():
             open_pairs.append(item)
+            parentheses += item == "("
     return None if open_pairs else outer
 
 
