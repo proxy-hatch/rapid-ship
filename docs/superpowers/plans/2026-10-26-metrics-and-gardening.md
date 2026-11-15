@@ -469,7 +469,7 @@ def is_ancestor(repo: Repo, commit: str, of: str) -> bool: ...  # check existenc
 | `deployments/<id>/statuses` | `[.[] | {id, state, created_at, target_url}]` |
 
 Both issues projections include `pull_request`, null for an issue; consumers test its value, not key presence. They omit full bodies. After selecting the lowest matching report issue, fetch only that issue with `GET issues/<n>` and jq `{body}` to recover previous statuses. Single-object reads project only needed fields too: repository `{default_branch}` and run attempt `{conclusion}`. Full PR bodies remain only where Revert detection needs them; adaptive pages handle their combined size. Test both raw-output overflow removed by projection and projected-output overflow recovered by smaller pages.
-- The allowance: an `OwnerReadError` with status 403 or 429 whose message contains `rate limit`, in any case. The reader then reads `/rate_limit` once through the underlying `OwnerGet`, for `resources.core.reset`, in epoch seconds, and raises `AllowanceUsedUp`; when that read fails, `reset` is `None` and the reason ends `; its reset time could not be read`. Latch exhaustion before that single reset-time lookup; never recurse through `get` to read the reset time. Serialize reader requests and latch/reset handling. From then on, `get` raises the same `AllowanceUsedUp` without a call. Timeout closure is a separate condition: each measurement getter also checks its own open state and monotonic deadline at request admission, after waiting for the reader's serialization lock. Admission and closure are atomic with respect to one another; waiting before expiry grants no right to start a request afterward.
+- The allowance: an `OwnerReadError` with status 403 or 429 whose message contains `rate limit`, in any case. The reader then reads `/rate_limit` once through the underlying `OwnerGet`, for `resources.core.reset`, in epoch seconds, and raises `AllowanceUsedUp`; when that read fails, `reset` is `None` and the reason ends `; its reset time could not be read`. Publish the latch after that single reset-time lookup ends, whether or not it read the time; never recurse through `get` to read the reset time. Serialize reader requests and latch/reset handling. From then on, `get` raises the same `AllowanceUsedUp` without a call. Timeout closure is a separate condition: each measurement getter also checks its own open state and monotonic deadline at request admission, after waiting for the reader's serialization lock. Admission and closure are atomic with respect to one another; waiting before expiry grants no right to start a request afterward.
 - Any other `OwnerReadError` becomes `GitHubError` with the same `.status`. Only `gh could not start` suggests installing gh and `gh auth login`. A timeout names the path and asks to check connectivity and rerun; an output-size error names the path and asks to narrow its projection; malformed JSON asks to inspect the response. Never label those as missing gh. 401 gives `GitHub refused <path> (HTTP 401): <message>; check gh auth status`; any other gives `GitHub refused <path> (HTTP <status>): <message>`.
 - `resolve_tip`: resolve the tip with `git rev-parse --verify --quiet refs/remotes/origin/<branch>^{commit}`; when it is missing, raise `MetricsError("origin/<branch> is missing: run git fetch origin")`. The command stores the resolved tip before passing it to `build_window`.
 - `build_window`: walk `git rev-list --first-parent <tip>` to the root, without a cap. For each commit, page `commits/<sha>/pulls` with the pulls projection and keep the PR whose `merge_commit_sha` is that commit; add it to `merged`, and to `prs` when `agent_login` is `None` or equals its author. Stop when `prs` holds `size` PRs or the history ends. `not_fetched` counts the population's PRs from paged `pulls?state=closed&base=<branch>&sort=updated&direction=desc` (body-free pulls projection; stop at list end) that GitHub shows as merged and whose merge commit is absent (`commit_exists` is false) or is not an ancestor of the tip. Do not invent a time boundary when the window is empty. `AllowanceUsedUp` propagates.
@@ -1120,7 +1120,74 @@ Pending.
 
 ### 3.6
 
-Pending.
+Observed locally on a branch that starts at `main` `066023b77f5b20986554d244aaa58a768206f00c`, at implementation commit `b33f484d1c0c311b202708a5bd4b593e4c38606a`. Recorded GitHub responses, scratch repositories and local git provide simulated evidence only. No live API operation ran.
+
+Test first: before any implementation, four of the five focused test files stopped at collection with `ModuleNotFoundError: No module named 'devctl.metrics.api'` or `'devctl.metrics.sources'`, and the seeded-stub test failed with `AttributeError: module 'seeded_devctl_project' has no attribute 'metrics'`.
+
+- `./devctl doctor --settings`: exit 0; `doctor: 4 ok, 0 missing, 0 unknown`.
+- `uv run pytest -q`: exit 0; `3390 passed in 1019.44s (0:16:59)`, to terminal completion without partitions.
+- `uv run pytest tests/devctl/test_devctl_metrics_project.py tests/devctl/test_devctl_metrics_sources.py tests/devctl/test_devctl_metrics_github.py tests/devctl/test_devctl_metrics_command.py tests/test_kit_contents.py -q`: exit 0; `161 passed`.
+- `uv run --locked mypy`: exit 0; `Success: no issues found in 208 source files`.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0; `Success! No dependency issues found.`; inspected report `[]`.
+- `uv run --locked lint-imports`: exit 0; `Contracts: 3 kept, 0 broken.`
+- `uv run rapid-ship sync --in-place`: exit 0; added `api.py`, `project.py` and `sources.py` and replaced `command.py` under `tools/devctl/devctl/metrics/`, and left the seeded `devctl_project` unchanged. `uv run rapid-ship status --strict`: exit 0; `110 managed files unchanged.`
+- `./devctl check --tier fast`: exit 0; `format`, `lint`, `map`, `exceptions`, `file-size`, `kit` and `vendored` passed.
+- `git diff --check`: exit 0.
+- Counted lines against `066023b`: 1,323 by the repository's `counted_lines`, of 1,500. The largest changed file under the 500-line source cap is the template `project.py`, with 212 lines.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: not run locally. The hosted check and Docs build on the pull request head are pending.
+
+Five one-line mutations of the vendored runner each failed a test of this change; the first failure was in the test named here. Passing the unscoped getter: `test_exhaustion_latches_code_metric_reads_too`. Leaving the scope open: `test_a_completed_metric_cannot_reuse_its_getter`. Skipping the allowance check: `test_exhaustion_latches_code_metric_reads_too`. Dropping the timeout check: `test_a_metric_past_its_timeout_is_unknown`. Waiting for the metric thread without a limit: `test_a_metric_past_its_timeout_is_unknown`. Each timing test coordinates with `threading.Event`, injects a measurement limit of 0.1 to 0.5 seconds and joins every thread it starts. No test sleeps.
+
+Decisions to review:
+
+- `measure` reads `GitHubReader._exhausted`, because `github.py` has no public accessor for the allowance latch and the metric must not run once the allowance is used up. A public accessor is a change to that shared interface.
+- `project.py` repeats `settings.py`'s ID pattern, which is private there, and imports `BASIC_METRICS`.
+- A deployment whose commit is missing from local history is an unknown item for rollbacks only. Failures read no git.
+- Items from the settings sources carry `label`, `url`, `time` and `state`, as the items of a code metric do; deployment items add `detail`. Spec 3 does not fix these keys.
+- Beyond the plan's list, a result is also unknown when an item has a label or URL that is not text, a time without a time zone, or a cause that is neither text nor a whole number, because a value of the wrong type could otherwise stop the report.
+
+The worker privacy screen of the added lines and both commit messages found no private identifier. Independent exact-final-head review, canonical final privacy, hosted exact-head full and Docs checks, Reviewer App approval and owner merge remain pending. The owner merges this Protected change. No live API, publication, local full/site/heavy build or main integration ran here.
+
+Not covered: a real incident tool, which a project's own metric reads; the GitHub payloads of issues, deployments and statuses, which Task 14 checks against a real repository.
+
+**Corrections round 1.** An independent review of `da0129e5509d01cefdc0e6a9731082749461e052` found one important and eight minor issues. The fixes are two commits on that head: `b33d14b99cf24ca34779dc5413a188603fdfd902`, and `9da522a472732e0e4b6ac417a47b1bba8b0e31d7`, which adds one assertion to the accessor test. Recorded responses, scratch repositories and local git give simulated evidence only. No live API operation ran.
+
+Test first: against the unmodified code, six tests failed for the intended reasons. Two `test_a_bad_result_is_unknown` cases raised `TypeError` and `OverflowError`; the allowance and deadline tests reported `its reset time could not be read` and `MeasurementClosed`; the projection test saw the narrow filters; the accessor test found no `exhausted`. The rollback, CLI and timing changes pass on the unmodified code, so mutations and repeated runs show them instead.
+
+- Blind catch (important): `_call` replaces the `_Outcome` context manager and holds the one blind catch for project code. It carries `rs-exception: EX-31`, and `.rapid-ship/exceptions.toml` lists it. The exceptions step fails without that entry and passes with it.
+- Result validation: `items=None` raised `TypeError` and `10**400` raised `OverflowError` in the main thread, so `devctl metrics` printed a traceback and exited 1. Both are unknown results now.
+- Allowance latch: a metric measured during the reset lookup reported `its reset time could not be read`, and later metrics named the time. The reader now publishes the latch after that lookup ends, whether or not it read the time, which replaces Task 4's earlier wording `Latch exhaustion before that single reset-time lookup`. `GitHubReader.exhausted` is public and returns the latch only after its reset-time lookup ends, whether or not it read the time. `measure` reads no private attribute, which closes the first decision above, and the scoped getter's reader is private.
+- Projections: the issues, deployments and statuses reads send the Task 4 table's filters. The filter test reads them from `sources.py`, and a second test pins their text.
+- Rollbacks: counting a deployment as successful only when its newest status is `success` survived the sources tests, for a deployment in the span and for the earlier one. The two rollback tests now also run with statuses `inactive` then `success`. Each mutation fails one of them, and the old tests pass under both.
+- Timing tests: the two in-flight tests failed when the metric's request arrived after the 0.5 second deadline. They retry with a fresh owner at 0.5, 2 and 5 seconds until the request was in flight, and `Probe.join` waits for the metric's thread to begin. Each of the two, and the allowance test that shares their helper, passed 20 of 20 runs in a row.
+- CLI tests: the two tests that stop before any GitHub read now put a failing `gh` first on `PATH`. With their duplicate-ID validation mutated away they fail, and the old versions reach a `gh` that a tripwire on `PATH` recorded.
+- Deadline: `measure` creates the scope and joins the thread against one deadline, and a read that the closed scope refuses reports the timeout. A stall between creating the scope and the join tells that join apart from the old `thread.join(timeout)`: a metric that makes no read and ends after the deadline but within `timeout` of its start reports its value under the old join and the timeout under the new one. The refused-read test pins only the reason, and `test_a_stall_before_the_join_shortens_the_wait`, added with the carry below, pins the join.
+- Help text: the command reads `Report metrics for the last merged pull requests`, which stays true as metrics are added.
+
+Observed locally at `9da522a472732e0e4b6ac417a47b1bba8b0e31d7`; the commit that holds this record changes only this document:
+
+- `./devctl doctor --settings`: exit 0; `doctor: 4 ok, 0 missing, 0 unknown`.
+- `uv run pytest tests/devctl/test_devctl_metrics_project.py tests/devctl/test_devctl_metrics_sources.py tests/devctl/test_devctl_metrics_github.py tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_cli.py tests/test_kit_contents.py -q`: exit 0; `178 passed in 97.72s (0:01:37)`, against 167 at the reviewed head.
+- `uv run pytest -q`: exit 0; `3401 passed in 605.72s (0:10:05)`, to terminal completion without partitions, against 3,390 at the reviewed head.
+- `uv run --locked mypy`: exit 0; `Success: no issues found in 208 source files`.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <report>`: exit 0; `Success! No dependency issues found.`; inspected report `[]`.
+- `uv run --locked lint-imports`: exit 0; `Contracts: 3 kept, 0 broken.`
+- `uv run rapid-ship sync --in-place`: exit 0; replaced `command.py`, `github.py`, `project.py` and `sources.py` under `tools/devctl/devctl/metrics/`, and at this commit reports `Kit is current; nothing to sync.` `uv run rapid-ship status --strict`: exit 0; `110 managed files unchanged.`
+- `./devctl check --tier fast`: exit 0; `format`, `lint`, `map`, `exceptions`, `file-size`, `kit` and `vendored` passed.
+- `git diff --check`: exit 0.
+- Counted lines against `066023b`: 1,449 by the repository's `counted_lines`, of 1,500. The largest changed file under the 500-line source cap is the template `project.py`, with 208 lines.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: not run locally. The hosted check and Docs build on the pull request head remain pending.
+
+**Carry onto `main`.** The reviewed head `440607c17807f35b0425745c06bf745de9559650` is carried onto `main` `ab5e1a9f32b32078b10ee9625999bff8dd37af11` as one commit. Its only merge conflict was in `ARCHITECTURE.md`: two adjacent rows of the parts table, where the commit keeps `main`'s `devctl` row, which names Codex, and this change's `devctl metrics` row. A scoped re-review of that head found four minor issues, which the same commit fixes. Recorded responses, scratch repositories and local git give simulated evidence only. No live API operation ran.
+
+- Rejected values: the reason names the value's type, as in `value of type int: use a finite number of at least 0`, and no longer prints the value. `MetricResult(10**5000)` raised `ValueError` in the main thread, which neither `_command` nor `cli.main` catches, so `devctl metrics` ended with a traceback and exit 1; it is unknown now, like `10**400`. `test_a_bad_result_is_unknown` holds both, and its five value cases expect the type.
+- Parked timing tests: `park` asserts the timeout only for a run whose request was in flight, and retries a fresh run at 0.5, 1 and 2 seconds. The old last limit, 5 seconds, equalled the gate's own 5-second wait. Under a simulated stall that held the interpreter past the first deadline, all three parked tests failed with `value: 9 != None` before the change and pass after it. Each of the three passed 20 of 20 runs in a row, and 20 of 20 with only the 0.5-second limit and with only the 2-second limit.
+- The join: `test_a_stall_before_the_join_shortens_the_wait` fails with `thread.join(timeout)`, with `value: 1 != None`, and passes with the one deadline.
+- Latch wording: Task 4 and the accessor now say that the reader publishes the latch, and `exhausted` returns it, only after the reset-time lookup ends, whether or not it read the time.
+
+Counts at this commit: the focused command reports `190 passed`, against 188 on `main` with the reviewed head merged, and the suite holds 3,610 tests, two more than the merged head. `uv run --locked mypy` checks 211 source files with no issues; vulture finds nothing; deptry's report is `[]`; `lint-imports` keeps 3 contracts; `rapid-ship status --strict` reports `110 managed files unchanged.` Counted lines against `ab5e1a9`: 1,467 by the repository's `counted_lines`, of 1,500. The largest changed source file under the 500-line cap is the template `project.py`, with 208 lines.
 
 ### 3.7
 

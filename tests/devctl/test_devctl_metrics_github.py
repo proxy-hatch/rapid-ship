@@ -18,6 +18,7 @@ from devctl.metrics.github import (
     GitHubReader,
     MeasurementClosed,
 )
+from devctl.metrics.sources import DEPLOYMENTS, ISSUES, STATUSES
 from github_fakes import RecordedOwner
 from metrics_fakes import fake_gh
 
@@ -212,6 +213,9 @@ def test_list_projection_happens_before_the_output_limit(
         'has_marker: ((.body // "") | startswith("<!-- rapid-ship-metrics -->"))}]',
         "[.[] | {id, sha, created_at, environment, statuses_url}]",
         "[.[] | {id, state, created_at, target_url}]",
+        ISSUES,
+        DEPLOYMENTS,
+        STATUSES,
     ],
 )
 def test_list_filters_keep_cardinality_and_stop_fields(
@@ -245,6 +249,31 @@ def test_list_filters_keep_cardinality_and_stop_fields(
     if "has_marker" in projection:
         assert result[0]["has_marker"] is True
         assert "body" not in result[0]
+
+
+def test_the_sources_send_exactly_these_projections() -> None:
+    assert (ISSUES, DEPLOYMENTS, STATUSES) == (
+        "[.[] | {number, user: {login: .user.login}, state, created_at, updated_at, "
+        "html_url, pull_request}]",
+        "[.[] | {id, sha, created_at, environment, statuses_url}]",
+        "[.[] | {id, state, created_at, target_url}]",
+    )
+
+
+def test_the_allowance_is_published_only_with_its_reset_time() -> None:
+    def get(path: str, jq: str | None = None) -> object:
+        if path != "rate_limit":
+            raise OwnerReadError(403, "rate limit")
+        assert reader.exhausted is None  # the reset time lookup is running
+        return {"resources": {"core": {"reset": 0}}}
+
+    reader = GitHubReader("o/r", get)
+    before = reader.exhausted
+    with pytest.raises(AllowanceUsedUp) as error:
+        reader.get("x")
+    assert before is None
+    assert reader.exhausted is error.value
+    assert error.value.reason() == "GitHub API allowance used up; it resets at 00:00 UTC"
 
 
 def test_scoped_close_and_absolute_paths() -> None:
