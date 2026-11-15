@@ -45,7 +45,7 @@ PROJECT_KEYS: dict[str, frozenset[str]] = {
             "reviewer_app_slug",
         }
     ),
-    "escalation": frozenset({"every_pr"}),
+    "escalation": frozenset({"every_pr", "protected_edits"}),
     "kit": frozenset({"optional", "exclude"}),
     "map": frozenset({"source_roots", "unguided", "exclude"}),
     "tests": frozenset({"unit"}),
@@ -74,6 +74,7 @@ class App:
 @dataclass(frozen=True)
 class Escalation:
     every_pr: bool  # default True: Walk; False: Flight
+    protected_edits: bool  # default True: the hook asks before a Protected edit; False: it does not
 
 
 @dataclass(frozen=True)
@@ -249,7 +250,11 @@ def _code_owner(github: _Table) -> str | None:
 
 
 def _escalation(top: _Table) -> Escalation:
-    return Escalation(every_pr=top.table("escalation").boolean("every_pr", True))
+    table = top.table("escalation")
+    return Escalation(
+        every_pr=table.boolean("every_pr", True),
+        protected_edits=table.boolean("protected_edits", True),
+    )
 
 
 def _paths(table: _Table, key: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:

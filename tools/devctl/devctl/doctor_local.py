@@ -90,14 +90,19 @@ def settings_item(root: Path) -> Item:
 
     A file that cannot be read or holds an invalid key is unknown, with the message that names the
     file and the key. No CODEOWNERS file is missing, because devctl hook then knows no Protected
-    path.
+    path. The ok detail also says whether devctl hook asks before an agent edits a Protected path,
+    which [escalation] protected_edits sets; both values are ok.
     """
     unknown: list[str] = []
-    for load in (load_project, load_exceptions):
-        try:
-            load(root)
-        except SettingsError as error:
-            unknown.append(" ".join(str(error).splitlines()))
+    asks = True
+    try:
+        asks = load_project(root).escalation.protected_edits
+    except SettingsError as error:
+        unknown.append(" ".join(str(error).splitlines()))
+    try:
+        load_exceptions(root)
+    except SettingsError as error:
+        unknown.append(" ".join(str(error).splitlines()))
     try:
         patterns = protected_patterns(root)
     except OSError as error:  # its message names the file
@@ -111,8 +116,11 @@ def settings_item(root: Path) -> Item:
             "(rapid-ship sync seeds it only while the Kit lock does not list it)"
         )
         return Item("guardrails", "settings", "missing", detail)
+    verb = "asks" if asks else "does not ask"
     detail = (
-        f"{PROJECT} and {EXCEPTIONS} are valid; CODEOWNERS lists {len(patterns)} Protected paths"
+        f"{PROJECT} and {EXCEPTIONS} are valid; CODEOWNERS lists {len(patterns)} Protected paths; "
+        f"devctl hook {verb} the owner before an agent edits a Protected path "
+        f"([escalation] protected_edits = {str(asks).lower()})"
     )
     return Item("guardrails", "settings", "ok", detail)
 

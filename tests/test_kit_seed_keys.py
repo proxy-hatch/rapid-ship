@@ -1,6 +1,7 @@
 """Offline: every seed names every key its loader accepts."""
 
 import re
+import tomllib
 
 import pytest
 
@@ -45,6 +46,13 @@ def test_each_seed_names_every_key_its_loader_accepts(stack: StackName) -> None:
     example = seed(stack, ".rapid-ship/exceptions.toml").splitlines()
     for key in EXCEPTION_KEYS:
         assert any(line.startswith(f"# {key} = ") for line in example), key
+
+
+@pytest.mark.parametrize("stack", STACKS)
+def test_each_seed_leaves_the_protected_edit_ask_on(stack: StackName) -> None:
+    escalation = tomllib.loads(seed(stack, ".rapid-ship/project.toml"))["escalation"]
+
+    assert escalation["protected_edits"] is True
 
 
 @pytest.mark.parametrize("stack", STACKS)

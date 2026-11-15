@@ -313,6 +313,43 @@ def test_run_hook_judges_an_edit_by_its_linked_worktree(tmp_path: Path) -> None:
     assert edit(main.root / "AGENTS.md") == (None, "")
 
 
+WITH_APPS = (
+    '\n[github]\nrepository = "o/r"\n'
+    'worker_app_id = 1\nworker_app_slug = "o-worker"\n'
+    'reviewer_app_id = 2\nreviewer_app_slug = "o-reviewer"\n'
+)
+
+
+@pytest.mark.parametrize(
+    ("escalation", "asks"),
+    [
+        ("", True),
+        ("[escalation]\nprotected_edits = true\n", True),
+        ("[escalation]\nprotected_edits = false\n", False),
+    ],
+    ids=["key-absent", "true", "false"],
+)
+def test_a_claude_code_edit_of_a_protected_path_asks_unless_protected_edits_is_false(
+    tmp_path: Path, escalation: str, asks: bool
+) -> None:
+    workspace = new_workspace(tmp_path / "main")
+    workspace.write(".rapid-ship/project.toml", stack_table("python") + WITH_APPS + escalation)
+    workspace.write(".github/CODEOWNERS", "* @o\n/**/AGENTS.md @o\n")
+    guide = str(workspace.root / "AGENTS.md")
+    edit = read_event(
+        "claude",
+        recorded("write.json", cwd=str(workspace.root), tool_input={"file_path": guide}),
+    )
+    push = read_event("claude", with_command("bash.json", workspace.root, "git push origin task"))
+
+    decision, reason = run_hook(edit, unread_github)
+
+    assert (decision, reason[:4]) == (("ask", "G5: ") if asks else (None, ""))
+    # The settings were readable, so a rule that needs them still decides.
+    decision, reason = run_hook(push, unread_github)
+    assert (decision, reason[:4]) == ("deny", "G7: ")
+
+
 def test_a_cross_repository_gh_write_uses_session_identity_without_reading_target_policy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

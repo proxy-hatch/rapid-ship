@@ -25,6 +25,15 @@ SHIM = (
     "-c 'import sys; from devctl.cli import main; sys.exit(main())' \"$@\"\n"
 )
 INVALID_KEY = stack_table("python") + '[escalation]\nevery_pr = "no"\n'
+INVALID_PROTECTED_EDITS = stack_table("python") + '[escalation]\nprotected_edits = "no"\n'
+ASKS = (
+    "devctl hook asks the owner before an agent edits a Protected path "
+    "([escalation] protected_edits = true)"
+)
+DOES_NOT_ASK = (
+    "devctl hook does not ask the owner before an agent edits a Protected path "
+    "([escalation] protected_edits = false)"
+)
 
 
 def commit_seeds(workspace: Workspace, *, codeowners: bool = True) -> None:
@@ -93,6 +102,42 @@ def test_an_invalid_key_exits_2_and_names_the_file_and_the_key(
 
     assert (
         "unknown  guardrails  settings: .rapid-ship/project.toml [escalation] every_pr: "
+        "expected true or false"
+    ) in capsys.readouterr().out.splitlines()
+
+
+@pytest.mark.parametrize(
+    ("project", "detail"),
+    [
+        (stack_table("python"), ASKS),
+        (stack_table("python") + "[escalation]\nprotected_edits = true\n", ASKS),
+        (stack_table("python") + "[escalation]\nprotected_edits = false\n", DOES_NOT_ASK),
+    ],
+    ids=["key-absent", "true", "false"],
+)
+def test_settings_says_whether_the_hook_asks_before_a_protected_edit(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str], project: str, detail: str
+) -> None:
+    commit_seeds(in_workspace)
+    in_workspace.write(".rapid-ship/project.toml", project)
+
+    assert main(["doctor", "--settings"]) == 0
+
+    line = capsys.readouterr().out.splitlines()[1]
+    assert line.startswith("ok  guardrails  settings: ")
+    assert line.endswith(f"; {detail}")
+
+
+def test_an_invalid_protected_edits_exits_2_and_names_the_file_and_the_key(
+    in_workspace: Workspace, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commit_seeds(in_workspace)
+    in_workspace.write(".rapid-ship/project.toml", INVALID_PROTECTED_EDITS)
+
+    assert main(["doctor", "--settings"]) == 2
+
+    assert (
+        "unknown  guardrails  settings: .rapid-ship/project.toml [escalation] protected_edits: "
         "expected true or false"
     ) in capsys.readouterr().out.splitlines()
 

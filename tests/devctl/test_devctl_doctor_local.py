@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from check_workspace import stack_table
 from devctl import doctor
 from devctl.check.stacks.agnostic import GITLEAKS_VERSION
 from devctl.doctor import (
@@ -19,6 +20,7 @@ from devctl.doctor import (
 )
 from devctl.process import ProcessResult
 from github_fakes import FakeRun, MakeContext, RepoFiles
+from test_devctl_doctor_settings import ASKS, DOES_NOT_ASK
 
 
 def result(code: int, out: str = "", err: str = "") -> ProcessResult:
@@ -63,6 +65,31 @@ def test_excluded_kit_files_are_counted_not_missing(
     kit = {i.name: i for i in local_items(ctx(excluded=(".agents/skills/rs-tdd",)))}["Kit files"]
     assert kit.status == "ok"
     assert "Kit 0.2.0: 1 unchanged, 0 modified, 2 excluded" in kit.detail
+
+
+@pytest.mark.parametrize(
+    ("escalation", "detail"),
+    [
+        ("", ASKS),
+        ("[escalation]\nprotected_edits = true\n", ASKS),
+        ("[escalation]\nprotected_edits = false\n", DOES_NOT_ASK),
+    ],
+    ids=["key-absent", "true", "false"],
+)
+def test_the_settings_item_says_whether_the_hook_asks_before_a_protected_edit(
+    ctx: MakeContext, fake_run: FakeRun, repo_files: RepoFiles, escalation: str, detail: str
+) -> None:
+    repo_files.write(".rapid-ship/project.toml", stack_table("python") + escalation)
+    repo_files.write(".rapid-ship/exceptions.toml", "")
+    repo_files.write(".github/CODEOWNERS", "/.github/ @o\n/**/AGENTS.md @o\n")
+
+    item = {i.name: i for i in local_items(ctx())}["settings"]
+
+    assert (item.area, item.status) == ("guardrails", "ok")
+    assert item.detail == (
+        ".rapid-ship/project.toml and .rapid-ship/exceptions.toml are valid; "
+        f"CODEOWNERS lists 2 Protected paths; {detail}"
+    )
 
 
 def test_gitleaks_must_be_the_pinned_version(ctx: MakeContext, fake_run: FakeRun) -> None:

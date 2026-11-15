@@ -112,11 +112,13 @@ class ToolCall:
 class HookSettings:
     """The work tree's settings: what the Protected-set and Agent identity rules read, and the
     repository the merge guard falls back on. The guard reads its other settings from the pull
-    request's base branch."""
+    request's base branch. protected_edits False switches the Protected-set rule off, and
+    protected still holds the patterns."""
 
     agent_identity: bool
     protected: tuple[str, ...]  # Protected-set patterns; empty without a CODEOWNERS file
     repository: str | None  # [github] repository
+    protected_edits: bool = True  # [escalation] protected_edits, true when absent
 
 
 def read_event(harness: WiredHarness, payload: bytes) -> ToolCall:
