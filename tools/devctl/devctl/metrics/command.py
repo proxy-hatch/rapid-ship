@@ -11,6 +11,8 @@ from pathlib import Path
 
 from devctl.doctor_items import gh_get
 from devctl.metrics.api import IncidentMetric, Metric, MetricContext
+from devctl.metrics.closed_unmerged import closed_unmerged
+from devctl.metrics.corrections import corrections
 from devctl.metrics.github import AllowanceUsedUp, GitHubError, GitHubReader
 from devctl.metrics.model import NEEDS_IDENTITY, Kind, Measured, MetricReport, Population, judge
 from devctl.metrics.post import PostTarget, gh_write, post, prepare_post, status_changes
@@ -93,6 +95,13 @@ def _known(window: Window | None) -> Window:
     return window
 
 
+def _since(window: Window | None) -> datetime:
+    since = _known(window).since
+    if since is None:
+        raise MetricsError("window unavailable; rerun devctl metrics")
+    return since
+
+
 def build_report(
     root: Path,
     project: ProjectSettings,
@@ -121,11 +130,22 @@ def build_report(
     if window is not None and not window.prs:
         unavailable = "no merged agent PRs yet" if project.agent_identity else "no merged PRs yet"
     population: Population = "agent" if project.agent_identity else "all"
+    app_logins: frozenset[str] = (
+        frozenset({f"{project.worker_app.slug}[bot]", f"{project.reviewer_app.slug}[bot]"})
+        if project.worker_app is not None and project.reviewer_app is not None
+        else frozenset()
+    )
     metrics = []
     rows: tuple[tuple[str, str, Callable[[], Measured]], ...] = (
         ("revisions", "Revisions", lambda: revisions(reader, _known(window))),
         ("reverts", "Reverts", lambda: reverts(repo, _known(window), repository)),
         ("red_merges", "Red merges", lambda: red_merges(reader, _known(window))),
+        (
+            "closed_unmerged",
+            "Closed unmerged",
+            lambda: closed_unmerged(reader, _known(window), _since(window), app_logins),
+        ),
+        ("corrections", "Corrections", lambda: corrections(repo, _known(window), _since(window))),
     )
     for metric_id, title, measure_row in rows:
         if unavailable is not None:
@@ -136,7 +156,12 @@ def build_report(
             measured = _measure(measure_row)
         metrics.append(
             judge(
-                metric_id, title, "count", population, measured, settings.thresholds.get(metric_id)
+                metric_id,
+                title,
+                "count",
+                "ledger" if metric_id == "corrections" else population,
+                measured,
+                settings.thresholds.get(metric_id),
             )
         )
     metrics.extend(
