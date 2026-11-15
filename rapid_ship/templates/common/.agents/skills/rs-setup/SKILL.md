@@ -40,7 +40,7 @@ For existing hooks, wait for the owner's decision on combining them before `git 
 
 ## 5. Harness guardrails
 
-Show the owner the guardrails and merge guard. Claude Code is wired; agy is wired without G5 once its wiring is merged and trialed, and Codex is wired without G5 once its wiring is merged and trialed. Their hooks do not ask before Protected edits. Other unwired Harnesses lack these guardrails. Merge the Kit entries where init skipped `.claude/settings.json`, `.agents/hooks.json` or, once available, `.codex/hooks.json`. For Codex, the owner trusts the project and reviews hooks in `/hooks`; preserve `/.codex/` in CODEOWNERS.
+Show the owner the guardrails and merge guard. Claude Code is wired. The Kit seeds the agy wiring in `.agents/hooks.json`, without G5; its live trial is incomplete because live ACP verification was quota-blocked. The Kit seeds the Codex wiring in `.codex/hooks.json`, without G5; that wiring has not been trialed. Their hooks do not ask before Protected edits. Other unwired Harnesses lack these guardrails. Merge the Kit entries where init skipped `.claude/settings.json`, `.agents/hooks.json` or `.codex/hooks.json`. For Codex, the owner trusts the project and reviews hooks in `/hooks`; preserve `/.codex/` in CODEOWNERS.
 
 ## 6. Sandbox
 

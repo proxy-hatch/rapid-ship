@@ -17,6 +17,7 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 | `gitleaks <version> is installed; devctl check pins 8.30.1` | The installed version differs. | Ask the owner to install the pinned version. |
 | `uv sync` cannot reach the network | Dependencies cannot be fetched. | Restore network access and rerun. |
 | `uv: [tool.uv.workspace] members match tools/devctl; add it to exclude` | A members glob covers the Kit's own project. | Add `exclude = ["tools/devctl"]` to the root workspace. |
+| ``error: Nested workspaces are not supported, but workspace member has a `tool.uv.workspace` table: .../tools/devctl`` | A members glob such as `tools/*` covers `tools/devctl`, which is its own uv workspace. uv stops before the format, lint, types and tests steps run, and before doctor's own message appears. | Add `exclude = ["tools/devctl"]` to the root workspace. |
 | A tool step is blocked | Its tool or configuration is missing. | Record the gap; leave existing tool settings unchanged. |
 | Existing hooks under `.git/hooks` | Setting `core.hooksPath` stops them running. | Show the owner and agree how to combine them before setting the path. |
 | Project skill copies in `.claude/skills` | Map expects links. | Replace copies with links after reviewing their contents. |
@@ -25,9 +26,9 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |
-| `Claude Code wiring` or `agy wiring` reports missing hooks | Existing settings omitted the Kit entries. | Merge the Kit entries into the existing file. |
+| `Claude Code wiring`, `agy wiring` or `Codex wiring` reports missing hooks | Existing settings omitted the Kit entries. | Merge the Kit entries into the existing file. |
 | agy hook fails before devctl runs | The launcher failed. | Inspect the hook and its launch path; a failure blocks wired calls. |
-| Codex wiring absent | Its wiring may not be available yet. | Once merged and trialed, merge its entries and have the owner trust the project and review `/hooks`. |
+| Codex skips the hook | The owner has not trusted the project or reviewed the hook in `/hooks`. Doctor cannot check trust, and the Codex wiring has not been trialed. | Ask the owner to trust the project and review the hook in `/hooks`. |
 
 ## Sandbox
 
