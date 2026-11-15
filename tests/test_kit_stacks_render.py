@@ -108,7 +108,8 @@ def test_init_writes_new_project_seeds_per_stack(
     git_repo: Path, commit_all: Callable[..., None], new_directory: str
 ) -> None:
     existing = "worker" if new_directory == "backend" else "backend"
-    (git_repo / existing).mkdir()
+    (git_repo / existing / "existing").mkdir(parents=True)
+    (git_repo / existing / "existing/__init__.py").write_text("")
     (git_repo / existing / "pyproject.toml").write_text('[project]\nname = "existing"\n')
     commit_all(git_repo)
     init_repository(
@@ -127,7 +128,8 @@ def test_init_writes_new_project_seeds_per_stack(
 def test_status_and_sync_render_the_new_project_seeds_that_init_wrote(
     git_repo: Path, commit_all: Callable[..., None], tmp_path: Path
 ) -> None:
-    (git_repo / "worker").mkdir()
+    (git_repo / "worker/existing").mkdir(parents=True)
+    (git_repo / "worker/existing/__init__.py").write_text("")
     (git_repo / "worker/pyproject.toml").write_text('[project]\nname = "existing"\n')
     commit_all(git_repo)
     init_repository(
