@@ -220,9 +220,9 @@ These guardrails stop habits and mistakes; a misbehaving agent can bypass them. 
 
 This repository ran `init` on itself, so `devctl` and `tools/devctl/` are the vendored Kit and `.rapid-ship/` holds its seeded settings and the lock. Ruff and mypy check `tools/devctl/` and skip `rapid_ship/templates/`, so devctl is checked once, and pytest imports the vendored copy. Its `.rapid-ship/project.toml` records the Worker App, `proxy-hatch-rs-worker` (ID 5376519), and the Reviewer App, `proxy-hatch-rs-reviewer` (ID 5376520), under `[github]`, so Agent identity is on here. The owner's Keychain holds both keys, in `rapid-ship/worker-app/5376519` and `rapid-ship/reviewer-app/5376520`.
 
-`sync --in-place` also wrote `.codex/hooks.json`. After merge and Shawn’s `/hooks` trust, Codex Sessions in these checkouts, Feature leads included, run devctl hook. This change does not claim its own Sessions ran under that hook. Codex’s live guardrail trial is pending.
-
 `sync --in-place` wrote this repository's `.claude/settings.json` and `.agents/hooks.json`, so a Claude Code or agy Session in a checkout that holds them runs `devctl hook`. Agent identity is on here, so G7 and G8 deny an agent's `git push` and `gh` writes made as the owner. In Claude Code, G5 asks the owner before each edit of a Protected path, such as an `AGENTS.md` file; agy's and Codex's wiring have no G5. A Claude Code Session started before its file existed runs no hook.
+
+`sync --in-place` also wrote `.codex/hooks.json`. Codex Sessions in these checkouts run `devctl hook` once Shawn reviews and trusts it in `/hooks`. The Codex wiring has not been trialed.
 
 To change devctl, the hook or the CI workflow:
 

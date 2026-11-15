@@ -247,7 +247,7 @@ def test_an_unknown_harness_and_a_bad_usage_name_the_way_through(
 ) -> None:
     hook(monkeypatch, recorded(), "unwired", "pre-tool")
     assert capsys.readouterr().err == (
-        "devctl hook: unknown Harness 'unwired'; this devctl wires claude and agy and codex\n"
+        "devctl hook: unknown Harness 'unwired'; this devctl wires claude, agy and codex\n"
     )
 
     hook(monkeypatch, recorded(), "claude")

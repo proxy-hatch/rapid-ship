@@ -118,7 +118,8 @@ def hook_command(args: argparse.Namespace) -> int:
     if harness is None:
         if args.harness is None:
             return _fail(None, f"usage: devctl hook <{'|'.join(WIRED_HARNESSES)}> pre-tool")
-        known = " and ".join(WIRED_HARNESSES)
+        *others, last = WIRED_HARNESSES
+        known = f"{', '.join(others)} and {last}"
         return _fail(None, f"unknown Harness '{args.harness}'; this devctl wires {known}")
     if args.event != "pre-tool":
         return _fail(harness, f"usage: {HOOK_COMMANDS[harness]}")

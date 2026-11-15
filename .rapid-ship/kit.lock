@@ -99,7 +99,7 @@ sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
 [[file]]
 path = ".agents/skills/rs-setup/SKILL.md"
 kind = "managed"
-sha256 = "e85dabc1ed6bf9b6ea6b49b009faa93c6cf7f23e43b1be92f41f3dd4118ad5cd"
+sha256 = "5683e0bd5649065bba0cb001f998384d98021be28d1dd0e0a0a512a29100102d"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/agent-identity.md"
@@ -109,7 +109,7 @@ sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
 [[file]]
 path = ".agents/skills/rs-setup/references/known-failures.md"
 kind = "managed"
-sha256 = "583b8390714c16ea24b8feaac0c6ffb423de3f513cd2521baae0a32e032b4a52"
+sha256 = "a4be457ec1b8c52cb5ec1929078da468de810c61e1c2d58da7ad016e01ea1e38"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/stylistic-options.md"
@@ -519,7 +519,7 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "ae0b7462adc58858ebd897f03eb658784d3da3cd9b67cb69ae7c74799bc51552"
+sha256 = "f46e97c4c3de6a94fe90a98e6c43a672028103da9beb02d956864ec7b21f937c"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"

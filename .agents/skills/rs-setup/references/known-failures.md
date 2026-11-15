@@ -25,9 +25,9 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 
 | Output or condition | Cause | Fix |
 | --- | --- | --- |
-| `Claude Code wiring` or `agy wiring` reports missing hooks | Existing settings omitted the Kit entries. | Merge the Kit entries into the existing file. |
+| `Claude Code wiring`, `agy wiring` or `Codex wiring` reports missing hooks | Existing settings omitted the Kit entries. | Merge the Kit entries into the existing file. |
 | agy hook fails before devctl runs | The launcher failed. | Inspect the hook and its launch path; a failure blocks wired calls. |
-| Codex wiring absent | Its wiring may not be available yet. | Once merged and trialed, merge its entries and have the owner trust the project and review `/hooks`. |
+| Codex skips the hook | The owner has not trusted the project or reviewed the hook in `/hooks`. Doctor cannot check trust, and the Codex wiring has not been trialed. | Ask the owner to trust the project and review the hook in `/hooks`. |
 
 ## Sandbox
 
