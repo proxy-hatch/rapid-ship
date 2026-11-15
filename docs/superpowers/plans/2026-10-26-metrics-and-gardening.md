@@ -4,7 +4,7 @@
 
 **Goal:** Build Spec 3: `./devctl metrics` with its settings in `.rapid-ship/metrics.toml`, the five basic metrics and their Suggested thresholds, project-defined metrics and the optional scheduled metrics Action; the Corrections ledger with its map rule, its seeded README and the Rule for a Correction given in a Session; `rs-garden`, which reruns the audit it shares with `rs-health`; `rs-preflight`; and `rs-setup`'s metrics step. Then trial them, dog-food them on this repository, and write their pages for the documentation site, whose release, plan 7's PR 7.4, is GA.
 
-**Architecture:** Nine PRs, 3.1 to 3.9. devctl's new code is one package, `devctl/metrics/`, plus `devctl/ledger.py`, which the ledger's map rule (`check/map_ledger.py`) and the Corrections metric share. `devctl metrics` reads GitHub only through doctor's `gh_get` (`gh api --method GET` under the run's sign-in), wrapped in a reader that pages and stops at once when the API allowance runs out. It reads git only from the local `origin/<default branch>`. Each metric is a function from the window to a `Measured` value, and one status rule judges every threshold. The ledger's Protected rule and the CI concurrency group that Red merges needs are already built (plan 5). The skills are Markdown templates under `rapid_ship/templates/common/.agents/skills/`.
+**Architecture:** Nine PRs, 3.1 to 3.9, with 3.5 built as two, 3.5a and 3.5b. devctl's new code is one package, `devctl/metrics/`, plus `devctl/ledger.py`, which the ledger's map rule (`check/map_ledger.py`) and the Corrections metric share. `devctl metrics` reads GitHub only through doctor's `gh_get` (`gh api --method GET` under the run's sign-in), wrapped in a reader that pages and stops at once when the API allowance runs out. It reads git only from the local `origin/<default branch>`. Each metric is a function from the window to a `Measured` value, and one status rule judges every threshold. The ledger's Protected rule and the CI concurrency group that Red merges needs are already built (plan 5). The skills are Markdown templates under `rapid_ship/templates/common/.agents/skills/`.
 
 **Tech Stack:** Python 3.12+ standard library (`difflib`, `tomllib`, `json`, `datetime`, `threading`, `abc`), PyYAML, git 2.31+, gh, uv, pytest; GitHub Actions with `actions/checkout` and `astral-sh/setup-uv` at the CI workflow's pins; Markdown skills; Docusaurus for the pages.
 
@@ -22,13 +22,16 @@
 | 3.2 | `spec3-ledger` | `main` after 6.1a | 2, 3 | the ledger's parser and map rule 9, its seeds, the `session` Rule | about 800 |
 | 3.3 | `spec3-window` | `main` after 3.1 | 4 | the GitHub reader with the API allowance, the window | about 900 |
 | 3.4 | `spec3-command` | `main` | 5, 6 | Revisions, Red merges, and `devctl metrics` with its text, JSON and exit codes | about 1,150 |
-| 3.5 | `spec3-reverts` | `main` | 7, 8 | Reverts, whole and partial; Closed unmerged; Corrections | about 1,200 |
+| 3.5a | `spec3-reverts` | `main` | 7 | Reverts, whole and partial | about 900 |
+| 3.5b | `spec3-closed-corrections` | `main` after 3.5a | 8 | Closed unmerged; Corrections | about 450 |
 | 3.6 | `spec3-project-metrics` | `main` | 9 | project-defined metrics: settings sources and code metrics | about 800 |
 | 3.7 | `spec3-action` | `main` | 10, 11 | `[kit] optional` for Kit files, `--post` and the Action | about 750 |
 | 3.8 | `spec3-skills` | `main` | 12, 13 | `rs-garden`, `rs-preflight`, `rs-setup`'s metrics step | about 200 |
 | 3.9 | `spec3-pages` | `main` | 15, 16, and Task 14's records | the integration tests, the trial records and the site's Spec 3 pages | about 150 |
 
 The diff cap leaves out `.md` files and Kit-managed files, so the skills, the pages and the vendored copy under `tools/devctl/` do not count. The devctl template under `rapid_ship/templates/` counts once.
+
+PR 3.5 is built as two PRs, split at the task boundary: 3.5a is Task 7 and 3.5b is Task 8. Task 8 changes the command and the report fixture that Task 7 changed, so 3.5b branches from merged `main` after 3.5a lands. Elsewhere in this plan, "3.5" names both.
 
 **Recommended Spec 3 waves** (decision 1). Each wave waits for its prerequisites to merge. These waves order only Spec 3; plans 6 and 7 retain their own PR order. The owner confirms this recommendation on the planning PR. The design's advice remains at most 3 agents at work at once in Walk; it is no product cap.
 
@@ -102,7 +105,7 @@ The diff cap leaves out `.md` files and Kit-managed files, so the skills, the pa
 - Populations: `agent` (PRs that the Worker App authored, `<worker_app_slug>[bot]`), `all`, `ledger`, `repository`. A metric that needs Agent identity and lacks it is unknown with the reason `needs Agent identity`, shown in place of a status.
 - Status rule, for value `v`, unknown parts `u` and threshold `m`: breached when `v > m`; ok when `v + u <= m` and the value is complete; unknown otherwise. A window with no PRs makes every metric unknown, never zero.
 - Default thresholds: `revisions = 1.0`, `reverts = 1`, `red_merges = 1`, `closed_unmerged = 3`; `corrections` and `alarms` commented out; `window = 30`. The seed is Spec 3 section 6's block, verbatim.
-- Partial reverts: similarity ratio at least `0.8` by `difflib.SequenceMatcher` over the joined lines, stripped of leading and trailing whitespace; only a hunk that removed at least 1 line and changed at least 3 non-blank lines counts.
+- Partial reverts: similarity ratio at least `0.8` by `difflib.SequenceMatcher` with `autojunk=False` over the joined lines, stripped of leading and trailing whitespace; only a hunk that removed at least 1 line and changed at least 3 non-blank lines counts.
 - Red merges read `.github/workflows/devctl-check.yml`'s runs with event `push` for the merge commit, the earliest run's first attempt: `failure` and `timed_out` are red, `success` green, anything else unknown.
 - Allowance message: `unknown: GitHub API allowance used up; it resets at 06:12 UTC`, with the reset time in UTC as `HH:MM`.
 - A code metric that raises or runs longer than 60 seconds is unknown, with the error as its reason.
@@ -147,8 +150,8 @@ The diff cap leaves out `.md` files and Kit-managed files, so the skills, the pa
 | `devctl/metrics/window.py` | 3.3 | The default branch, the window, `not_fetched` |
 | `devctl/metrics/revisions.py`, `red_merges.py` | 3.4 | Two basic metrics |
 | `devctl/metrics/report.py`, `command.py` | 3.4 | The report, its text and JSON, `devctl metrics` |
-| `devctl/metrics/reverts.py`, `partial_reverts.py` | 3.5 | Reverts from git and PR bodies, and the content check |
-| `devctl/metrics/closed_unmerged.py`, `corrections.py` | 3.5 | Two basic metrics |
+| `devctl/metrics/reverts.py`, `partial_reverts.py` | 3.5a | Reverts from git and PR bodies, and the content check |
+| `devctl/metrics/closed_unmerged.py`, `corrections.py` | 3.5b | Two basic metrics |
 | `devctl/metrics/api.py` | 3.6 | What `devctl_project` imports: `Metric`, `IncidentMetric`, `MetricContext`, `MetricResult`, `Item`, `Incident` |
 | `devctl/metrics/project.py`, `sources.py` | 3.6 | Running code metrics; the `issues` and `deployments` sources |
 | `devctl/metrics/post.py`, `common/.github/workflows/rapid-ship-metrics.yml` | 3.7 | The post and the Action |
@@ -595,22 +598,27 @@ def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> N
 - [ ] **Step 4: run** `uv run pytest tests/devctl/test_devctl_metrics_*.py tests/devctl/test_devctl_cli.py -q`; expected PASS. Run `./devctl metrics` in this repository and keep its output for the PR body. Run `uv run rapid-ship status --strict` and `./devctl check --tier fast`; both exit 0. Commit `feat: add devctl metrics`.
 - [ ] **Step 5: documents and verification.** Run the five checks with `--base origin/main` and record them. Evidence: the local `./devctl metrics` run, and `Not covered: Reverts, Closed unmerged and Corrections, which 3.5 adds`. Commit `docs: record PR 3.4's verification`.
 
-## PR 3.5: Reverts, Closed unmerged and Corrections (`spec3-reverts`, on `main` after 3.2 and 3.4)
+## PR 3.5a: Reverts (`spec3-reverts`, on `main` after 3.2 and 3.4)
 
-### Task 7: Reverts, whole and partial
+### Task 7: Reverts, whole and partial, and PR 3.5a's verification
 
 **Files:**
 - Create: `devctl/metrics/reverts.py`, `devctl/metrics/partial_reverts.py`, `tests/devctl/test_devctl_metrics_reverts.py`, `tests/devctl/test_devctl_metrics_partial_reverts.py`
-- Modify: `devctl/metrics/command.py` (adds `reverts`); through `sync`: the vendored copies and the lock
+- Modify: `devctl/metrics/command.py` (the metrics become a table of rows, each a title and a zero-argument callable, and `reverts` is the second row), `devctl/metrics/report.py` (the Reverts text value), `tests/devctl/metrics_fakes.py` (commit messages, deleted and binary files, `git revert`, a regenerated lock file), `tests/devctl/test_devctl_metrics_command.py`, `tests/devctl/test_devctl_metrics_report.py`, `tests/devctl/fixtures/metrics/report.json`; through `sync`: the vendored copies and the lock. Documents: `tools/AGENTS.md`, `tests/AGENTS.md`, `ARCHITECTURE.md`, this plan's Verification record
 
 **Interfaces:**
-- Consumes: `Window.prs`, `Window.merged`, `Window.tip`; `Repo.git`; `window.is_ancestor`.
+- Consumes: `Window.prs`, `Window.merged`, `Window.tip`; `window.MetricsError`; `Repo.git`.
 - Produces:
 
 ```python
 # devctl/metrics/partial_reverts.py
 SIMILARITY = 0.8
 MIN_CHANGED_LINES = 3
+CHECK_COST = 1_000
+COMPARISON_BUDGET = 800_000_000
+
+
+class Unfinished(Exception): ...
 
 
 @dataclass(frozen=True)
@@ -628,21 +636,24 @@ def undoing(repo: Repo, merge_commit: str, tip: str) -> Undoing | None: ...
 def reverts(repo: Repo, window: Window, repository: str) -> Measured: ...
 ```
 
-- `reverts` counts a PR once. A whole revert outranks a partial one. Signal 1: a commit in `<merge>..<tip>` has a message line matching `^This reverts commit ([0-9a-f]{40})\b` with the merge commit's full SHA. Signal 2: a PR in `merged` that merged after it has a body line `Reverts <owner>/<repo>#<n>`, compared without case. Signal 3: `undoing`, checked only for PRs that neither signal marked. Items: `{"pr": n, "state": "counted", "revert": "whole" | "partial", "commit": <sha>}`, and for a partial one `files` and `sections`. The text value reads `1 (#244 in part: 1 file)`.
-- `undoing` diffs the merge commit against its first parent with `--no-renames`, so a rename is a deletion plus an addition. Restored file: a later commit in `git log --first-parent --format=%H <merge>..<tip> -- <file>` leaves `git rev-parse <commit>:<file>` equal to `<merge>^1:<file>`, both missing counting as equal. Undone section: for each `-U0` hunk of the PR with at least 1 removed line and at least `MIN_CHANGED_LINES` non-blank changed lines, a later commit's `-U0` hunk in the same file removes lines similar to the hunk's added lines and adds lines similar to its removed lines. Lines are stripped, joined with `\n`, and compared with `difflib.SequenceMatcher(None, a, b).ratio() >= SIMILARITY`. A binary file (`-` in `--numstat`) counts only as restored. `whole` holds when every changed file was restored.
+- `reverts` counts a PR once. A whole revert outranks a partial one. Signal 1: a commit in `<merge>..<tip>` has a message line matching `^This reverts commit ([0-9a-f]{40})\b` with the merge commit's full SHA. Signal 2: a PR in `merged` that merged after it has a body line `Reverts <owner>/<repo>#<n>`, compared without case. Signal 3: `undoing`, checked only for PRs that neither signal marked. Items: `{"pr": n, "state": "counted", "revert": "whole" | "partial", "commit": <sha>}`, and for a partial one `files` and `sections`. The text value reads `1 (#244 in part: 1 file)`, or `1 (#244 in part: 1 file and 2 sections)`. A signal's commit is the earliest commit with the revert line, or else the merge commit of the earliest PR whose body names the PR.
+- `undoing` reads `git log --first-parent --raw --no-renames <merge>^1..<tip>` once, so a rename is a deletion plus an addition. Its first commit is the PR, with the file mode and object id of each file it changed before the merge, and the rest are the later commits, with the mode and id each file has after them; an id of all zeros is a missing file. Restored file: a later commit that changed the file leaves it with the mode and id it had before the merge, both missing counting as equal. A restored file lists no sections. Undone section: for each file that a later commit changed and that was not restored, `git log -p -U0` of that file over the same range gives the hunks. A `-U0` hunk of the PR with at least 1 removed line and at least `MIN_CHANGED_LINES` non-blank changed lines is undone when a later commit's `-U0` hunk in the same file removes lines similar to the hunk's added lines and adds lines similar to its removed lines. Lines are stripped, joined with `\n`, and compared with `difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() >= SIMILARITY`. The junk heuristic is off so that 0.8 means the same at every hunk size: from 200 characters on, difflib's default skips each character that is more than 1% of the text, and the ratio of the same edit then falls as the hunk grows. A binary file has no hunks, so it counts only as restored. `whole` holds when every changed file was restored. The git options and the config keys `log.follow`, `core.attributesFile` and `core.bigFileThreshold` are fixed, so no setting of these that the user has configured changes the result. Two things still do: the `GIT_DIFF_OPTS` environment variable, and the repository's own `.git/info/attributes` and a committed `.gitattributes`, either of which can make git read a file as binary; no option disables `.git/info/attributes`. A record of `git log --raw` that devctl cannot read raises `MetricsError`, so the command exits 2. A merge commit with no parent in the clone, as at the end of a shallow clone, cannot be compared: its PR is the item `{"pr": n, "state": "unknown", "detail": <why>}`, unless a revert line or a Revert button names it. A partial clone, whose `git log -p` would fetch file contents, makes its PR the same kind of unknown item before any log runs. Each PR also has a comparison budget, `COMPARISON_BUDGET`, in units: a similarity check spends `CHECK_COST` and 10 for each character of its two texts, so that even a check of two empty texts has a cost, and the full ratio spends the product of their lengths too. When a check would pass the budget, the comparing stops. A PR with a restored file or an undone section already found counts as usual; any other PR is the unknown item, with the file where the check stopped, and is neither counted nor cleared.
 
-- [ ] **Step 1: write the failing tests.** `test_devctl_metrics_reverts.py`, docstring `Offline: Reverts over local repositories.`: `test_a_git_revert_line_counts`; `test_a_reverted_merge_commit_counts`; `test_the_revert_buttons_body_line_counts`; `test_both_signals_count_once`; `test_an_abbreviated_sha_does_not_count`; `test_a_revert_by_hand_that_restores_every_file_is_whole`.
+- [ ] **Step 1: write the failing tests.** `test_devctl_metrics_reverts.py`, docstring `Offline: Reverts over local repositories and the recorded GitHub responses of their window.`: `test_a_git_revert_line_counts`; `test_a_reverted_merge_commit_counts`; `test_the_revert_buttons_body_line_counts`; `test_both_signals_count_once`; `test_an_abbreviated_sha_does_not_count`; `test_a_revert_by_hand_that_restores_every_file_is_whole`.
 
   `test_devctl_metrics_partial_reverts.py`, docstring `Offline: the content check over local repositories.`, each expecting a partial revert, or none where the name says so: `test_a_restored_file`; `test_an_added_file_deleted`; `test_a_deleted_file_brought_back`; `test_an_undone_section`; `test_a_section_undone_after_other_commits_moved_it`; `test_a_section_undone_with_small_edits_above_the_threshold`; `test_a_section_below_the_threshold_does_not_count`; `test_a_hunk_under_3_non_blank_lines_is_ignored`; `test_a_pure_addition_removed_later_does_not_count`; `test_a_rename_undone_is_a_whole_revert`; `test_a_binary_file_counts_only_when_restored`; `test_a_refactor_that_rewrites_the_prs_lines_is_not_a_revert`; `test_a_later_move_of_an_added_file_counts_as_restored` (the spec counts deletion of the old path, even when that invents a revert).
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_metrics_reverts.py tests/devctl/test_devctl_metrics_partial_reverts.py -q`; expected FAIL with `ModuleNotFoundError`.
-- [ ] **Step 3: implement** both modules and add `reverts` to the command; format, check, sync.
-- [ ] **Step 4: run** `uv run pytest tests/devctl/test_devctl_metrics_reverts.py tests/devctl/test_devctl_metrics_partial_reverts.py tests/devctl/test_devctl_metrics_command.py -q`; expected PASS. Commit `feat: count whole and partial Reverts`.
+- [ ] **Step 3: implement** both modules, add `reverts` to the command and its text value to the report; format, check, sync.
+- [ ] **Step 4: run** `uv run pytest tests/devctl/test_devctl_metrics_reverts.py tests/devctl/test_devctl_metrics_partial_reverts.py tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_metrics_report.py -q`; expected PASS. Commit `feat: count whole and partial Reverts`.
+- [ ] **Step 5: documents and verification.** Run the five checks with `--base origin/main` and record them. Evidence: `Not covered: the similarity threshold's fit, which Task 14 measures`. Commit `docs: record PR 3.5a's verification`.
 
-### Task 8: Closed unmerged and Corrections, and PR 3.5's verification
+## PR 3.5b: Closed unmerged and Corrections (`spec3-closed-corrections`, on `main` after 3.5a)
+
+### Task 8: Closed unmerged and Corrections, and PR 3.5b's verification
 
 **Files:**
 - Create: `devctl/metrics/closed_unmerged.py`, `devctl/metrics/corrections.py`, `tests/devctl/test_devctl_metrics_closed_unmerged.py`, `tests/devctl/test_devctl_metrics_corrections.py`
-- Modify: `devctl/metrics/command.py`, `tests/devctl/fixtures/metrics/report.json`; through `sync`: the vendored copies and the lock. Documents: `ARCHITECTURE.md`, `tools/AGENTS.md`, this plan's Verification record
+- Modify: `devctl/metrics/command.py`, `devctl/metrics/report.py`, `tests/devctl/test_devctl_metrics_report.py`, `tests/devctl/fixtures/metrics/report.json`; through `sync`: the vendored copies and the lock. Documents: `ARCHITECTURE.md`, `tools/AGENTS.md`, this plan's Verification record
 
 **Interfaces:**
 - Consumes: `GitHubReader`, `Window`; `devctl.ledger.read_entry`, `read_last_pass`, `LAST_PASS`; `codeowners.ledger_entry`; `window.is_ancestor`.
@@ -668,7 +679,7 @@ def corrections(repo: Repo, window: Window, since: datetime) -> Measured: ...
 - [ ] **Step 2: run** `uv run pytest tests/devctl/test_devctl_metrics_closed_unmerged.py tests/devctl/test_devctl_metrics_corrections.py -q`; expected FAIL with `ModuleNotFoundError`.
 - [ ] **Step 3: implement** both and add them to the command; refresh `report.json`; format, check, sync.
 - [ ] **Step 4: run** `uv run pytest tests/devctl -q -k "metrics or ledger"`; expected PASS. Run `uv run rapid-ship status --strict` and `./devctl check --tier fast`; both exit 0. Commit `feat: count Closed unmerged and Corrections`.
-- [ ] **Step 5: documents and verification.** Run `./devctl metrics --json` here and keep its output for the PR body. Run the five checks with `--base origin/main` and record them. Evidence: `Not covered: the similarity threshold's fit, which Task 14 measures`. Commit `docs: record PR 3.5's verification`.
+- [ ] **Step 5: documents and verification.** Run `./devctl metrics --json` here and keep its output for the PR body. Run the five checks with `--base origin/main` and record them. Evidence: `Not covered: the GitHub responses themselves, which Task 14 checks against real repositories`. Commit `docs: record PR 3.5b's verification`.
 
 ## PR 3.6: project-defined metrics (`spec3-project-metrics`, on `main` after 3.4)
 
@@ -1114,7 +1125,47 @@ The lead owns publication above the reviewed 3.3 layer. The owner merges this Pr
 Not covered: Reverts, Closed unmerged and Corrections, which 3.5 adds; project-defined metrics, posting, the scheduled Action and gardening remain deferred.
 
 
-### 3.5
+### 3.5a
+
+Reverts, whole and partial, are built on `main` at `066023b77f5b20986554d244aaa58a768206f00c`, the review base. The first round's checks ran on commit `386d0fd`. The independent review then sent the change back, and Corrections round 1 changed the code in commits `6ea253a5a07dc49ebf42dc353078828e6d82a116` and `5f8d2a47ebf60cc73318ce2216040ae5a9b83ec2`. The checks below ran locally on `5f8d2a47ebf60cc73318ce2216040ae5a9b83ec2`, the parent of the commit that updates this record, which changes only this plan. They use recorded GitHub responses, scratch git repositories, one local blobless clone and this repository's own git history: no live API call, and no local full, site or heavy build.
+
+Red first: before any implementation, the two new test modules failed to import (`ModuleNotFoundError`) and the changed command and report tests failed (9 failed, 22 passed).
+
+- `./devctl doctor --settings`: exit 0; four items ok.
+- `uv run pytest tests/devctl/test_devctl_metrics_reverts.py tests/devctl/test_devctl_metrics_partial_reverts.py tests/devctl/test_devctl_metrics_command.py tests/devctl/test_devctl_metrics_report.py tests/test_kit_contents.py -q`: exit 0; 158 passed. The partial-reverts module alone passed three runs in a row, 49 tests each.
+- `uv run pytest -q`: exit 0; 3,414 passed in 751.85 seconds, to terminal completion without partitions.
+- `uv run --locked mypy`: exit 0; 207 source files, no issues.
+- `uv run --locked vulture --min-confidence 0`: exit 0; no findings.
+- `uv run --locked deptry . --no-ansi --json-output <unique report>`: exit 0; 20 files scanned, the report is `[]`.
+- `uv run --locked lint-imports`: exit 0; three contracts kept, none broken.
+- `uv run rapid-ship sync --in-place`: exit 0; `uv run rapid-ship status --strict`: exit 0; 109 managed files unchanged.
+- `./devctl check --tier fast`: exit 0; format, lint, map, exceptions, file-size, kit and vendored passed.
+- `git diff --check`: exit 0.
+- The `diff` step, run alone against the base: passed; 1,367 of 1,500 counted lines. The largest changed Python file is the partial-reverts test module, 547 lines, which the production cap leaves out; the largest changed file subject to the cap is `partial_reverts.py`, 253 of 500 lines.
+- `./devctl check --tier full --base origin/main --pr-body <body-file>` and `npm --prefix website run build`: pending hosted checks on the PR head.
+
+The first round ran the tests against 46 one-change mutations of the implementation, in rounds as the tests grew. They killed every mutation except one that changes no behaviour: calling Reverts outside the allowance wrapper, which it cannot trip. Skipping the cheaper similarity bounds, which only avoid work, changed no result either. Corrections round 1 added 20 mutations of the final code, all killed: removing each of `--no-textconv`, `--diff-algorithm=myers`, `--indent-heuristic`, `--ignore-submodules=none`, `--no-color`, `--inter-hunk-context=0` and `log.follow=false`, and `--no-show-signature` from each of the two readers; setting the threshold to 0.75 and to 0.85; counting a body's own PR; turning the junk heuristic on; dropping the product from the budget; ending a PR with a finding when the budget runs out; dropping the partial-clone check and each of its two config keys; letting a `ValueError` escape the change list; and comparing object ids without modes.
+
+Where the plan left room, the implementation chose:
+
+- A restored file lists no sections, and a file the PR added has no removed lines to undo.
+- Object ids come from `git log --raw`, so a file that a later commit replaces by a directory counts as deleted, where the plan's `git rev-parse` would find the directory's tree. A file counts as restored only when its mode and object id both match, so a later commit that edits a file whose mode the PR changed and then puts the content back has not restored it.
+- A binary file has no hunks, so it counts only as restored, as `--numstat` would show.
+- A merge commit with no parent in the clone, as at the end of a shallow clone, makes its PR an unknown item with the fix named, unless a revert line or a Revert button names it. A partial clone does the same before any log runs, because `git log -p` would fetch the contents of the files it lacks. A clone records its promisor remote as `remote.<name>.promisor` and, in older git, as `extensions.partialclone`; the check reads both, because a blobless clone made by git 2.39.5 sets only the first.
+- The similarity ratio is computed with `autojunk=False`, so that 0.8 means the same at every hunk size. With difflib's default, a text of 200 characters or more loses every character that is over 1% of it as a place to start a match, and one word renamed on every line scored 0.89 at every size with the heuristic off and 0.17, 0.05 and 0.69 at 10, 30 and 100 lines with it on.
+- Each PR's content check has a comparison budget, `COMPARISON_BUDGET`, of 800,000,000 units: a similarity check spends `CHECK_COST`, 1,000, and 10 for each character of its two texts, before the cheap rejections, and the full ratio spends the product of the two lengths too. When it runs out, a PR with a finding counts as usual and any other PR is an unknown item, never zero. The base cost bounds the number of checks. Without it a check of two empty texts was free: one PR that deleted 3,000 three-line blocks against 4,800 later one-line additions made 28.8 million checks, spent 776 million units and returned nothing after 103 seconds, and with it the same PR stops after 643,728 checks in 3.4 seconds, as an unknown item. Two lock files that later commits regenerate, 100 packages 5 times and 300 packages 10 times, still end cut short, after 17 seconds each (14 and 15 seconds of CPU) where the old charges took 23 and 19; the independent review measured 26.1 and 544.9 seconds for them at the review head, and a budget is what keeps them that short now that the junk heuristic is off. The budget bounds the work, not the clock: these runs were at a load of 11 on 8 cores. This repository's 73 first-parent commits give 24 flagged PRs and one unknown item, `5dd3050`, a 124-file PR. One of its `uv.lock` comparisons costs 764 million units and no longer fits the 763 million that are left, so the PR is cut short after 1.5 seconds, where the old charges ran that comparison for 25 seconds and stopped at the next; its comparisons spend 1.57 billion units, about 40 seconds at a load of 19, before the one section they find. The other 72 end within the budget. Without a budget the count is 25. A budget of about 1.6 billion would give that PR its finding and no unknown item, and would double the time of the two lock-file cases.
+- The git options are fixed, and so are `log.follow`, `core.attributesFile` and `core.bigFileThreshold`. Tests set color, hunk merging, `log.follow`, a textconv driver, the diff algorithm, `diff.indentHeuristic`, `diff.ignoreSubmodules`, a user attributes file, `core.bigFileThreshold` and `log.showSignature` with SSH-signed commits, and the check reads a real blobless clone and fetches nothing from it; removing the option for each of these makes its test fail. `--no-ext-diff` is not among the options, because `git log` never runs an external diff without `--ext-diff`. The `GIT_DIFF_OPTS` environment variable is not cleared, and still overrides `-U0`. The repository's own `.git/info/attributes` and a committed `.gitattributes` still apply, and either can make git read a file as binary: no option disables `.git/info/attributes`.
+- A record of `git log --raw` that devctl cannot read raises `MetricsError`, so the command exits 2. The other two parsers cannot fail on any text: a fuzz of 300,000 random texts raised nothing, so they keep no handler.
+
+The check reports many PRs on this repository: 3 of its latest 30 first-parent commits, all in part, and 24 of all 73, with one more unknown. The independent review read the three recent ones and found that none undoes its PR: each is a change that a later commit edited again, where the second edit lands near the original, which the rule reads as an undo. The fit of 0.8 and the count of invented items are what Task 14 measures on a real history.
+
+Corrections round 1 answers the independent review of this change. It fixes: a similarity ratio that fell as the hunk grew; comparison work with no limit; git options that no test pinned and two claims that overstated what they fix; a partial clone, where `git log -p` fetches file contents from the network; a malformed `git log --raw` record, which exited 1, the breach code, where 2 is the guided error; a threshold that no test held between 0.79 and 0.81, and a PR body that names its own PR; a mode-only change that read as restored; four plan sentences (3.5b's base, Task 7's consumed names, a stale duration and Task 8's file list); and the reverts test module's docstring. The rule that two small edits in a row can read as an undo is the specification's, and stays as written. The two commits add 22 test cases and move the partial-clone check to the promisor remote. Against the review head's code, 14 of the new cases fail and 8 pass: the passing ones pin behaviour that was already right and untested. The suite grows from 3,392 to 3,414 tests; the tool counts are in the list above.
+
+The change is now one commit on `main` at `c8f2b9361fd1937145582e85e5ce762f5e613079`, which gained project-defined metrics and the Codex wiring after the review base. Seven files conflicted. The lock and the vendored `command.py` took `main`'s copy, and `sync` rewrote them. The template `command.py` keeps `main`'s `_source`, `_project_reports`, `code_metrics` and help text with the carried `_known` and `repository`. `ARCHITECTURE.md`, `tools/AGENTS.md` and `metrics_fakes.py` keep both sides. `main`'s project-metric tests in `test_devctl_metrics_command.py` now read from index 3, after the Reverts row. One clash is no conflict: `main` imports `measure` and the carried row loop named its row `measure` too, so ruff reported F402 on the merged module; the loop variable is now `measure_row`. Corrections round 2 answers the scoped re-review. First, a check costs `CHECK_COST` before the cheap rejections: the new test, with four deleted blocks and 30 later one-line additions, stops after 43 of its 240 checks, and without the base cost it runs all 240 and finds nothing. Second, the promisor key is read as git reads a boolean: in real blobless clones with `1`, `yes`, `on` or a key with no value, `undoing` fetched file contents (7 to 9 objects in the pack) and now fetches nothing. Third, `core.attributesFile` and `core.bigFileThreshold` are fixed: a user attributes file with `-diff`, `binary` or `diff=bin`, and `core.bigFileThreshold=100`, hid a found section and no longer do; `.git/info/attributes` and a committed `.gitattributes` still do, and the comment, `tools/AGENTS.md` and this plan say so. Fourth, `tools/AGENTS.md` names what the signature test needs, `ssh-keygen` and git 2.34. Fifth, a test holds that a section found before the budget runs out still counts, and the mutation that returns `[], path` from the budget handler fails it. The 8 new cases are 1 for the first fix, 4 for the second, 2 for the third and 1 for the fifth. The first three groups fail without their fix, the fifth fails under the mutation above, and the suite grows from 4,173 to 4,181 tests. On the final commit mypy checks 215 source files, vulture finds nothing, deptry scans 20 files and reports `[]`, import-linter keeps 3 contracts, and `status --strict` reports 112 managed files unchanged. The `diff` step counts 1,448 of 1,500 lines against `main`, 1,370 before the fixes, and the largest changed file under the production cap is `partial_reverts.py`, 268 of 500 lines.
+
+Not covered: the similarity threshold's fit, which Task 14 measures
+
+### 3.5b
 
 Pending.
 

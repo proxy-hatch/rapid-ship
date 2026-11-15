@@ -9,6 +9,17 @@ from devctl.metrics.model import Measured, judge
 from devctl.metrics.report import Report, exit_code, render_json, render_text
 from test_devctl_metrics_revisions import sample_window
 
+COMMIT = "c" * 40
+
+
+def revert(
+    pr: int, *, files: list[str] | None = None, sections: list[str] | None = None
+) -> dict[str, object]:
+    item: dict[str, object] = {"pr": pr, "state": "counted", "commit": COMMIT}
+    if files is None and sections is None:
+        return {**item, "revert": "whole"}
+    return {**item, "revert": "partial", "files": files or [], "sections": sections or []}
+
 
 def report() -> Report:
     return Report(
@@ -20,6 +31,7 @@ def report() -> Report:
         True,
         (
             judge("revisions", "Revisions", "count", "agent", Measured(2), 1.0),
+            judge("reverts", "Reverts", "count", "agent", Measured(1, items=(revert(1),)), 1),
             judge("red_merges", "Red merges", "count", "agent", Measured(0, unknown=2), 1),
         ),
         (),
@@ -39,6 +51,7 @@ def test_the_text_follows_its_layout() -> None:
         "",
         "metric      population  value         suggested  status",
         "revisions   agent PRs   2 per PR      <= 1.0     breached",
+        "reverts     agent PRs   1 (#1)        <= 1       ok",
         "red_merges  agent PRs   0, 2 unknown  <= 1       unknown",
         "",
         "Corrections are agent-reported: agents write the ledger entries they count.",
@@ -63,6 +76,36 @@ def test_a_window_that_is_not_full_or_empty_says_so() -> None:
     data = json.loads(render_json(unavailable))
     assert data["window"] is None
     assert data["default_branch"] == {"name": None, "commit": None}
+
+
+def test_reverts_list_their_prs_and_say_when_a_revert_is_in_part() -> None:
+    items = (
+        revert(7),
+        revert(5, files=["a.txt"]),
+        revert(3, files=["a.txt", "b.txt"], sections=["c.txt:1-4"]),
+        revert(2, sections=["c.txt:1-4", "c.txt:9-12"]),
+        {"pr": 9, "state": "unknown", "detail": "its merge commit has no parent in this clone"},
+    )
+    metric = judge("reverts", "Reverts", "count", "agent", Measured(4, unknown=1, items=items), 5)
+    text = render_text(replace(report(), metrics=(metric,)))
+    assert "4, 1 unknown (#7, #5 in part: 1 file, #3 in part: 2 files and 1 section, " in text
+    assert "#2 in part: 2 sections)" in text
+
+
+def test_a_partial_revert_keeps_its_commit_files_and_sections_in_the_json() -> None:
+    item = revert(4, files=["a.txt"], sections=["f.txt:5-8"])
+    metric = judge("reverts", "Reverts", "count", "agent", Measured(1, items=(item,)), 1)
+    data = json.loads(render_json(replace(report(), metrics=(metric,))))
+    assert data["metrics"][0]["items"] == [
+        {
+            "pr": 4,
+            "state": "counted",
+            "commit": COMMIT,
+            "revert": "partial",
+            "files": ["a.txt"],
+            "sections": ["f.txt:5-8"],
+        }
+    ]
 
 
 def test_unknown_reason_extra_fields_and_utc_are_preserved() -> None:

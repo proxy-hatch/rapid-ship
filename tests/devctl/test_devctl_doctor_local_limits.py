@@ -389,9 +389,9 @@ class TestOutput:
     ) -> None:
         # Unanswered commands exit 1 with no output: gh sign-in, hooks, CI and Kit files are
         # missing, and gitleaks (no version printed) is unknown. No .rapid-ship/project.toml is
-        # written, so the settings are unknown. No .claude/settings.json or .agents/hooks.json is
-        # tracked, so all three wiring items are missing. With no repository, the GitHub part is one
-        # missing item, printed after the local ones.
+        # written, so the settings are unknown. No .claude/settings.json, .agents/hooks.json or
+        # .codex/hooks.json is tracked, so all three wiring items are missing. With no repository,
+        # the GitHub part is one missing item, printed after the local ones.
         fake_run.answer(["git", "--version"], result(0, "git version 2.39.5\n"))
         context = adjusted(
             ctx(),

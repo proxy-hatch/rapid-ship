@@ -99,7 +99,7 @@ sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
 [[file]]
 path = ".agents/skills/rs-setup/SKILL.md"
 kind = "managed"
-sha256 = "e85dabc1ed6bf9b6ea6b49b009faa93c6cf7f23e43b1be92f41f3dd4118ad5cd"
+sha256 = "ee930a517a1fea796d52d2b87f0394be11000ebc4ff44b6c09e345a19d92ae6d"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/agent-identity.md"
@@ -109,7 +109,7 @@ sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
 [[file]]
 path = ".agents/skills/rs-setup/references/known-failures.md"
 kind = "managed"
-sha256 = "583b8390714c16ea24b8feaac0c6ffb423de3f513cd2521baae0a32e032b4a52"
+sha256 = "8bb38ab8d787e6dfaa4e7cc3542b01f806b6a51230d57a6be92a203952504123"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/stylistic-options.md"
@@ -519,7 +519,7 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "d1c76a37783c8f0f5460196774385f942fc56f8e6bcb7f0b59a406da9cfdd9db"
+sha256 = "bf4c3cf8dd1241f031832d6ec373efc8fa6a554110c9512410b3f670fb21fd60"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
@@ -569,7 +569,7 @@ sha256 = "6e93b0a9f999ef6e2058678459e077c4fa92ef3d3d2f39d8783607c192e59bc1"
 [[file]]
 path = "tools/devctl/devctl/metrics/command.py"
 kind = "managed"
-sha256 = "7c6a711d851213944f6ab09ddc3359a2dbf18c2e25905fb5d8ea81dbc652aa6e"
+sha256 = "514eab362e630b4a61da541a70e8214826345ca391af63cd3b7c0527de69d5f7"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/github.py"
@@ -580,6 +580,11 @@ sha256 = "011513451729b0456b42b7bed5ef11736b4007361966842f9a131fa8a7c63ca5"
 path = "tools/devctl/devctl/metrics/model.py"
 kind = "managed"
 sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/partial_reverts.py"
+kind = "managed"
+sha256 = "8d4436bf6b02a6573b6baac9cb2c0e4f3969fee94f852f69fe8e93b4ede0865f"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/project.py"
@@ -594,7 +599,12 @@ sha256 = "91b4bf7b0cb1fd595c35ed94cfd35ca1072b1b80fe06f27672abce96a82352a5"
 [[file]]
 path = "tools/devctl/devctl/metrics/report.py"
 kind = "managed"
-sha256 = "1c2e1c95336d1c9edc2162bbcb530dbce05181d045f99a042c05b5817f203775"
+sha256 = "9349aa4e515a7f03f99e7302aeb037217c357854b8e61366f9906f6f2397a9c5"
+
+[[file]]
+path = "tools/devctl/devctl/metrics/reverts.py"
+kind = "managed"
+sha256 = "0cebe60ae64ab8b187e5be261176e47021462054ebccf363eac2f69f1e381818"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/revisions.py"
