@@ -99,7 +99,7 @@ sha256 = "f05ec02bde20f39bd9de7a6132be44a37ebaa11042e0b2692c0de16b223c8dab"
 [[file]]
 path = ".agents/skills/rs-setup/SKILL.md"
 kind = "managed"
-sha256 = "5683e0bd5649065bba0cb001f998384d98021be28d1dd0e0a0a512a29100102d"
+sha256 = "545b4d4b85b9b8f4ed1b2167cc4b6e8dbc06f004f83650f54fe2aa08482c1675"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/agent-identity.md"
@@ -109,7 +109,7 @@ sha256 = "b96e278fe3a9735845289aa1c464b5e74224985de00ac62b7b951ac61b5eebb6"
 [[file]]
 path = ".agents/skills/rs-setup/references/known-failures.md"
 kind = "managed"
-sha256 = "a4be457ec1b8c52cb5ec1929078da468de810c61e1c2d58da7ad016e01ea1e38"
+sha256 = "3206c8fc134c739227100587aba5ff641f2880e88704ccc77fce7eb6edd1e3a4"
 
 [[file]]
 path = ".agents/skills/rs-setup/references/stylistic-options.md"

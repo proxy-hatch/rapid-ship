@@ -10,6 +10,11 @@ from devctl.doctor_rules import ruleset_problems
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "rapid_ship/templates/common/.agents/skills/rs-setup"
+# uv prints backticks around `tool.uv.workspace`, so the code span needs double backticks.
+UV_NESTED_WORKSPACE = (
+    "``error: Nested workspaces are not supported, but workspace member has a "
+    "`tool.uv.workspace` table: .../tools/devctl``"
+)
 
 
 @pytest.mark.parametrize("every_pr", [True, False])
@@ -108,6 +113,14 @@ def test_known_failures_distinguishes_app_refusals() -> None:
         assert condition in text
 
 
+def test_known_failures_give_doctors_fix_for_uvs_nested_workspace_error() -> None:
+    lines = (SKILL / "references/known-failures.md").read_text().splitlines()
+    doctor = [line for line in lines if "members match tools/devctl" in line]
+    uv = [line for line in lines if UV_NESTED_WORKSPACE in line]
+    assert len(doctor) == len(uv) == 1
+    assert uv[0].rpartition(" | ")[2] == doctor[0].rpartition(" | ")[2]
+
+
 def test_setup_conditions_future_stack_settings() -> None:
     text = (SKILL / "SKILL.md").read_text()
     assert "Read each `[[stack]]` table" in text
@@ -117,6 +130,17 @@ def test_setup_conditions_future_stack_settings() -> None:
     assert "once TypeScript starter Patterns ship" in text
     assert "Offer `rs-contribute` once" in text
     assert "Until `rs-contribute` ships" not in text
+
+
+def test_setup_states_that_the_kit_seeds_the_agy_wiring_and_its_trial_status() -> None:
+    text = (SKILL / "SKILL.md").read_text()
+    guardrails = text.split("## 5. Harness guardrails", 1)[1].split("## 6. Sandbox", 1)[0]
+    assert "merged and trialed" not in guardrails
+    for value in (
+        "The Kit seeds the agy wiring in `.agents/hooks.json`, without G5",
+        "its live trial is incomplete because live ACP verification was quota-blocked",
+    ):
+        assert value in guardrails
 
 
 def test_sandbox_contract_requires_approved_access_and_evidence() -> None:
