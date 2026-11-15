@@ -40,7 +40,7 @@ class MeasurementGet(Protocol):
 
 class _ScopedGet:
     def __init__(self, reader: GitHubReader, deadline: float) -> None:
-        self.reader = reader
+        self._reader = reader
         self.deadline = deadline
         self._state = threading.Lock()
         self._closed = False
@@ -50,12 +50,12 @@ class _ScopedGet:
             self._closed = True
 
     def __call__(self, path: str, jq: str | None = None) -> object:
-        with self.reader._serialization:
+        with self._reader._serialization:
             # The state lock linearizes admission with close, but never covers network I/O.
             with self._state:
                 if self._closed or time.monotonic() >= self.deadline:
                     raise MeasurementClosed()
-            return self.reader._read("/" + path.lstrip("/"), jq)
+            return self._reader._read("/" + path.lstrip("/"), jq)
 
 
 class GitHubReader:
@@ -65,6 +65,11 @@ class GitHubReader:
         self.requests = 0
         self._serialization = threading.Lock()
         self._exhausted: AllowanceUsedUp | None = None
+
+    @property
+    def exhausted(self) -> AllowanceUsedUp | None:
+        """The error that every read raises once the allowance is used up, else None."""
+        return self._exhausted
 
     def measurement_get(self, deadline: float) -> MeasurementGet:
         return _ScopedGet(self, deadline)
@@ -85,9 +90,11 @@ class GitHubReader:
             return self._get(full, jq=jq)
         except OwnerReadError as error:
             if error.status in (403, 429) and "rate limit" in error.message.lower():
-                self._exhausted = AllowanceUsedUp()
-                self._exhausted.reset = self._reset()
-                self._exhausted.args = (self._exhausted.reason(),)
+                reset: datetime | None = None
+                try:
+                    reset = self._reset()
+                finally:
+                    self._exhausted = AllowanceUsedUp(reset)
                 raise self._exhausted from error
             raise _read_error(full, error) from error
 

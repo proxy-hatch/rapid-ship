@@ -1,5 +1,6 @@
 """Offline: the packaged Kit's templates and the files they render."""
 
+import importlib.util
 import json
 import re
 import shlex
@@ -581,10 +582,22 @@ def test_devctl_is_its_own_uv_workspace_and_its_versions_agree() -> None:
     )
 
 
-def test_devctl_project_is_seeded_and_the_environment_is_ignored() -> None:
+def test_devctl_project_is_seeded_and_the_environment_is_ignored(tmp_path: Path) -> None:
     files = rendered("agnostic")
-    assert files["tools/devctl/devctl_project/__init__.py"].kind == "seeded"
+    seed = files["tools/devctl/devctl_project/__init__.py"]
+    assert seed.kind == "seeded"
     assert files["tools/devctl/.gitignore"].content == b"/.venv/\n__pycache__/\n"
+    source = tmp_path / "seeded_devctl_project.py"
+    source.write_bytes(content(seed))
+    spec = importlib.util.spec_from_file_location(source.stem, source)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.metrics() == []
+    assert {"deterministic", "model", "environment"} <= set(
+        re.findall(r"[a-z]+", module.metrics.__doc__)
+    )
 
 
 def test_askpass_is_written_executable() -> None:
