@@ -202,7 +202,10 @@ MEMBER_FIX = (
     "Fix tools/x/pyproject.toml so that it has a [project] name whose package directory exists, "
     "or run init without --stack python=tools/x."
 )
-ROOT_FIX = "Pass --package naming the package directory, then run init again."
+ROOT_FIX = (
+    "Pass --package naming the package directory, then run init again. If the repository root "
+    "holds no package, run init without the --stack option that names the root."
+)
 ROOT_OK = {**ACME, "src/acme/__init__.py": ""}
 
 
@@ -366,3 +369,25 @@ def test_the_package_option_is_the_next_step_for_a_root_package_the_name_does_no
     assert main(["init", "--stack", "python", "--package", "acme_core"]) == 0
 
     assert source_roots(git_repo) == ["src/acme_core"]
+
+
+def test_a_workspace_root_without_a_package_is_left_out_of_the_stacks(
+    git_repo: Path, commit_all: Callable[..., None], run_git: Callable[..., str]
+) -> None:
+    """The way out that the root stack's error names: init's proposal lists the root, but a
+    virtual uv workspace root has no package for --package to name."""
+    write_files(git_repo, {"pyproject.toml": '[tool.uv.workspace]\nmembers = ["packages/*"]\n'})
+    add_project(git_repo, "packages/a", "a-pkg", "a_pkg")
+    commit_all(git_repo)
+    variables = resolve_variables(git_repo)
+
+    with pytest.raises(KitError, match="holds no package, run init without the --stack option"):
+        init_repository(
+            git_repo, stacks=[ROOT, ProjectStack("python", "packages/a")], variables=variables
+        )
+    assert not (git_repo / LOCK_PATH).exists()
+
+    init_repository(git_repo, stacks=[ProjectStack("python", "packages/a")], variables=variables)
+
+    assert source_roots(git_repo) == ["packages/a/src/a_pkg"]
+    assert classify(git_repo).strict_ok

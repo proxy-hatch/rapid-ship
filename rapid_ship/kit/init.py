@@ -177,7 +177,10 @@ def _project_name(root: Path, directory: str, fix: str) -> str | None:
 def _fix(stack: ProjectStack) -> str:
     """The next step when an existing Python stack's package directory cannot be found."""
     if stack.directory == ".":
-        return "Pass --package naming the package directory, then run init again."
+        return (
+            "Pass --package naming the package directory, then run init again. If the repository "
+            "root holds no package, run init without the --stack option that names the root."
+        )
     return (
         f"Fix {under(stack.directory, 'pyproject.toml')} so that it has a [project] name whose "
         f"package directory exists, or run init without --stack python={stack.directory}."
