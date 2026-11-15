@@ -123,7 +123,9 @@ def main() -> int:
         existing = work / "existing-app"
         scratch_repository(existing)
         (existing / "pyproject.toml").write_text(WORKSPACE_PYPROJECT)
-        run(existing, "git", "add", "pyproject.toml")
+        (existing / "existing_app").mkdir()
+        (existing / "existing_app/__init__.py").write_text("")
+        run(existing, "git", "add", "pyproject.toml", "existing_app")
         run(existing, "git", "commit", "-q", "-m", "Existing project")
         if "--stack python" not in run(existing, rapid_ship, "init", expected=2):
             raise SystemExit("init did not propose the existing Python stack")
