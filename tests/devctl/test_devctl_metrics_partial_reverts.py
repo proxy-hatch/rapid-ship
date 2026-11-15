@@ -522,22 +522,25 @@ def test_a_section_found_before_the_budget_runs_out_still_counts(
 
 
 @pytest.mark.parametrize(
-    "change",
+    "changes",
     [
         (),
-        ("--add", "remote.origin.promisor", "false"),
-        ("--unset-all", "remote.origin.promisor"),
-        ("remote.origin.promisor", "false"),
+        (
+            ("--add", "remote.origin.promisor", "false"),
+            ("--unset-all", "remote.origin.partialclonefilter"),
+        ),
+        (("--unset-all", "remote.origin.promisor"),),
+        (("remote.origin.promisor", "false"),),
     ],
     ids=[
         "the clone's promisor key",
-        "a false value added after it",
+        "a false value added after it, the filter key removed",
         "no promisor key, the filter key kept",
         "a false promisor key, the filter key kept",
     ],
 )
 def test_a_partial_clone_is_not_read_for_file_contents(
-    tmp_path: Path, change: tuple[str, ...]
+    tmp_path: Path, changes: tuple[tuple[str, ...], ...]
 ) -> None:
     source = MergedHistory(tmp_path / "source")
     git(source.path, "config", "uploadpack.allowFilter", "true")
@@ -554,9 +557,10 @@ def test_a_partial_clone_is_not_read_for_file_contents(
         f"file://{source.path}",
         str(clone),
     )
-    if change:
-        # git treats a remote as a promisor when any value of its promisor key is true, and also
-        # when it has a partial clone filter, whatever its promisor key says.
+    # git treats a remote as a promisor when any value of its promisor key is true, and also when it
+    # has a partial clone filter, whatever its promisor key says. The case with a false value added
+    # after the true one removes the filter key, so that only the promisor values decide.
+    for change in changes:
         git(clone, "config", *change)
     objects = git(clone, "count-objects", "-v")
     with pytest.raises(partial_reverts.Unfinished) as stopped:
