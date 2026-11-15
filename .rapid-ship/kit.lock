@@ -594,7 +594,7 @@ sha256 = "0e023b49dacb8ea5266fecfcc2ff0d2252ce775d30d22ffffe9b4e885448dba7"
 [[file]]
 path = "tools/devctl/devctl/metrics/partial_reverts.py"
 kind = "managed"
-sha256 = "8d4436bf6b02a6573b6baac9cb2c0e4f3969fee94f852f69fe8e93b4ede0865f"
+sha256 = "86456a51ece0a0cd1089720ccc223d0fbb21ba68dd5f1e3a4ae6fdfd755de6c2"
 
 [[file]]
 path = "tools/devctl/devctl/metrics/post.py"
