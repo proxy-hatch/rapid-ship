@@ -1,10 +1,44 @@
-"""The guided errors for an existing stack that has no source root: where init looked, what to
-create or move and commit, and how to leave the stack out."""
+"""The guided errors init raises before it writes anything: a package that is no Python package
+name, a pyproject.toml it cannot read, and an existing stack with no package directory or source
+root. Each names its cause (where the package came from, the file init could not read, or the
+directories it looked in) and a next step that works as written. init.py keeps the lookup."""
 
 from collections.abc import Sequence
 
 from rapid_ship.kit.stacks import ProjectStack, under
 from rapid_ship.kit.templates import KitError
+
+
+def option_not_a_package_name(package: str) -> KitError:
+    """A --package value that is no Python package name."""
+    return KitError(
+        f"package {package!r} is not a Python package name; --package takes the package "
+        "directory's name, not a path."
+    )
+
+
+def default_not_a_package_name(package: str, declared: str | None, project_name: str) -> KitError:
+    """The package that init derived is no Python package name. It comes from the root
+    pyproject.toml's [project] name, declared, else from the project name."""
+    origin = (
+        f"the [project] name {declared!r} in pyproject.toml"
+        if declared
+        else f"the project name {project_name!r}"
+    )
+    return KitError(
+        f"package {package!r} is not a Python package name. It comes from {origin}; pass "
+        "--package to override it."
+    )
+
+
+def unreadable_root(error: Exception) -> KitError:
+    """The root pyproject.toml, which init reads for the package before it looks at any stack,
+    so the error names the file and no stack's directory."""
+    return KitError(
+        f"init wrote nothing: cannot read pyproject.toml ({error}). Fix pyproject.toml and "
+        "commit the fix, then run init again, or pass --package with the package directory's "
+        "name, not its path, so that init does not read the file."
+    )
 
 
 def leave_out(stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
@@ -18,6 +52,18 @@ def leave_out(stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
     return (
         f"If {where} holds no product code, replace {option} with a --stack option for each "
         "stack that has product code, or with --stack agnostic when none has."
+    )
+
+
+def unreadable_stack(
+    stack: ProjectStack, stacks: Sequence[ProjectStack], error: Exception
+) -> KitError:
+    """A stack's own pyproject.toml, which init reads for its package. The error names no
+    package directory, because init could not read the name."""
+    settings = under(stack.directory, "pyproject.toml")
+    return KitError(
+        f"init wrote nothing: cannot read {settings} ({error}). Fix {settings} and commit the "
+        f"fix, then run init again. {leave_out(stack, stacks)}"
     )
 
 

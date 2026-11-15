@@ -9,8 +9,9 @@ import keyword
 import os
 import re
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from rapid_ship.files import UnsafePath, create_file, safe_path
@@ -35,7 +36,14 @@ from rapid_ship.kit.templates import (
     load_manifest,
     render_files,
 )
-from rapid_ship.kit.way_out import leave_out, no_project_name, no_source_root
+from rapid_ship.kit.way_out import (
+    default_not_a_package_name,
+    no_project_name,
+    no_source_root,
+    option_not_a_package_name,
+    unreadable_root,
+    unreadable_stack,
+)
 from rapid_ship.kit.writes import Undo
 
 INIT_BRANCH = "rapid-ship/init"
@@ -47,10 +55,6 @@ _SEPARATORS = re.compile(r"[-_.]+")
 # devctl's settings.py keeps a copy of this pattern; tests/devctl checks that the two agree.
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _MAX_LOGIN = 39
-_UNREADABLE_ROOT = (
-    "Fix pyproject.toml and commit the fix, then run init again, or pass --package with the "
-    "package directory's name, not its path, so that init does not read the file."
-)
 # A github.com remote: https://, http:// or ssh:// with an optional user (or user:token), or the
 # scp form git@github.com:owner/name. The path is checked against _REPOSITORY afterwards.
 _GITHUB_REMOTE = re.compile(
@@ -96,22 +100,17 @@ def resolve_variables(
     project_name = _default_project_name(root, repository) if name is None else name
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
-    hint = "; --package takes the package directory's name, not a path."
     if package is None:
-        declared = _project_name(root, ".", _UNREADABLE_ROOT)
-        origin = (
-            f"the [project] name {declared!r} in pyproject.toml"
-            if declared
-            else f"the project name {project_name!r}"
-        )
-        hint = f". It comes from {origin}; pass --package to override it."
+        declared = _project_name(root, ".", unreadable_root)
         package = (
             _import_name(declared)
             if declared
             else re.sub(r"[^a-z0-9]+", "_", project_name.lower()).strip("_")
         )
-    if not package.isidentifier() or keyword.iskeyword(package):
-        raise KitError(f"package {package!r} is not a Python package name{hint}")
+        if not _is_package_name(package):
+            raise default_not_a_package_name(package, declared, project_name)
+    elif not _is_package_name(package):
+        raise option_not_a_package_name(package)
     if owner is not None and (len(owner) > _MAX_LOGIN or not _LOGIN.fullmatch(owner)):
         raise KitError(f"owner {owner!r} is not a GitHub login; check --owner")
     return {
@@ -161,10 +160,17 @@ def _import_name(distribution: str) -> str:
     return _SEPARATORS.sub("_", distribution.lower())
 
 
-def _project_name(root: Path, directory: str, fix: str) -> str | None:
-    """The [project] name in directory's pyproject.toml, or None when it has none.
+def _is_package_name(package: str) -> bool:
+    return package.isidentifier() and not keyword.iskeyword(package)
 
-    A file that cannot be read or parsed raises a KitError that ends with fix.
+
+def _project_name(
+    root: Path, directory: str, unreadable: Callable[[Exception], KitError]
+) -> str | None:
+    """The [project] name in directory's pyproject.toml, or None when the file is missing or has
+    no name.
+
+    A file that cannot be read or parsed raises the KitError that unreadable builds.
     """
     relative = under(directory, "pyproject.toml")
     try:
@@ -178,7 +184,7 @@ def _project_name(root: Path, directory: str, fix: str) -> str | None:
         RecursionError,
         UnsafePath,
     ) as error:
-        raise KitError(f"init wrote nothing: cannot read {relative} ({error}). {fix}") from error
+        raise unreadable(error) from error
     project = document.get("project")
     name = project.get("name") if isinstance(project, dict) else None
     return name if isinstance(name, str) and name else None
@@ -186,9 +192,7 @@ def _project_name(root: Path, directory: str, fix: str) -> str | None:
 
 def _own_package(root: Path, stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
     """The import name of the [project] name in a stack's own pyproject.toml."""
-    settings = under(stack.directory, "pyproject.toml")
-    fix = f"Fix {settings} and commit the fix, then run init again. {leave_out(stack, stacks)}"
-    declared = _project_name(root, stack.directory, fix)
+    declared = _project_name(root, stack.directory, partial(unreadable_stack, stack, stacks))
     if not declared:
         raise no_project_name(stack, stacks)
     return _import_name(declared)
