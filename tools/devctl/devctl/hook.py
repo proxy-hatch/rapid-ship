@@ -68,8 +68,8 @@ _MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
 # A GraphQL endpoint that parse_api leaves as a URL: a host's /graphql or, on GitHub Enterprise
 # Server, its /api/graphql, in any case.
 _GRAPHQL_URL = re.compile(r"[a-z][a-z0-9+.-]*://[^/]+/(?:api/)?graphql", re.IGNORECASE)
-# What gh's -F fills in a value from the repository, GH_REPO or the current branch.
-_GH_PLACEHOLDER = re.compile(r":(?:owner|repo|branch)\b|\{(?:owner|repo|branch)\}")
+# What gh fills in a -F value from the repository, GH_REPO or the current branch. gh's \b is ASCII.
+_GH_PLACEHOLDER = re.compile(r":(?:owner|repo|branch)\b|\{(?:owner|repo|branch)\}", re.ASCII)
 # One GraphQL token, or one run of what GraphQL ignores. A block string comes before a string,
 # which never starts at a triple quote, and each alternative inside a string takes a character in
 # one way only, so that backtracking cannot end a string early.

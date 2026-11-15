@@ -72,6 +72,7 @@ QUERIES = {  # documents that hold queries alone, whatever else they hold
         '{ a(x: ":repository", y: ":branches", z: "{ownership}") { b } }'
     ),
     "placeholder names with a capital or spaces": '{ a(x: ":Owner", y: "{ repo }") { owner } }',
+    "names that go on after a placeholder name": '{ a(x: ":repo_", y: ":repoe") { b } }',
 }
 OTHER_DOCUMENTS = {  # documents that hold more than queries, or that the hook cannot read
     "a mutation": MUTATION,
@@ -128,6 +129,16 @@ PLACES = {  # a document of queries alone, with <name> where a placeholder can s
     "a block string": '{ repository(name: """<name>""") { id } }',
     "a comment": "# <name>\n{ viewer { login } }",
     "a selection set": "{ viewer { login } } { a(x: <name>) { b } }",
+}
+# The places where a letter outside ASCII is valid GraphQL: a selection set takes none.
+TEXT_PLACES = {name: place for name, place in PLACES.items() if name != "a selection set"}
+# gh's matcher is a Go regexp, whose word boundary reads ASCII only, so a name that one of these
+# follows at once is a placeholder. Python's word boundary counts them as word characters.
+LETTERS_OUTSIDE_ASCII = {
+    "e with an acute accent": chr(0xE9),
+    "n with a tilde": chr(0xF1),
+    "u with a diaeresis": chr(0xFC),
+    "a CJK character": chr(0x4E2D),
 }
 # GH_REPO names a repository whose name closes the block string that the hook reads in the document
 # below. What gh sends once it has put that name in place of {repo} holds a mutation beside queries.
@@ -345,6 +356,26 @@ def test_a_document_that_holds_a_placeholder_that_gh_fills_is_a_write(
     reason = denial(graphql(place.replace("<name>", name), field=field))
     assert reason is not None
     assert reason.startswith("G8: ")
+
+
+@pytest.mark.parametrize("field", ["-F", "-f"])
+@pytest.mark.parametrize("letter", LETTERS_OUTSIDE_ASCII.values(), ids=list(LETTERS_OUTSIDE_ASCII))
+@pytest.mark.parametrize("name", [":owner", ":repo", ":branch"])
+@pytest.mark.parametrize("place", TEXT_PLACES.values(), ids=list(TEXT_PLACES))
+def test_a_placeholder_that_a_letter_outside_ascii_follows_at_once_is_a_write(
+    place: str, name: str, letter: str, field: str
+) -> None:
+    reason = denial(graphql(place.replace("<name>", f"{name}{letter}"), field=field))
+    assert reason is not None
+    assert reason.startswith("G8: ")
+
+
+@pytest.mark.parametrize("letter", LETTERS_OUTSIDE_ASCII.values(), ids=list(LETTERS_OUTSIDE_ASCII))
+@pytest.mark.parametrize("place", TEXT_PLACES.values(), ids=list(TEXT_PLACES))
+def test_a_letter_outside_ascii_after_a_name_that_holds_no_colon_is_a_read(
+    place: str, letter: str
+) -> None:
+    assert decided(graphql(place.replace("<name>", f"repo{letter}")), ON) == (None, "")
 
 
 def test_filling_a_placeholder_can_turn_a_document_of_queries_into_a_write() -> None:
