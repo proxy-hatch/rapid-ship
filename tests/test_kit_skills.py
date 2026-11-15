@@ -60,6 +60,6 @@ def test_every_kit_skill_has_its_named_skill_md_and_claude_link_in_a_new_project
     assert skill_file_errors(tracked) == []
     assert skill_alias_errors(tracked) == []
     templates = REPOSITORY / "rapid_ship/templates/common/.agents/skills"
-    optional = load_manifest().optional_skills
+    optional = load_manifest().optional
     expected = {p.parent.name for p in templates.glob("*/SKILL.md")} - optional
     assert {p.name for p in (git_repo / ".claude/skills").iterdir()} == expected

@@ -8,8 +8,10 @@ from __future__ import annotations
 import keyword
 import os
 import re
-from collections.abc import Mapping, Sequence
+import tomllib
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from rapid_ship.files import UnsafePath, create_file, safe_path
@@ -34,6 +36,14 @@ from rapid_ship.kit.templates import (
     load_manifest,
     render_files,
 )
+from rapid_ship.kit.way_out import (
+    default_not_a_package_name,
+    no_project_name,
+    no_source_root,
+    option_not_a_package_name,
+    unreadable_root,
+    unreadable_stack,
+)
 from rapid_ship.kit.writes import Undo
 
 INIT_BRANCH = "rapid-ship/init"
@@ -41,6 +51,7 @@ FIRST_COMMIT_MESSAGE = "chore: start the repository"
 _LISTED = 20  # dirty paths a refusal lists before it counts the rest
 _PROJECT_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")  # PEP 508 name
 _LOGIN = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")  # GitHub login, at most 39
+_SEPARATORS = re.compile(r"[-_.]+")
 # devctl's settings.py keeps a copy of this pattern; tests/devctl checks that the two agree.
 _REPOSITORY = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/(?!\.{1,2}$)[A-Za-z0-9._-]+")
 _MAX_LOGIN = 39
@@ -78,6 +89,9 @@ def resolve_variables(
     """The four template variables the lock records. These values are substituted into TOML
     strings and CODEOWNERS, so each is validated. An absent owner is "".
     Rendering derives the fifth, code_owner, from the owner.
+
+    Without package, it is the root pyproject.toml's [project] name as an import name, else
+    it comes from the project name, whatever the stacks are.
     """
     if repository is not None and not _REPOSITORY.fullmatch(repository):
         raise KitError(f"repository {repository!r} is not owner/name; check --repository")
@@ -87,9 +101,16 @@ def resolve_variables(
     if not _PROJECT_NAME.fullmatch(project_name):
         raise KitError(f"project name {project_name!r} is not a valid project name; check --name")
     if package is None:
-        package = re.sub(r"[^a-z0-9]+", "_", project_name.lower()).strip("_")
-    if not package.isidentifier() or keyword.iskeyword(package):
-        raise KitError(f"package {package!r} is not a Python package name; check --package")
+        declared = _project_name(root, ".", unreadable_root)
+        package = (
+            _import_name(declared)
+            if declared
+            else re.sub(r"[^a-z0-9]+", "_", project_name.lower()).strip("_")
+        )
+        if not _is_package_name(package):
+            raise default_not_a_package_name(package, declared, project_name)
+    elif not _is_package_name(package):
+        raise option_not_a_package_name(package)
     if owner is not None and (len(owner) > _MAX_LOGIN or not _LOGIN.fullmatch(owner)):
         raise KitError(f"owner {owner!r} is not a GitHub login; check --owner")
     return {
@@ -134,6 +155,95 @@ def _github_repository(url: str) -> str | None:
     return match[1]
 
 
+def _import_name(distribution: str) -> str:
+    """The import name of a distribution name: lowercase, each run of - _ . replaced by _."""
+    return _SEPARATORS.sub("_", distribution.lower())
+
+
+def _is_package_name(package: str) -> bool:
+    return package.isidentifier() and not keyword.iskeyword(package)
+
+
+def _project_name(
+    root: Path, directory: str, unreadable: Callable[[Exception], KitError]
+) -> str | None:
+    """The [project] name in directory's pyproject.toml, or None when the file is missing or has
+    no name.
+
+    A file that cannot be read or parsed raises the KitError that unreadable builds.
+    """
+    relative = under(directory, "pyproject.toml")
+    try:
+        document = tomllib.loads(safe_path(root, relative).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (
+        OSError,
+        UnicodeDecodeError,
+        tomllib.TOMLDecodeError,
+        RecursionError,
+        UnsafePath,
+    ) as error:
+        raise unreadable(error) from error
+    project = document.get("project")
+    name = project.get("name") if isinstance(project, dict) else None
+    return name if isinstance(name, str) and name else None
+
+
+def _own_package(root: Path, stack: ProjectStack, stacks: Sequence[ProjectStack]) -> str:
+    """The import name of the [project] name in a stack's own pyproject.toml."""
+    declared = _project_name(root, stack.directory, partial(unreadable_stack, stack, stacks))
+    if not declared:
+        raise no_project_name(stack, stacks)
+    return _import_name(declared)
+
+
+def _find_root(
+    tracked: Sequence[str],
+    stack: ProjectStack,
+    stacks: Sequence[ProjectStack],
+    candidates: Sequence[str],
+) -> str:
+    """The first candidate, relative to the stack's directory, that holds a tracked file."""
+    directories = [under(stack.directory, candidate) for candidate in candidates]
+    for candidate, directory in zip(candidates, directories, strict=True):
+        if any(path.startswith(f"{directory}/") for path in tracked):
+            return candidate
+    raise no_source_root(stack, stacks, directories)
+
+
+def _existing_source_roots(
+    root: Path,
+    stacks: Sequence[ProjectStack],
+    new_projects: Sequence[ProjectStack],
+    variables: Mapping[str, str],
+) -> dict[str, str]:
+    """The source root of each existing Python stack, keyed source_root:<directory> as the lock
+    records it. A new stack's seeds create its own, src/<package>.
+
+    The root stack's package is the project's, so an explicit --package wins. Another stack's is
+    its own [project] name. A Python stack looks in src/<package>, then <package> for a flat
+    layout. Any other existing stack keeps its kit's source root. A stack with no tracked file
+    in its source root raises a KitError, which stops init before it writes anything.
+    """
+    existing = [s for s in stacks if s not in new_projects and KITS[s.name].source_root]
+    if not existing:
+        return {}
+    tracked = [os.fsdecode(path) for path in git(root, "ls-files", "-z", "--cached").split(b"\0")]
+    recorded: dict[str, str] = {}
+    for stack in existing:
+        if stack.name != "python":
+            _find_root(tracked, stack, stacks, [KITS[stack.name].source_root.format(**variables)])
+            continue
+        package = (
+            variables["package"] if stack.directory == "." else _own_package(root, stack, stacks)
+        )
+        recorded[f"source_root:{stack.directory}"] = _find_root(
+            tracked, stack, stacks, [f"src/{package}", package]
+        )
+    return recorded
+
+
 def init_repository(
     root: Path,
     *,
@@ -153,6 +263,7 @@ def init_repository(
         if (marker := KITS[s.name].new_project_marker)
         and not os.path.lexists(root / under(s.directory, marker))
     ]
+    variables = {**variables, **_existing_source_roots(root, stacks, new_projects, variables)}
     templates = render_files(stacks, variables, (), new_projects=new_projects, root=templates_root)
     writes, skipped, conflicts = _plan(root, templates)
     if conflicts:

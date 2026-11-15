@@ -38,8 +38,11 @@ def listed(
     commit_all: Callable[..., None],
     files: Mapping[str, bytes],
 ) -> list[str]:
-    """What init lists for a repository that holds exactly these committed files."""
+    """What init lists for a repository that holds exactly these committed files, plus the package
+    that an existing pyproject.toml needs."""
     write(git_repo, files)
+    if "pyproject.toml" in files:
+        write(git_repo, {f"{kit_variables['package']}/__init__.py": b""})
     commit_all(git_repo)
     result = init_repository(
         git_repo,
@@ -64,6 +67,7 @@ def test_init_lists_the_settings_hooks_and_workflows_already_there_sorted_withou
             "ruff.toml": b"line-length = 100\n",
             ".pre-commit-config.yaml": b"repos: []\n",
             "pyproject.toml": b"[tool.mypy]\nstrict = true\n",
+            "demo_app/__init__.py": b"",
             ".github/workflows/ci.yml": b"name: ci\n",
         },
     )
@@ -394,6 +398,8 @@ def test_init_lists_the_checks_already_there_between_the_commit_and_the_next_ste
 ) -> None:
     (git_repo / "ruff.toml").write_text("line-length = 100\n")
     (git_repo / "pyproject.toml").write_text("[project]\nname = 'demo'\n[tool.mypy]\n")
+    (git_repo / "demo").mkdir()
+    (git_repo / "demo/__init__.py").write_text("")
     (git_repo / ".github/workflows").mkdir(parents=True)
     (git_repo / ".github/workflows/ci.yml").write_text("name: ci\n")
     commit_all(git_repo, "Start")
@@ -438,9 +444,12 @@ def test_an_unreadable_setting_is_listed_and_does_not_change_the_exit_code(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     (git_repo / "pyproject.toml").write_text("[tool.mypy\n")
+    (git_repo / "demo").mkdir()
+    (git_repo / "demo/__init__.py").write_text("")
     commit_all(git_repo, "Start")
     monkeypatch.chdir(git_repo)
 
-    assert main(["init", "--stack", "python"]) == 0
+    # Without --package, init reads the root pyproject.toml for the package name and stops.
+    assert main(["init", "--stack", "python", "--package", "demo"]) == 0
 
     assert f"{EXISTING}  pyproject.toml (unreadable)\nNext: " in capsys.readouterr().out

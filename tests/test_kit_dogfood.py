@@ -8,7 +8,7 @@ from pathlib import Path
 from rapid_ship.kit.lock import read_lock
 from rapid_ship.kit.status import classify
 from rapid_ship.kit.sync import sync_repository
-from rapid_ship.kit.templates import is_excluded, read_excluded, read_optional_skills, render_files
+from rapid_ship.kit.templates import is_excluded, read_excluded, read_optional, render_files
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = "rapid_ship/templates"
@@ -64,7 +64,7 @@ def owned_kit_files(root: Path, templates_root: Path | None = None) -> list[str]
     found them edited or deleted. Excluded paths are the project's by choice and not listed."""
     lock = read_lock(root)
     excluded = read_excluded(root)
-    optional = read_optional_skills(root)
+    optional = read_optional(root)
     templates = {
         t.path: t for t in render_files(lock.stacks, lock.variables, optional, root=templates_root)
     }

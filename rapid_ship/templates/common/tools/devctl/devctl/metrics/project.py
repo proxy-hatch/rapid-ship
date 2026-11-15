@@ -21,6 +21,8 @@ from devctl.process import first_line
 MEASURE_SECONDS = 60.0
 _PREFIX = "devctl_project.metrics()"
 _ID = re.compile(r"[a-z][a-z0-9_]*")
+_FIRST_UTC = datetime.min.replace(tzinfo=UTC)
+_LAST_UTC = datetime.max.replace(tzinfo=UTC)
 _Called = tuple[object, Exception | None]  # a call's result, or the Exception it raised
 
 
@@ -35,14 +37,24 @@ def _call(function: Callable[[], object]) -> _Called:
         return None, error
 
 
+def _written(text: str) -> str:
+    """text with each character that UTF-8 cannot write, such as a lone surrogate, escaped."""
+    return text.encode("utf-8", "backslashreplace").decode("utf-8")
+
+
 def _described(error: Exception) -> str:
+    """The type of error and the first line of its message, or only the type if str(error) fails.
+
+    A character of the message that UTF-8 cannot write stays in it as its escape.
+    """
     name = type(error).__name__
-    message = first_line(str(error))
-    return f"{name}: {message}" if message else name
+    message, _ = _call(lambda: _written(first_line(str(error))))
+    return f"{name}: {message}" if isinstance(message, str) and message else name
 
 
 def _text(value: object) -> bool:
-    return isinstance(value, str)
+    """A str that UTF-8 can write."""
+    return isinstance(value, str) and value == _written(value)
 
 
 def _aware(value: object) -> bool:
@@ -55,6 +67,11 @@ def _whole(value: object) -> bool:
 
 def _number(value: object) -> bool:
     return _whole(value) or isinstance(value, float)
+
+
+def _pr_number(value: object) -> bool:
+    """A number that names a PR: above 0, and within the 15 digits that every JSON reader keeps."""
+    return _whole(value) and 0 < cast("int", value) < 10**15
 
 
 def _finite(value: object) -> bool:
@@ -77,9 +94,20 @@ def _metric_problem(metric: object, seen: set[str]) -> str | None:
         return f"id = {shown}: another metric already defines {name}; choose another id"
     seen.add(name)
     title = getattr(metric, "title", None)
-    if not isinstance(title, str) or not title:
-        return f"id = {shown}: title = {title!r}: use a non-empty string"
+    if not _text(title) or not title:
+        return f"id = {shown}: title = {title!r}: use a non-empty string that can be written"
     return None
+
+
+def _checked(metric: object, seen: set[str]) -> str | None:
+    """The problem with metric, or None.
+
+    Project code defines the attributes that are checked, so reading one can raise.
+    """
+    problem, error = _call(lambda: _metric_problem(metric, seen))
+    if error is not None:
+        return f"{type(metric).__name__} cannot be checked: {_described(error)}"
+    return problem if isinstance(problem, str) else None
 
 
 def project_metrics() -> tuple[Metric, ...]:
@@ -95,19 +123,29 @@ def project_metrics() -> tuple[Metric, ...]:
             (f"{_PREFIX}: returned {type(found).__name__}, not a list of Metric",)
         )
     seen: set[str] = set()
-    problems = [_metric_problem(metric, seen) for metric in found]
+    problems = [_checked(metric, seen) for metric in found]
     if any(problems):
         raise MetricsSettingsError(tuple(f"{_PREFIX}: {p}" for p in problems if p is not None))
     return tuple(found)
 
 
+def _time_problem(record: str, when: datetime) -> str | None:
+    if not _aware(when):
+        return f"{record} with a time without a time zone"
+    if not _FIRST_UTC <= when <= _LAST_UTC:
+        return f"{record} with a time that UTC cannot hold"
+    return None
+
+
 def _incident_problem(item: Incident) -> str | None:
     if not _text(item.url):
-        return "an incident with a url that is not text"
-    if not _aware(item.time):
-        return "an incident with a time without a time zone"
+        return "an incident with a url that is not text that can be written"
+    if problem := _time_problem("an incident", item.time):
+        return problem
     cause = item.cause
-    if cause is not None and not _text(cause) and not _whole(cause):
+    if isinstance(cause, str) and not _text(cause):
+        return "an incident with a cause that is not text that can be written"
+    if cause is not None and not _text(cause) and not _pr_number(cause):
         return "an incident with a cause that is not a PR number or a commit"
     return None
 
@@ -117,12 +155,10 @@ def _item_problem(item: object, incident_metric: bool) -> str | None:
         return _incident_problem(item)
     if isinstance(item, Item) and not incident_metric:
         if not _text(item.label):
-            return "an item with a label that is not text"
+            return "an item with a label that is not text that can be written"
         if item.url is not None and not _text(item.url):
-            return "an item with a url that is not text"
-        if item.time is not None and not _aware(item.time):
-            return "an item with a time without a time zone"
-        return None
+            return "an item with a url that is not text that can be written"
+        return None if item.time is None else _time_problem("an item", item.time)
     allowed = "Incident" if incident_metric else "Item or Incident"
     return f"an item of type {type(item).__name__}: use {allowed} records"
 
@@ -130,8 +166,10 @@ def _item_problem(item: object, incident_metric: bool) -> str | None:
 def _result_problem(metric: Metric, result: MetricResult) -> str | None:
     value = result.value
     if value is None:
-        if not _text(result.reason) or not result.reason:
+        if not isinstance(result.reason, str) or not result.reason:
             return "no value and no reason"
+        if not _text(result.reason):
+            return "a reason that is not text that can be written"
     elif not _finite(value) or value < 0:
         return f"value of type {type(value).__name__}: use a finite number of at least 0"
     items: object = result.items  # project code can return what the annotation forbids
@@ -155,13 +193,7 @@ def _record(item: Item | Incident) -> dict[str, object]:
     return {"label": item.label, "url": item.url, "time": when, "state": "counted"}
 
 
-def _measured(metric: Metric, result: object, error: Exception | None, timed_out: str) -> Measured:
-    if isinstance(error, AllowanceUsedUp):
-        return Measured(None, error.reason())
-    if isinstance(error, MeasurementClosed):
-        return Measured(None, timed_out)
-    if error is not None:
-        return Measured(None, _described(error))
+def _converted(metric: Metric, result: object) -> Measured:
     if not isinstance(result, MetricResult):
         return Measured(None, f"measure returned {type(result).__name__}, not a MetricResult")
     problem = _result_problem(metric, result)
@@ -169,6 +201,21 @@ def _measured(metric: Metric, result: object, error: Exception | None, timed_out
         return Measured(None, f"measure returned {problem}")
     reason = result.reason if result.value is None else None
     return Measured(result.value, reason, items=tuple(_record(item) for item in result.items))
+
+
+def _measured(metric: Metric, result: object, error: Exception | None, timed_out: str) -> Measured:
+    if isinstance(error, AllowanceUsedUp):
+        return Measured(None, error.reason())
+    if isinstance(error, MeasurementClosed):
+        return Measured(None, timed_out)
+    if error is not None:
+        return Measured(None, _described(error))
+    # Validation cannot foresee every value that fails to convert; such a result is unknown too.
+    converted, failure = _call(lambda: _converted(metric, result))
+    if failure is not None:
+        why = _described(failure)
+        return Measured(None, f"measure returned a result that cannot be reported: {why}")
+    return cast("Measured", converted)
 
 
 def _run(metric: Metric, context: MetricContext, outcome: list[_Called]) -> None:

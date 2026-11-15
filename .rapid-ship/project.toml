@@ -26,7 +26,7 @@ every_pr = false
 protected_edits = false
 
 [kit]
-optional = []          # opt-in Kit skills: rs-contribute
+optional = []          # opt-in Kit skills and files: .github/workflows/rapid-ship-metrics.yml, rs-contribute
 exclude = []           # Kit files or directories the project owns instead
 
 [map]

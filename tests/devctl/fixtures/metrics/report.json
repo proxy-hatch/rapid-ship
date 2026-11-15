@@ -4,6 +4,9 @@
   "window": {"size": 30, "prs": 1, "population": "agent", "since": "2026-10-10T00:00:00Z", "not_fetched": 0},
   "metrics": [
     {"id": "revisions", "title": "Revisions", "kind": "count", "population": "agent", "value": 2, "unknown": 0, "reason": null, "items": [], "threshold": 1.0, "status": "breached"},
-    {"id": "red_merges", "title": "Red merges", "kind": "count", "population": "agent", "value": 0, "unknown": 2, "reason": null, "items": [], "threshold": 1, "status": "unknown"}
+    {"id": "reverts", "title": "Reverts", "kind": "count", "population": "agent", "value": 1, "unknown": 0, "reason": null, "items": [{"pr": 1, "state": "counted", "commit": "cccccccccccccccccccccccccccccccccccccccc", "revert": "whole"}], "threshold": 1, "status": "ok"},
+    {"id": "red_merges", "title": "Red merges", "kind": "count", "population": "agent", "value": 0, "unknown": 2, "reason": null, "items": [], "threshold": 1, "status": "unknown"},
+    {"id": "closed_unmerged", "title": "Closed unmerged", "kind": "count", "population": "agent", "value": 4, "unknown": 1, "reason": null, "items": [{"pr": 9, "state": "counted"}, {"pr": 7, "state": "counted"}, {"pr": 5, "state": "counted"}, {"pr": 3, "state": "counted"}, {"pr": 2, "state": "unknown", "detail": "its last closed event names no actor, or it has no closed event"}], "threshold": 3, "status": "breached"},
+    {"id": "corrections", "title": "Corrections", "kind": "count", "population": "ledger", "value": 3, "unknown": 0, "reason": null, "items": [{"entry": "docs/corrections/2026-10-11-env-read-1.md", "state": "counted"}, {"entry": "docs/corrections/2026-10-12-env-read-2.md", "state": "counted"}, {"entry": "docs/corrections/2026-10-13-logging-1.md", "state": "counted"}], "threshold": null, "status": null, "by_rung": {"1": 2, "2": 1, "3": 0, "4": 0}, "repeats": ["docs/corrections/2026-10-12-env-read-2.md"], "not_gardened": [1]}
   ], "notes": []
 }

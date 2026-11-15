@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import inspect
+import json
 import math
 import threading
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
-from typing import cast
+from typing import NoReturn, cast
 
 import pytest
 
@@ -38,6 +39,10 @@ from metrics_fakes import (
 SINCE = datetime(2026, 10, 1, tzinfo=UTC)
 UNTIL = datetime(2026, 10, 16, tzinfo=UTC)
 NAIVE = datetime.fromisoformat("2026-10-02T00:00:00")
+BEFORE_UTC = datetime.min.replace(tzinfo=timezone(timedelta(hours=8)))  # earlier than UTC holds
+AFTER_UTC = datetime.max.replace(tzinfo=timezone(timedelta(hours=-5)))  # later than UTC holds
+LONE = chr(0xD800)  # a lone surrogate, which UTF-8 cannot write
+ESCAPED = r"\ud800"  # how the description of an error shows it
 TIMED_OUT = "measure ran longer than 0.1 seconds"
 LIMITED = {"repos/o/r/limited": OwnerReadError(403, "API rate limit exceeded"), "rate_limit": RESET}
 
@@ -81,8 +86,51 @@ class Untitled(Metric):
         return MetricResult(1)
 
 
+class Unwritable(Metric):
+    id = "unwritable"
+    title = f"a{LONE}b"
+
+    def measure(self, context: MetricContext) -> MetricResult:
+        return MetricResult(1)
+
+
+class Unreadable(Metric):
+    """A metric whose attribute named by broken raises when it is read."""
+
+    def __init__(self, broken: str) -> None:
+        self.broken = broken
+        self.id = "unreadable"
+        self.title = "Unreadable"
+
+    def __getattribute__(self, name: str) -> object:
+        if name == object.__getattribute__(self, "broken"):
+            raise RuntimeError(f"{name} is broken")
+        return object.__getattribute__(self, name)
+
+    def measure(self, context: MetricContext) -> MetricResult:
+        return MetricResult(1)
+
+
+class Unconvertible(datetime):
+    """An aware time that raises when devctl converts it to UTC."""
+
+    def astimezone(self, tz: tzinfo | None = None) -> NoReturn:
+        raise RuntimeError(f"no conversion to {tz}")
+
+
+class Unprintable(Exception):
+    """An error whose message cannot be read."""
+
+    def __str__(self) -> str:
+        raise RuntimeError("no message")
+
+
 def raises() -> list[Metric]:
     raise RuntimeError("no metrics today")
+
+
+def raises_unprintable() -> list[Metric]:
+    raise Unprintable
 
 
 def steady(metric_id: str) -> Probe:
@@ -195,6 +243,33 @@ def test_a_metric_past_its_timeout_is_unknown() -> None:
         (False, bad(1, (Item(cast("str", 7)),)), "a label that is not text"),
         (False, bad(1, (Incident("u", SINCE, cast("int", SINCE)),)), "a cause that is not"),
         (True, MetricResult(1, items=(Item("a"),)), "an item of type Item"),
+        (False, bad(1, (Item("a", time=BEFORE_UTC),)), "an item with a time that UTC cannot hold"),
+        (
+            True,
+            MetricResult(1, items=(Incident("u", AFTER_UTC),)),
+            "an incident with a time that UTC cannot hold",
+        ),
+        (True, MetricResult(1, items=(Incident("u", SINCE, 10**5000),)), "not a PR number"),
+        (True, MetricResult(1, items=(Incident("u", SINCE, 0),)), "not a PR number"),
+        (True, MetricResult(1, items=(Incident("u", SINCE, 10**15),)), "not a PR number"),
+        (
+            False,
+            bad(1, (Item("a", time=Unconvertible(2026, 10, 2, tzinfo=UTC)),)),
+            "a result that cannot be reported: RuntimeError: no conversion to UTC",
+        ),
+        (False, MetricResult(None, f"a{LONE}b"), "a reason that is not text that can be written"),
+        (False, bad(1, (Item(f"a{LONE}b"),)), "a label that is not text that can be written"),
+        (False, bad(1, (Item("a", f"u{LONE}"),)), "a url that is not text that can be written"),
+        (
+            True,
+            MetricResult(1, items=(Incident(f"u{LONE}", SINCE),)),
+            "an incident with a url that is not text that can be written",
+        ),
+        (
+            True,
+            MetricResult(1, items=(Incident("u", SINCE, f"c{LONE}"),)),
+            "an incident with a cause that is not text that can be written",
+        ),
     ],
 )
 def test_a_bad_result_is_unknown(incident: bool, returned: object, reason: str) -> None:
@@ -206,12 +281,103 @@ def test_a_bad_result_is_unknown(incident: bool, returned: object, reason: str) 
     assert measured.items == ()
 
 
+@pytest.mark.parametrize(
+    "error",
+    [ValueError(10**5000), Unprintable()],
+    ids=["a message of 5,000 digits", "a __str__ that raises"],
+)
+def test_an_error_without_a_readable_message_is_described_by_its_type(error: Exception) -> None:
+    def explode(_: MetricContext) -> MetricResult:
+        raise error
+
+    assert run(Probe(explode)) == Measured(None, type(error).__name__)
+
+
+def test_an_error_message_that_utf8_cannot_write_is_described_with_its_escape() -> None:
+    def explode(_: MetricContext) -> MetricResult:
+        raise ValueError(f"a{LONE}b")
+
+    assert run(Probe(explode)) == Measured(None, f"ValueError: a{ESCAPED}b")
+
+
+def beyond_utc(_: MetricContext) -> MetricResult:
+    return MetricResult(1, items=(Item("early", time=BEFORE_UTC),))
+
+
+def huge_cause(_: MetricContext) -> MetricResult:
+    return MetricResult(1, items=(Incident("u", SINCE, 10**5000),))
+
+
+def huge_error(_: MetricContext) -> MetricResult:
+    raise ValueError(10**5000)
+
+
+def unwritable_reason(_: MetricContext) -> MetricResult:
+    return MetricResult(None, f"a{LONE}b")
+
+
+def unwritable_error(_: MetricContext) -> MetricResult:
+    raise ValueError(f"a{LONE}b")
+
+
+@pytest.mark.parametrize(
+    ("probe", "measure", "reason"),
+    [
+        (Probe, beyond_utc, "measure returned an item with a time that UTC cannot hold"),
+        (
+            IncidentProbe,
+            huge_cause,
+            "measure returned an incident with a cause that is not a PR number or a commit",
+        ),
+        (Probe, huge_error, "ValueError"),
+        (
+            Probe,
+            unwritable_reason,
+            "measure returned a reason that is not text that can be written",
+        ),
+        (Probe, unwritable_error, f"ValueError: a{ESCAPED}b"),
+    ],
+    ids=[
+        "a time UTC cannot hold",
+        "a cause of 5,000 digits",
+        "an error message of 5,000 digits",
+        "a reason UTF-8 cannot write",
+        "an error message UTF-8 cannot write",
+    ],
+)
+def test_a_metric_that_cannot_be_reported_is_unknown_and_the_report_prints(
+    probe: type[Probe],
+    measure: Callable[[MetricContext], MetricResult],
+    reason: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    h = served_project(tmp_path)
+    use_metrics(monkeypatch, probe(measure, "bad"), steady("steady"))
+    monkeypatch.setattr("devctl.metrics.command.gh_get", h.owner)
+    monkeypatch.chdir(h.path)
+    block_gh(tmp_path / "bin", monkeypatch)
+    assert main(["metrics"]) == 0
+    rows = {line.split()[0]: line for line in capsys.readouterr().out.splitlines() if line}
+    assert main(["metrics", "--json"]) == 0
+    metrics = {m["id"]: m for m in json.loads(capsys.readouterr().out)["metrics"]}
+    assert f"unknown: {reason}" in rows["bad"]
+    assert rows["steady"].split()[:3] == ["steady", "repository", "1"]
+    assert (metrics["bad"]["value"], metrics["bad"]["reason"], metrics["bad"]["items"]) == (
+        None,
+        reason,
+        [],
+    )
+    assert metrics["steady"]["value"] == 1
+
+
 def test_an_incident_metric_returns_records_with_and_without_a_cause() -> None:
     at = datetime(2026, 10, 3, 4, 5, 6, tzinfo=UTC)
-    causes = ((1, 42), (2, "a" * 40), (3, None))
+    causes = ((1, 42), (2, "a" * 40), (3, None), (4, 10**15 - 1))
     found = tuple(Incident(f"https://example.invalid/i/{n}", at, cause) for n, cause in causes)
-    assert run(IncidentProbe(lambda _: MetricResult(3, items=found))) == Measured(
-        3,
+    assert run(IncidentProbe(lambda _: MetricResult(4, items=found))) == Measured(
+        4,
         items=tuple(
             {
                 "url": f"https://example.invalid/i/{n}",
@@ -246,6 +412,19 @@ def test_an_incident_metric_is_marked_incident_when_empty_and_when_unknown(
 
 BROKEN: dict[str, tuple[Callable[[], object], str]] = {
     "raises": (raises, "RuntimeError: no metrics today"),
+    "raises an error without a readable message": (raises_unprintable, "Unprintable"),
+    "an id that raises": (
+        lambda: [Unreadable("id")],
+        "Unreadable cannot be checked: RuntimeError: id is broken",
+    ),
+    "a title that raises": (
+        lambda: [Unreadable("title")],
+        "Unreadable cannot be checked: RuntimeError: title is broken",
+    ),
+    "a title that UTF-8 cannot write": (
+        lambda: [Unwritable()],
+        "use a non-empty string that can be written",
+    ),
     "repeats an id": (
         lambda: [steady("same"), steady("same")],
         'id = "same": another metric already defines same',
@@ -423,16 +602,16 @@ def test_a_read_refused_after_the_deadline_reports_the_timeout(
 
 
 def test_a_stall_before_the_join_shortens_the_wait(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Offline: a simulated clock moves 0.9 seconds before the join, leaving 0.1 to wait."""
-    readings = iter([100.0, 100.9])  # the scope's deadline, then the join, 0.9 seconds later
-    monkeypatch.setattr("devctl.metrics.project.time.monotonic", lambda: next(readings, 100.9))
+    """Offline: a simulated clock moves 1.9 seconds before the join, leaving 0.1 to wait."""
+    readings = iter([100.0, 101.9])  # the scope's deadline, then the join, 1.9 seconds later
+    monkeypatch.setattr("devctl.metrics.project.time.monotonic", lambda: next(readings, 101.9))
     finish = threading.Event()
 
     def slow(_: MetricContext) -> MetricResult:
-        finish.wait(0.4)  # makes no read, and ends 0.4 seconds after it starts
+        finish.wait(1.0)  # makes no read, and ends 1 second after it starts
         return MetricResult(1)
 
     probe = Probe(slow)
-    assert run(probe, timeout=1.0) == Measured(None, "measure ran longer than 1 seconds")
+    assert run(probe, timeout=2.0) == Measured(None, "measure ran longer than 2 seconds")
     finish.set()
     probe.join()

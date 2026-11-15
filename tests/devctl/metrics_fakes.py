@@ -7,6 +7,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
@@ -26,6 +27,32 @@ NOW = datetime(2026, 10, 16, tzinfo=UTC)
 PROJECT = '[[stack]]\nname = "python"\ndirectory = "."\n[github]\nrepository = "o/r"\n'
 RESET = {"resources": {"core": {"reset": 1791007920}}}  # 2026-10-03 06:12 UTC
 ALLOWANCE = "GitHub API allowance used up; it resets at 06:12 UTC"
+WHEELS = ("cp312-macosx", "cp312-manylinux", "cp313-macosx", "cp313-manylinux")
+
+
+def entry_text(date: str, category: str = "env-read", rungs: str = "[1]") -> str:
+    """A valid Corrections ledger entry, dated date and naming the rungs in rungs."""
+    return (
+        f"---\ndate: {date}\nby: reviewer\nsource: session\ncategory: {category}\n"
+        f"rungs: {rungs}\nprevention: Read configuration through settings.\nstatus: open\n---\n"
+        "The review required settings.\n"
+    )
+
+
+def lock(version: int, packages: int) -> str:
+    """A lock file whose packages each list four wheels, all of which every version rewrites."""
+
+    def wheel(name: int, tag: str) -> str:
+        digest = sha256(f"{name}{tag}{version}".encode()).hexdigest()
+        url = f"https://files.example/pkg{name}-1.{version}-{tag}.whl"
+        return f'    {{ url = "{url}", hash = "sha256:{digest}" }},\n'
+
+    return "".join(
+        f'[[package]]\nname = "pkg{name}"\nwheels = [\n'
+        + "".join(wheel(name, tag) for tag in WHEELS)
+        + "]\n\n"
+        for name in range(packages)
+    )
 
 
 class MergedHistory:
@@ -37,18 +64,35 @@ class MergedHistory:
         git(path, "config", "commit.gpgsign", "false")
         self.owner = RecordedOwner({"repos/o/r": {"default_branch": "main"}})
         self.pulls: list[dict[str, object]] = []
+        self.unmerged: list[dict[str, object]] = []
         self.push({"initial": "root"})
 
-    def push(self, files: Mapping[str, str]) -> str:
-        for name, text in files.items():
+    def push(
+        self, files: Mapping[str, str | bytes | None], message: str = "recorded change"
+    ) -> str:
+        """Commit files directly; None deletes one. No PR merges the commit."""
+        for name, content in files.items():
             target = self.path / name
+            if content is None:
+                target.unlink()
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text)
+            if isinstance(content, bytes):
+                target.write_bytes(content)
+            else:
+                target.write_text(content)
         git(self.path, "add", ".")
-        git(self.path, "commit", "-q", "--allow-empty", "-m", "recorded change")
+        git(self.path, "commit", "-q", "--allow-empty", "-m", message)
         sha = git(self.path, "rev-parse", "HEAD")
         self.owner.serve(f"repos/o/r/commits/{sha}/pulls?per_page=64&page=1", [])
         return sha
+
+    def revert(self, sha: str, *, merge: bool = False) -> str:
+        """Undo sha with git revert, as a commit that no PR merges."""
+        git(self.path, "revert", "--no-edit", *(["-m", "1"] if merge else []), sha)
+        revert = git(self.path, "rev-parse", "HEAD")
+        self.owner.serve(f"repos/o/r/commits/{revert}/pulls?per_page=64&page=1", [])
+        return revert
 
     def merge(
         self,
@@ -82,12 +126,42 @@ class MergedHistory:
         self.closed_pages()
         return sha
 
+    def close(self, number: int, closer: str = "person", author: str = "o-worker[bot]") -> None:
+        """Record a PR that closer closed without merging, on the day of October 2026 it names."""
+        stamp = f"2026-10-{number:02d}T06:12:00Z"
+        self.unmerged.insert(
+            0,
+            {
+                "number": number,
+                "user": {"login": author},
+                "body": "",
+                "merged_at": None,
+                "closed_at": stamp,
+                "updated_at": stamp,
+                "merge_commit_sha": None,
+                "html_url": f"https://example.invalid/pull/{number}",
+            },
+        )
+        self.owner.serve(
+            f"repos/o/r/issues/{number}/events?per_page=64&page=1",
+            [{"event": "closed", "actor": {"login": closer}}],
+        )
+        self.closed_pages()
+
     def closed_pages(self) -> None:
         for offset in range(0, len(self.pulls) + 1, 64):
             self.owner.serve(
                 "repos/o/r/pulls?state=closed&base=main&sort=updated&direction=desc"
                 f"&per_page=64&page={offset // 64 + 1}",
                 self.pulls[offset : offset + 64],
+            )
+        closed = sorted([*self.pulls, *self.unmerged], key=lambda pr: str(pr["updated_at"]))
+        closed.reverse()
+        for offset in range(0, len(closed) + 1, 64):
+            self.owner.serve(
+                "repos/o/r/pulls?state=closed&sort=updated&direction=desc"
+                f"&per_page=64&page={offset // 64 + 1}",
+                closed[offset : offset + 64],
             )
 
     def publish(self) -> str:
@@ -98,7 +172,11 @@ class MergedHistory:
 
 
 def fake_gh(directory: Path, served: Mapping[str, object]) -> Path:
-    """Project the approved recorded filters before printing, as gh --jq does."""
+    """Project the approved recorded filters before printing, as gh --jq does.
+
+    A GET is served under its path. A POST or PATCH must pass --input -: its stdin body, which must
+    be JSON, is appended to stdin.log, and the answer is served under "<METHOD> <path>".
+    """
     data = directory / "served.json"
     directory.mkdir(parents=True, exist_ok=True)
     data.write_text(json.dumps(served))
@@ -108,8 +186,14 @@ def fake_gh(directory: Path, served: Mapping[str, object]) -> Path:
         """
 import re
 served = json.loads(here.with_name('served.json').read_text())
-assert sys.argv[1:4] == ['api', '--method', 'GET']
-value = served[sys.argv[4]]
+method, key = sys.argv[3], sys.argv[4]
+assert sys.argv[1:3] == ['api', '--method'] and method in ('GET', 'POST', 'PATCH')
+if method != 'GET':
+    assert sys.argv[5:] == ['--input', '-']
+    with open(here.with_name('stdin.log'), 'a') as stdin_log:
+        stdin_log.write(json.dumps(json.loads(sys.stdin.read())) + '\\n')
+    key = method + ' ' + key
+value = served[key]
 if isinstance(value, dict) and 'error' in value:
     sys.stderr.write(value['error'])
     sys.exit(1)
@@ -118,13 +202,16 @@ if '--jq' in sys.argv:
     if projection.startswith('['):
         rows = value['workflow_runs'] if '.workflow_runs[]' in projection else value
         fields = re.findall(r'\\b([a-z_]+)\\b', projection)
+        # A body is output only where the filter names it outside its marker test.
+        named = projection.replace('(.body // "")', '')
+        selects_body = 'body' in re.findall(r'\\b([a-z_]+)\\b', named)
         projected = []
         for row in rows:
             item = {key: row.get(key) for key in fields if key in row}
             if 'has_marker' in fields:
                 marker = '<!-- rapid-ship-metrics -->'
                 item['has_marker'] = (row.get('body') or '').startswith(marker)
-            if 'body' not in projection.split('has_marker')[0]:
+            if not selects_body:
                 item.pop('body', None)
             projected.append(item)
         value = projected
@@ -226,3 +313,15 @@ class GatedOwner(RecordedOwner):
             gate.entered.set()
             assert gate.release.wait(WAIT)
         return super().__call__(path, jq)
+
+
+def gh_argv(directory: Path) -> list[list[str]]:
+    """The arguments of every call the fake gh in directory received, in order."""
+    lines = (directory / "gh.log").read_text().splitlines()
+    return [json.loads(line)["argv"] for line in lines]
+
+
+def gh_bodies(directory: Path) -> list[dict[str, object]]:
+    """The JSON body of every write the fake gh in directory received, in order."""
+    log = directory / "stdin.log"
+    return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []

@@ -87,7 +87,7 @@ def test_rs_contribute_installs_only_when_opted_in(
     assert entries[".agents/skills/rs-contribute/SKILL.md"] == "managed"
     assert entries[".claude/skills/rs-contribute"] == "managed"
     project = load_project(git_repo)
-    assert project.optional_skills == ("rs-contribute",)
+    assert project.optional == ("rs-contribute",)
     commit_all(git_repo, "Install optional skill")
     assert skill_errors(TrackedFiles.read(Repo.discover(git_repo))) == []
 
