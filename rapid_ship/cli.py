@@ -93,7 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="project name; default: the GitHub repository name, else the main checkout's name",
     )
     init.add_argument(
-        "--package", help="Python package name; default: derived from the project name"
+        "--package",
+        help=(
+            "Python package name; default: the root pyproject.toml's [project] name as an import "
+            "name, else derived from the project name"
+        ),
     )
     status = commands.add_parser(
         "status", help="compare the vendored Kit with its lock and this release"

@@ -50,6 +50,8 @@ def test_the_starter_patterns_are_new_project_seeds_only(
     git_repo: Path, kit_variables: dict[str, str], commit_all: Callable[..., None]
 ) -> None:
     (git_repo / "pyproject.toml").write_text('[project]\nname = "ours"\n')
+    (git_repo / "demo_app").mkdir()
+    (git_repo / "demo_app/__init__.py").write_text("")
     commit_all(git_repo)
 
     init_repository(git_repo, stacks=(ProjectStack("python", "."),), variables=kit_variables)

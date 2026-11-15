@@ -1,4 +1,4 @@
-"""rapid-ship init's template variables and the project name default (offline)."""
+"""rapid-ship init's template variables and the project name and package defaults (offline)."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -211,3 +211,136 @@ def test_a_repository_name_that_is_not_a_project_name_needs_the_name_option(tmp_
     variables = resolve_variables(tmp_path / "demo", name="demo", repository="octo/.github")
 
     assert variables["repository"] == "octo/.github"
+
+
+def project_with(tmp_path: Path, text: str | bytes) -> Path:
+    root = tmp_path / "demo"
+    root.mkdir()
+    (root / "pyproject.toml").write_bytes(text.encode() if isinstance(text, str) else text)
+    return root
+
+
+def test_the_package_defaults_to_the_root_projects_name(tmp_path: Path) -> None:
+    root = project_with(tmp_path, '[project]\nname = "acme"\n')
+
+    variables = resolve_variables(root, repository="octo/acme-api")
+
+    assert (variables["project_name"], variables["package"]) == ("acme-api", "acme")
+
+
+@pytest.mark.parametrize(
+    ("name", "package"),
+    [
+        ("Acme", "acme"),
+        ("acme-api", "acme_api"),
+        ("Foo.Bar-baz__qux", "foo_bar_baz_qux"),
+        ("a--b..c_-d", "a_b_c_d"),
+    ],
+)
+def test_the_root_projects_name_becomes_an_import_name(
+    tmp_path: Path, name: str, package: str
+) -> None:
+    root = project_with(tmp_path, f'[project]\nname = "{name}"\n')
+
+    assert resolve_variables(root)["package"] == package
+
+
+def test_the_package_option_beats_the_root_projects_name(tmp_path: Path) -> None:
+    root = project_with(tmp_path, '[project]\nname = "acme"\n')
+
+    assert resolve_variables(root, package="my_pkg")["package"] == "my_pkg"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "[tool.ruff]\n", "[project]\n", '[project]\nname = ""\n', "[project]\nname = 3\n"],
+)
+def test_a_root_project_without_a_name_keeps_the_project_name_default(
+    tmp_path: Path, text: str
+) -> None:
+    root = project_with(tmp_path, text)
+
+    assert resolve_variables(root, name="demo-app")["package"] == "demo_app"
+
+
+@pytest.mark.parametrize("content", [b"[project\n", b"\xff\xfe[project]\n"])
+def test_an_unreadable_root_pyproject_names_the_file_and_the_way_out(
+    tmp_path: Path, content: bytes
+) -> None:
+    root = project_with(tmp_path, content)
+
+    with pytest.raises(
+        KitError,
+        match=r"^init wrote nothing: cannot read pyproject\.toml \(.+\)\. Fix pyproject\.toml and "
+        r"commit the fix, then run init again, or pass --package with the package directory's "
+        r"name, not its path, so that init does not read the file\.$",
+    ):
+        resolve_variables(root)
+
+    assert resolve_variables(root, package="my_pkg")["package"] == "my_pkg"
+
+
+def test_a_root_pyproject_that_is_a_directory_or_a_symlink_is_unreadable(tmp_path: Path) -> None:
+    folder = tmp_path / "folder"
+    (folder / "pyproject.toml").mkdir(parents=True)
+    linked = tmp_path / "linked"
+    linked.mkdir()
+    (linked / "real.toml").write_text('[project]\nname = "acme"\n')
+    (linked / "pyproject.toml").symlink_to("real.toml")
+
+    for root in (folder, linked):
+        with pytest.raises(KitError, match=r"cannot read pyproject\.toml"):
+            resolve_variables(root)
+
+
+def test_a_root_project_name_that_is_no_package_name_needs_the_package_option(
+    tmp_path: Path,
+) -> None:
+    root = project_with(tmp_path, '[project]\nname = "3d-engine"\n')
+
+    with pytest.raises(KitError) as caught:
+        resolve_variables(root)
+
+    assert str(caught.value) == (
+        "package '3d_engine' is not a Python package name. It comes from the [project] name "
+        "'3d-engine' in pyproject.toml; pass --package to override it."
+    )
+    assert resolve_variables(root, package="engine3d")["package"] == "engine3d"
+
+
+@pytest.mark.parametrize(
+    ("text", "options", "message"),
+    [
+        pytest.param(
+            "[tool.ruff]\n",
+            {"name": "3d-engine"},
+            "package '3d_engine' is not a Python package name. It comes from the project name "
+            "'3d-engine'; pass --package to override it.",
+            id="the project name",
+        ),
+        pytest.param(
+            '[project]\nname = "acme"\n',
+            {"package": "3d_engine"},
+            "package '3d_engine' is not a Python package name; --package takes the package "
+            "directory's name, not a path.",
+            id="the package option",
+        ),
+        pytest.param(
+            '[project]\nname = "acme"\n',
+            {"package": "src/engine"},
+            "package 'src/engine' is not a Python package name; --package takes the package "
+            "directory's name, not a path.",
+            id="the package option names a path",
+        ),
+    ],
+)
+def test_a_package_from_the_project_name_or_the_option_that_is_no_package_name_says_so(
+    tmp_path: Path, text: str, options: dict[str, str], message: str
+) -> None:
+    root = project_with(tmp_path, text)
+
+    with pytest.raises(KitError) as caught:
+        resolve_variables(root, **options)
+
+    assert str(caught.value) == message
+    assert resolve_variables(root, **{**options, "package": "engine3d"})["package"] == "engine3d"

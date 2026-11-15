@@ -119,6 +119,8 @@ def test_an_existing_python_project_gets_no_new_project_seeds(
     commit_all: Callable[..., None],
 ) -> None:
     (git_repo / "pyproject.toml").write_text('[project]\nname = "ours"\n')
+    (git_repo / "demo_app").mkdir()
+    (git_repo / "demo_app/__init__.py").write_text("")
     commit_all(git_repo)
 
     result = init_repository(
