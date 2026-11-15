@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from devctl.doctor import devctl_exclusion_gaps
 from devctl.doctor_rules import ruleset_problems
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +16,18 @@ UV_NESTED_WORKSPACE = (
     "``error: Nested workspaces are not supported, but workspace member has a "
     "`tool.uv.workspace` table: .../tools/devctl``"
 )
+
+
+def doctors_uv_message() -> str:
+    # A members glob that covers tools/devctl and no exclude: the one gap doctor's uv row reports.
+    workspace = {"tool": {"uv": {"workspace": {"members": ["tools/*"]}}}}
+    (message,) = devctl_exclusion_gaps(workspace, python=False)
+    return message
+
+
+def guardrails_section() -> str:
+    text = (SKILL / "SKILL.md").read_text()
+    return text.split("## 5. Harness guardrails", 1)[1].split("## 6. Sandbox", 1)[0]
 
 
 @pytest.mark.parametrize("every_pr", [True, False])
@@ -115,10 +128,20 @@ def test_known_failures_distinguishes_app_refusals() -> None:
 
 def test_known_failures_give_doctors_fix_for_uvs_nested_workspace_error() -> None:
     lines = (SKILL / "references/known-failures.md").read_text().splitlines()
-    doctor = [line for line in lines if "members match tools/devctl" in line]
+    doctor_row = f"| `{doctors_uv_message()}` |"
+    doctor = [line for line in lines if line.startswith(doctor_row)]
     uv = [line for line in lines if UV_NESTED_WORKSPACE in line]
     assert len(doctor) == len(uv) == 1
     assert uv[0].rpartition(" | ")[2] == doctor[0].rpartition(" | ")[2]
+
+
+def test_known_failures_say_that_uvs_nested_workspace_error_blocks_each_check_step() -> None:
+    lines = (SKILL / "references/known-failures.md").read_text().splitlines()
+    (uv,) = [line for line in lines if UV_NESTED_WORKSPACE in line]
+    assert uv.split(" | ")[1] == (
+        "A members glob such as `tools/*` covers `tools/devctl`, which is its own uv workspace. "
+        "Each `uv run --locked` check step exits 2, which devctl reports as blocked."
+    )
 
 
 def test_setup_conditions_future_stack_settings() -> None:
@@ -133,14 +156,39 @@ def test_setup_conditions_future_stack_settings() -> None:
 
 
 def test_setup_states_that_the_kit_seeds_the_agy_wiring_and_its_trial_status() -> None:
-    text = (SKILL / "SKILL.md").read_text()
-    guardrails = text.split("## 5. Harness guardrails", 1)[1].split("## 6. Sandbox", 1)[0]
+    guardrails = guardrails_section()
     assert "merged and trialed" not in guardrails
-    for value in (
-        "The Kit seeds the agy wiring in `.agents/hooks.json`, without G5",
-        "its live trial is incomplete because live ACP verification was quota-blocked",
-    ):
-        assert value in guardrails
+    assert (
+        "The Kit seeds the agy wiring in `.agents/hooks.json`, without G5; "
+        "its live trial is incomplete."
+    ) in guardrails
+    assert "ACP" not in guardrails
+
+
+def test_setup_states_that_the_kit_seeds_the_codex_wiring_and_that_it_is_untrialed() -> None:
+    assert (
+        "The Kit seeds the Codex wiring in `.codex/hooks.json`, without G5; "
+        "that wiring has not been trialed."
+    ) in guardrails_section()
+
+
+def test_known_failures_list_the_codex_wiring_item_and_its_trust_row() -> None:
+    lines = (SKILL / "references/known-failures.md").read_text().splitlines()
+    wiring_row = "| `Claude Code wiring`, `agy wiring` or `Codex wiring` reports missing hooks |"
+    wiring = [line for line in lines if line.startswith(wiring_row)]
+    trust = [line for line in lines if line.startswith("| Codex skips the hook |")]
+    assert len(wiring) == len(trust) == 1
+    assert "the Codex wiring has not been trialed" in trust[0]
+    assert trust[0].rpartition(" | ")[2] == (
+        "Ask the owner to trust the project and review the hook in `/hooks`. |"
+    )
+
+
+def test_setup_does_not_call_the_codex_wiring_unavailable() -> None:
+    for name in ("SKILL.md", "references/known-failures.md"):
+        text = (SKILL / name).read_text()
+        for stale in ("once available", "may not be available yet", "Codex wiring absent"):
+            assert stale not in text
 
 
 def test_sandbox_contract_requires_approved_access_and_evidence() -> None:

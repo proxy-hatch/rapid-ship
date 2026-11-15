@@ -17,7 +17,7 @@ Preserve the failing command's output. Explain the cause and offer the fix befor
 | `gitleaks <version> is installed; devctl check pins 8.30.1` | The installed version differs. | Ask the owner to install the pinned version. |
 | `uv sync` cannot reach the network | Dependencies cannot be fetched. | Restore network access and rerun. |
 | `uv: [tool.uv.workspace] members match tools/devctl; add it to exclude` | A members glob covers the Kit's own project. | Add `exclude = ["tools/devctl"]` to the root workspace. |
-| ``error: Nested workspaces are not supported, but workspace member has a `tool.uv.workspace` table: .../tools/devctl`` | A members glob such as `tools/*` covers `tools/devctl`, which is its own uv workspace. uv stops before the format, lint, types and tests steps run, and before doctor's own message appears. | Add `exclude = ["tools/devctl"]` to the root workspace. |
+| ``error: Nested workspaces are not supported, but workspace member has a `tool.uv.workspace` table: .../tools/devctl`` | A members glob such as `tools/*` covers `tools/devctl`, which is its own uv workspace. Each `uv run --locked` check step exits 2, which devctl reports as blocked. | Add `exclude = ["tools/devctl"]` to the root workspace. |
 | A tool step is blocked | Its tool or configuration is missing. | Record the gap; leave existing tool settings unchanged. |
 | Existing hooks under `.git/hooks` | Setting `core.hooksPath` stops them running. | Show the owner and agree how to combine them before setting the path. |
 | Project skill copies in `.claude/skills` | Map expects links. | Replace copies with links after reviewing their contents. |
