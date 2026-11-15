@@ -4,18 +4,28 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 
 from devctl.doctor_items import gh_get
+from devctl.metrics.api import IncidentMetric, Metric, MetricContext
 from devctl.metrics.github import AllowanceUsedUp, GitHubError, GitHubReader
-from devctl.metrics.model import NEEDS_IDENTITY, Measured, Population, judge
+from devctl.metrics.model import NEEDS_IDENTITY, Kind, Measured, MetricReport, Population, judge
+from devctl.metrics.project import measure, project_metrics
 from devctl.metrics.red_merges import red_merges
 from devctl.metrics.report import Report, exit_code, render_json, render_text
 from devctl.metrics.revisions import revisions
-from devctl.metrics.settings import MetricsSettingsError, gate_note, load_metrics
+from devctl.metrics.settings import (
+    IssuesSource,
+    MetricsSettings,
+    MetricsSettingsError,
+    SettingsMetric,
+    gate_note,
+    load_metrics,
+)
+from devctl.metrics.sources import count_deployments, count_issues
 from devctl.metrics.window import MetricsError, Window, build_window, default_branch, resolve_tip
 from devctl.repo import Repo, RepoError
 from devctl.settings import ProjectSettings, SettingsError, load_project
@@ -26,6 +36,53 @@ def _measure(measure: Callable[[], Measured]) -> Measured:
         return measure()
     except AllowanceUsedUp as error:
         return Measured(None, error.reason())
+
+
+def _source(
+    repo: Repo, reader: GitHubReader, metric: SettingsMetric, span: MetricContext
+) -> Measured:
+    source = metric.source
+    try:
+        if isinstance(source, IssuesSource):
+            return count_issues(reader, source.label, span.since, span.until)
+        return count_deployments(
+            repo, reader, source.environment, source.count, span.since, span.until
+        )
+    except AllowanceUsedUp as error:
+        return Measured(None, error.reason())
+    except GitHubError as error:
+        return Measured(None, str(error))
+
+
+def _project_reports(
+    settings: MetricsSettings,
+    code_metrics: Sequence[Metric],
+    repo: Repo,
+    reader: GitHubReader,
+    window: Window | None,
+    unavailable: str | None,
+    until: datetime,
+) -> list[MetricReport]:
+    """Project-defined metrics, settings sources first, each unknown when no span is available."""
+    span = None
+    if unavailable is None and window is not None and window.since is not None:
+        prs = tuple(pr.number for pr in window.prs)
+        span = MetricContext(reader.repository, window.since, until, prs, reader.get)
+    reason = unavailable or "window unavailable; rerun devctl metrics"
+
+    def judged(metric_id: str, title: str, kind: Kind, measured: Measured) -> MetricReport:
+        threshold = settings.thresholds.get(metric_id)
+        return judge(metric_id, title, kind, "repository", measured, threshold)
+
+    reports = []
+    for metric in settings.metrics:
+        measured = Measured(None, reason) if span is None else _source(repo, reader, metric, span)
+        reports.append(judged(metric.metric_id, metric.title, "count", measured))
+    for code in code_metrics:
+        kind: Kind = "incident" if isinstance(code, IncidentMetric) else "count"
+        measured = Measured(None, reason) if span is None else measure(code, span, reader)
+        reports.append(judged(code.id, code.title, kind, measured))
+    return reports
 
 
 def build_report(
@@ -39,7 +96,8 @@ def build_report(
         raise MetricsError(
             '[github] repository is not set in .rapid-ship/project.toml; set it to "owner/name"'
         )
-    settings = load_metrics(root)
+    code_metrics = project_metrics()
+    settings = load_metrics(root, [metric.id for metric in code_metrics])
     repo = Repo.discover(root)
     branch = tip = None
     window: Window | None = None
@@ -72,6 +130,9 @@ def build_report(
                 metric_id, title, "count", population, measured, settings.thresholds.get(metric_id)
             )
         )
+    metrics.extend(
+        _project_reports(settings, code_metrics, repo, reader, window, unavailable, now())
+    )
     notes = []
     if note := gate_note(root):
         notes.append(note)
@@ -125,7 +186,7 @@ def _positive(value: str) -> int:
 
 
 def register(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = commands.add_parser("metrics", help="Report Revisions and Red merges")
+    parser = commands.add_parser("metrics", help="Report metrics for the last merged pull requests")
     parser.add_argument("--window", type=_positive, help="number of merged PRs, at least 1")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.set_defaults(handler=_command)

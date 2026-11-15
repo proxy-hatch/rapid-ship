@@ -10,10 +10,22 @@ from pathlib import Path
 import pytest
 
 from devctl.cli import main
+from devctl.doctor_items import OwnerReadError
+from devctl.metrics.api import MetricContext, MetricResult
 from devctl.metrics.command import build_report
 from devctl.metrics.github import GitHubReader
 from devctl.settings import load_project
-from metrics_fakes import MergedHistory, fake_gh
+from metrics_fakes import (
+    ALLOWANCE,
+    RESET,
+    MergedHistory,
+    Probe,
+    block_gh,
+    fake_gh,
+    report_json,
+    served_project,
+    use_metrics,
+)
 
 NOW = datetime(2026, 10, 16, tzinfo=UTC)
 
@@ -324,3 +336,114 @@ def test_a_partial_red_count_is_unknown_and_a_finished_breach_still_exits_1(
     assert result["metrics"][1]["value"] is None
     assert result["metrics"][1]["items"] == []
     assert result["metrics"][1]["status"] == "unknown"
+
+
+ALARMS = (
+    "[thresholds]\nalarms = 0\nprobes = 5\n"
+    '[[metric]]\nid = "alarms"\ntitle = "Alarms"\nsource = "issues"\nlabel = "alarm"\n'
+)
+ISSUES = "repos/o/r/issues?labels=alarm&state=all&sort=created&direction=desc&per_page=64&page=1"
+
+
+def test_project_defined_metrics_follow_the_basic_ones_settings_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h = served_project(tmp_path, ALARMS)
+    opened = {
+        "number": 4,
+        "created_at": "2026-10-05T00:00:00Z",
+        "html_url": "https://example.invalid/issues/4",
+        "pull_request": None,
+    }
+    h.owner.serve(ISSUES, [opened])
+    use_metrics(monkeypatch, Probe(lambda _: MetricResult(2)))
+    metrics = report_json(h)["metrics"]
+    assert [
+        (m["id"], m["kind"], m["population"], m["value"], m["status"]) for m in metrics[2:]
+    ] == [
+        ("alarms", "count", "repository", 1, "breached"),
+        ("probes", "count", "repository", 2, "ok"),
+    ]
+    assert metrics[2]["items"] == [
+        {
+            "label": "#4",
+            "url": "https://example.invalid/issues/4",
+            "time": "2026-10-05T00:00:00Z",
+            "state": "counted",
+        }
+    ]
+
+
+def test_a_breached_code_metric_exits_1_and_prints_its_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    h = setup(tmp_path)
+    (h.path / ".rapid-ship/metrics.toml").write_text("window = 30\n[thresholds]\nprobes = 1\n")
+    use_metrics(monkeypatch, Probe(lambda _: MetricResult(2)))
+    assert cli(h, monkeypatch) == 1
+    rows = [line.split() for line in capsys.readouterr().out.splitlines()]
+    assert ["probes", "repository", "2", "<=", "1", "breached"] in rows
+
+
+def test_a_settings_metric_may_not_reuse_a_code_metric_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clash = '[[metric]]\nid = "probes"\ntitle = "Probes"\nsource = "issues"\nlabel = "x"\n'
+    monkeypatch.chdir(served_project(tmp_path, clash).path)
+    block_gh(tmp_path / "bin", monkeypatch)
+    use_metrics(monkeypatch, Probe(lambda _: MetricResult(1)))
+    assert main(["metrics"]) == 2
+    assert 'id = "probes": devctl_project.metrics() already defines probes' in (
+        capsys.readouterr().err
+    )
+
+
+def test_the_allowance_used_up_before_project_metrics_leaves_them_unknown_and_uninvoked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h = served_project(tmp_path, ALARMS)
+    runs = (
+        f"repos/o/r/actions/workflows/devctl-check.yml/runs?head_sha={h.pulls[0]['merge_commit_sha']}"
+        "&event=push&per_page=64&page=1"
+    )
+    h.owner.fail(runs, OwnerReadError(403, "API rate limit exceeded"))
+    h.owner.serve("rate_limit", RESET)
+    probe = Probe(lambda _: MetricResult(1))
+    use_metrics(monkeypatch, probe)
+    metrics = {m["id"]: m for m in report_json(h)["metrics"]}
+    assert [(metrics[i]["value"], metrics[i]["reason"]) for i in ("alarms", "probes")] == [
+        (None, ALLOWANCE)
+    ] * 2
+    assert probe.threads == []
+    assert h.owner.paths[-2:] == [runs, "rate_limit"]
+
+
+def test_an_empty_window_makes_project_metrics_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h = served_project(tmp_path, ALARMS, prs=0)
+    probe = Probe(lambda _: MetricResult(1))
+    use_metrics(monkeypatch, probe)
+    metrics = report_json(h)["metrics"]
+    assert [(m["id"], m["value"], m["reason"]) for m in metrics[2:]] == [
+        ("alarms", None, "no merged PRs yet"),
+        ("probes", None, "no merged PRs yet"),
+    ]
+    assert probe.threads == []
+    assert ISSUES not in h.owner.paths
+
+
+def test_a_code_metric_gets_the_repository_the_span_and_the_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[MetricContext] = []
+
+    def record(context: MetricContext) -> MetricResult:
+        seen.append(context)
+        return MetricResult(0)
+
+    use_metrics(monkeypatch, Probe(record))
+    report_json(served_project(tmp_path, prs=2))
+    assert [(c.repository, c.since, c.until, c.prs) for c in seen] == [
+        ("o/r", datetime(2026, 10, 1, 6, 12, tzinfo=UTC), NOW, (2, 1))
+    ]
