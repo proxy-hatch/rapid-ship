@@ -22,6 +22,8 @@ from pathlib import Path
 from devctl.codeowners import codeowners_match, protected_patterns
 from devctl.command_line import (
     GIT_ABBREVIATIONS,
+    SUBSTITUTED,
+    ApiCall,
     gh_subcommand,
     long_option,
     parse_api,
@@ -63,6 +65,26 @@ _ALIAS = "alias."
 _COMMIT_VALUED = frozenset("mFCctSu")
 # A command line that may hold gh pr merge, read as plain text when shell rules cannot split it.
 _MERGE_TEXT = re.compile(r"\bgh\b.*\bpr\b.*\bmerge\b", re.DOTALL)
+# One GraphQL token, or one run of what GraphQL ignores. A block string comes before a string,
+# which never starts at a triple quote, and each alternative inside a string takes a character in
+# one way only, so that backtracking cannot end a string early.
+_GRAPHQL_TOKEN = re.compile(
+    r"(?P<ignored>[ \t\r\n,]+|#[^\r\n]*)"
+    r"|[_A-Za-z][_0-9A-Za-z]*"
+    r"|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?"
+    r'|"""(?:[^"\\]|\\"""|\\(?!""")|"(?!""))*"""'
+    r'|"(?!"")(?:[^"\\\r\n]|\\["\\/bfnrt]|\\u[0-9A-Fa-f]{4})*"'
+    r"|\.\.\.|[!$&():=@\[\]{|}]"
+)
+_GRAPHQL_PAIRS = {")": "(", "]": "[", "}": "{"}  # each closing delimiter and its opening one
+_GRAPHQL_NAME = "[_A-Za-z][_0-9A-Za-z]*"
+_GRAPHQL_DIRECTIVES = rf"(?:@ {_GRAPHQL_NAME} (?:\( )?)*"
+# One top-level definition, in the text that _graphql_operations builds: each token and each
+# pair of delimiters, as its opening one, followed by a space.
+_GRAPHQL_DEFINITION = re.compile(
+    rf"\{{ |(?:(?:query|mutation|subscription) (?:{_GRAPHQL_NAME} )?(?:\( )?"
+    rf"|fragment (?!on ){_GRAPHQL_NAME} on {_GRAPHQL_NAME} ){_GRAPHQL_DIRECTIVES}\{{ "
+)
 
 G1 = (
     "G1: --no-verify, git commit -n and a core.hooksPath set on the command line skip the "
@@ -345,13 +367,98 @@ def _holds_n(word: str) -> bool:
 def _gh_writes(args: tuple[str, ...]) -> bool:
     """A gh pr or gh issue subcommand other than a read, or a gh api write."""
     if args[:1] == ("api",):
-        api = parse_api(args[1:])
-        return api.method != "GET" or api.body
+        return _api_writes(parse_api(args[1:]))
     reads = {"pr": PR_READS, "issue": ISSUE_READS}.get(args[0]) if args else None
     if reads is None:
         return False
     subcommand = gh_subcommand(args[1:])
     return subcommand is not None and subcommand.name not in reads
+
+
+def _api_writes(api: ApiCall) -> bool:
+    """Whether a gh api call is not a read.
+
+    A REST call reads exactly when its method is GET, which sends each field as a query
+    parameter. A GraphQL call reads only when it has no --input and exactly one query field, whose
+    inline document defines queries alone, whatever its method. Each of these makes the call a
+    write: a document from a file or stdin, a placeholder for a substitution in the document, a
+    mutation or a subscription in it, or text that _graphql_operations cannot read.
+    """
+    if api.endpoint != "graphql":
+        return api.method != "GET"
+    documents = [
+        value for key, _, value in (field.partition("=") for field in api.fields) if key == "query"
+    ]
+    if api.has_input or len(documents) != 1:
+        return True
+    document = documents[0]
+    return (
+        document.startswith("@")
+        or SUBSTITUTED in document
+        or _graphql_operations(document) != {"query"}
+    )
+
+
+def _graphql_operations(document: str) -> set[str] | None:
+    """The kinds of operation that a GraphQL document defines, or None when it cannot be read.
+
+    A kind is query, mutation or subscription, and a selection set alone is a query. The document
+    is unreadable when it holds text that is no token or ignored run of GraphQL, an unterminated
+    string, delimiters that do not nest and match, a $ outside every pair of parentheses, a
+    top-level definition of another shape, or no operation. Inside a selection set only the
+    tokens and their nesting count.
+    """
+    tokens = _graphql_tokens(document.removeprefix("\ufeff"))
+    outer = None if tokens is None else _outer_tokens(tokens)
+    if outer is None:
+        return None
+    text = "".join(f"{token} " for token in outer)
+    kinds: set[str] = set()
+    at = 0
+    while at < len(text):
+        definition = _GRAPHQL_DEFINITION.match(text, at)
+        if definition is None:
+            return None
+        keyword = definition.group().partition(" ")[0]
+        kinds.add("query" if keyword == "{" else keyword)
+        at = definition.end()
+    kinds.discard("fragment")
+    return kinds or None
+
+
+def _graphql_tokens(text: str) -> list[str] | None:
+    """The tokens of a GraphQL text, or None where no token or ignored run starts."""
+    tokens: list[str] = []
+    at = 0
+    while at < len(text):
+        found = _GRAPHQL_TOKEN.match(text, at)
+        if found is None:
+            return None
+        at = found.end()
+        if found["ignored"] is None:
+            tokens.append(found.group())
+    return tokens
+
+
+def _outer_tokens(tokens: Sequence[str]) -> list[str] | None:
+    """The tokens outside every pair of delimiters, each pair as its opening delimiter.
+
+    None when the delimiters do not nest and match, or a $ stands outside every pair of
+    parentheses, where GraphQL has no variable and a shell expansion could stand.
+    """
+    outer: list[str] = []
+    open_pairs: list[str] = []
+    for item in tokens:
+        if item == "$" and "(" not in open_pairs:
+            return None
+        if item in _GRAPHQL_PAIRS:
+            if not open_pairs or open_pairs.pop() != _GRAPHQL_PAIRS[item]:
+                return None
+        elif not open_pairs:
+            outer.append(item)
+        if item in _GRAPHQL_PAIRS.values():
+            open_pairs.append(item)
+    return None if open_pairs else outer
 
 
 def _edit_rules(

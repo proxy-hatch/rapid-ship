@@ -457,7 +457,7 @@ class ApiCall:
     method: str  # upper case: -X or --method; else POST with a field or --input, else GET
     endpoint: str  # without https://api.github.com/, the slashes around it and the query
     fields: tuple[str, ...]  # the key=value of each -f, -F, --field and --raw-field
-    body: bool  # a field or --input sends a request body
+    has_input: bool  # --input names a file or stdin that holds the request body
 
 
 def parse_api(args: Sequence[str]) -> ApiCall:
@@ -465,11 +465,11 @@ def parse_api(args: Sequence[str]) -> ApiCall:
     found = read_arguments(args, _API_VALUED)
     methods = [item.value for item in found if item.option in ("-X", "--method") and item.value]
     fields = tuple(item.value or "" for item in found if item.option in _API_FIELDS)
-    body = bool(fields) or any(item.option == "--input" for item in found)
+    has_input = any(item.option == "--input" for item in found)
     words = [item.value for item in found if item.option is None and item.value is not None]
-    method = methods[-1].upper() if methods else "POST" if body else "GET"
+    method = methods[-1].upper() if methods else "POST" if fields or has_input else "GET"
     endpoint = words[0].removeprefix(_API_URL).partition("?")[0].strip("/") if words else ""
-    return ApiCall(method, endpoint, fields, body)
+    return ApiCall(method, endpoint, fields, has_input)
 
 
 @dataclass(frozen=True)
