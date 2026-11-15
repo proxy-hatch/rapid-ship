@@ -3,6 +3,7 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,15 @@ def code(count: int, call: str = "compute") -> list[str]:
         f"({NAMES[(n * 13 + 1) % 24]}, limit={n % 17})"
         for n in range(count)
     ]
+
+
+def bits(seed: str, count: int, width: int = 59) -> list[str]:
+    """`count` rows of 0 and 1 that look random and are the same on every run."""
+    stream = "".join(
+        f"{int(sha256(f'{seed}{n}'.encode()).hexdigest(), 16):0256b}"
+        for n in range(count * width // 256 + 1)
+    )
+    return [stream[row * width : (row + 1) * width] for row in range(count)]
 
 
 def damaged(lines: Sequence[str], count: int) -> list[str]:
@@ -74,6 +84,31 @@ def doc(a: Sequence[str], b: Sequence[str], skip: int = 4) -> str:
 
 def check(h: MergedHistory, merge: str) -> Undoing | None:
     return undoing(Repo.discover(h.path), merge, git(h.path, "rev-parse", "HEAD"))
+
+
+def record_checks(monkeypatch: pytest.MonkeyPatch) -> tuple[list[tuple[int, int]], list[int]]:
+    """Record what the checks pay and compare.
+
+    The first list has one entry for each check that builds a matcher: the characters of its two
+    texts, and the charge that came just before it. The second holds every charge a check asked
+    for, the one the budget refused last.
+    """
+    checks: list[tuple[int, int]] = []
+    attempts: list[int] = []
+    spend = partial_reverts.Budget.spend
+
+    def spying(self: partial_reverts.Budget, cost: int) -> None:
+        attempts.append(cost)
+        spend(self, cost)
+
+    class Recording(partial_reverts._Metered):
+        def __init__(self, a: str, b: str, budget: partial_reverts.Budget) -> None:
+            checks.append((len(a) + len(b), attempts[-1]))
+            super().__init__(a, b, budget)
+
+    monkeypatch.setattr(partial_reverts.Budget, "spend", spying)
+    monkeypatch.setattr(partial_reverts, "_Metered", Recording)
+    return checks, attempts
 
 
 def test_a_restored_file(tmp_path: Path) -> None:
@@ -402,22 +437,43 @@ def test_the_comparisons_of_a_regenerated_file_stop_at_the_budget(
 ) -> None:
     pr = regenerated_lock(MergedHistory(tmp_path))
     monkeypatch.setattr(partial_reverts, "COMPARISON_BUDGET", BUDGET)
-    sizes: list[int] = []
-
-    def counting(isjunk: None, a: str, b: str, *, autojunk: bool) -> SequenceMatcher[str]:
-        sizes.append(len(a) + len(b))
-        return SequenceMatcher(isjunk, a, b, autojunk=autojunk)
-
-    monkeypatch.setattr(partial_reverts, "SequenceMatcher", counting)
+    checks, attempts = record_checks(monkeypatch)
     with pytest.raises(partial_reverts.Unfinished) as stopped:
         undoing(Repo.discover(tmp_path), pr, git(tmp_path, "rev-parse", "HEAD"))
     assert str(stopped.value) == (
         "the content check was cut short in uv.lock, where its comparison budget ran out: "
         "the PR is neither counted nor cleared"
     )
-    # Each check compares its two texts after spending their characters.
-    assert sum(sizes) <= BUDGET
-    assert len(sizes) < 12 * 36  # the 36 hunks of the later commits against each of the PR's 12
+    # The run stops at the first charge that no longer fits, and each check paid its base cost and
+    # 10 units for each character of its two texts before it built its matcher.
+    spent = sum(attempts[:-1])
+    assert spent <= BUDGET < spent + attempts[-1]
+    assert all(paid == partial_reverts.CHECK_COST + 10 * size for size, paid in checks)
+    # The 36 hunks of the later commits against each of the PR's 12, and some check was made.
+    assert 0 < len(checks) < 12 * 36
+
+
+def test_a_ratio_spends_four_units_for_each_character_it_passes_and_one_for_each_position() -> None:
+    budget = partial_reverts.Budget(1_000)
+    assert partial_reverts._Metered("abcd", "abxd", budget).ratio() == 0.75
+    # Its three searches: all of `abcd` against `abxd`, where `a`, `b` and `d` each have one
+    # position, then `cd` against `xd`, where only `d` has one, then `c` against `x`, with none.
+    # A search pays four units for each character it passes and one for each position it scans.
+    assert budget.left == 1_000 - (4 * 4 + 3) - (4 * 2 + 1) - (4 * 1 + 0)
+
+
+def test_a_pair_that_is_short_but_costly_to_search_runs_out_the_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h = MergedHistory(tmp_path)
+    h.push({"f.txt": text(rows(1, 4), bits("old", 16), rows(5, 8))})
+    pr = h.push({"f.txt": text(rows(1, 4), rows(1, 3, "alpha"), rows(5, 8))})
+    h.push({"f.txt": text(rows(1, 4), bits("new", 16), rows(5, 8))})
+    # The two texts have 959 characters each, so the product of their lengths is 0.92 million. A
+    # ratio between them scans about twice that many positions, which is where its time goes.
+    monkeypatch.setattr(partial_reverts, "COMPARISON_BUDGET", 1_300_000)
+    with pytest.raises(partial_reverts.Unfinished, match=r"cut short in f\.txt"):
+        check(h, pr)
 
 
 def test_every_check_costs_its_base_cost_even_between_empty_texts(
@@ -432,16 +488,10 @@ def test_every_check_costs_its_base_cost_even_between_empty_texts(
     # compares two empty texts.
     h.push({"f.txt": text(*([row, f"extra {n}"] for n, row in enumerate(kept[:30])), kept[30:])})
     monkeypatch.setattr(partial_reverts, "COMPARISON_BUDGET", 50 * partial_reverts.CHECK_COST)
-    built: list[int] = []
-
-    def counting(isjunk: None, a: str, b: str, *, autojunk: bool) -> SequenceMatcher[str]:
-        built.append(len(a) + len(b))
-        return SequenceMatcher(isjunk, a, b, autojunk=autojunk)
-
-    monkeypatch.setattr(partial_reverts, "SequenceMatcher", counting)
+    built, _ = record_checks(monkeypatch)
     with pytest.raises(partial_reverts.Unfinished, match=r"cut short in f\.txt"):
         check(h, pr)
-    assert len(built) <= 50
+    assert 0 < len(built) <= 50
 
 
 @pytest.mark.parametrize(("restored", "regenerated"), [("a.txt", "z.lock"), ("z.txt", "a.lock")])
@@ -471,7 +521,24 @@ def test_a_section_found_before_the_budget_runs_out_still_counts(
     assert check(h, pr) == Undoing(undo, False, (), ("a.txt:5-8",))
 
 
-def test_a_partial_clone_is_not_read_for_file_contents(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "change",
+    [
+        (),
+        ("--add", "remote.origin.promisor", "false"),
+        ("--unset-all", "remote.origin.promisor"),
+        ("remote.origin.promisor", "false"),
+    ],
+    ids=[
+        "the clone's promisor key",
+        "a false value added after it",
+        "no promisor key, the filter key kept",
+        "a false promisor key, the filter key kept",
+    ],
+)
+def test_a_partial_clone_is_not_read_for_file_contents(
+    tmp_path: Path, change: tuple[str, ...]
+) -> None:
     source = MergedHistory(tmp_path / "source")
     git(source.path, "config", "uploadpack.allowFilter", "true")
     source.push({"f.txt": doc(rows(5, 8), rows(20, 23))})
@@ -487,6 +554,10 @@ def test_a_partial_clone_is_not_read_for_file_contents(tmp_path: Path) -> None:
         f"file://{source.path}",
         str(clone),
     )
+    if change:
+        # git treats a remote as a promisor when any value of its promisor key is true, and also
+        # when it has a partial clone filter, whatever its promisor key says.
+        git(clone, "config", *change)
     objects = git(clone, "count-objects", "-v")
     with pytest.raises(partial_reverts.Unfinished) as stopped:
         undoing(Repo.discover(clone), pr, tip)
