@@ -60,7 +60,7 @@ def test_the_seeded_settings_load_with_the_kit_defaults(tmp_path: Path) -> None:
         code_owner=None,  # init ran without --owner, so the seed holds code_owner = ""
         worker_app=None,
         reviewer_app=None,
-        escalation=Escalation(every_pr=True),
+        escalation=Escalation(every_pr=True, protected_edits=True),
         optional_skills=(),
         excluded=(),
         source_roots=("src/demo_app",),
@@ -78,7 +78,7 @@ def test_absent_keys_take_their_defaults(tmp_path: Path) -> None:
 
     project = load_project(tmp_path)
 
-    assert project.escalation == Escalation(every_pr=True)
+    assert project.escalation == Escalation(every_pr=True, protected_edits=True)
     assert project.unit_tests == ("tests/unit/**",)
     assert (project.worker_app, project.reviewer_app, project.agent_identity) == (
         None,
@@ -158,7 +158,40 @@ def test_every_pr_false_loads_as_flight(tmp_path: Path) -> None:
         stack_table("python") + "[escalation]\nevery_pr = false\n",
     )
 
-    assert load_project(tmp_path).escalation == Escalation(every_pr=False)
+    assert load_project(tmp_path).escalation == Escalation(every_pr=False, protected_edits=True)
+
+
+@pytest.mark.parametrize(("text", "protected_edits"), [("true", True), ("false", False)])
+def test_protected_edits_loads_as_written(tmp_path: Path, text: str, protected_edits: bool) -> None:
+    write(
+        tmp_path,
+        PROJECT,
+        stack_table("python") + f"[escalation]\nevery_pr = false\nprotected_edits = {text}\n",
+    )
+
+    assert load_project(tmp_path).escalation == Escalation(
+        every_pr=False, protected_edits=protected_edits
+    )
+
+
+@pytest.mark.parametrize("value", ['"no"', '"false"', "0", "1", "[]"])
+def test_protected_edits_that_is_not_a_boolean_names_the_file_and_the_key(
+    tmp_path: Path, value: str
+) -> None:
+    write(tmp_path, PROJECT, stack_table("python") + f"[escalation]\nprotected_edits = {value}\n")
+
+    with pytest.raises(SettingsError) as raised:
+        load_project(tmp_path)
+
+    assert str(raised.value) == f"{PROJECT} [escalation] protected_edits: expected true or false"
+
+
+def test_project_text_accepts_protected_edits_as_the_file_does(tmp_path: Path) -> None:
+    text = stack_table("python") + "[escalation]\nprotected_edits = false\n"
+    write(tmp_path, PROJECT, text)
+
+    assert parse_project(text) == load_project(tmp_path)
+    assert not parse_project(text).escalation.protected_edits
 
 
 @pytest.mark.parametrize(
@@ -168,7 +201,7 @@ def test_every_pr_false_loads_as_flight(tmp_path: Path) -> None:
         "revision_rounds = 3",
     ],
 )
-def test_escalation_accepts_only_every_pr(tmp_path: Path, setting: str) -> None:
+def test_escalation_accepts_only_every_pr_and_protected_edits(tmp_path: Path, setting: str) -> None:
     write(tmp_path, PROJECT, stack_table("python") + f"[escalation]\nevery_pr = true\n{setting}\n")
 
     with pytest.raises(SettingsError) as raised:
@@ -176,7 +209,7 @@ def test_escalation_accepts_only_every_pr(tmp_path: Path, setting: str) -> None:
 
     key = setting.split(" = ")[0]
     assert str(raised.value) == (
-        f"{PROJECT} [escalation]: unknown key {key!r}; it accepts every_pr"
+        f"{PROJECT} [escalation]: unknown key {key!r}; it accepts every_pr, protected_edits"
     )
 
 
@@ -297,6 +330,7 @@ def test_this_repository_settings_load() -> None:
     # Nothing is excluded here, so status --strict holds every Kit file to its template.
     assert project.excluded == ()
     assert not project.escalation.every_pr  # Flight
+    assert not project.escalation.protected_edits  # no ask before a Protected edit
     assert not (ROOT / ".rapid-ship/gate.toml").exists()
 
 
@@ -319,6 +353,7 @@ def test_project_text_loads_as_the_file_does(tmp_path: Path) -> None:
     [
         "stack = \n",
         stack_table("python") + '[escalation]\nevery_pr = "no"\n',
+        stack_table("python") + '[escalation]\nprotected_edits = "no"\n',
         stack_table("python") + '[linear]\nteam = "x"\n',
         stack_table("python") + "" + APPS.replace('repository = "o/r"\n', ""),
     ],
@@ -401,7 +436,8 @@ NO_REVIEWER_APP = APPS.replace("reviewer_app_id = 202", "reviewer_app_id = 0").r
         (
             PROJECT,
             stack_table("python") + "[escalation]\nevery_prs = true\n",
-            ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; it accepts every_pr",
+            ".rapid-ship/project.toml [escalation]: unknown key 'every_prs'; "
+            "it accepts every_pr, protected_edits",
         ),
         (
             PROJECT,

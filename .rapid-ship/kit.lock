@@ -259,7 +259,7 @@ template_sha256 = "ca0351269b57192f0f9848b71a812e67149e440d58f025d93747637922b37
 [[file]]
 path = ".rapid-ship/project.toml"
 kind = "seeded"
-template_sha256 = "17d034ef3958036976c272593d90200c2d48011fa90e226c5b268fabee1e9648"
+template_sha256 = "61d2be4d6324ef7a1375640072b7a137cd18c8ed74e755a301a042abbb16178e"
 
 [[file]]
 path = "AGENTS.md"
@@ -469,7 +469,7 @@ sha256 = "fb9231ab67fd6cd3fba6db3a12cbc77d216991c9b286246d49dc7705336775ae"
 [[file]]
 path = "tools/devctl/devctl/doctor_local.py"
 kind = "managed"
-sha256 = "aec5fda02f49ea7da8b9d6abf91004b4ce89a5a154e84ac8a1268565f0fc272f"
+sha256 = "f641e09cc0a51b1ed8e8289c41bd2990f48900df9e796fd05d435e8d4caa5464"
 
 [[file]]
 path = "tools/devctl/devctl/doctor_rules.py"
@@ -519,12 +519,12 @@ sha256 = "4933dca054236b13c341f5bb18d942f4173f3aa88141d7647910c53089b9b88a"
 [[file]]
 path = "tools/devctl/devctl/hook.py"
 kind = "managed"
-sha256 = "ae0b7462adc58858ebd897f03eb658784d3da3cd9b67cb69ae7c74799bc51552"
+sha256 = "d1c76a37783c8f0f5460196774385f942fc56f8e6bcb7f0b59a406da9cfdd9db"
 
 [[file]]
 path = "tools/devctl/devctl/hook_protocols.py"
 kind = "managed"
-sha256 = "3d6eadf03844d21494f5e5433e253b6d51685e1c476cbd524c6e182da812ef4a"
+sha256 = "5c5e26bdf26db88f6a4522d1c30da669fdc4c1c4f63630c848fdc21a840d156c"
 
 [[file]]
 path = "tools/devctl/devctl/identity.py"
@@ -639,7 +639,7 @@ sha256 = "d8e4eadbbb3067d847c662eec85c7b2eb61fc028d14e392e82b0eb76e0ae90b6"
 [[file]]
 path = "tools/devctl/devctl/settings.py"
 kind = "managed"
-sha256 = "016be4226d5f9d915914e7ad6e847d5f1efcc8c704973d6dbd16aec05ff872f4"
+sha256 = "3f80276f606e9e0852575ab84c22096b29e3282d4d1971ebdde649c24118cd3a"
 
 [[file]]
 path = "tools/devctl/devctl_project/__init__.py"

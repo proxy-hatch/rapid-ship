@@ -48,7 +48,7 @@ def test_project_toml_and_codeowners_list_every_stack() -> None:
     assert data["stack"] == [{"name": "python", "directory": d} for d in ("backend", "worker")]
     assert data["map"]["source_roots"] == ["backend/src/demo_app", "worker/src/demo_app"]
     assert data["tests"]["unit"] == ["backend/tests/unit/**", "worker/tests/unit/**"]
-    assert data["escalation"] == {"every_pr": True}
+    assert data["escalation"] == {"every_pr": True, "protected_edits": True}
     owners = files[".github/CODEOWNERS"]
     assert owners is not None
     assert owners.count(b"# /docs/patterns/python-configuration.md @octo") == 1

@@ -127,7 +127,7 @@ def test_project_settings_seed_has_the_kit_defaults(stack: StackName, roots: lis
             "reviewer_app_id": 0,
             "reviewer_app_slug": "",
         },
-        "escalation": {"every_pr": True},
+        "escalation": {"every_pr": True, "protected_edits": True},
         "kit": {"optional": [], "exclude": []},
         "map": {"source_roots": roots, "unguided": [], "exclude": []},
         "tests": {"unit": ["tests/unit/**"]},

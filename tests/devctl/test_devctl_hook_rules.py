@@ -34,6 +34,11 @@ def edited(path: str, settings: HookSettings | None = OFF) -> tuple[Decision, st
     return decide(ToolCall(None, (ROOT / path,), ROOT), ROOT, settings, unread)
 
 
+def quiet(settings: HookSettings) -> HookSettings:
+    """The same settings with [escalation] protected_edits = false."""
+    return replace(settings, protected_edits=False)
+
+
 SHELL = [  # command line, the rule that denies it with Agent identity off (None: no decision)
     ("git status", None),
     ("git commit -m x --no-verify", "G1"),
@@ -354,6 +359,13 @@ MESSAGES = [  # command line, Agent identity on, the whole message
         "run ./devctl as <role> gh issue comment 3 -b 'hi there'",
     ),
 ]
+LINES = [
+    line
+    for table in (SHELL, ABBREVIATED, HOOKS_PATH, WRAPPED, IDENTITY, GRAMMAR)
+    for line, _ in table
+] + [line for line, _, _ in MESSAGES]
+ASKED = [path for path, decision, _ in EDITS if decision == "ask"]
+DENIED = [path for path, decision, _ in EDITS if decision == "deny"]
 
 
 @pytest.mark.parametrize(("line", "rule"), SHELL)
@@ -461,6 +473,35 @@ def test_a_case_variant_names_the_path_and_the_pattern_as_written() -> None:
 def test_a_deny_beats_an_ask() -> None:
     call = ToolCall(None, (ROOT / "AGENTS.md", ROOT / ".rapid-ship/kit.lock"), ROOT)
     assert decide(call, ROOT, OFF, unread)[0] == "deny"
+
+
+@pytest.mark.parametrize("path", ASKED)
+def test_protected_edits_false_gives_no_decision_on_an_edit_that_asks(path: str) -> None:
+    assert edited(path)[0] == "ask"
+
+    assert edited(path, quiet(OFF)) == (None, "")
+
+
+@pytest.mark.parametrize("path", DENIED)
+def test_protected_edits_false_still_denies_an_edit_of_the_lock(path: str) -> None:
+    decision, reason = edited(path)
+    assert (decision, reason[:4]) == ("deny", "G4: ")
+
+    assert edited(path, quiet(OFF)) == (decision, reason)
+
+
+def test_protected_edits_false_still_denies_a_lock_edit_among_other_edits() -> None:
+    call = ToolCall(None, (ROOT / "AGENTS.md", ROOT / ".rapid-ship/kit.lock"), ROOT)
+
+    decision, reason = decide(call, ROOT, quiet(OFF), unread)
+
+    assert (decision, reason[:4]) == ("deny", "G4: ")
+
+
+@pytest.mark.parametrize("line", LINES)
+@pytest.mark.parametrize("settings", [OFF, ON], ids=["identity-off", "identity-on"])
+def test_protected_edits_false_changes_no_shell_decision(line: str, settings: HookSettings) -> None:
+    assert decided(line, quiet(settings)) == decided(line, settings)
 
 
 def test_with_unreadable_settings_only_the_rules_that_need_no_settings_apply() -> None:
@@ -681,3 +722,40 @@ def test_read_settings_takes_agent_identity_and_the_protected_set(tmp_path: Path
     workspace.write(".github/CODEOWNERS", "* @o\n/.github/ @o\n")
 
     assert read_settings(workspace.root) == replace(ON, protected=("/.github/",))
+
+
+def test_read_settings_takes_protected_edits_and_keeps_the_protected_set(tmp_path: Path) -> None:
+    workspace = new_workspace(tmp_path / "main")
+    workspace.write(".github/CODEOWNERS", "* @o\n/.github/ @o\n")
+    workspace.write(".rapid-ship/project.toml", stack_table("python"))
+    without_the_key = read_settings(workspace.root)
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + "\n[escalation]\nprotected_edits = false\n",
+    )
+
+    with_it_false = read_settings(workspace.root)
+
+    assert isinstance(without_the_key, HookSettings)
+    assert isinstance(with_it_false, HookSettings)
+    assert without_the_key.protected_edits
+    assert not with_it_false.protected_edits
+    assert with_it_false == replace(without_the_key, protected_edits=False)
+    assert with_it_false.protected == without_the_key.protected == ("/.github/",)
+
+
+def test_an_invalid_protected_edits_is_unreadable_settings(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace = new_workspace(tmp_path / "main")
+    workspace.write(
+        ".rapid-ship/project.toml",
+        stack_table("python") + '\n[escalation]\nprotected_edits = "no"\n',
+    )
+
+    assert read_settings(workspace.root) == (
+        ".rapid-ship/project.toml [escalation] protected_edits: expected true or false"
+    )
+
+    [line] = capsys.readouterr().err.splitlines()
+    assert line.endswith("; G5, G7 and G8 give no decision")

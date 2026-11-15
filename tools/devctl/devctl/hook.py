@@ -4,7 +4,8 @@ The first deny wins, and a deny beats an ask; the merge guard runs only when no 
 The rules on skipped hooks, force pushes, merges outside the guard and kit.lock need no settings,
 so they apply when the settings are unreadable; the Protected-set and Agent identity rules then
 give no decision, and the merge guard denies every merge. The Protected-set rule asks, so it runs
-only for the Harnesses in PROTECTED_ASK.
+only for the Harnesses in PROTECTED_ASK, and only while the repository's settings do not switch it
+off with protected_edits false.
 """
 
 from __future__ import annotations
@@ -156,7 +157,8 @@ def run_hook(
     shell command to the one that holds cwd; a patch can write paths in several repositories.
     Outside every repository no settings are read. owner_get is the merge guard's only way to
     read GitHub. clock times the hook run, whose budget every merge on the line shares.
-    protected_ask False skips the Protected-set rule.
+    protected_ask False skips the Protected-set rule, and so does protected_edits false in the
+    settings of the repository that holds the call.
     Raises ValueError when shell rules cannot split the command line, unless its text holds gh,
     pr and merge in that order: the guard then denies the merge it cannot check.
     """
@@ -234,6 +236,7 @@ def read_settings(root: Path) -> HookSettings | str:
     Protected-set and Agent identity rules off: this writes one stderr line and returns the
     reason, and the merge guard denies every merge with that reason.
     A missing CODEOWNERS is an empty Protected set, since nothing is unreadable; doctor reports it.
+    The Protected set is read whatever protected_edits says.
     """
     try:
         project = load_project(root)
@@ -246,6 +249,7 @@ def read_settings(root: Path) -> HookSettings | str:
         agent_identity=project.agent_identity,
         protected=tuple(patterns or ()),
         repository=project.repository,
+        protected_edits=project.escalation.protected_edits,
     )
 
 
@@ -260,16 +264,20 @@ def decide(
     """The answer to one tool call: a deny or an ask with its reason, or (None, "").
 
     root is the repository that holds the call, and settings None means they are unreadable.
-    branches reads local git, at most once, and only for a git push or a ref path. protected_ask
-    False skips the Protected-set rule. Raises ValueError when shell rules cannot split the
-    command line.
+    branches reads local git, at most once, and only for a git push or a ref path. The
+    Protected-set rule runs only when protected_ask is True and settings.protected_edits is true.
+    Raises ValueError when shell rules cannot split the command line.
     """
     read_once = functools.cache(branches)
     for words in simple_commands(call.shell) if call.shell is not None else []:
         reason = _shell_rule(parse_command(words), settings, read_once)
         if reason is not None:
             return "deny", reason
-    protected = settings.protected if settings is not None and protected_ask else ()
+    protected = (
+        settings.protected
+        if settings is not None and protected_ask and settings.protected_edits
+        else ()
+    )
     return _edit_rules(call.edits, root, protected)
 
 

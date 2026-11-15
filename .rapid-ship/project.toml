@@ -20,6 +20,10 @@ reviewer_app_slug = "proxy-hatch-rs-reviewer"
 [escalation]
 # The Mode. true is Walk: the owner merges every pull request. false is Flight.
 every_pr = false
+# true: devctl hook asks the owner before an agent edits a Protected path, in each Harness whose
+# wiring has that ask. false: it never asks. The merge guard still leaves each pull request that
+# touches the Protected set to the owner.
+protected_edits = false
 
 [kit]
 optional = []          # opt-in Kit skills: rs-contribute

@@ -8,6 +8,7 @@ import pytest
 
 from devctl.doctor_items import OwnerReadError
 from test_devctl_merge_guard import (
+    APPS,
     FLIGHT,
     HEAD,
     IDENTITY,
@@ -71,6 +72,48 @@ def test_absent_or_malformed_base_sha_denies_before_reading_policy(base: object)
     assert denial is not None
     assert "the pull request's base" in denial
     assert reader.paths == [PR]
+
+
+WITH_OR_WITHOUT_THE_KEY = pytest.mark.parametrize(
+    "quiet", [False, True], ids=["key-absent", "protected-edits-false"]
+)
+
+
+def base_with(every_pr: str, quiet: bool) -> str:
+    """A base project.toml in the Mode that every_pr names, with protected_edits = false or without
+    the key."""
+    return project_toml(mode=every_pr + ("\nprotected_edits = false" if quiet else ""))
+
+
+@WITH_OR_WITHOUT_THE_KEY
+def test_in_walk_protected_edits_changes_no_merge_denial(quiet: bool) -> None:
+    assert guarded(LINE, owner(base=base_with("every_pr = true", quiet))) == IN_WALK
+
+
+@WITH_OR_WITHOUT_THE_KEY
+def test_in_flight_protected_edits_still_leaves_a_protected_set_pull_request_to_the_owner(
+    quiet: bool,
+) -> None:
+    files = [{"filename": "docs/AGENTS.md", "status": "modified"}]
+    reader = owner(files=files, base=base_with("every_pr = false", quiet))
+
+    assert guarded(LINE, reader) == TOUCHES.format("docs/AGENTS.md")
+
+
+@WITH_OR_WITHOUT_THE_KEY
+def test_in_flight_protected_edits_changes_no_merge_outside_the_protected_set(quiet: bool) -> None:
+    reader = owner(base=base_with("every_pr = false", quiet))
+
+    assert guarded(LINE, reader) is None
+
+
+@WITH_OR_WITHOUT_THE_KEY
+def test_with_agent_identity_protected_edits_still_needs_the_reviewer_apps_approval(
+    quiet: bool,
+) -> None:
+    base = project_toml(APPS, "every_pr = false" + ("\nprotected_edits = false" if quiet else ""))
+
+    assert guarded(LINE, owner(reviews=[], base=base)) == UNAPPROVED
 
 
 @pytest.mark.parametrize("symlink", [False, True], ids=["absent", "symlink"])
